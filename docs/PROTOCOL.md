@@ -83,20 +83,24 @@ On exit `4` the runner still commits work in progress so a follow-up run can con
 
 ## Attachments
 
-When the task has images attached (API.md, "Attachments"), Fleetpocket bind-mounts the task's attachment folder **read-only** at `/attachments`: `/attachments/<id>.<ext>` (PNG, JPEG, WebP or GIF, metadata removed), plus thumbnails in `/attachments/.thumbs/`. Without attachments nothing is mounted and `/attachments` does not exist. There is no stdin command for attachments: the `run` command's `prompt` ends with a block that lists them:
+When the task has files attached (API.md, "Attachments"), Fleetpocket bind-mounts the task's attachment folder **read-only** at `/attachments`: `/attachments/<id>.<ext>` (images: PNG, JPEG, WebP or GIF, metadata removed; other files as uploaded, `<ext>` from the name or `bin`), plus image thumbnails in `/attachments/.thumbs/`. Without attachments nothing is mounted and `/attachments` does not exist. There is no stdin command for attachments: the `run` command's `prompt` ends with a block that lists them:
 
 ```
 Attached images (open each with the Read tool before you start):
 - /attachments/12.png (mock.png, 1200x600)
 
+Attached files (open the ones this request needs before you start):
+- /attachments/13.pdf (spec.pdf, 48213 bytes)
+
 Earlier attachments of this task (still available; Read them if they matter for this request):
 - /attachments/7.jpg (photo.jpg, 3024x4032)
-The folder /attachments is read-only; copy an image into the repository only if the change needs it.
+- /attachments/9.csv (data.csv, 5120 bytes)
+The folder /attachments is read-only; copy a file into the repository only if the change needs it.
 ```
 
 For `codex` and `cursor` the headings read "Attached images (included with this message):" and "…; open them if they matter for this request):", and the runner sends the "Attached images" files to the model as image inputs.
 
-"Attached images" are those sent with this run's input (the task prompt, the messages a follow-up carries, or, for a retry, the task's own images again); "Earlier attachments" are the task's other images still kept. Either section is left out when empty. The runner passes `/attachments` to the SDK as an additional directory when it exists, and its `PreToolUse` policy refuses writes there (Write/Edit, Bash writes and redirections) with an explanation; reads, and copies out of it, are allowed.
+"Attached images" and "Attached files" are those sent with this run's input (the task prompt, the messages a follow-up carries, or, for a retry, the task's own attachments again), split by kind; only "Attached images" are sent to Codex and Cursor as image inputs. "Earlier attachments" are the task's other attachments still kept. Each section is left out when empty. The runner passes `/attachments` to the SDK as an additional directory when it exists, and its `PreToolUse` policy refuses writes there (Write/Edit, Bash writes and redirections) with an explanation; reads, and copies out of it, are allowed.
 
 ## Event log
 

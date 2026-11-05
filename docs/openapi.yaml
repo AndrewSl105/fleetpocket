@@ -306,8 +306,8 @@ paths:
       tags: [tasks]
       summary: Create a task
       description: |
-        JSON, or `multipart/form-data` with the same fields plus image files in
-        `files[]`. The attachments are listed in the task's `created` event.
+        JSON, or `multipart/form-data` with the same fields plus files (images or
+        any other file) in `files[]`. The attachments are listed in the task's `created` event.
       parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
       requestBody:
         required: true
@@ -442,20 +442,23 @@ paths:
       summary: Download an attachment (owner only)
       description: |
         The cleaned image as stored (metadata removed), or with `thumb=1` a JPEG
-        whose longest side is at most 480 px. `410 gone` once the attachment was
-        removed (the task completed, or workspace retention ran).
+        whose longest side is at most 480 px. Other files are served as uploaded,
+        as `application/octet-stream` with `Content-Disposition: attachment`;
+        they have no thumbnail (`thumb=1` is `404`). `410 gone` once the
+        attachment was removed (the task completed, or workspace retention ran).
       parameters:
         - $ref: '#/components/parameters/TaskID'
         - { name: attachmentId, in: path, required: true, schema: { type: integer, format: int64 } }
         - { name: thumb, in: query, schema: { type: string, enum: ['1'] } }
       responses:
         '200':
-          description: The image
+          description: The image or file
           content:
             image/png: { schema: { type: string, format: binary } }
             image/jpeg: { schema: { type: string, format: binary } }
             image/webp: { schema: { type: string, format: binary } }
             image/gif: { schema: { type: string, format: binary } }
+            application/octet-stream: { schema: { type: string, format: binary } }
         '404': { $ref: '#/components/responses/Error' }
         '410': { $ref: '#/components/responses/Error' }
 
@@ -496,7 +499,7 @@ paths:
         (`queued_message` on the task, event `message` with `delivery: queued`) and
         starts the next run when the current one ends. `paused`/`pr_open`/`completed`:
         starts a new run now (`delivery: new_run`). Otherwise `409`.
-        JSON, or `multipart/form-data` with `text` plus image files in `files[]`;
+        JSON, or `multipart/form-data` with `text` plus files in `files[]`;
         the attachments are listed in the `message` event and reach the run that
         handles the text.
       parameters:
@@ -1359,15 +1362,15 @@ components:
 
     Attachment:
       type: object
-      description: An image attached to a task or a message. Download it with `GET /tasks/{id}/attachments/{id}`.
+      description: An image or other file attached to a task or a message. Download it with `GET /tasks/{id}/attachments/{id}`.
       required: [id, name, mime, size, width, height]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string, description: Original file name }
-        mime: { type: string, enum: [image/png, image/jpeg, image/webp, image/gif] }
+        mime: { type: string, description: 'image/png, image/jpeg, image/webp or image/gif for images; for other files the type sniffed from the content (e.g. text/plain, application/pdf, application/octet-stream)' }
         size: { type: integer, format: int64, description: Bytes of the stored (cleaned) file }
-        width: { type: integer }
-        height: { type: integer }
+        width: { type: integer, description: 0 for files that are not images }
+        height: { type: integer, description: 0 for files that are not images }
 
     CreatedEvent:
       allOf:
@@ -1383,7 +1386,7 @@ components:
       type: object
       required: [attachments]
       properties:
-        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' }, description: Images attached to the task (may be empty) }
+        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' }, description: Files attached to the task (may be empty) }
 
     StatusEvent:
       allOf:
@@ -1439,7 +1442,7 @@ components:
           type: string
           enum: [queued, new_run, injected]
           description: '`queued`: waits for the active run to end, then starts the next run. `new_run`: started a run right away. `injected`: only in timelines recorded before messages were queued (such text was not delivered reliably).'
-        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' }, description: Images sent with the message; absent when there are none }
+        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' }, description: Files sent with the message; absent when there are none }
 
     MessageDroppedEvent:
       allOf:

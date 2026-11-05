@@ -110,7 +110,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       return (
         <div className="flex flex-col items-end gap-1">
           <AttachmentGrid taskId={taskId} items={item.attachments} />
-          <span className="text-[11px] text-muted-foreground">{t.attachments.taskImages(item.attachments.length)}</span>
+          <span className="text-[11px] text-muted-foreground">{t.attachments.taskAttachments(item.attachments.length)}</span>
         </div>
       )
     case 'tool':

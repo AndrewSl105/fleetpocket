@@ -17,7 +17,7 @@ import {
   upsertTask,
   type EventsData,
 } from './cache'
-import type { Agent, ApiEvent, Health, HostNode, Project, ProjectFields, Run, TaskView } from './types'
+import type { Agent, ApiEvent, Attachment, Health, HostNode, Project, ProjectFields, Run, TaskView } from './types'
 import { isApiError } from './errors'
 import { GROUPS } from '@/lib/status'
 import { t } from '@/i18n/en'
@@ -490,4 +490,31 @@ export function useAttachmentImage(taskId: number, attachmentId: number, thumb: 
   })
   if (q.error) return isApiError(q.error, 'gone') ? { state: 'removed' } : { state: 'error' }
   return q.data ? { state: 'ready', blob: q.data } : { state: 'loading' }
+}
+
+/**
+ * Saves an attachment that is not an image: fetched as a Blob through the API
+ * client (Telegram Web needs the bearer token), then handed to the browser as
+ * a download of an object URL.
+ */
+export function useDownloadAttachment() {
+  return useMutation({
+    mutationFn: async ({ taskId, attachment }: { taskId: number; attachment: Attachment }) => {
+      const blob = (await call(
+        api.GET('/api/v1/tasks/{id}/attachments/{attachmentId}', {
+          params: { path: { id: taskId, attachmentId: attachment.id } },
+          parseAs: 'blob',
+        }),
+      )) as Blob
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = attachment.name
+      link.click()
+      // The browser has started the download by then.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    },
+    onError: (e, { attachment }) =>
+      toast.error(isApiError(e, 'gone') ? t.attachments.fileRemoved : t.attachments.downloadFailed(attachment.name)),
+  })
 }

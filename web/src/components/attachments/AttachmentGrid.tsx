@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ImageOff, Loader2 } from 'lucide-react'
-import { useAttachmentImage } from '@/api/hooks'
+import { Download, File as FileIcon, ImageOff, Loader2 } from 'lucide-react'
+import { useAttachmentImage, useDownloadAttachment } from '@/api/hooks'
 import type { Attachment } from '@/api/types'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { formatBytes, isImageType } from '@/lib/attachments'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
 
@@ -18,19 +19,37 @@ function thumbSize(a: Attachment): { width: number; height: number } {
   }
 }
 
-/** Thumbnails of a message's images; tap one to see it full size. */
+/**
+ * Thumbnails of a message's images (tap one to see it full size), then its
+ * other files, each a button that downloads it.
+ */
 export function AttachmentGrid({ taskId, items, className }: { taskId: number; items: Attachment[]; className?: string }) {
   const [open, setOpen] = useState<Attachment | null>(null)
   if (items.length === 0) return null
+  const images = items.filter((a) => isImageType(a.mime))
+  const files = items.filter((a) => !isImageType(a.mime))
   return (
     <>
-      <ul className={cn('flex flex-wrap justify-end gap-1.5', className)}>
-        {items.map((a) => (
-          <li key={a.id}>
-            <Thumb taskId={taskId} a={a} onOpen={() => setOpen(a)} />
-          </li>
-        ))}
-      </ul>
+      <div className={cn('flex flex-col items-end gap-1.5', className)}>
+        {images.length > 0 && (
+          <ul className="flex flex-wrap justify-end gap-1.5">
+            {images.map((a) => (
+              <li key={a.id}>
+                <Thumb taskId={taskId} a={a} onOpen={() => setOpen(a)} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {files.length > 0 && (
+          <ul className="flex max-w-full flex-col items-end gap-1">
+            {files.map((a) => (
+              <li key={a.id} className="max-w-full">
+                <FileChip taskId={taskId} a={a} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <Dialog open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
         <DialogContent className="max-h-[95dvh] w-[95vw] max-w-[95vw] p-2 sm:max-w-5xl" aria-describedby={undefined}>
           <DialogTitle className="sr-only">{open?.name ?? ''}</DialogTitle>
@@ -38,6 +57,29 @@ export function AttachmentGrid({ taskId, items, className }: { taskId: number; i
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function FileChip({ taskId, a }: { taskId: number; a: Attachment }) {
+  const download = useDownloadAttachment()
+  return (
+    <button
+      type="button"
+      onClick={() => download.mutate({ taskId, attachment: a })}
+      disabled={download.isPending}
+      aria-label={t.attachments.download(a.name)}
+      title={a.name}
+      className="flex min-h-11 max-w-full items-center gap-2 rounded-lg bg-black/10 px-3 py-1.5 text-left text-xs"
+    >
+      <FileIcon className="size-4 shrink-0 opacity-70" aria-hidden="true" />
+      <span className="min-w-0 truncate">{a.name}</span>
+      <span className="shrink-0 opacity-70">{formatBytes(a.size)}</span>
+      {download.isPending ? (
+        <Loader2 className="size-4 shrink-0 animate-spin opacity-70" aria-hidden="true" />
+      ) : (
+        <Download className="size-4 shrink-0 opacity-70" aria-hidden="true" />
+      )}
+    </button>
   )
 }
 

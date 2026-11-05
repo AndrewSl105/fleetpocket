@@ -4,7 +4,7 @@ Everything a client (the web app / Telegram Mini App) needs. The machine-readabl
 
 ## Conventions
 
-- Base path `/api/v1`. JSON request and response bodies (`Content-Type: application/json`). Unknown request fields are rejected. `POST /tasks` and `POST /tasks/{id}/message` also accept `multipart/form-data` to attach images (see [Attachments](#attachments)).
+- Base path `/api/v1`. JSON request and response bodies (`Content-Type: application/json`). Unknown request fields are rejected. `POST /tasks` and `POST /tasks/{id}/message` also accept `multipart/form-data` to attach files (see [Attachments](#attachments)).
 - **Auth**: a session cookie `fleetpocket_session` (`HttpOnly`, `Secure`, `SameSite=Lax`, 30-day sliding expiry). Every endpoint except `auth/login`, `auth/telegram` and `auth/logout` requires it; without it you get `401 unauthorized`. **Telegram sessions** may instead send `Authorization: Bearer <token>` (the `token` from `auth/telegram`), because Telegram Web embeds the Mini App in a cross-site iframe where a `SameSite=Lax` cookie is never sent. Browser (`web`) sessions are cookie-only.
 - **CSRF**: every non-GET request must send `X-Requested-With: fleetpocket`, otherwise `403 csrf`.
 - **Errors**: `{"error": {"code": "<machine code>", "message": "<human text>"}}`.
@@ -129,7 +129,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `POST /tasks/{id}/cancel` | ends the task (`cancelled`), stops the runner |
 | `POST /tasks/{id}/retry` | `failed`/`cancelled` only: queues the original prompt again on the same branch |
 | `POST /tasks/{id}/merge` | `pr_open` only: squash-merges the PR (commit title `<task title> (#<number>)`), deletes its branch, records `pr_closed {merged: true}` and completes the task ("PR merged"). `409 not_mergeable` with GitHub's reason when GitHub refuses (conflicts, required checks or reviews); `503 github_disabled` without the GitHub App |
-| `GET /tasks/{id}/attachments/{attachmentId}` | the image (`?thumb=1`: JPEG, longest side ≤ 480 px); `410 gone` once removed |
+| `GET /tasks/{id}/attachments/{attachmentId}` | the image or file (`?thumb=1`: JPEG, longest side ≤ 480 px, images only); `410 gone` once removed |
 | `GET /stats` | `{running, queued, waiting_input, cost_usd_today, cost_usd_month}` (server-local days) |
 
 ### Timeline events
@@ -149,10 +149,10 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
 
   | type | payload |
   |---|---|
-  | `created` | `{attachments}`: the task was created, with the images attached to it (`[]` when none). Tasks created before this event existed have none |
+  | `created` | `{attachments}`: the task was created, with the files attached to it (`[]` when none). Tasks created before this event existed have none |
   | `status` | `{status, reason?}` |
   | `answer` | `{question_id, text, answered_via}` (`web` or `telegram`) |
-  | `message` | `{text, delivery: "queued"\|"new_run", attachments?}` (`"injected"` only in timelines recorded before messages were queued; `attachments` only when images were sent) |
+  | `message` | `{text, delivery: "queued"\|"new_run", attachments?}` (`"injected"` only in timelines recorded before messages were queued; `attachments` only when files were sent) |
   | `message_dropped` | `{text, reason: "failed"\|"cancelled"}`: a queued message that never started a run |
   | `interrupt` | `{}` |
   | `run_started` | `{run_id, kind}` (`initial`, `resume`, `followup`, `retry`) |
@@ -165,13 +165,13 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
 
 ### Attachments
 
-Images go with a task's prompt or with a message. Send the request as `multipart/form-data`: the same fields as the JSON body (`project_id`, `repository_id`, `title`, `prompt`, or `text`) plus up to 10 files in `files[]`. The text is still required.
+Images and other files go with a task's prompt or with a message. Send the request as `multipart/form-data`: the same fields as the JSON body (`project_id`, `repository_id`, `title`, `prompt`, or `text`) plus up to 10 files in `files[]`. The text is still required.
 
-- Accepted: PNG, JPEG, WebP and GIF, detected from the content (name and declared type are ignored). At most 40 MB per file, 100 MB per request and 50 megapixels per image. Animated GIF and WebP are rejected. Anything else is `400 invalid` with a message naming the file.
-- Metadata is removed before storing: JPEG, PNG and GIF are re-encoded (a JPEG's EXIF orientation is applied to the pixels first); WebP loses its EXIF and XMP chunks. `size`, `width` and `height` describe the stored file.
+- Any file is accepted, at most 40 MB per file and 100 MB per request. Images are PNG, JPEG, WebP and GIF detected from the content (name and declared type are ignored), at most 50 megapixels; an image that cannot be decoded, and animated GIF and WebP, are `400 invalid` with a message naming the file. Other content is an ordinary file.
+- Image metadata is removed before storing: JPEG, PNG and GIF are re-encoded (a JPEG's EXIF orientation is applied to the pixels first); WebP loses its EXIF and XMP chunks. `size`, `width` and `height` describe the stored file. Other files are stored exactly as uploaded, with `mime` sniffed from the content (informational only), `width` and `height` 0 and no thumbnail; clients tell images from files by `mime` (the four image types).
 - Each attachment is `{id, name, mime, size, width, height}`. Task attachments are listed in the task's `created` event, message attachments in its `message` event.
-- Download with `GET /tasks/{id}/attachments/{attachmentId}` (session required like every endpoint; `?thumb=1` for a thumbnail). Telegram Web clients send the bearer token, so fetch the image and show it from a blob URL rather than an `<img src>`.
-- The agent sees the images of the input it is working on (the prompt, or the messages a run starts with) at `/attachments/<id>.<ext>`, plus the task's earlier images. They are removed (`410 gone`, files deleted) when the task becomes `completed`, and with the workspace for `failed` and `cancelled` tasks (`WORKSPACE_RETENTION`), so Retry and follow-ups still have them until then. Images of a queued message that is dropped (`message_dropped`) are removed with it.
+- Download with `GET /tasks/{id}/attachments/{attachmentId}` (session required like every endpoint; `?thumb=1` for an image's thumbnail). Files that are not images are served as `application/octet-stream` with `Content-Disposition: attachment`. Telegram Web clients send the bearer token, so fetch the image and show it from a blob URL rather than an `<img src>`.
+- The agent sees the files of the input it is working on (the prompt, or the messages a run starts with) at `/attachments/<id>.<ext>`, plus the task's earlier files. A file's `<ext>` is its name's extension (lowercase alphanumeric, at most 10 characters) or `bin`. They are removed (`410 gone`, files deleted) when the task becomes `completed`, and with the workspace for `failed` and `cancelled` tasks (`WORKSPACE_RETENTION`), so Retry and follow-ups still have them until then. Files of a queued message that is dropped (`message_dropped`) are removed with it.
 
 ## Computers (nodes)
 

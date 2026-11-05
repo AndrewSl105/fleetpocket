@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { addFiles, filesFrom, type Picked } from '@/lib/attachments'
 
 /**
- * Images picked for a task or message: from the file input (camera or
- * gallery on phones), pasted from the clipboard or dropped on the form.
- * Owns the preview object URLs and revokes them when an image leaves.
+ * Images and other files picked for a task or message: from the file inputs
+ * (camera or gallery on phones), pasted from the clipboard or dropped on the
+ * form. Owns the image preview object URLs and revokes them when one leaves.
  */
 export function useImagePicker() {
   // The list lives in a ref that only event handlers change (they also make
@@ -13,11 +13,10 @@ export function useImagePicker() {
   const [picked, setPicked] = useState<Picked[]>([])
   const [errors, setErrors] = useState<string[]>([])
   const [dragging, setDragging] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const ref = list
-    return () => ref.current.forEach((p) => URL.revokeObjectURL(p.url))
+    return () => ref.current.forEach(revoke)
   }, [])
 
   const set = useCallback((next: Picked[], errs: string[]) => {
@@ -38,7 +37,7 @@ export function useImagePicker() {
   const remove = useCallback(
     (id: string) => {
       const gone = list.current.find((p) => p.id === id)
-      if (gone) URL.revokeObjectURL(gone.url)
+      if (gone) revoke(gone)
       set(
         list.current.filter((p) => p.id !== id),
         [],
@@ -48,12 +47,12 @@ export function useImagePicker() {
   )
 
   const clear = useCallback(() => {
-    list.current.forEach((p) => URL.revokeObjectURL(p.url))
+    list.current.forEach(revoke)
     set([], [])
   }, [set])
 
+  /** Props of a file input; each attach button renders its own. */
   const inputProps = {
-    ref: inputRef,
     type: 'file' as const,
     multiple: true,
     hidden: true,
@@ -64,9 +63,9 @@ export function useImagePicker() {
     },
   }
 
-  /** Paste handler for a text field: takes images, leaves text pastes alone. */
+  /** Paste handler for a text field: takes files, leaves text pastes alone. */
   const onPaste = (e: React.ClipboardEvent) => {
-    const files = filesFrom(e.clipboardData).filter((f) => f.type.startsWith('image/'))
+    const files = filesFrom(e.clipboardData)
     if (files.length === 0) return
     e.preventDefault()
     add(files)
@@ -98,11 +97,14 @@ export function useImagePicker() {
     add,
     remove,
     clear,
-    open: () => inputRef.current?.click(),
     inputProps,
     onPaste,
     dropProps,
   }
+}
+
+function revoke(p: Picked) {
+  if (p.url) URL.revokeObjectURL(p.url)
 }
 
 export type ImagePicker = ReturnType<typeof useImagePicker>

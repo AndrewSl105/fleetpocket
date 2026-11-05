@@ -27,7 +27,7 @@ var commandList = []telego.BotCommand{
 }
 
 const help = `<b>Fleetpocket</b>
-Send text, photos, an image file, or a voice message to draft a task.
+Send text, photos, files, or a voice message to draft a task.
 Reply to any task card or notification to talk to that task.
 
 /new &lt;project&gt; &lt;prompt&gt; — create immediately
@@ -126,7 +126,7 @@ func (b *Bot) handleMessage(ctx context.Context, m *telego.Message) bool {
 
 func supportedMessage(m *telego.Message) bool {
 	return strings.TrimSpace(m.Text) != "" || strings.TrimSpace(m.Caption) != "" || len(m.Photo) > 0 ||
-		m.Voice != nil || m.Audio != nil || isImageDocument(m.Document)
+		m.Voice != nil || m.Audio != nil || m.Document != nil
 }
 
 func (b *Bot) rejectMessage(ctx context.Context, m *telego.Message, err error) {
@@ -219,11 +219,11 @@ func (b *Bot) handlePromptReply(ctx context.Context, m *telego.Message, p store.
 			return err
 		}
 		if strings.TrimSpace(text) == "" {
-			return fmt.Errorf("reply with the text that goes with the image(s)")
+			return fmt.Errorf("reply with the text that goes with the attachment(s)")
 		}
 		waiting, ok := b.takePendingImages(m.Chat.ID, int64(m.ReplyToMessage.MessageID))
 		if !ok {
-			return fmt.Errorf("the images are no longer here (the bot restarted or a day passed); send them again with a caption")
+			return fmt.Errorf("the attachments are no longer here (the bot restarted or a day passed); send them again with a caption")
 		}
 		return b.sendToTask(ctx, m, p.TaskID, text, append(waiting, media...))
 	}
@@ -284,7 +284,7 @@ func (b *Bot) sendToTask(ctx context.Context, m *telego.Message, taskID int64, t
 		if err != nil || len(images) == 0 {
 			return err
 		}
-		_, err = b.Tasks.Message(ctx, taskID, "Images attached to my answer.", images)
+		_, err = b.Tasks.Message(ctx, taskID, "Attachments for my answer.", images)
 		return err
 	}
 	_, err = b.Tasks.Message(ctx, taskID, text, images)
@@ -292,7 +292,7 @@ func (b *Bot) sendToTask(ctx context.Context, m *telego.Message, taskID int64, t
 }
 
 func (b *Bot) newTask(ctx context.Context, m *telego.Message, projectID string, repositoryID int64, prompt string) error {
-	// /new as the caption of a photo (or album) attaches the images.
+	// /new as the caption of a photo, file (or album) attaches them.
 	images, err := b.downloadDraftImages(ctx, append(messageMedia(m), albumMedia(ctx)...))
 	if err != nil {
 		return err
@@ -451,7 +451,7 @@ func (b *Bot) renderDraft(ctx context.Context, d *store.TelegramDraft) string {
 	}
 	bld.WriteString("\n" + esc(preview))
 	if len(d.Media) > 0 {
-		fmt.Fprintf(&bld, "\n+%d images", len(d.Media))
+		fmt.Fprintf(&bld, "\n+%d attachments", len(d.Media))
 	}
 	if d.Agent != "" {
 		fmt.Fprintf(&bld, "\nAgent: %s", agentName(d.Agent))

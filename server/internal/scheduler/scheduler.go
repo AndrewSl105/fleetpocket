@@ -469,10 +469,11 @@ func (s *Scheduler) prepareAttachments(ctx context.Context, h hosts.Host, taskID
 	return true, nil
 }
 
-// AttachmentBlock is appended to a run's prompt: the images that came with
-// this input and the task's earlier ones, as paths in the agent container.
-// Claude opens them with its Read tool; the Codex and Cursor runners pass the
-// "Attached images" to the model as image inputs (see docs/PROTOCOL.md).
+// AttachmentBlock is appended to a run's prompt: the images and other files
+// that came with this input and the task's earlier ones, as paths in the
+// agent container. Claude opens images with its Read tool; the Codex and
+// Cursor runners pass the "Attached images" to the model as image inputs
+// (see docs/PROTOCOL.md). Other files are only listed.
 func AttachmentBlock(agent string, cur, earlier []*store.Attachment) string {
 	if len(cur)+len(earlier) == 0 {
 		return ""
@@ -480,17 +481,33 @@ func AttachmentBlock(agent string, cur, earlier []*store.Attachment) string {
 	var b strings.Builder
 	list := func(as []*store.Attachment) {
 		for _, a := range as {
-			fmt.Fprintf(&b, "- %s (%s, %dx%d)\n", attachments.AgentPath(a), a.Name, a.Width, a.Height)
+			if attachments.IsImage(a.Mime) {
+				fmt.Fprintf(&b, "- %s (%s, %dx%d)\n", attachments.AgentPath(a), a.Name, a.Width, a.Height)
+			} else {
+				fmt.Fprintf(&b, "- %s (%s, %d bytes)\n", attachments.AgentPath(a), a.Name, a.Size)
+			}
+		}
+	}
+	var curImages, curFiles []*store.Attachment
+	for _, a := range cur {
+		if attachments.IsImage(a.Mime) {
+			curImages = append(curImages, a)
+		} else {
+			curFiles = append(curFiles, a)
 		}
 	}
 	claude := agent == "" || agent == "claude"
-	if len(cur) > 0 {
+	if len(curImages) > 0 {
 		if claude {
 			b.WriteString("\n\nAttached images (open each with the Read tool before you start):\n")
 		} else {
 			b.WriteString("\n\nAttached images (included with this message):\n")
 		}
-		list(cur)
+		list(curImages)
+	}
+	if len(curFiles) > 0 {
+		b.WriteString("\n\nAttached files (open the ones this request needs before you start):\n")
+		list(curFiles)
 	}
 	if len(earlier) > 0 {
 		if claude {
@@ -500,7 +517,7 @@ func AttachmentBlock(agent string, cur, earlier []*store.Attachment) string {
 		}
 		list(earlier)
 	}
-	b.WriteString("\nThe folder " + attachments.AgentDir + " is read-only; copy an image into the repository only if the change needs it.\n")
+	b.WriteString("\nThe folder " + attachments.AgentDir + " is read-only; copy a file into the repository only if the change needs it.\n")
 	return b.String()
 }
 

@@ -22,7 +22,7 @@ func isMultipart(r *http.Request) bool {
 }
 
 // readMultipart reads a multipart/form-data body: text fields named in
-// `fields` and image files in `files[]`, each validated and cleaned with
+// `fields` and files in `files[]`, each validated and cleaned with
 // attachments.Process while the body streams. It writes a 400 and returns
 // false on any problem; unknown fields are rejected like unknown JSON fields.
 func readMultipart(w http.ResponseWriter, r *http.Request, fields ...string) (map[string]string, []*attachments.Image, bool) {
@@ -59,7 +59,7 @@ func readMultipart(w http.ResponseWriter, r *http.Request, fields ...string) (ma
 		switch {
 		case name == "files[]" || name == "files":
 			if len(imgs) == attachments.MaxFiles {
-				return fail(fmt.Sprintf("at most %d images per request", attachments.MaxFiles))
+				return fail(fmt.Sprintf("at most %d files per request", attachments.MaxFiles))
 			}
 			data, err := io.ReadAll(io.LimitReader(part, attachments.MaxFileBytes+1))
 			if errors.As(err, &tooBig) {
@@ -69,7 +69,7 @@ func readMultipart(w http.ResponseWriter, r *http.Request, fields ...string) (ma
 				return fail("multipart body: " + err.Error())
 			}
 			if total += int64(len(data)); total > attachments.MaxRequestBytes {
-				return fail(fmt.Sprintf("the images are larger than %d MB together", attachments.MaxRequestBytes>>20))
+				return fail(fmt.Sprintf("the files are larger than %d MB together", attachments.MaxRequestBytes>>20))
 			}
 			img, err := attachments.Process(part.FileName(), data)
 			if err != nil {
@@ -108,8 +108,9 @@ func formInt64(values map[string]string, name string) (int64, error) {
 	return n, nil
 }
 
-// attachment serves an attachment (or its thumbnail with ?thumb=1) to the
-// owner. A removed attachment answers 410 gone.
+// attachment serves an attachment (or an image's thumbnail with ?thumb=1) to
+// the owner. A removed attachment answers 410 gone. Files that are not images
+// are served as downloads of type application/octet-stream.
 func (s *Server) attachment(w http.ResponseWriter, r *http.Request) {
 	taskID, ok := pathID(w, r, "id")
 	if !ok {
@@ -132,8 +133,15 @@ func (s *Server) attachment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusGone, "gone", "the attachment was removed")
 		return
 	}
-	path, ctype, name := s.Files.Path(a), a.Mime, a.Name
+	path, ctype, name, disposition := s.Files.Path(a), a.Mime, a.Name, "inline"
+	if !attachments.IsImage(a.Mime) {
+		ctype, disposition = "application/octet-stream", "attachment"
+	}
 	if r.URL.Query().Get("thumb") == "1" {
+		if !attachments.IsImage(a.Mime) {
+			writeError(w, http.StatusNotFound, "not_found", "the attachment has no thumbnail")
+			return
+		}
 		path, ctype, name = s.Files.ThumbPath(a), "image/jpeg", "thumb-"+name
 	}
 	f, err := os.Open(path)
@@ -155,7 +163,7 @@ func (s *Server) attachment(w http.ResponseWriter, r *http.Request) {
 	h.Set("Content-Type", ctype)
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Cache-Control", "private, max-age=86400")
-	h.Set("Content-Disposition", "inline; filename*=UTF-8''"+url.PathEscape(name))
+	h.Set("Content-Disposition", disposition+"; filename*=UTF-8''"+url.PathEscape(name))
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	http.ServeContent(w, r, "", st.ModTime(), f)
 }
