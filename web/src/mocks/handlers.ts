@@ -55,10 +55,10 @@ async function readBody(request: Request, allowed: string[]): Promise<Body | { e
     } else if (allowed.includes(key)) fields[key] = String(value)
     else return { error: err(400, 'invalid', `unknown field "${key}"`) }
   }
-  if (files.length > 10) return { error: err(400, 'invalid', 'at most 10 images per request') }
-  if (files.reduce((n, f) => n + f.size, 0) > 100 * MB) return { error: err(400, 'invalid', 'the images are larger than 100 MB together') }
+  if (files.length > 10) return { error: err(400, 'invalid', 'at most 10 files per request') }
+  if (files.reduce((n, f) => n + f.size, 0) > 100 * MB) return { error: err(400, 'invalid', 'the files are larger than 100 MB together') }
   for (const f of files) {
-    if (!IMAGE_TYPES.includes(f.type)) return { error: err(400, 'invalid', `"${f.name}" is not a PNG, JPEG, WebP or GIF image`) }
+    if (f.size === 0) return { error: err(400, 'invalid', `"${f.name}" is empty`) }
     if (f.size > 40 * MB) return { error: err(400, 'invalid', `"${f.name}" is larger than 40 MB`) }
   }
   return { fields, files }
@@ -69,6 +69,11 @@ async function storeImages(taskId: number, files: File[]) {
   for (const f of files) {
     let width = 0
     let height = 0
+    if (!IMAGE_TYPES.includes(f.type)) {
+      // Other files are kept as is; the real server sniffs their type.
+      out.push(addAttachment(taskId, f.name || 'file', f.type || 'application/octet-stream', new Uint8Array(await f.arrayBuffer()), 0, 0))
+      continue
+    }
     try {
       const bmp = await createImageBitmap(f)
       ;({ width, height } = bmp)
@@ -362,6 +367,13 @@ export const handlers = [
     if (!a || a.taskId !== Number(params.id)) return err(404, 'not_found', 'No such attachment')
     if (a.deleted) return err(410, 'gone', 'the attachment was removed')
     await delay(200)
+    const thumb = new URL(request.url).searchParams.get('thumb') === '1'
+    if (!IMAGE_TYPES.includes(a.meta.mime)) {
+      if (thumb) return err(404, 'not_found', 'the attachment has no thumbnail')
+      return new HttpResponse(a.bytes.slice().buffer, {
+        headers: { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment', 'Cache-Control': 'private' },
+      })
+    }
     return new HttpResponse(a.bytes.slice().buffer, { headers: { 'Content-Type': a.meta.mime, 'Cache-Control': 'private' } })
   }),
   http.get(`${API}/tasks/:id/runs`, ({ request, params }) => {

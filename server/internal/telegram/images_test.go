@@ -39,7 +39,13 @@ func newImageEnv(t *testing.T) *imageEnv {
 	ctx := context.Background()
 	var img bytes.Buffer
 	_ = png.Encode(&img, image.NewRGBA(image.Rect(0, 0, 20, 10)))
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(img.Bytes()) }))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".txt") {
+			_, _ = w.Write([]byte("plain notes"))
+			return
+		}
+		_, _ = w.Write(img.Bytes())
+	}))
 	t.Cleanup(srv.Close)
 
 	hub := events.NewHub()
@@ -117,7 +123,7 @@ func TestImageWithoutCaptionAsksForText(t *testing.T) {
 	sends, _, _ := e.api.snapshot()
 	var prompt *sent
 	for i := range sends {
-		if strings.Contains(sends[i].text, "What should Claude do with the image(s)?") {
+		if strings.Contains(sends[i].text, "What should Claude do with the attachment(s)?") {
 			prompt = &sends[i]
 		}
 	}
@@ -244,5 +250,22 @@ func TestImageDocumentWithGenericMIMEIsAccepted(t *testing.T) {
 	msgs := e.messageEvents(t)
 	if len(msgs) != 1 || len(msgs[0]["attachments"].([]any)) != 1 {
 		t.Fatalf("image document message: %v", msgs)
+	}
+}
+
+func TestAnyDocumentIsAttachedAsAFile(t *testing.T) {
+	e := newImageEnv(t)
+	ctx := context.Background()
+	m := &telego.Message{MessageID: 23, From: &telego.User{ID: owner}, Chat: telego.Chat{ID: owner, Type: "private"},
+		Caption: "Follow these notes", ReplyToMessage: &telego.Message{MessageID: e.card},
+		Document: &telego.Document{FileID: e.files + "/notes.txt", FileName: "notes.txt", MimeType: "text/plain"}}
+	e.bot.onMessage(ctx, m)
+	msgs := e.messageEvents(t)
+	if len(msgs) != 1 || len(msgs[0]["attachments"].([]any)) != 1 {
+		t.Fatalf("file document message: %v", msgs)
+	}
+	a := msgs[0]["attachments"].([]any)[0].(map[string]any)
+	if a["name"] != "notes.txt" || a["mime"] != "text/plain" || a["width"] != 0.0 || a["size"] != 11.0 {
+		t.Fatalf("file attachment: %v", a)
 	}
 }

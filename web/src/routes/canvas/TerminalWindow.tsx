@@ -187,7 +187,7 @@ const Line = memo(function Line({ item, taskId, open }: { item: TimelineItem; ta
         </p>
       )
     case 'attachments':
-      return <p className="text-[var(--term-dim)]">{t.attachments.taskImages(item.attachments.length)}</p>
+      return <p className="text-[var(--term-dim)]">{t.attachments.taskAttachments(item.attachments.length)}</p>
     case 'tool':
       return (
         <p className="truncate text-[var(--term-dim)]" title={item.summary}>

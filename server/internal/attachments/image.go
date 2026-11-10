@@ -1,5 +1,6 @@
-// Package attachments validates, cleans and stores images attached to tasks
-// and messages. Files live on the host at <ATTACHMENTS_DIR>/<task_id>/ and
+// Package attachments validates, cleans and stores files attached to tasks
+// and messages: images (cleaned, with a thumbnail) and any other file (kept
+// as uploaded). Files live on the host at <ATTACHMENTS_DIR>/<task_id>/ and
 // are mounted read-only into the task's agent container at /attachments.
 package attachments
 
@@ -13,6 +14,8 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+	"mime"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -39,14 +42,25 @@ func invalid(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, args...))
 }
 
-// Image is a validated upload with its metadata removed.
+// Image is a validated upload: an image with its metadata removed, or any
+// other file kept as uploaded (Width and Height 0, no Thumb).
 type Image struct {
 	Name          string // original file name, cleaned
 	Mime          string
 	Ext           string // file extension without the dot
 	Width, Height int
 	Data          []byte // the cleaned file
-	Thumb         []byte // JPEG, longest side at most ThumbSize
+	Thumb         []byte // JPEG, longest side at most ThumbSize; nil for other files
+}
+
+// IsImage reports whether mime is one of the image types that are cleaned,
+// get a thumbnail and are shown to the model as images.
+func IsImage(mime string) bool {
+	switch mime {
+	case fmtPNG.mime, fmtJPEG.mime, fmtGIF.mime, fmtWebP.mime:
+		return true
+	}
+	return false
 }
 
 type format struct{ mime, ext string }
@@ -78,9 +92,10 @@ func sniff(b []byte) (format, bool) {
 // peak memory of a large image.
 var decodeSem = make(chan struct{}, 1)
 
-// Process validates one uploaded file and returns it without metadata:
+// Process validates one uploaded file. Images are returned without metadata:
 // JPEG, PNG and GIF are decoded and re-encoded (JPEG after applying its EXIF
 // orientation); WebP keeps its image data and loses its EXIF and XMP chunks.
+// Content that is not one of these images is kept as an ordinary file.
 func Process(name string, data []byte) (*Image, error) {
 	if len(data) == 0 {
 		return nil, invalid("%s is empty", displayName(name))
@@ -90,7 +105,7 @@ func Process(name string, data []byte) (*Image, error) {
 	}
 	f, ok := sniff(data)
 	if !ok {
-		return nil, invalid("%s is not a PNG, JPEG, WebP or GIF image", displayName(name))
+		return plainFile(name, data), nil
 	}
 	cfg, err := decodeConfig(f, data)
 	if err != nil {
@@ -116,7 +131,7 @@ func Process(name string, data []byte) (*Image, error) {
 		return nil, err
 	}
 	return &Image{
-		Name: cleanName(name, f.ext), Mime: f.mime, Ext: f.ext,
+		Name: cleanName(name, "image."+f.ext), Mime: f.mime, Ext: f.ext,
 		Width: b.Dx(), Height: b.Dy(), Data: clean, Thumb: thumb,
 	}, nil
 }
@@ -208,9 +223,39 @@ func thumbnail(img image.Image) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// plainFile keeps a file that is not an image as uploaded. Its type is
+// sniffed from the content (it is only informational: downloads are served as
+// application/octet-stream) and its extension comes from the name.
+func plainFile(name string, data []byte) *Image {
+	typ, _, err := mime.ParseMediaType(http.DetectContentType(data))
+	if err != nil || IsImage(typ) {
+		typ = "application/octet-stream"
+	}
+	name = cleanName(name, "file")
+	return &Image{Name: name, Mime: typ, Ext: NameExt(name), Data: data}
+}
+
+// NameExt is the extension a plain file is stored under: the name's own
+// extension when it is short and alphanumeric, else "bin". Image extensions
+// become "bin" too, so a tool never takes a file at /attachments/<id>.png
+// for an image it is not.
+func NameExt(name string) string {
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(name), "."))
+	if ext == "" || len(ext) > 10 || strings.IndexFunc(ext, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	}) >= 0 {
+		return "bin"
+	}
+	switch ext {
+	case "png", "jpg", "jpeg", "gif", "webp":
+		return "bin"
+	}
+	return ext
+}
+
 // cleanName keeps the base name without control characters, at most maxName
-// runes; an empty result becomes "image.<ext>".
-func cleanName(name, ext string) string {
+// runes; an empty result becomes fallback.
+func cleanName(name, fallback string) string {
 	name = filepath.Base(strings.ReplaceAll(name, `\`, "/"))
 	name = strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) || r == utf8.RuneError {
@@ -220,7 +265,7 @@ func cleanName(name, ext string) string {
 	}, name)
 	name = strings.TrimSpace(name)
 	if name == "" || name == "." || name == "/" {
-		return "image." + ext
+		return fallback
 	}
 	if utf8.RuneCountInString(name) > maxName {
 		name = string([]rune(name)[:maxName])
@@ -229,7 +274,7 @@ func cleanName(name, ext string) string {
 }
 
 func displayName(name string) string {
-	if n := cleanName(name, ""); n != "image." {
+	if n := cleanName(name, ""); n != "" {
 		return fmt.Sprintf("%q", n)
 	}
 	return "the file"

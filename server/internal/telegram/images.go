@@ -78,15 +78,20 @@ func albumAcknowledged(ctx context.Context) bool {
 	return acknowledged
 }
 
-// messageMedia is the image of one message (photo or image document).
+// messageMedia is the attachment of one message: a photo or a document (an
+// image document is cleaned like a photo, any other file is kept as is).
 func messageMedia(m *telego.Message) []store.TelegramDraftMedia {
 	var media []store.TelegramDraftMedia
 	if len(m.Photo) > 0 {
 		p := m.Photo[len(m.Photo)-1]
 		media = append(media, store.TelegramDraftMedia{FileID: p.FileID, Name: "photo.jpg", Kind: "image"})
 	}
-	if isImageDocument(m.Document) {
-		media = append(media, store.TelegramDraftMedia{FileID: m.Document.FileID, Name: m.Document.FileName, Kind: "image"})
+	if m.Document != nil {
+		kind := "file"
+		if isImageDocument(m.Document) {
+			kind = "image"
+		}
+		media = append(media, store.TelegramDraftMedia{FileID: m.Document.FileID, Name: m.Document.FileName, Kind: kind})
 	}
 	return media
 }
@@ -176,7 +181,7 @@ func (b *Bot) handleAlbum(ctx context.Context, parts []*telego.Message) {
 // askImageText asks for the text that goes with images sent to a task
 // without a caption; the reply to the prompt sends both.
 func (b *Bot) askImageText(ctx context.Context, m *telego.Message, taskID int64, media []store.TelegramDraftMedia) error {
-	id, err := b.send(ctx, target{m.Chat.ID, int64(m.MessageThreadID)}, "✏️ What should Claude do with the image(s)? Reply with the text.",
+	id, err := b.send(ctx, target{m.Chat.ID, int64(m.MessageThreadID)}, "✏️ What should Claude do with the attachment(s)? Reply with the text.",
 		&telego.ForceReply{ForceReply: true, InputFieldPlaceholder: "What should Claude do?"}, m.MessageID)
 	if err != nil {
 		return err

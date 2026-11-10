@@ -35,6 +35,24 @@ func TestAttachmentBlock(t *testing.T) {
 	}
 }
 
+func TestAttachmentBlockFiles(t *testing.T) {
+	cur := []*store.Attachment{
+		{ID: 7, Name: "mock.png", Mime: "image/png", Width: 800, Height: 600},
+		{ID: 8, Name: "spec.pdf", Mime: "application/pdf", Size: 1234},
+	}
+	earlier := []*store.Attachment{{ID: 3, Name: "notes", Mime: "text/plain", Size: 5}}
+	got := scheduler.AttachmentBlock("codex", cur, earlier)
+	for _, want := range []string{
+		"Attached images (included with this message):\n- /attachments/7.png (mock.png, 800x600)\n\n",
+		"Attached files (open the ones this request needs before you start):\n- /attachments/8.pdf (spec.pdf, 1234 bytes)\n",
+		"- /attachments/3.bin (notes, 5 bytes)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("block lacks %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestAttachmentBlockOtherAgents(t *testing.T) {
 	cur := []*store.Attachment{{ID: 1, Name: "a.png", Mime: "image/png", Width: 1, Height: 1}}
 	got := scheduler.AttachmentBlock("codex", cur, cur)

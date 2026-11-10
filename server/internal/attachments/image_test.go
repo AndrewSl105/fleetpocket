@@ -242,8 +242,6 @@ func TestProcessRejects(t *testing.T) {
 		data []byte
 		want string
 	}{
-		"svg":           {[]byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`), "not a PNG, JPEG, WebP or GIF"},
-		"pdf named jpg": {[]byte("%PDF-1.7 ..."), "not a PNG, JPEG, WebP or GIF"},
 		"empty":         {nil, "is empty"},
 		"too big":       {make([]byte, MaxFileBytes+1), "larger than 40 MB"},
 		"animated gif":  {g.Bytes(), "animated GIFs"},
@@ -289,8 +287,32 @@ func TestCleanName(t *testing.T) {
 		strings.Repeat("é", 300): strings.Repeat("é", maxName),
 	}
 	for in, want := range cases {
-		if got := cleanName(in, "png"); got != want {
+		if got := cleanName(in, "image.png"); got != want {
 			t.Errorf("cleanName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestProcessKeepsOtherFiles(t *testing.T) {
+	cases := []struct{ name, data, mime, ext string }{
+		{"notes.md", "# Notes\n", "text/plain", "md"},
+		{"spec.pdf", "%PDF-1.7 ...", "application/pdf", "pdf"},
+		{"logo.svg", `<svg xmlns="http://www.w3.org/2000/svg"/>`, "text/plain", "svg"},
+		{"fake.jpg", "%PDF-1.7 ...", "application/pdf", "bin"},
+		{"../../Makefile", "all:\n", "text/plain", "bin"},
+		{"data.tar.gz", "\x1f\x8b\x08\x00", "application/x-gzip", "gz"},
+		{"", "x", "text/plain", "bin"},
+	}
+	for _, c := range cases {
+		f, err := Process(c.name, []byte(c.data))
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if f.Mime != c.mime || f.Ext != c.ext || f.Width != 0 || f.Thumb != nil || string(f.Data) != c.data {
+			t.Errorf("%s: got mime %q ext %q %dx%d thumb %v", c.name, f.Mime, f.Ext, f.Width, f.Height, f.Thumb != nil)
+		}
+	}
+	if f, _ := Process("", []byte("x")); f.Name != "file" {
+		t.Errorf("empty name became %q", f.Name)
 	}
 }
