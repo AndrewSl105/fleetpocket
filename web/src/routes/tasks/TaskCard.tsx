@@ -20,13 +20,13 @@ export function TaskCard({ task, projectName, selected }: { task: Task; projectN
       to={`/tasks/${task.id}`}
       aria-current={selected ? 'page' : undefined}
       className={cn(
-        'block rounded-xl border bg-card p-3.5 transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-        waiting && 'border-amber-500/50 bg-amber-500/5',
-        selected && 'border-primary/50 bg-accent',
+        'win-raised block p-3.5 active:win-pressed',
+        waiting && 'border-l-4 border-amber-500',
+        selected && 'win-pressed bg-muted outline-1 outline-offset-[-5px] outline-dotted outline-foreground',
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 className="line-clamp-2 min-w-0 font-medium break-words">{task.title}</h2>
+        <h2 className="line-clamp-2 min-w-0 font-bold break-words">{task.title}</h2>
         <StatusBadge status={task.status} />
       </div>
       {line && <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{line}</p>}

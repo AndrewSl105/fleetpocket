@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/Logo'
+import { Window } from '@/components/Window'
 import { t } from '@/i18n/en'
 
 /** Fallback when 429 has no Retry-After: the backend window from docs/backend/API.md. */
@@ -52,46 +53,50 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'teleg
   }
 
   return (
-    <main className="flex min-h-(--app-height) items-center justify-center px-4 py-10">
-      <form onSubmit={onSubmit} className="w-full max-w-sm space-y-6" noValidate>
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Logo className="size-12" />
-          <h1 className="text-xl font-semibold">{t.auth.title}</h1>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">{t.auth.password}</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-11"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="totp">{t.auth.code}</Label>
-          <Input
-            id="totp"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            maxLength={6}
-            value={totp}
-            onChange={(e) => onCode(e.target.value)}
-            className="h-11 font-mono tracking-[0.4em]"
-          />
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <Button type="submit" className="h-11 w-full" disabled={busy || !password || totp.length !== 6}>
-          {busy ? t.auth.signingIn : t.auth.signIn}
-        </Button>
-      </form>
+    <main className="win-desktop flex min-h-(--app-height) items-center justify-center px-3 py-10">
+      <Window title={t.auth.title} className="w-full max-w-sm" bodyClassName="p-3">
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <div className="flex items-start gap-3">
+            <Logo className="size-10 shrink-0" />
+            <h1 className="text-sm">{t.auth.title}</h1>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="password">{t.auth.password}</Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-10"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="totp">{t.auth.code}</Label>
+            <Input
+              id="totp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={totp}
+              onChange={(e) => onCode(e.target.value)}
+              className="h-10 font-mono tracking-[0.4em]"
+            />
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" className="h-10 min-w-28" disabled={busy || !password || totp.length !== 6}>
+              {busy ? t.auth.signingIn : t.auth.signIn}
+            </Button>
+          </div>
+        </form>
+      </Window>
     </main>
   )
 }

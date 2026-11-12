@@ -75,7 +75,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
           </Button>
         )}
         <div className="min-w-0 flex-1 pt-1.5">
-          <h1 className="text-lg leading-snug font-semibold break-words">{task.title}</h1>
+          <h1 className="text-lg leading-snug font-bold break-words">{task.title}</h1>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -137,7 +137,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
             href={task.pr_url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-7 items-center gap-1 rounded-full border border-violet-500/40 px-2.5 font-medium text-violet-700 dark:text-violet-300"
+            className="win-raised inline-flex h-7 items-center gap-1 px-2.5 text-link underline active:win-pressed"
           >
             <GitPullRequest className="size-3.5" aria-hidden="true" />
             {t.task.actions.openPr(task.pr_number)}
@@ -148,7 +148,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
             type="button"
             onClick={merge}
             disabled={action.isPending}
-            className="inline-flex h-7 items-center gap-1 rounded-full bg-violet-600 px-2.5 font-medium text-white disabled:opacity-50"
+            className="win-default inline-flex h-7 items-center gap-1 px-2.5 font-bold text-foreground active:win-pressed disabled:text-muted-foreground"
           >
             <GitMerge className="size-3.5" aria-hidden="true" />
             {t.task.actions.merge}
