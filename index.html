@@ -55,29 +55,36 @@ h1,h2,h3{margin:0;font-weight:700}
 .h2{font-size:clamp(28px,4.4vw,52px);line-height:1.05;letter-spacing:-0.02em}
 .lead{margin:0;font-size:17px;line-height:1.55;color:#202020}
 
-/* Hero sea */
+/* Hero fleet (recreates docs/brand/fleetpocket-hero.png) */
 .fp-sea-btn{-webkit-tap-highlight-color:transparent}
+.fp-hero-img{display:none;position:absolute;inset:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:contain}
 .fp-par{transform-box:fill-box;transform-origin:center;transition:transform 1.1s cubic-bezier(.2,.7,.2,1)}
 .fp-ship{transform-box:fill-box;transform-origin:center}
+.fp-in{animation:fpIn 1.1s cubic-bezier(.15,.8,.25,1) both}
+.fp-in1{animation-delay:.15s}
+.fp-in2{animation-delay:.3s}
+.fp-in3{animation-delay:.45s}
+@keyframes fpIn{0%{transform:translate(-320px,240px);opacity:0}35%{opacity:1}100%{transform:none;opacity:1}}
 .fp-s1{animation:fpBob1 7.5s ease-in-out infinite}
 .fp-s2{animation:fpBob2 6.2s ease-in-out infinite -1.4s}
 .fp-s3{animation:fpBob3 6.8s ease-in-out infinite -3.1s}
 .fp-s4{animation:fpBob4 5.6s ease-in-out infinite -2.2s}
-@keyframes fpBob1{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(14px,-10px) rotate(-1.6deg)}50%{transform:translate(6px,-26px) rotate(.6deg)}75%{transform:translate(-10px,-12px) rotate(1.8deg)}}
-@keyframes fpBob2{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(-10px,-14px) rotate(2deg)}50%{transform:translate(-4px,-22px) rotate(-.8deg)}75%{transform:translate(10px,-8px) rotate(-2deg)}}
-@keyframes fpBob3{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(12px,-8px) rotate(-2.4deg)}50%{transform:translate(2px,-20px) rotate(1deg)}75%{transform:translate(-12px,-10px) rotate(2.2deg)}}
-@keyframes fpBob4{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(-8px,-12px) rotate(2.8deg)}50%{transform:translate(6px,-24px) rotate(-1deg)}75%{transform:translate(10px,-6px) rotate(-2.6deg)}}
+@keyframes fpBob1{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(14px,-10px) rotate(-1.2deg)}50%{transform:translate(22px,-18px) rotate(.4deg)}75%{transform:translate(4px,-6px) rotate(1.2deg)}}
+@keyframes fpBob2{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(10px,-6px) rotate(1.4deg)}50%{transform:translate(18px,-14px) rotate(-.6deg)}75%{transform:translate(6px,-10px) rotate(-1.4deg)}}
+@keyframes fpBob3{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(12px,-8px) rotate(-1.6deg)}50%{transform:translate(20px,-16px) rotate(.8deg)}75%{transform:translate(4px,-8px) rotate(1.6deg)}}
+@keyframes fpBob4{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(8px,-8px) rotate(2deg)}50%{transform:translate(16px,-14px) rotate(-.8deg)}75%{transform:translate(6px,-4px) rotate(-2deg)}}
 .fp-s1 .fp-sh{animation:fpShadow 7.5s ease-in-out infinite}
 .fp-s2 .fp-sh{animation:fpShadow 6.2s ease-in-out infinite -1.4s}
 .fp-s3 .fp-sh{animation:fpShadow 6.8s ease-in-out infinite -3.1s}
 .fp-s4 .fp-sh{animation:fpShadow 5.6s ease-in-out infinite -2.2s}
-@keyframes fpShadow{0%,100%{transform:translate(12px,18px);opacity:.35}50%{transform:translate(22px,38px);opacity:.15}}
-.fp-wake{stroke-dasharray:22 16;animation:fpWake 1.4s linear infinite}
-@keyframes fpWake{to{stroke-dashoffset:-76}}
-.fp-curA{animation:fpCurA 18s linear infinite}
-@keyframes fpCurA{to{transform:translate(-200px,150px)}}
-.fp-curB{animation:fpCurB 30s linear infinite}
-@keyframes fpCurB{to{transform:translate(-320px,260px)}}
+@keyframes fpShadow{0%,100%{transform:translate(10px,22px);opacity:.18}50%{transform:translate(18px,40px);opacity:.08}}
+.fp-wake{stroke-dasharray:26 18;animation:fpWake 1.2s linear infinite}
+@keyframes fpWake{to{stroke-dashoffset:-88}}
+.fp-glint{stroke-dasharray:70 900;animation:fpGlint 4.8s ease-in-out infinite}
+.fp-s2 .fp-glint{animation-delay:-1.2s}
+.fp-s3 .fp-glint{animation-delay:-2.4s}
+.fp-s4 .fp-glint{animation-delay:-3.6s}
+@keyframes fpGlint{0%,55%{stroke-dashoffset:120}100%{stroke-dashoffset:-420}}
 .fp-splash-idle{opacity:0}
 .fp-splash-a,.fp-splash-b{transform-box:fill-box;transform-origin:center;opacity:0}
 .fp-splash-a{animation:fpSplashA 1.3s ease-out}
@@ -85,7 +92,7 @@ h1,h2,h3{margin:0;font-weight:700}
 .fp-ring2{animation-delay:.2s}
 @keyframes fpSplashA{0%{transform:scale(.15);opacity:.9}100%{transform:scale(1);opacity:0}}
 @keyframes fpSplashB{0%{transform:scale(.15);opacity:.9}100%{transform:scale(1);opacity:0}}
-@media (prefers-reduced-motion: reduce){.fp-ship,.fp-sh,.fp-wake,.fp-curA,.fp-curB,.fp-splash-a,.fp-splash-b{animation:none}.fp-par{transition:none}}
+@media (prefers-reduced-motion: reduce){#sea svg{display:none}.fp-hero-img{display:block}}
 
 /* Wizard steps */
 .fp-steps{list-style:none;margin:0;padding:4px;display:flex;flex-direction:column;gap:2px}
@@ -195,50 +202,41 @@ Self-hosted · MIT · Single owner</span>
 </div>
 
 <div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-<button type="button" id="sea" class="fp-sea-btn sunken" aria-label="Make a splash in the ocean" style="position: relative; display: block; width: 100%; min-height: 440px; padding: 2px; margin: 0; border: 0; background: #000080; cursor: pointer; font: inherit; color: inherit; touch-action: pan-y; overflow: hidden">
+<button type="button" id="sea" class="fp-sea-btn sunken" aria-label="Make a splash behind the fleet" style="position: relative; display: block; width: 100%; min-height: 440px; padding: 2px; margin: 0; border: 0; background: #F0F0F0; cursor: pointer; font: inherit; color: inherit; touch-action: pan-y; overflow: hidden">
+<img class="fp-hero-img" src="docs/brand/fleetpocket-hero.png" alt="" loading="lazy" decoding="async">
 <svg viewBox="150 200 1000 900" preserveAspectRatio="xMidYMid meet" style="position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); overflow: visible" aria-hidden="true">
 <defs>
-<pattern id="fpCrestA" width="200" height="150" patternUnits="userSpaceOnUse">
-<g fill="none" stroke="#1084D0" stroke-width="3" stroke-linecap="square" opacity="0.8">
-<path d="M20 34 q12 -10 24 0 t24 0"></path>
-<path d="M118 74 q10 -8 20 0 t20 0"></path>
-<path d="M58 122 q14 -10 28 0 t28 0"></path>
-<path d="M168 140 q8 -6 16 0"></path>
-</g>
-</pattern>
-<pattern id="fpCrestB" width="320" height="260" patternUnits="userSpaceOnUse">
-<g fill="none" stroke="#3060C0" stroke-width="5" stroke-linecap="square" opacity="0.7">
-<path d="M40 60 q20 -16 40 0 t40 0"></path>
-<path d="M200 150 q18 -14 36 0 t36 0 t36 0"></path>
-<path d="M70 220 q16 -12 32 0 t32 0"></path>
-</g>
-</pattern>
-<radialGradient id="fpSeaFade" cx="650" cy="640" r="520" gradientUnits="userSpaceOnUse">
-<stop offset="0" stop-color="#FFFFFF"></stop>
-<stop offset="0.55" stop-color="#FFFFFF"></stop>
-<stop offset="1" stop-color="#000000"></stop>
+<radialGradient id="fpBg" cx="650" cy="620" r="620" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="#FAFAFA"></stop>
+<stop offset="1" stop-color="#E4E4E4"></stop>
 </radialGradient>
-<mask id="fpSeaMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1400" height="1300">
-<rect x="0" y="0" width="1400" height="1300" fill="url(#fpSeaFade)"></rect>
-</mask>
+<linearGradient id="fpGlossBlue" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#C2CDFF"></stop>
+<stop offset="0.5" stop-color="#FFFFFF"></stop>
+<stop offset="1" stop-color="#93A6F2"></stop>
+</linearGradient>
+<linearGradient id="fpGlossGrey" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#C7CDD8"></stop>
+<stop offset="0.5" stop-color="#E8EBF1"></stop>
+<stop offset="1" stop-color="#A3ACBF"></stop>
+</linearGradient>
+<linearGradient id="fpGlossYellow" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#FFFF4D"></stop>
+<stop offset="0.6" stop-color="#FFFF00"></stop>
+<stop offset="1" stop-color="#E6D800"></stop>
+</linearGradient>
 <linearGradient id="fpWakeG" x1="1" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#FFFFFF" stop-opacity="0.7"></stop>
-<stop offset="1" stop-color="#FFFFFF" stop-opacity="0"></stop>
+<stop offset="0" stop-color="#4646E6" stop-opacity="0.95"></stop>
+<stop offset="1" stop-color="#4646E6" stop-opacity="0"></stop>
 </linearGradient>
 <filter id="fpSoft" x="-30%" y="-30%" width="160%" height="160%">
-<feGaussianBlur stdDeviation="10"></feGaussianBlur>
+<feGaussianBlur stdDeviation="14"></feGaussianBlur>
 </filter>
 </defs>
 
-<g class="fp-par" id="seaPar">
-<g mask="url(#fpSeaMask)">
-<rect x="100" y="150" width="1100" height="1000" fill="#0A1E9A" opacity="0.8"></rect>
-<g class="fp-curB"><rect x="0" y="-300" width="1600" height="1500" fill="url(#fpCrestB)"></rect></g>
-<g class="fp-curA"><rect x="0" y="-300" width="1600" height="1500" fill="url(#fpCrestA)"></rect></g>
-</g>
-</g>
+<g class="fp-par" id="seaPar"><rect x="-200" y="-200" width="1700" height="1600" fill="url(#fpBg)"></rect></g>
 
-<g fill="none" stroke="#FFFFFF" stroke-width="4">
+<g fill="none" stroke="#4646E6" stroke-width="4">
 <circle class="fp-splash-idle" data-splash="0" r="110"></circle>
 <circle class="fp-splash-idle" data-splash="0" data-ring2 r="110"></circle>
 <circle class="fp-splash-idle" data-splash="1" r="110"></circle>
@@ -248,46 +246,66 @@ Self-hosted · MIT · Single owner</span>
 </g>
 
 <g class="fp-par" data-ship="0">
+<g class="fp-in">
 <g class="fp-ship fp-s1">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#000000" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="7" stroke-linecap="round">
-<path class="fp-wake" d="M608 445 L455 520"></path>
-<path class="fp-wake" d="M862 697 L777 845"></path>
+<path class="fp-sh" filter="url(#fpSoft)" fill="#000040" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
+<g fill="none" stroke="url(#fpWakeG)" stroke-width="8" stroke-linecap="round">
+<path class="fp-wake" d="M600 449 L410 540"></path>
+<path class="fp-wake" d="M862 704 L760 880"></path>
 </g>
-<path fill="#FFFFFF" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
+<path fill="#001070" stroke="#001070" stroke-width="13" stroke-linejoin="round" transform="translate(5 8)" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
+<path fill="url(#fpGlossBlue)" stroke="#0A24B8" stroke-width="13" stroke-linejoin="round" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
+<path fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" opacity="0.75" d="M648 422 L948 318"></path>
+<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" d="M648 422 L948 318"></path>
+</g>
 </g>
 </g>
 
 <g class="fp-par" data-ship="2">
+<g class="fp-in fp-in1">
 <g class="fp-ship fp-s3">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#000000" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="5" stroke-linecap="round">
-<path class="fp-wake" d="M578 770 L479 818"></path>
-<path class="fp-wake" d="M712 900 L657 996"></path>
+<path class="fp-sh" filter="url(#fpSoft)" fill="#000040" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
+<g fill="none" stroke="url(#fpWakeG)" stroke-width="6" stroke-linecap="round">
+<path class="fp-wake" d="M576 772 L462 828"></path>
+<path class="fp-wake" d="M710 906 L640 1028"></path>
 </g>
-<path fill="#C0C0C0" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
+<path fill="#0A1670" stroke="#0A1670" stroke-width="10" stroke-linejoin="round" transform="translate(5 8)" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
+<path fill="url(#fpGlossGrey)" stroke="#1A2EA8" stroke-width="10" stroke-linejoin="round" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
+<path fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75" d="M608 757 L752 689"></path>
+<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" d="M608 757 L752 689"></path>
+</g>
 </g>
 </g>
 
 <g class="fp-par" data-ship="1">
+<g class="fp-in fp-in2">
 <g class="fp-ship fp-s2">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#000000" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="6" stroke-linecap="round">
-<path class="fp-wake" d="M380 617 L272 670"></path>
-<path class="fp-wake" d="M538 762 L478 866"></path>
+<path class="fp-sh" filter="url(#fpSoft)" fill="#000040" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
+<g fill="none" stroke="url(#fpWakeG)" stroke-width="7" stroke-linecap="round">
+<path class="fp-wake" d="M378 620 L250 683"></path>
+<path class="fp-wake" d="M536 770 L470 884"></path>
 </g>
-<path fill="#DFDFDF" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
+<path fill="#001070" stroke="#001070" stroke-width="11" stroke-linejoin="round" transform="translate(5 8)" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
+<path fill="url(#fpGlossGrey)" stroke="#0A24B8" stroke-width="11" stroke-linejoin="round" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
+<path fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.75" d="M410 604 L602 537"></path>
+<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" d="M410 604 L602 537"></path>
+</g>
 </g>
 </g>
 
 <g class="fp-par" data-ship="3">
+<g class="fp-in fp-in3">
 <g class="fp-ship fp-s4">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#000000" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="5" stroke-linecap="round">
-<path class="fp-wake" d="M294 836 L213 876"></path>
-<path class="fp-wake" d="M403 943 L358 1021"></path>
+<path class="fp-sh" filter="url(#fpSoft)" fill="#000040" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
+<g fill="none" stroke="url(#fpWakeG)" stroke-width="6" stroke-linecap="round">
+<path class="fp-wake" d="M290 840 L190 888"></path>
+<path class="fp-wake" d="M400 950 L340 1052"></path>
 </g>
-<path fill="#FFFF00" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
+<path fill="#2A2200" stroke="#2A2200" stroke-width="9" stroke-linejoin="round" transform="translate(5 8)" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
+<path fill="url(#fpGlossYellow)" stroke="#4A3E00" stroke-width="9" stroke-linejoin="round" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
+<path fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75" d="M318 830 L440 775"></path>
+<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" d="M318 830 L440 775"></path>
+</g>
 </g>
 </g>
 </svg>
