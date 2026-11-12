@@ -31,7 +31,7 @@ function FileBlock({ file, split }: { file: FileData; split: boolean }) {
   const { add, del } = counts(file)
   const name = fileName(file)
   return (
-    <section id={`file-${name}`} className="overflow-hidden rounded-xl border">
+    <section id={`file-${name}`} className="overflow-hidden win-field">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
@@ -88,7 +88,7 @@ export default function DiffTab({ taskId }: { taskId: number }) {
           {diff.data.base}…{diff.data.branch}
         </span>
       </div>
-      <ul className="mb-4 divide-y rounded-xl border text-xs">
+      <ul className="mb-4 divide-y win-field text-xs">
         {files.map((f) => {
           const { add, del } = counts(f)
           const name = fileName(f)

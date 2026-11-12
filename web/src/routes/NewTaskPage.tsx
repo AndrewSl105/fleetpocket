@@ -147,7 +147,7 @@ export default function NewTaskPage() {
         {...picker.dropProps}
       >
         <DropOverlay show={picker.dragging} />
-        <h1 className="text-xl font-semibold">{t.newTask.title}</h1>
+        <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.newTask.title}</h1>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">

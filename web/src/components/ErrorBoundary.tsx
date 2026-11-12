@@ -26,7 +26,7 @@ export function CrashScreen({ error }: { error?: unknown }) {
   return (
     <main className="flex min-h-(--app-height) flex-col items-center justify-center gap-3 px-6 text-center">
       <TriangleAlert className="size-12 text-destructive" aria-hidden="true" />
-      <h1 className="text-xl font-semibold">{t.system.crashed}</h1>
+      <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.system.crashed}</h1>
       {error instanceof Error && <p className="max-w-sm font-mono text-xs break-all text-muted-foreground">{error.message}</p>}
       <Button className="mt-2 h-11" onClick={() => window.location.reload()}>
         {t.common.reload}

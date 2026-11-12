@@ -13,7 +13,7 @@ import type { ImagePicker } from './useImagePicker'
 export function AttachButton({ picker, disabled, className }: { picker: ImagePicker; disabled?: boolean; className?: string }) {
   const images = useRef<HTMLInputElement>(null)
   const files = useRef<HTMLInputElement>(null)
-  const button = 'size-11 shrink-0 rounded-full'
+  const button = 'size-11 shrink-0'
   return (
     <>
       <input {...picker.inputProps} ref={images} accept={ACCEPT} data-testid="attach-input" />
@@ -89,7 +89,7 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
                   // 44 px hit area around a small visible badge.
                   className="absolute -top-3 -right-3 flex size-11 items-center justify-center"
                 >
-                  <span className="flex size-6 items-center justify-center rounded-full bg-foreground/80 text-background shadow">
+                  <span className="flex size-6 items-center justify-center win-raised text-foreground">
                     <X className="size-3.5" />
                   </span>
                 </button>
@@ -100,8 +100,8 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
       )}
       {uploading && (
         <div className="space-y-1" role="status" aria-live="polite">
-          <div className="h-1 overflow-hidden rounded-full bg-muted">
-            <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
+          <div className="win-field h-3 overflow-hidden p-[2px]">
+            <div className="h-full bg-[repeating-linear-gradient(90deg,var(--win-select)_0_6px,transparent_6px_8px)] transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">{t.attachments.uploading(Math.round(progress * 100))}</p>
         </div>
@@ -121,7 +121,7 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
 export function DropOverlay({ show }: { show: boolean }) {
   if (!show) return null
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5 text-sm font-medium text-primary">
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dotted border-foreground bg-background/80 text-sm font-bold text-foreground">
       {t.attachments.dropHere}
     </div>
   )

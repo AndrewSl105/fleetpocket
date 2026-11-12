@@ -83,7 +83,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
   switch (item.kind) {
     case 'claude':
       return (
-        <div className="max-w-[92%] rounded-2xl rounded-tl-md bg-surface px-3.5 py-2.5 shadow-xs ring-1 ring-border">
+        <div className="win-field max-w-[92%] px-3.5 py-2.5">
           <Markdown>{item.text}</Markdown>
         </div>
       )
@@ -92,7 +92,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
         <div className="flex justify-end">
           <div
             className={cn(
-              'max-w-[85%] rounded-2xl rounded-tr-md bg-primary px-3.5 py-2.5 text-[15px] whitespace-pre-wrap text-primary-foreground',
+              'win-raised max-w-[85%] px-3.5 py-2.5 text-[15px] whitespace-pre-wrap text-foreground',
               item.pending && 'opacity-70',
             )}
           >
@@ -128,7 +128,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
     }
     case 'commit':
       return (
-        <div className="flex items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 text-sm">
+        <div className="flex items-center gap-2.5 win-etched px-3 py-2.5 text-sm">
           <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>{tl.committed(item.files)}</span>
           <span className="font-mono text-xs text-emerald-700 dark:text-emerald-300">+{item.insertions}</span>
@@ -151,7 +151,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
           {item.url && <ExternalLink className="ml-auto size-4 text-muted-foreground" aria-hidden="true" />}
         </>
       )
-      const cls = 'flex items-center gap-2.5 rounded-xl border border-violet-500/30 bg-violet-500/5 px-3 py-2.5 text-sm'
+      const cls = 'flex items-center gap-2.5 win-etched bg-violet-500/5 px-3 py-2.5 text-sm'
       return item.url ? (
         <a href={item.url} target="_blank" rel="noreferrer" className={cn(cls, 'hover:bg-violet-500/10')}>
           {body}
@@ -182,7 +182,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
     }
     case 'done':
       return (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3.5 py-3">
+        <div className="win-etched bg-emerald-500/5 px-3.5 py-3">
           <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
             <Sparkles className="size-4" aria-hidden="true" />
             {item.noChanges ? tl.noChanges : tl.done}
@@ -192,7 +192,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       )
     case 'error':
       return (
-        <div role="alert" className="flex gap-2.5 rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2.5 text-sm text-red-700 dark:text-red-300">
+        <div role="alert" className="flex gap-2.5 win-etched bg-red-500/5 px-3 py-2.5 text-sm text-red-700 dark:text-red-300">
           <OctagonAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <div className="font-mono text-xs font-medium">{item.title === 'diff_rejected' ? tl.diffRejected : item.title}</div>

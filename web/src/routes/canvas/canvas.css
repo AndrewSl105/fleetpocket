@@ -1,45 +1,45 @@
-/* Canvas: a board of terminal windows (docs/design/remote-nodes.md, section 6).
-   Terminals stay dark in both themes, like a real terminal; the board follows the theme. */
+/* Canvas: a board of terminal windows (docs/design/remote-nodes.md, section 6),
+   drawn as a Win98 desktop of MS-DOS prompt windows. */
 
 .fp-board {
-  background-color: var(--background);
-  background-image: radial-gradient(circle, color-mix(in oklab, var(--foreground) 16%, transparent) 1px, transparent 1.2px);
-  background-size: calc(24px * var(--zoom, 1)) calc(24px * var(--zoom, 1));
-  background-position: var(--bx, 0) var(--by, 0);
+  background-color: var(--desktop);
   touch-action: none;
 }
 
+/* Each terminal is a Win98 window around an MS-DOS prompt body. */
 .fp-term {
-  --term-bg: #151b26;
-  --term-bar: #1c2431;
-  --term-fg: #d8dee9;
-  --term-dim: #8390a5;
-  --term-rule: #2a3445;
-  --term-ok: #7fd1a4;
-  --term-bad: #f28b82;
-  --term-ask: #f5c56b;
-  background: var(--term-bg);
+  --term-bg: #000000;
+  --term-fg: #c0c0c0;
+  --term-dim: #808080;
+  --term-rule: #404040;
+  --term-ok: #55ff55;
+  --term-bad: #ff5555;
+  --term-ask: #ffff55;
+  padding: 3px;
+  background: var(--background);
   color: var(--term-fg);
   box-shadow:
-    0 1px 0 color-mix(in oklab, var(--host) 70%, transparent) inset,
-    0 18px 40px -18px rgb(10 14 22 / 0.55),
-    0 0 0 1px rgb(255 255 255 / 0.06);
-}
-
-.fp-term[data-focused='true'] {
-  box-shadow:
-    0 1px 0 var(--host) inset,
-    0 24px 56px -20px rgb(10 14 22 / 0.7),
-    0 0 0 1.5px color-mix(in oklab, var(--host) 75%, transparent);
+    inset -1px -1px var(--win-dark),
+    inset 1px 1px var(--win-light),
+    inset -2px -2px var(--win-shadow),
+    inset 2px 2px var(--win-hi),
+    4px 4px 0 rgb(0 0 0 / 0.35);
 }
 
 .fp-term-bar {
-  background: var(--term-bar);
-  border-bottom: 1px solid var(--term-rule);
+  background: linear-gradient(90deg, var(--win-title-inactive-from), var(--win-title-inactive-to));
+  color: var(--win-light);
+}
+.fp-term[data-focused='true'] .fp-term-bar {
+  background: linear-gradient(90deg, var(--win-title-from), var(--win-title-to));
+  color: var(--win-title-fg);
+}
+.fp-term-body {
+  background: var(--term-bg);
 }
 
 .fp-term-body {
-  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-family: 'Fixedsys', 'Lucida Console', 'Courier New', ui-monospace, monospace;
   font-size: 12px;
   line-height: 1.55;
   scrollbar-width: thin;
