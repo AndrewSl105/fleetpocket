@@ -210,6 +210,28 @@ func TestAttachmentUploadAndDownload(t *testing.T) {
 		t.Fatalf("plain message payload: %v", mp)
 	}
 
+	// Any other file is kept as is and downloaded, never shown inline.
+	code, _ = c.multipart(fmt.Sprintf("/api/v1/tasks/%d/message", id),
+		part{field: "text", data: []byte("and the spec")},
+		part{field: "files[]", name: "spec.pdf", data: []byte("%PDF-1.7 spec")},
+	)
+	if code != 200 {
+		t.Fatalf("file message: %d", code)
+	}
+	file := c.eventsOf(id, "message")[2]["payload"].(map[string]any)["attachments"].([]any)[0].(map[string]any)
+	if file["name"] != "spec.pdf" || file["mime"] != "application/pdf" || file["width"] != 0.0 || file["size"] != 13.0 {
+		t.Fatalf("file attachment: %v", file)
+	}
+	fid := int64(file["id"].(float64))
+	resp, body = c.get(fmt.Sprintf("/api/v1/tasks/%d/attachments/%d", id, fid))
+	if resp.StatusCode != 200 || string(body) != "%PDF-1.7 spec" || resp.Header.Get("Content-Type") != "application/octet-stream" ||
+		!strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment;") {
+		t.Fatalf("file download: %d %v %q", resp.StatusCode, resp.Header, body)
+	}
+	if resp, _ := c.get(fmt.Sprintf("/api/v1/tasks/%d/attachments/%d?thumb=1", id, fid)); resp.StatusCode != 404 {
+		t.Fatalf("file thumbnail: %d", resp.StatusCode)
+	}
+
 	// Removed attachments answer 410.
 	if _, err := st.DeleteAttachments(t.Context(), id); err != nil {
 		t.Fatal(err)
@@ -230,8 +252,8 @@ func TestAttachmentUploadRejects(t *testing.T) {
 		parts []part
 		want  string
 	}{
-		"not an image":  {append(append([]part{}, fields...), part{field: "files[]", name: "notes.png", data: []byte("hello")}), `"notes.png" is not a PNG, JPEG, WebP or GIF`},
-		"too many":      {many, "at most 10 images"},
+		"broken image":  {append(append([]part{}, fields...), part{field: "files[]", name: "a.png", data: []byte("\x89PNG\r\n\x1a\n\x00")}), `"a.png": cannot read the image`},
+		"too many":      {many, "at most 10 files"},
 		"unknown field": {append(append([]part{}, fields...), part{field: "secret", data: []byte("x")}), `unknown field "secret"`},
 		"no prompt":     {[]part{fields[0], {field: "files[]", name: "a.png", data: pngBytes(2, 2)}}, "prompt is required"},
 		"bad repo id":   {append(append([]part{}, fields...), part{field: "repository_id", data: []byte("x")}), "repository_id must be"},

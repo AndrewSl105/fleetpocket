@@ -23,7 +23,7 @@ export function OfflineBanner() {
   const online = useOnline()
   if (online && status !== 'closed') return null
   return (
-    <div role="status" className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">
+    <div role="status" className="flex items-center justify-center gap-2 border-b border-black bg-[#ffffe1] px-4 py-1 text-xs text-black">
       <WifiOff className="size-3.5" aria-hidden="true" />
       {t.system.offline}
     </div>

@@ -160,7 +160,7 @@ func (b *Bot) incomingContent(ctx context.Context, m *telego.Message) (string, [
 
 func (b *Bot) downloadDraftImages(ctx context.Context, media []store.TelegramDraftMedia) ([]*attachments.Image, error) {
 	if len(media) > attachments.MaxFiles {
-		return nil, fmt.Errorf("at most %d images are allowed", attachments.MaxFiles)
+		return nil, fmt.Errorf("at most %d attachments are allowed", attachments.MaxFiles)
 	}
 	var out []*attachments.Image
 	total := 0
@@ -171,7 +171,7 @@ func (b *Bot) downloadDraftImages(ctx context.Context, media []store.TelegramDra
 		}
 		total += len(raw)
 		if total > attachments.MaxRequestBytes {
-			return nil, fmt.Errorf("images are larger than %d MB in total", attachments.MaxRequestBytes>>20)
+			return nil, fmt.Errorf("attachments are larger than %d MB in total", attachments.MaxRequestBytes>>20)
 		}
 		im, err := attachments.Process(m.Name, raw)
 		if err != nil {

@@ -36,7 +36,13 @@ func Ext(mime string) string {
 	return "bin"
 }
 
-func fileName(a *store.Attachment) string { return strconv.FormatInt(a.ID, 10) + "." + Ext(a.Mime) }
+func fileName(a *store.Attachment) string {
+	ext := Ext(a.Mime)
+	if !IsImage(a.Mime) {
+		ext = NameExt(a.Name)
+	}
+	return strconv.FormatInt(a.ID, 10) + "." + ext
+}
 
 // AgentPath is the attachment's path inside the agent container.
 func AgentPath(a *store.Attachment) string { return AgentDir + "/" + fileName(a) }
@@ -72,7 +78,7 @@ func (f *Files) Hold() func() {
 }
 
 // Place returns the store.Upload.Place function for imgs: it writes each
-// image (and its thumbnail) under the id of its row.
+// file (and an image's thumbnail) under the id of its row.
 func (f *Files) Place(imgs []*Image) func(taskID int64, rows []*store.Attachment) error {
 	return func(taskID int64, rows []*store.Attachment) error {
 		if len(rows) != len(imgs) {
@@ -84,6 +90,9 @@ func (f *Files) Place(imgs []*Image) func(taskID int64, rows []*store.Attachment
 		for i, a := range rows {
 			if err := writeFile(f.Path(a), imgs[i].Data); err != nil {
 				return err
+			}
+			if imgs[i].Thumb == nil {
+				continue
 			}
 			if err := writeFile(f.ThumbPath(a), imgs[i].Thumb); err != nil {
 				return err

@@ -4,10 +4,14 @@ import { t } from '@/i18n/en'
 export const MAX_FILES = 10
 export const MAX_FILE_BYTES = 40 * 1024 * 1024
 export const MAX_TOTAL_BYTES = 100 * 1024 * 1024
+/** Images the server cleans and thumbnails; any other file is kept as is. */
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
-/** For <input accept>: explicit types make iOS hand over HEIC photos as JPEG. */
+/** For the image <input accept>: explicit types make iOS hand over HEIC photos as JPEG. */
 export const ACCEPT = IMAGE_TYPES.join(',')
 
+export const isImageType = (mime: string) => IMAGE_TYPES.includes(mime)
+
+/** A picked file; `url` previews an image and is empty for other files. */
 export type Picked = { id: string; file: File; url: string }
 
 let seq = 0
@@ -22,8 +26,8 @@ export function addFiles(current: Picked[], files: File[], makeUrl: (f: File) =>
   let total = current.reduce((n, p) => n + p.file.size, 0)
   for (const file of files) {
     const name = file.name || t.attachments.pasted
-    if (!IMAGE_TYPES.includes(file.type)) {
-      errors.push(t.attachments.badType(name))
+    if (file.size === 0) {
+      errors.push(t.attachments.empty(name))
       continue
     }
     if (file.size > MAX_FILE_BYTES) {
@@ -39,12 +43,12 @@ export function addFiles(current: Picked[], files: File[], makeUrl: (f: File) =>
       break
     }
     total += file.size
-    next.push({ id: `p${++seq}`, file, url: makeUrl(file) })
+    next.push({ id: `p${++seq}`, file, url: isImageType(file.type) ? makeUrl(file) : '' })
   }
   return { next, errors }
 }
 
-/** Image files from a paste or drop (DataTransfer), in order. */
+/** Files from a paste or drop (DataTransfer), in order. */
 export function filesFrom(data: DataTransfer | null): File[] {
   if (!data) return []
   const out: File[] = []

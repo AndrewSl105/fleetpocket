@@ -20,7 +20,7 @@ export default function ProjectsPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{t.projects.title}</h1>
+          <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.projects.title}</h1>
           <Button asChild variant="outline" className="h-10">
             <Link to="/projects/new">
               <Plus /> {t.projects.new}
@@ -36,7 +36,7 @@ export default function ProjectsPage() {
         ) : !projects.data?.length ? (
           <p className="py-10 text-center text-sm text-muted-foreground">{t.projects.empty}</p>
         ) : (
-          <ul className="divide-y rounded-xl border">
+          <ul className="divide-y win-field">
             {projects.data.map((p) => {
               const n = activeByProject.get(p.id) ?? 0
               return (

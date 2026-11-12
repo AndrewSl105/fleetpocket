@@ -15,7 +15,7 @@ import { TITLE_H, type WindowState } from './layout'
 
 const tc = t.canvas
 
-/** Status light colours (the terminal is dark in both themes). */
+/** Status light colours (the terminal is an MS-DOS prompt, black in both themes). */
 const LED: Record<TaskStatus, string> = {
   queued: '#8390a5',
   preparing: '#7aa2f7',
@@ -52,7 +52,7 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
       aria-label={task.title}
       data-focused={focused}
       onPointerDownCapture={onFocus}
-      className="fp-term absolute flex flex-col overflow-hidden rounded-lg"
+      className="fp-term absolute flex flex-col overflow-hidden"
       style={
         {
           left: win.x,
@@ -81,10 +81,10 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
           aria-label={status.label}
           title={status.label}
         />
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium" title={task.title}>
+        <h3 className="min-w-0 flex-1 truncate text-[13px] font-bold" title={task.title}>
           {task.title}
         </h3>
-        <span className="shrink-0 text-[11px] text-[var(--term-dim)]">
+        <span className="shrink-0 text-[11px] opacity-80">
           {t.agents[task.agent]} · #{task.id}
         </span>
         <div className="flex shrink-0">
@@ -115,7 +115,7 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
 
 function BarButton({ label, onClick, asLink, children }: { label: string; onClick?: () => void; asLink?: string; children: React.ReactNode }) {
   const cls =
-    'flex size-7 items-center justify-center rounded text-[var(--term-dim)] hover:bg-white/8 hover:text-[var(--term-fg)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--host)]'
+    'win-raised ml-0.5 flex h-[18px] w-5 items-center justify-center text-foreground active:win-pressed [&_svg]:size-3 [&_svg]:stroke-[3]'
   if (asLink) {
     return (
       <Link to={asLink} className={cls} aria-label={label} title={label}>
@@ -187,7 +187,7 @@ const Line = memo(function Line({ item, taskId, open }: { item: TimelineItem; ta
         </p>
       )
     case 'attachments':
-      return <p className="text-[var(--term-dim)]">{t.attachments.taskImages(item.attachments.length)}</p>
+      return <p className="text-[var(--term-dim)]">{t.attachments.taskAttachments(item.attachments.length)}</p>
     case 'tool':
       return (
         <p className="truncate text-[var(--term-dim)]" title={item.summary}>

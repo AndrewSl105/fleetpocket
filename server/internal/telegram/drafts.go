@@ -128,7 +128,7 @@ func (b *Bot) handleDraftCallback(ctx context.Context, cq *telego.CallbackQuery,
 		prompt := strings.TrimSpace(d.Text)
 		if prompt == "" {
 			// Images alone: ask for the text first (a reply sets it, then Create again).
-			id, err := b.send(ctx, target{d.ChatID, d.ThreadID}, "✏️ What should Claude do with the image(s)? Reply with the text, then tap Create.",
+			id, err := b.send(ctx, target{d.ChatID, d.ThreadID}, "✏️ What should Claude do with the attachment(s)? Reply with the text, then tap Create.",
 				&telego.ForceReply{ForceReply: true, InputFieldPlaceholder: "Task text"}, 0)
 			if err == nil {
 				err = b.Store.AddTelegramReplyPrompt(ctx, d.ChatID, int64(id), store.TelegramReplyPrompt{Kind: "draft_edit", DraftID: d.ID})

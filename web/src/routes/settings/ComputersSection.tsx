@@ -87,7 +87,7 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
   const remove = useDeleteNode(node.id)
 
   return (
-    <li className="rounded-xl border bg-card p-3.5">
+    <li className="win-etched p-3.5">
       <div className="flex items-start gap-3">
         <Laptop className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0 flex-1">
@@ -99,7 +99,7 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
             {node.agents.length ? (
               node.agents.map((a) => (
-                <span key={a} className="rounded-full border px-2 py-0.5">
+                <span key={a} className="border px-1.5 py-0.5">
                   {t.agents[a]}
                 </span>
               ))

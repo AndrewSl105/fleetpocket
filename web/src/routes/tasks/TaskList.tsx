@@ -75,7 +75,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
     <div className="flex h-full flex-col">
       <header className="shrink-0 space-y-3 px-4 pt-4 pb-3">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t.tasks.title}</h1>
+          <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.tasks.title}</h1>
           <div className="relative hidden w-44 lg:block">
             <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -88,7 +88,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             />
           </div>
         </div>
-        <div role="tablist" aria-label="Filter" className="grid grid-cols-4 rounded-lg bg-muted p-1">
+        <div role="tablist" aria-label="Filter" className="grid grid-cols-4 gap-1">
           {GROUP_ORDER.map((g) => (
             <button
               key={g}
@@ -96,8 +96,8 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
               aria-selected={group === g}
               onClick={() => setFilter({ filter: g })}
               className={cn(
-                'h-9 rounded-md text-xs font-medium text-muted-foreground transition-colors sm:text-sm',
-                group === g && 'bg-background text-foreground shadow-sm',
+                'win-raised h-9 text-xs text-foreground sm:text-sm',
+                group === g && 'win-pressed bg-muted font-bold',
               )}
             >
               {t.tasks.filters[g]}
@@ -109,7 +109,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             {project ? (
               <button
                 onClick={() => setFilter({ project: null })}
-                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 text-xs font-medium text-primary"
+                className="win-pressed inline-flex h-8 shrink-0 items-center gap-1 bg-muted px-3 text-xs font-bold text-foreground"
               >
                 {projectNames.get(project) ?? project}
                 <X className="size-3.5" aria-label="Clear project filter" />
@@ -119,7 +119,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
                 <button
                   key={p.id}
                   onClick={() => setFilter({ project: p.id })}
-                  className="inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  className="win-raised inline-flex h-8 shrink-0 items-center px-3 text-xs text-foreground active:win-pressed"
                 >
                   {p.name}
                 </button>

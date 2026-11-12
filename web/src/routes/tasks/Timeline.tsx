@@ -122,7 +122,7 @@ export function Timeline({ task, items: loaded, older, loading, stopping }: Prop
                 type="button"
                 onClick={() => loadOlder.mutate(older)}
                 disabled={loadOlder.isPending}
-                className="mx-auto mt-3 flex h-9 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:bg-accent"
+                className="mx-auto mt-3 flex h-9 items-center gap-1.5 px-3 text-xs text-foreground win-raised active:win-pressed"
               >
                 {loadOlder.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
                 {loadOlder.isPending ? t.task.timeline.earlier : t.task.timeline.loadEarlier}
@@ -167,7 +167,7 @@ export function Timeline({ task, items: loaded, older, loading, stopping }: Prop
       {showPill && (
         <button
           onClick={scrollToEnd}
-          className="absolute bottom-3 left-1/2 inline-flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-2"
+          className="absolute bottom-3 left-1/2 inline-flex h-9 -translate-x-1/2 items-center gap-1.5 win-raised px-4 text-xs font-bold text-foreground active:win-pressed animate-in fade-in-0 slide-in-from-bottom-2"
         >
           <ArrowDown className="size-3.5" aria-hidden="true" />
           {t.task.newActivity}

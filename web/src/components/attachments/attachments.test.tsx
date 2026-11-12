@@ -46,7 +46,7 @@ const png = (name: string) => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])
 describe('composer attachments', () => {
   const task = { id: 7, status: 'pr_open', queued_message: null } as unknown as TaskView
 
-  it('previews picked images, explains refused files and uploads with the text', async () => {
+  it('previews picked images and files and uploads them with the text', async () => {
     const upload = vi.mocked(uploadForm)
     upload.mockImplementation(async (_path, _form, onProgress) => {
       onProgress?.(0.5)
@@ -55,9 +55,14 @@ describe('composer attachments', () => {
     const user = userEvent.setup({ applyAccept: false })
     wrap(<Composer task={task} />)
 
-    await user.upload(screen.getByTestId('attach-input'), [png('mock.png'), new File(['%PDF'], 'spec.pdf', { type: 'application/pdf' })])
+    await user.upload(screen.getByTestId('attach-input'), [png('mock.png')])
+    await user.upload(screen.getByTestId('attach-file-input'), [
+      new File(['%PDF'], 'spec.pdf', { type: 'application/pdf' }),
+      new File([], 'empty.txt', { type: 'text/plain' }),
+    ])
     expect(screen.getByAltText('mock.png')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('spec.pdf: only PNG, JPEG, WebP and GIF images can be attached')
+    expect(screen.getByText('spec.pdf')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('empty.txt is empty')
 
     // Text is required; the images alone cannot be sent.
     const sendButton = screen.getByRole('button', { name: 'Send' })
@@ -69,7 +74,7 @@ describe('composer attachments', () => {
     const [path, form] = upload.mock.calls[0]
     expect(path).toBe('/api/v1/tasks/7/message')
     expect(form.get('text')).toBe('Make the header like this')
-    expect((form.getAll('files[]') as File[]).map((f) => f.name)).toEqual(['mock.png'])
+    expect((form.getAll('files[]') as File[]).map((f) => f.name)).toEqual(['mock.png', 'spec.pdf'])
     // Sent: the previews are cleared.
     await waitFor(() => expect(screen.queryByAltText('mock.png')).not.toBeInTheDocument())
   })
@@ -126,5 +131,25 @@ describe('timeline thumbnails', () => {
     await user.click(button)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     await waitFor(() => expect(asked).toEqual(['?thumb=1', '']))
+  })
+
+  it('lists other files and downloads one on tap', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('*/api/v1/tasks/3/attachments/5', ({ request }) => {
+        asked.push(new URL(request.url).search)
+        return new HttpResponse(new Uint8Array([1, 2]), { headers: { 'Content-Type': 'application/octet-stream' } })
+      }),
+    )
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const file: Attachment = { id: 5, name: 'spec.pdf', mime: 'application/pdf', size: 2048, width: 0, height: 0 }
+    const user = userEvent.setup()
+    wrap(<AttachmentGrid taskId={3} items={[file]} />)
+    expect(screen.getByText('2 KB')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Download spec.pdf' }))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    // No thumbnail request for a file, only the download.
+    expect(asked).toEqual([''])
+    click.mockRestore()
   })
 })

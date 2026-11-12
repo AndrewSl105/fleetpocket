@@ -47,27 +47,37 @@ export function AppShell() {
   return (
     <div className="flex h-(--app-height) overflow-hidden bg-background pt-(--safe-top)">
       <DeepLink />
-      {/* Desktop sidebar */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r bg-surface lg:flex">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <Logo className="size-7" />
-          <span className="font-semibold">{t.app.name}</span>
+      {/* Desktop sidebar: a Start menu that stays open */}
+      <aside className="win-raised hidden w-56 shrink-0 p-[3px] lg:flex">
+        <div className="win-titlebar flex w-6 shrink-0 items-end justify-center pb-2">
+          <span className="text-base tracking-wide whitespace-nowrap [writing-mode:vertical-rl] rotate-180">
+            {t.app.name} <span className="font-normal">98</span>
+          </span>
         </div>
-        <nav className="flex flex-col gap-1 px-2" aria-label="Main">
-          {SIDEBAR_NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={cn(
-                'flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-                isActive(pathname, item.to) && 'bg-accent text-foreground',
-              )}
-            >
-              <item.icon className="size-4" aria-hidden="true" />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-2 px-2 py-3">
+            <Logo className="size-7" />
+            <span className="font-bold">{t.app.name}</span>
+          </div>
+          <div className="win-groove mx-1 mb-1 h-0.5" />
+          <nav className="flex flex-col" aria-label="Main">
+            {SIDEBAR_NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  'flex h-10 items-center gap-3 px-3 text-sm',
+                  isActive(pathname, item.to)
+                    ? 'bg-(--win-select) text-(--win-select-fg)'
+                    : 'text-foreground hover:bg-(--win-select) hover:text-(--win-select-fg)',
+                )}
+              >
+                <item.icon className="size-5" aria-hidden="true" />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -75,11 +85,11 @@ export function AppShell() {
         <div className="min-h-0 flex-1">
           <Outlet />
         </div>
-        {/* Mobile bottom tabs, only on tab roots */}
+        {/* Mobile bottom tabs, only on tab roots: the taskbar, with New as the Start button */}
         {!deep && (
           <nav
             aria-label="Main"
-            className="grid shrink-0 grid-cols-4 border-t bg-background/95 pb-(--safe-bottom) backdrop-blur lg:hidden"
+            className="win-raised grid shrink-0 grid-cols-4 gap-1 px-1 pt-1 pb-[calc(var(--safe-bottom)+4px)] lg:hidden"
           >
             {NAV.map((item) => {
               const active = isActive(pathname, item.to)
@@ -89,18 +99,21 @@ export function AppShell() {
                   to={item.to}
                   onClick={() => haptic.select()}
                   className={cn(
-                    'flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground',
-                    active && 'text-primary',
+                    'flex min-h-11 items-center justify-center gap-1 px-1 text-[12px] text-foreground',
+                    active ? 'win-pressed bg-muted font-bold' : 'win-raised',
                   )}
                 >
                   {'primary' in item ? (
-                    <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                      <item.icon className="size-5" aria-hidden="true" />
-                    </span>
+                    <>
+                      <Logo className="size-4 shrink-0" />
+                      <span className="font-bold">{item.label}</span>
+                    </>
                   ) : (
-                    <item.icon className="size-5" aria-hidden="true" />
+                    <>
+                      <item.icon className="size-4 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{item.label}</span>
+                    </>
                   )}
-                  <span className={cn('primary' in item && 'sr-only')}>{item.label}</span>
                 </NavLink>
               )
             })}

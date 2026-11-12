@@ -13,22 +13,23 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Tasks' })).toBeVisible()
 })
 
-test('attach images to a new task and see them in the timeline', async ({ page }) => {
+test('attach an image and a file to a new task and see them in the timeline', async ({ page }) => {
   await page.getByRole('link', { name: 'New' }).click()
   await page.getByLabel('What should Claude do?').fill('Make the settings page look like the mock')
-  await page.getByTestId('attach-input').setInputFiles([
-    { name: 'mock.png', mimeType: 'image/png', buffer: PNG },
-    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') },
-  ])
+  await page.getByTestId('attach-input').setInputFiles({ name: 'mock.png', mimeType: 'image/png', buffer: PNG })
+  await page.getByTestId('attach-file-input').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') })
   await expect(page.getByAltText('mock.png')).toBeVisible()
-  await expect(page.getByRole('alert')).toContainText('notes.txt: only PNG, JPEG, WebP and GIF images can be attached')
+  await expect(page.getByText('notes.txt')).toBeVisible()
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/new-task.png` })
 
   await page.getByRole('button', { name: 'Start task' }).click()
   await expect(page.getByRole('heading', { name: 'Make the settings page look like the mock' })).toBeVisible()
   const thumb = page.getByRole('button', { name: 'Open mock.png' })
   await expect(thumb.getByRole('img')).toBeVisible()
-  await expect(page.getByText('1 image attached to the task')).toBeVisible()
+  await expect(page.getByText('2 attachments added to the task')).toBeVisible()
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download notes.txt' }).click()
+  expect((await download).suggestedFilename()).toBe('notes.txt')
   await thumb.click()
   await expect(page.getByRole('dialog').getByRole('img', { name: 'mock.png' })).toBeVisible()
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/viewer.png` })

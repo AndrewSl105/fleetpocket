@@ -13,7 +13,7 @@ function systemDark() {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
 }
 
-/** Browser-mode light/dark. In Telegram mode the colours follow themeParams instead. */
+/** Browser-mode light/dark. In Telegram mode it follows the WebApp colorScheme instead. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const runtime = useRuntime()
   const [choice, setChoiceState] = useState<ThemeChoice>(() => (storage.get(KEY) as ThemeChoice | null) ?? 'system')

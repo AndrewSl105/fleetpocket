@@ -184,8 +184,8 @@ export interface paths {
         put?: never;
         /**
          * Create a task
-         * @description JSON, or `multipart/form-data` with the same fields plus image files in
-         *     `files[]`. The attachments are listed in the task's `created` event.
+         * @description JSON, or `multipart/form-data` with the same fields plus files (images or
+         *     any other file) in `files[]`. The attachments are listed in the task's `created` event.
          */
         post: operations["createTask"];
         delete?: never;
@@ -278,8 +278,10 @@ export interface paths {
         /**
          * Download an attachment (owner only)
          * @description The cleaned image as stored (metadata removed), or with `thumb=1` a JPEG
-         *     whose longest side is at most 480 px. `410 gone` once the attachment was
-         *     removed (the task completed, or workspace retention ran).
+         *     whose longest side is at most 480 px. Other files are served as uploaded,
+         *     as `application/octet-stream` with `Content-Disposition: attachment`;
+         *     they have no thumbnail (`thumb=1` is `404`). `410 gone` once the
+         *     attachment was removed (the task completed, or workspace retention ran).
          */
         get: operations["getAttachment"];
         put?: never;
@@ -322,7 +324,7 @@ export interface paths {
          *     (`queued_message` on the task, event `message` with `delivery: queued`) and
          *     starts the next run when the current one ends. `paused`/`pr_open`/`completed`:
          *     starts a new run now (`delivery: new_run`). Otherwise `409`.
-         *     JSON, or `multipart/form-data` with `text` plus image files in `files[]`;
+         *     JSON, or `multipart/form-data` with `text` plus files in `files[]`;
          *     the attachments are listed in the `message` event and reach the run that
          *     handles the text.
          */
@@ -1169,20 +1171,22 @@ export interface components {
             message: string;
             session_id?: string;
         };
-        /** @description An image attached to a task or a message. Download it with `GET /tasks/{id}/attachments/{id}`. */
+        /** @description An image or other file attached to a task or a message. Download it with `GET /tasks/{id}/attachments/{id}`. */
         Attachment: {
             /** Format: int64 */
             id: number;
             /** @description Original file name */
             name: string;
-            /** @enum {string} */
-            mime: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+            /** @description image/png, image/jpeg, image/webp or image/gif for images; for other files the type sniffed from the content (e.g. text/plain, application/pdf, application/octet-stream) */
+            mime: string;
             /**
              * Format: int64
              * @description Bytes of the stored (cleaned) file
              */
             size: number;
+            /** @description 0 for files that are not images */
             width: number;
+            /** @description 0 for files that are not images */
             height: number;
         };
         CreatedEvent: components["schemas"]["EventBase"] & {
@@ -1198,7 +1202,7 @@ export interface components {
             type: "created";
         };
         CreatedPayload: {
-            /** @description Images attached to the task (may be empty) */
+            /** @description Files attached to the task (may be empty) */
             attachments: components["schemas"]["Attachment"][];
         };
         StatusEvent: components["schemas"]["EventBase"] & {
@@ -1255,7 +1259,7 @@ export interface components {
              * @enum {string}
              */
             delivery: "queued" | "new_run" | "injected";
-            /** @description Images sent with the message; absent when there are none */
+            /** @description Files sent with the message; absent when there are none */
             attachments?: components["schemas"]["Attachment"][];
         };
         MessageDroppedEvent: components["schemas"]["EventBase"] & {
@@ -2040,7 +2044,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The image */
+            /** @description The image or file */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2050,6 +2054,7 @@ export interface operations {
                     "image/jpeg": string;
                     "image/webp": string;
                     "image/gif": string;
+                    "application/octet-stream": string;
                 };
             };
             404: components["responses"]["Error"];

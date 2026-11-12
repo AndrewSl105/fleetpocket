@@ -85,7 +85,7 @@ export function Composer({ task }: { task: TaskView }) {
         <Button
           type="submit"
           size="icon"
-          className="size-11 shrink-0 rounded-full"
+          className="size-11 shrink-0"
           disabled={!text.trim() || send.isPending}
           aria-label={t.common.send}
         >

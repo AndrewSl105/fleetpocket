@@ -73,9 +73,9 @@ export type MockAttachment = { taskId: number; meta: Attachment; bytes: Uint8Arr
 
 let nextAttachmentId = 1
 
-/** Stores an image like the backend (in memory) and returns its event metadata. */
+/** Stores an attachment like the backend (in memory) and returns its event metadata. */
 export function addAttachment(taskId: number, name: string, mime: string, bytes: Uint8Array, width: number, height: number): Attachment {
-  const meta: Attachment = { id: nextAttachmentId++, name, mime: mime as Attachment['mime'], size: bytes.byteLength, width, height }
+  const meta: Attachment = { id: nextAttachmentId++, name, mime, size: bytes.byteLength, width, height }
   db.attachments.set(meta.id, { taskId, meta, bytes, deleted: false })
   return meta
 }
@@ -277,7 +277,18 @@ export function seed() {
 
   // A task waiting for an answer.
   const t5 = makeTask({ project_id: 'fleetpocket', title: 'Retry webhook deliveries with backoff', status: 'queued', created_at: ago(25), source: 'telegram' })
-  addEvent(t5.id, 'created', { attachments: [addAttachment(t5.id, 'retry-flow.png', 'image/png', DEMO_PNG, 160, 100)] }, false, ago(25))
+  addEvent(
+    t5.id,
+    'created',
+    {
+      attachments: [
+        addAttachment(t5.id, 'retry-flow.png', 'image/png', DEMO_PNG, 160, 100),
+        addAttachment(t5.id, 'retry-spec.md', 'text/plain', new TextEncoder().encode('# Retry\n\nBack off 1s, 2s, 4s.\n'), 0, 0),
+      ],
+    },
+    false,
+    ago(25),
+  )
   const r5 = startRun(t5.id, 'initial', t5.prompt, ago(24))
   addEvent(t5.id, 'assistant_text', { text: 'Webhook deliveries currently fail hard on the first 5xx. I can add retries in `internal/webhooks`.' }, true, ago(23))
   addEvent(t5.id, 'tool_use', { tool: 'Grep', summary: 'Grep "deliver(" internal/' }, true, ago(23))

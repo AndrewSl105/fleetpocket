@@ -25,7 +25,7 @@ export function InfoTab({ task }: { task: TaskView }) {
         <p className="rounded-xl bg-muted px-3.5 py-3 text-sm whitespace-pre-wrap">{task.prompt}</p>
       </section>
 
-      <dl className="mb-6 divide-y rounded-xl border px-3.5">
+      <dl className="mb-6 divide-y win-field px-3.5">
         <Row label={ti.created}>{dateTime(task.created_at)}</Row>
         <Row label={ti.updated}>{dateTime(task.updated_at)}</Row>
         {task.finished_at && <Row label={ti.finished}>{dateTime(task.finished_at)}</Row>}
@@ -49,7 +49,7 @@ export function InfoTab({ task }: { task: TaskView }) {
         {runs.length === 0 ? (
           <p className="text-sm text-muted-foreground">{ti.noRuns}</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border">
+          <div className="overflow-x-auto win-field">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr className="border-b">
