@@ -1,12 +1,12 @@
 /* Canvas: a board of terminal windows (docs/design/remote-nodes.md, section 6),
-   drawn as a Win98 desktop of MS-DOS prompt windows. */
+   drawn as an XP desktop of Command Prompt windows. */
 
 .fp-board {
   background-color: var(--desktop);
   touch-action: none;
 }
 
-/* Each terminal is a Win98 window around an MS-DOS prompt body. */
+/* Each terminal is a Luna window (blue frame, rounded title bar) around a Command Prompt body. */
 .fp-term {
   --term-bg: #000000;
   --term-fg: #c0c0c0;
@@ -15,31 +15,36 @@
   --term-ok: #55ff55;
   --term-bad: #ff5555;
   --term-ask: #ffff55;
-  padding: 3px;
-  background: var(--background);
+  padding: 0 3px 3px;
+  border-radius: 8px 8px 0 0;
+  background: var(--win-frame);
   color: var(--term-fg);
   box-shadow:
-    inset -1px -1px var(--win-dark),
-    inset 1px 1px var(--win-light),
-    inset -2px -2px var(--win-shadow),
-    inset 2px 2px var(--win-hi),
-    4px 4px 0 rgb(0 0 0 / 0.35);
+    inset 0 0 0 1px var(--win-frame-edge),
+    3px 4px 12px rgb(0 0 0 / 0.35);
+}
+.fp-term:not([data-focused='true']) {
+  background: var(--win-title-inactive-2);
 }
 
 .fp-term-bar {
-  background: linear-gradient(90deg, var(--win-title-inactive-from), var(--win-title-inactive-to));
-  color: var(--win-light);
+  margin: 0 -3px;
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(180deg, var(--win-title-inactive-1), var(--win-title-inactive-2) 10%, var(--win-title-inactive-2) 88%, var(--win-title-inactive-3));
+  color: var(--win-title-inactive-fg);
+  font-family: var(--font-title);
 }
 .fp-term[data-focused='true'] .fp-term-bar {
-  background: linear-gradient(90deg, var(--win-title-from), var(--win-title-to));
+  background: linear-gradient(180deg, var(--win-title-1), var(--win-title-2) 8%, var(--win-title-2) 40%, var(--win-title-3) 88%, var(--win-title-3) 93%, var(--win-title-4) 97%);
   color: var(--win-title-fg);
+  text-shadow: 1px 1px var(--win-title-shadow);
 }
 .fp-term-body {
   background: var(--term-bg);
 }
 
 .fp-term-body {
-  font-family: 'Fixedsys', 'Lucida Console', 'Courier New', ui-monospace, monospace;
+  font-family: 'Lucida Console', Consolas, 'Courier New', ui-monospace, monospace;
   font-size: 12px;
   line-height: 1.55;
   scrollbar-width: thin;

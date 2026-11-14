@@ -15,7 +15,7 @@ import { TITLE_H, type WindowState } from './layout'
 
 const tc = t.canvas
 
-/** Status light colours (the terminal is an MS-DOS prompt, black in both themes). */
+/** Status light colours (the terminal is a Command Prompt, black in both themes). */
 const LED: Record<TaskStatus, string> = {
   queued: '#8390a5',
   preparing: '#7aa2f7',
@@ -94,7 +94,7 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
           <BarButton label={win.min ? tc.restore : tc.minimize} onClick={onToggleMin}>
             <Minus className="size-3.5" />
           </BarButton>
-          <BarButton label={tc.close} onClick={onHide}>
+          <BarButton label={tc.close} onClick={onHide} close>
             <X className="size-3.5" />
           </BarButton>
         </div>
@@ -113,9 +113,8 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
   )
 })
 
-function BarButton({ label, onClick, asLink, children }: { label: string; onClick?: () => void; asLink?: string; children: React.ReactNode }) {
-  const cls =
-    'win-raised ml-0.5 flex h-[18px] w-5 items-center justify-center text-foreground active:win-pressed [&_svg]:size-3 [&_svg]:stroke-[3]'
+function BarButton({ label, onClick, asLink, close, children }: { label: string; onClick?: () => void; asLink?: string; close?: boolean; children: React.ReactNode }) {
+  const cls = 'win-caption ml-0.5 flex size-[21px] items-center justify-center [&_svg]:size-3 [&_svg]:stroke-[3]'
   if (asLink) {
     return (
       <Link to={asLink} className={cls} aria-label={label} title={label}>
@@ -124,7 +123,7 @@ function BarButton({ label, onClick, asLink, children }: { label: string; onClic
     )
   }
   return (
-    <button type="button" className={cls} onClick={onClick} aria-label={label} title={label}>
+    <button type="button" className={cls} onClick={onClick} aria-label={label} title={label} data-close={close || undefined}>
       {children}
     </button>
   )

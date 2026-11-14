@@ -3,86 +3,163 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Windows 98 look. Light is the classic silver scheme; dark is a dimmed
-   variant with the same bevel geometry. The bevel colours drive the
-   win-* utilities below. The palette applies in both run modes: in Telegram
-   mode src/telegram/theme.ts only switches light/dark. */
+/* Windows XP (Luna) look. Light is the classic blue Luna scheme on a beige
+   window face; dark is a dimmed variant with the same geometry. The --win-*
+   colours drive the win-* utilities below. The palette applies in both run
+   modes: in Telegram mode src/telegram/theme.ts only switches light/dark. */
 :root {
-  --radius: 0px;
-  --background: #c0c0c0;
+  --radius: 3px;
+  --background: #ece9d8;
   --foreground: #000000;
-  --card: #c0c0c0;
+  --card: #ece9d8;
   --card-foreground: #000000;
-  --popover: #c0c0c0;
+  --popover: #ffffff;
   --popover-foreground: #000000;
-  --primary: #000080;
+  --primary: #0054e3;
   --primary-foreground: #ffffff;
-  --secondary: #c0c0c0;
+  --secondary: #ece9d8;
   --secondary-foreground: #000000;
-  --muted: #dfdfdf;
-  --muted-foreground: #404040;
-  --accent: #d8d8d8;
+  --muted: #f4f3ee;
+  --muted-foreground: #5f5d52;
+  --accent: #dde7f7;
   --accent-foreground: #000000;
-  --destructive: #a00000;
-  --border: #808080;
-  --input: #808080;
+  --destructive: #c1272d;
+  --border: #aca899;
+  --input: #7f9db9;
   --ring: #000000;
-  --link: #0000ee;
-  --surface: #c0c0c0;
+  --link: #0066cc;
+  --surface: #ece9d8;
   --field: #ffffff;
-  --desktop: #008080;
+  --desktop: #3a6ea5;
   --win-hi: #ffffff;
-  --win-light: #dfdfdf;
-  --win-shadow: #808080;
-  --win-dark: #0a0a0a;
-  --win-title-from: #000080;
-  --win-title-to: #1084d0;
+  --win-light: #f1efe2;
+  --win-shadow: #aca899;
+  --win-dark: #716f64;
+  /* Window frame and title bar. */
+  --win-frame: #0054e3;
+  --win-frame-edge: #00138c;
+  --win-title-from: #0058ee;
+  --win-title-1: #0997ff;
+  --win-title-2: #0053ee;
+  --win-title-3: #0066ff;
+  --win-title-4: #003dd7;
   --win-title-fg: #ffffff;
-  --win-title-inactive-from: #808080;
-  --win-title-inactive-to: #b5b5b5;
-  --win-select: #000080;
+  --win-title-shadow: #0f1089;
+  --win-title-inactive-1: #a6b8f0;
+  --win-title-inactive-2: #7b98e5;
+  --win-title-inactive-3: #6a88dc;
+  --win-title-inactive-fg: #d8e4f8;
+  /* Push buttons. */
+  --win-btn-border: #003c74;
+  --win-btn-from: #ffffff;
+  --win-btn-mid: #ecebe6;
+  --win-btn-to: #d6d0c5;
+  --win-btn-press-from: #cdcac3;
+  --win-btn-press-mid: #e3e3db;
+  --win-btn-press-to: #f2f2f1;
+  --win-hover-1: #fff0cf;
+  --win-hover-2: #fbc761;
+  --win-hover-3: #e5a01a;
+  --win-focus-1: #cee7ff;
+  --win-focus-2: #98b8ea;
+  --win-focus-3: #6982ee;
+  /* Tabs, group boxes, scroll bars, progress. */
+  --win-tab-border: #919b9c;
+  --win-tab-hot: #e68b2c;
+  --win-tab-hot-2: #ffc73c;
+  --win-group: #d0d0bf;
+  --win-scroll-track: #f4f4f0;
+  --win-scroll-1: #c9d7fc;
+  --win-scroll-2: #b1c6f8;
+  --win-scroll-border: #8eaaf2;
+  --win-chunk-1: #acedad;
+  --win-chunk-2: #2ed330;
+  --win-chunk-3: #8fe791;
+  --win-select: #316ac5;
   --win-select-fg: #ffffff;
+  /* Taskbar and Start button. */
+  --win-taskbar-1: #3168d5;
+  --win-taskbar-2: #245edb;
+  --win-taskbar-3: #1941a5;
+  --win-start-1: #3c9c3c;
+  --win-start-2: #48b648;
+  --win-start-3: #2e862e;
+  --win-start-panel: #d3e5fa;
   --safe-top: 0px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-height: 100dvh;
 }
 
 .dark {
-  --background: #3a3a3a;
+  --background: #2f3138;
   --foreground: #f0f0f0;
-  --card: #3a3a3a;
+  --card: #2f3138;
   --card-foreground: #f0f0f0;
-  --popover: #3a3a3a;
+  --popover: #24262c;
   --popover-foreground: #f0f0f0;
-  --primary: #4f6fd0;
+  --primary: #5b8cff;
   --primary-foreground: #ffffff;
-  --secondary: #3a3a3a;
+  --secondary: #2f3138;
   --secondary-foreground: #f0f0f0;
-  --muted: #2c2c2c;
-  --muted-foreground: #b8b8b8;
-  --accent: #474747;
+  --muted: #26282e;
+  --muted-foreground: #b4b6bd;
+  --accent: #34405a;
   --accent-foreground: #f0f0f0;
   --destructive: #ff6b6b;
-  --border: #1e1e1e;
-  --input: #1e1e1e;
+  --border: #4a4d57;
+  --input: #50648a;
   --ring: #f0f0f0;
   --link: #8ab4ff;
-  --surface: #3a3a3a;
-  --field: #1c1c1c;
-  --desktop: #004040;
-  --win-hi: #707070;
-  --win-light: #4c4c4c;
-  --win-shadow: #222222;
-  --win-dark: #000000;
-  --win-title-from: #000060;
-  --win-title-to: #0b5a94;
-  --win-title-inactive-from: #303030;
-  --win-title-inactive-to: #555555;
-  --win-select: #1c3f9e;
+  --surface: #2f3138;
+  --field: #1b1c21;
+  --desktop: #1d3557;
+  --win-hi: #4a4d57;
+  --win-light: #393b43;
+  --win-shadow: #1e1f24;
+  --win-dark: #111215;
+  --win-frame: #0a3aa8;
+  --win-frame-edge: #00093f;
+  --win-title-from: #0a3aa8;
+  --win-title-1: #2a6fd6;
+  --win-title-2: #0a3aa8;
+  --win-title-3: #1349c2;
+  --win-title-4: #062a86;
+  --win-title-shadow: #00093f;
+  --win-title-inactive-1: #55607e;
+  --win-title-inactive-2: #444d68;
+  --win-title-inactive-3: #3a4259;
+  --win-title-inactive-fg: #aab4cc;
+  --win-btn-border: #6b8fd0;
+  --win-btn-from: #4c4f59;
+  --win-btn-mid: #3d4049;
+  --win-btn-to: #33363e;
+  --win-btn-press-from: #26282e;
+  --win-btn-press-mid: #2d2f36;
+  --win-btn-press-to: #393b43;
+  --win-hover-1: #8a6a2a;
+  --win-hover-2: #c48a2a;
+  --win-hover-3: #e5a01a;
+  --win-focus-1: #3a5a8a;
+  --win-focus-2: #4a74b8;
+  --win-focus-3: #5b8cff;
+  --win-tab-border: #4f5360;
+  --win-group: #4a4d57;
+  --win-scroll-track: #24262c;
+  --win-scroll-1: #4a5878;
+  --win-scroll-2: #3c4864;
+  --win-scroll-border: #5b6c94;
+  --win-select: #2f5fb3;
+  --win-taskbar-1: #1d4596;
+  --win-taskbar-2: #173a85;
+  --win-taskbar-3: #0e2660;
+  --win-start-1: #2d7a2d;
+  --win-start-2: #379037;
+  --win-start-3: #215f21;
+  --win-start-panel: #28344a;
 }
 
 @theme inline {
-  /* Win98 has no rounded corners; every radius step collapses to --radius (0). */
+  /* Luna rounds only a little; every radius step collapses to --radius (3 px). */
   --radius-xs: var(--radius);
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
@@ -112,15 +189,16 @@
   --color-surface: var(--surface);
   --color-field: var(--field);
   --color-desktop: var(--desktop);
-  --font-sans: Tahoma, 'MS Sans Serif', 'Microsoft Sans Serif', Geneva, Verdana, 'DejaVu Sans', sans-serif;
-  --font-mono: 'Fixedsys', 'Lucida Console', 'Courier New', ui-monospace, monospace;
+  --font-sans: Tahoma, 'Segoe UI', Verdana, Geneva, 'DejaVu Sans', sans-serif;
+  --font-title: 'Trebuchet MS', Tahoma, 'Segoe UI', Verdana, sans-serif;
+  --font-mono: 'Lucida Console', Consolas, 'Courier New', ui-monospace, monospace;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring;
   }
-  /* Win98 focus: a dotted rectangle instead of a glow ring. */
+  /* XP focus: a dotted rectangle inside the control. */
   :focus-visible {
     outline: 1px dotted var(--ring);
     outline-offset: -4px;
@@ -129,26 +207,25 @@
     background: var(--win-select);
     color: var(--win-select-fg);
   }
-  /* Bevelled scrollbars (WebKit/Blink; Firefox gets plain colours). */
+  /* Luna scroll bars (WebKit/Blink; Firefox gets plain colours). */
   * {
-    scrollbar-color: var(--win-shadow) var(--muted);
+    scrollbar-color: var(--win-scroll-2) var(--win-scroll-track);
   }
   ::-webkit-scrollbar {
     width: 16px;
     height: 16px;
   }
   ::-webkit-scrollbar-track {
-    background-color: var(--muted);
-    background-image: repeating-conic-gradient(var(--background) 0 25%, var(--win-hi) 0 50%);
-    background-size: 2px 2px;
+    background: var(--win-scroll-track);
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--background);
-    box-shadow:
-      inset -1px -1px var(--win-dark),
-      inset 1px 1px var(--win-light),
-      inset -2px -2px var(--win-shadow),
-      inset 2px 2px var(--win-hi);
+    border: 1px solid var(--win-scroll-border);
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--win-scroll-1), var(--win-scroll-2));
+    box-shadow: inset 1px 1px var(--win-hi);
+  }
+  ::-webkit-scrollbar-thumb:horizontal {
+    background: linear-gradient(180deg, var(--win-scroll-1), var(--win-scroll-2));
   }
   ::-webkit-scrollbar-corner {
     background: var(--background);
@@ -156,7 +233,6 @@
   html,
   body {
     @apply bg-background text-foreground;
-    -webkit-font-smoothing: none;
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -175,97 +251,214 @@
   }
 }
 
-/* Win98 bevels. Raised = buttons and windows, sunken = text fields and wells. */
+/* Luna controls. Borders are inset box-shadows so the 98-era box sizes hold. */
 @utility win-raised {
-  background-color: var(--background);
-  box-shadow:
-    inset -1px -1px var(--win-dark),
-    inset 1px 1px var(--win-hi),
-    inset -2px -2px var(--win-shadow),
-    inset 2px 2px var(--win-light);
+  border-radius: 3px;
+  background-color: var(--win-btn-mid);
+  background-image: linear-gradient(180deg, var(--win-btn-from), var(--win-btn-mid) 86%, var(--win-btn-to));
+  box-shadow: inset 0 0 0 1px var(--win-btn-border);
+  &:where(button, a, [role='button']):where(:not(:disabled)):hover {
+    box-shadow:
+      inset 0 0 0 1px var(--win-btn-border),
+      inset 0 2px var(--win-hover-1),
+      inset 0 -3px var(--win-hover-3),
+      inset 2px 0 var(--win-hover-2),
+      inset -2px 0 var(--win-hover-2);
+  }
 }
-/* The dialog's default button: a raised button inside a black frame. */
+/* The dialog's default button: a push button with the blue focus glow. */
 @utility win-default {
-  background-color: var(--background);
+  border-radius: 3px;
+  background-color: var(--win-btn-mid);
+  background-image: linear-gradient(180deg, var(--win-btn-from), var(--win-btn-mid) 86%, var(--win-btn-to));
   box-shadow:
-    inset -1px -1px var(--win-dark),
-    inset 1px 1px var(--win-dark),
-    inset -2px -2px var(--win-dark),
-    inset 2px 2px var(--win-hi),
-    inset -3px -3px var(--win-shadow),
-    inset 3px 3px var(--win-light);
+    inset 0 0 0 1px var(--win-btn-border),
+    inset 0 2px var(--win-focus-1),
+    inset 0 -3px var(--win-focus-3),
+    inset 2px 0 var(--win-focus-2),
+    inset -2px 0 var(--win-focus-2);
+  &:where(button, a, [role='button']):where(:not(:disabled)):hover {
+    box-shadow:
+      inset 0 0 0 1px var(--win-btn-border),
+      inset 0 2px var(--win-hover-1),
+      inset 0 -3px var(--win-hover-3),
+      inset 2px 0 var(--win-hover-2),
+      inset -2px 0 var(--win-hover-2);
+  }
 }
+/* Held down, or a toggle that is on. */
 @utility win-pressed {
-  box-shadow:
-    inset -1px -1px var(--win-hi),
-    inset 1px 1px var(--win-dark),
-    inset -2px -2px var(--win-light),
-    inset 2px 2px var(--win-shadow);
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, var(--win-btn-press-from), var(--win-btn-press-mid) 8%, var(--win-btn-press-mid) 94%, var(--win-btn-press-to));
+  box-shadow: inset 0 0 0 1px var(--win-btn-border);
 }
+/* A window: blue frame, rounded top. Pair with a win-titlebar child. */
 @utility win-window {
+  border-radius: 8px 8px 0 0;
   background-color: var(--card);
   box-shadow:
-    inset -1px -1px var(--win-dark),
-    inset 1px 1px var(--win-light),
-    inset -2px -2px var(--win-shadow),
-    inset 2px 2px var(--win-hi);
+    inset 0 0 0 1px var(--win-frame-edge),
+    inset 0 0 0 3px var(--win-frame),
+    2px 3px 10px rgb(0 0 0 / 0.3);
+}
+/* A plain raised surface: cards, toolbars, chat bubbles. */
+@utility win-panel {
+  border-radius: 3px;
+  background-color: var(--card);
+  background-image: linear-gradient(180deg, var(--win-hi), transparent 60%);
+  box-shadow:
+    inset 0 0 0 1px var(--win-shadow),
+    0 1px 2px rgb(0 0 0 / 0.12);
+}
+/* Context menus, list boxes and toasts: white with a thin frame. */
+@utility win-menu {
+  background-color: var(--popover);
+  box-shadow:
+    inset 0 0 0 1px var(--win-shadow),
+    2px 2px 4px rgb(0 0 0 / 0.3);
 }
 @utility win-sunken {
-  box-shadow:
-    inset -1px -1px var(--win-hi),
-    inset 1px 1px var(--win-shadow),
-    inset -2px -2px var(--win-light),
-    inset 2px 2px var(--win-dark);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--win-shadow);
 }
 @utility win-field {
   background-color: var(--field);
-  box-shadow:
-    inset -1px -1px var(--win-hi),
-    inset 1px 1px var(--win-shadow),
-    inset -2px -2px var(--win-light),
-    inset 2px 2px var(--win-dark);
+  box-shadow: inset 0 0 0 1px var(--input);
 }
-/* Group box frame: an etched line. */
+/* Group box frame. */
 @utility win-etched {
-  border: 1px solid var(--win-shadow);
-  box-shadow:
-    inset 1px 1px var(--win-hi),
-    1px 1px var(--win-hi);
+  border: 1px solid var(--win-group);
+  border-radius: 4px;
 }
 /* A thin status-bar well. */
 @utility win-status {
-  box-shadow:
-    inset -1px -1px var(--win-hi),
-    inset 1px 1px var(--win-shadow);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--win-shadow);
 }
 @utility win-titlebar {
-  background: linear-gradient(90deg, var(--win-title-from), var(--win-title-to));
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(180deg, var(--win-title-1), var(--win-title-2) 8%, var(--win-title-2) 40%, var(--win-title-3) 88%, var(--win-title-3) 93%, var(--win-title-4) 97%);
   color: var(--win-title-fg);
+  font-family: var(--font-title);
   font-weight: 700;
+  text-shadow: 1px 1px var(--win-title-shadow);
 }
 @utility win-titlebar-inactive {
-  background: linear-gradient(90deg, var(--win-title-inactive-from), var(--win-title-inactive-to));
-  color: var(--win-light);
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(180deg, var(--win-title-inactive-1), var(--win-title-inactive-2) 10%, var(--win-title-inactive-2) 88%, var(--win-title-inactive-3));
+  color: var(--win-title-inactive-fg);
+  font-family: var(--font-title);
   font-weight: 700;
+}
+/* Title bar buttons: white-rimmed blue squares; data-close makes the red X. */
+@utility win-caption {
+  border: 1px solid #ffffff;
+  border-radius: 3px;
+  color: #ffffff;
+  background: radial-gradient(circle at 90% 90%, #0054e9, #2263d5 55%, #4479e4 90%, #a3bbec);
+  &:hover {
+    filter: brightness(1.15);
+  }
+  &:active {
+    filter: brightness(0.85);
+  }
+  &[data-close] {
+    background: radial-gradient(circle at 90% 90%, #c13004, #e04a1f 55%, #ee7a55 90%, #f8c8b4);
+  }
+}
+/* Property-sheet tabs: data-state=active (Radix) or aria-selected marks the front tab. */
+@utility win-tab {
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--win-hi), var(--win-btn-mid) 70%, var(--win-btn-to));
+  box-shadow:
+    inset 1px 0 var(--win-tab-border),
+    inset -1px 0 var(--win-tab-border),
+    inset 0 1px var(--win-tab-border);
+  &:where([data-state='active'], [aria-selected='true']) {
+    background: var(--field);
+    box-shadow:
+      inset 1px 0 var(--win-tab-border),
+      inset -1px 0 var(--win-tab-border),
+      inset 0 3px var(--win-tab-hot-2),
+      inset 0 1px var(--win-tab-hot);
+  }
 }
 @utility win-selected {
   background-color: var(--win-select);
   color: var(--win-select-fg);
 }
+/* "Bliss": blue sky over green hills. */
 @utility win-desktop {
   background-color: var(--desktop);
+  background-image:
+    radial-gradient(140% 55% at 15% 100%, #7cc34d 0%, #4f9a2d 60%, transparent 61%),
+    radial-gradient(120% 45% at 90% 100%, #69b23f 0%, #3f8a24 58%, transparent 59%),
+    radial-gradient(40% 14% at 70% 28%, rgb(255 255 255 / 0.7), transparent 70%),
+    radial-gradient(30% 10% at 25% 18%, rgb(255 255 255 / 0.55), transparent 70%),
+    linear-gradient(180deg, #1c5ccf 0%, #4a8de6 35%, #a4c8f2 62%, #d3e6f8 72%);
+  background-attachment: fixed;
+  .dark & {
+    background-image:
+      radial-gradient(140% 55% at 15% 100%, #2f5a22 0%, #1f3f17 60%, transparent 61%),
+      radial-gradient(120% 45% at 90% 100%, #2a5020 0%, #1a3512 58%, transparent 59%),
+      linear-gradient(180deg, #0b1b3d 0%, #173361 45%, #2b4f80 72%);
+  }
 }
 /* Separator: a groove (shadow line above a highlight line). */
 @utility win-groove {
   border-top: 1px solid var(--win-shadow);
   border-bottom: 1px solid var(--win-hi);
 }
+/* The taskbar and its window buttons. */
+@utility win-taskbar {
+  background: linear-gradient(180deg, #3c81f3 0%, var(--win-taskbar-1) 6%, var(--win-taskbar-2) 15%, var(--win-taskbar-2) 85%, var(--win-taskbar-3));
+  color: #ffffff;
+}
+@utility win-task {
+  border-radius: 3px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #5d9cf8, #3c81f3 15%, #3a7ff1 85%, #2d6ad8);
+  box-shadow:
+    inset 0 0 0 1px #1c4bb0,
+    inset 1px 1px rgb(255 255 255 / 0.3);
+  &:where([aria-current='page'], [aria-pressed='true']) {
+    background: linear-gradient(180deg, #1941a5, #1e52b7 15%, #1e52b7 85%, #2560c8);
+    box-shadow:
+      inset 0 0 0 1px #10307c,
+      inset 1px 1px rgb(0 0 0 / 0.3);
+  }
+}
+/* The green Start button. */
+@utility win-start {
+  border-radius: 0 10px 10px 0;
+  color: #ffffff;
+  font-family: var(--font-title);
+  font-style: italic;
+  font-weight: 700;
+  text-shadow: 1px 1px rgb(0 0 0 / 0.45);
+  background: linear-gradient(180deg, #78c46b, var(--win-start-2) 12%, var(--win-start-1) 60%, var(--win-start-3));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 0.4),
+    inset -1px -1px rgb(0 0 0 / 0.25);
+  &:where([aria-current='page']) {
+    background: linear-gradient(180deg, var(--win-start-3), var(--win-start-1) 40%, var(--win-start-1));
+  }
+}
 
-/* Win98 indeterminate progress: blue blocks marching across a field. */
+/* XP indeterminate progress: green chunks sliding across a field. */
 .fp-progress {
   width: 40%;
-  background: repeating-linear-gradient(90deg, var(--win-select) 0 8px, transparent 8px 10px);
-  animation: fp-progress 1.4s steps(14) infinite;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 8px, var(--field) 8px 10px),
+    linear-gradient(180deg, var(--win-chunk-1), var(--win-chunk-2) 45%, var(--win-chunk-3));
+  animation: fp-progress 1.6s linear infinite;
+}
+/* Determinate progress: the same chunks, width set inline. */
+.fp-chunks {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 6px, var(--field) 6px 8px),
+    linear-gradient(180deg, var(--win-chunk-1), var(--win-chunk-2) 45%, var(--win-chunk-3));
 }
 @keyframes fp-progress {
   from {

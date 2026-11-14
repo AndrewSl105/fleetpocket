@@ -8,46 +8,49 @@
 <meta name="description" content="Run Claude Code against your GitHub repositories from your phone, in isolated containers, and get a pull request back. Self-hosted, MIT.">
 <link rel="icon" type="image/svg+xml" href="docs/brand/fleetpocket-icon.svg">
 <style>
-/* Windows 98 look, same palette as the web client (web/src/index.css). */
-:root{--hi:#FFFFFF;--light:#DFDFDF;--sh:#808080;--dk:#0A0A0A;--face:#C0C0C0;--navy:#000080;--title-to:#1084D0;--teal:#008080}
+/* Windows XP (Luna) look, same palette as the web client (web/src/index.css). */
+:root{--hi:#FFFFFF;--light:#F1EFE2;--sh:#ACA899;--dk:#716F64;--face:#ECE9D8;--navy:#0054E3;--sel:#316AC5;--frame:#0054E3;--frame-edge:#00138C;--btn-bd:#003C74;--field-bd:#7F9DB9;--teal:#3A6EA5}
 *{box-sizing:border-box}
 html{scroll-padding-top:12px}
-body{margin:0;background:var(--teal);color:#000;font-family:Tahoma,'MS Sans Serif','Microsoft Sans Serif',Geneva,Verdana,'DejaVu Sans',sans-serif;font-size:14px;-webkit-font-smoothing:none;padding-bottom:44px}
-a{color:#0000EE}
-::selection{background:var(--navy);color:#FFFFFF}
+body{margin:0;color:#000;font-family:Tahoma,'Segoe UI',Verdana,Geneva,'DejaVu Sans',sans-serif;font-size:14px;padding-bottom:44px;background-color:var(--teal);background-image:radial-gradient(140% 55% at 15% 100%,#7CC34D 0%,#4F9A2D 60%,transparent 61%),radial-gradient(120% 45% at 90% 100%,#69B23F 0%,#3F8A24 58%,transparent 59%),radial-gradient(40% 14% at 70% 28%,rgba(255,255,255,.7),transparent 70%),radial-gradient(30% 10% at 25% 18%,rgba(255,255,255,.55),transparent 70%),linear-gradient(180deg,#1C5CCF 0%,#4A8DE6 35%,#A4C8F2 62%,#D3E6F8 72%);background-attachment:fixed}
+a{color:#0066CC}
+::selection{background:var(--sel);color:#FFFFFF}
 :focus-visible{outline:1px dotted #000;outline-offset:-4px}
-.mono{font-family:'Lucida Console','Courier New',ui-monospace,monospace}
+.mono{font-family:'Lucida Console',Consolas,'Courier New',ui-monospace,monospace}
 h1,h2,h3{margin:0;font-weight:700}
 
-/* Bevels */
-.raised{background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hi),inset -2px -2px var(--sh),inset 2px 2px var(--light)}
-.pressed{box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--dk),inset -2px -2px var(--light),inset 2px 2px var(--sh)}
-.sunken{box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--sh),inset -2px -2px var(--light),inset 2px 2px var(--dk)}
-.field{background:#FFFFFF;box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--sh),inset -2px -2px var(--light),inset 2px 2px var(--dk)}
-.status{box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--sh)}
-.etched{border:1px solid var(--sh);box-shadow:inset 1px 1px var(--hi),1px 1px var(--hi)}
+/* Luna controls */
+.raised{border-radius:3px;background:linear-gradient(180deg,#FFFFFF,#ECEBE6 86%,#D6D0C5);box-shadow:inset 0 0 0 1px var(--btn-bd)}
+.pressed{border-radius:3px;background:linear-gradient(180deg,#CDCAC3,#E3E3DB 8%,#E3E3DB 94%,#F2F2F1);box-shadow:inset 0 0 0 1px var(--btn-bd)}
+.sunken{border-radius:3px;box-shadow:inset 0 0 0 1px var(--sh)}
+.field{background:#FFFFFF;box-shadow:inset 0 0 0 1px var(--field-bd)}
+.status{border-radius:2px;box-shadow:inset 0 0 0 1px var(--sh)}
+.etched{border:1px solid #D0D0BF;border-radius:4px}
 .groove{height:2px;border-top:1px solid var(--sh);border-bottom:1px solid var(--hi)}
+.panel{background:var(--face);background-image:linear-gradient(180deg,#FFFFFF,transparent 60%);box-shadow:inset 0 0 0 1px var(--sh)}
 
 /* Windows */
-.win{background:var(--face);padding:3px;box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--light),inset -2px -2px var(--sh),inset 2px 2px var(--hi),4px 4px 0 rgba(0,0,0,0.25)}
-.tb{display:flex;align-items:center;gap:6px;height:24px;padding:0 3px 0 4px;background:linear-gradient(90deg,var(--navy),var(--title-to));color:#FFFFFF;font-weight:700;font-size:13px}
-.tb.off{background:linear-gradient(90deg,#808080,#B5B5B5);color:var(--light)}
+.win{background:var(--face);padding:0 3px 3px;border-radius:8px 8px 0 0;box-shadow:inset 0 0 0 1px var(--frame-edge),inset 0 0 0 3px var(--frame),3px 4px 14px rgba(0,0,0,0.35)}
+.tb{display:flex;align-items:center;gap:6px;height:30px;margin:0 -3px;padding:0 5px 0 8px;border-radius:7px 7px 0 0;background:linear-gradient(180deg,#0997FF,#0053EE 8%,#0053EE 40%,#0066FF 88%,#0066FF 93%,#003DD7 97%);color:#FFFFFF;font-family:'Trebuchet MS',Tahoma,sans-serif;font-weight:700;font-size:14px;text-shadow:1px 1px #0F1089}
+.tb.off{background:linear-gradient(180deg,#A6B8F0,#7B98E5 10%,#7B98E5 88%,#6A88DC);color:#D8E4F8;text-shadow:none}
 .tb-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tb-b{display:flex;gap:2px}
-.tb-b span{width:18px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:#000}
-.tb-b span:last-child{margin-left:2px}
-.menu{display:flex;flex-wrap:wrap;gap:0 2px;padding:2px 0;font-size:14px}
+.tb-b span{width:21px;height:21px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #FFFFFF;border-radius:3px;background:radial-gradient(circle at 90% 90%,#0054E9,#2263D5 55%,#4479E4 90%,#A3BBEC);box-shadow:none}
+.tb-b span:last-child{background:radial-gradient(circle at 90% 90%,#C13004,#E04A1F 55%,#EE7A55 90%,#F8C8B4)}
+.tb-b svg{stroke:#FFFFFF}
+.tb-b svg:not([fill]){fill:#FFFFFF}
+.menu{display:flex;flex-wrap:wrap;gap:0 2px;padding:2px 0;font-size:14px;border-bottom:1px solid #FFFFFF}
 .menu a{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;color:#000;text-decoration:none}
-.menu a:hover,.menu a:focus-visible{background:var(--navy);color:#FFFFFF}
+.menu a:hover,.menu a:focus-visible{background:var(--sel);color:#FFFFFF}
 .menu u{text-underline-offset:2px}
 .sb{display:flex;gap:2px;padding-top:2px;font-size:12px}
 .sb > span{padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;min-width:88px;padding:0 20px;border:0;font:inherit;font-size:15px;color:#000;text-decoration:none;cursor:pointer;background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hi),inset -2px -2px var(--sh),inset 2px 2px var(--light)}
-.btn.def{font-weight:700;box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--dk),inset -2px -2px var(--dk),inset 2px 2px var(--hi),inset -3px -3px var(--sh),inset 3px 3px var(--light)}
-.btn:active{box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--dk),inset -2px -2px var(--light),inset 2px 2px var(--sh)}
-.btn:hover{color:#000}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;min-width:88px;padding:0 20px;border:0;border-radius:3px;font:inherit;font-size:15px;color:#000;text-decoration:none;cursor:pointer;background:linear-gradient(180deg,#FFFFFF,#ECEBE6 86%,#D6D0C5);box-shadow:inset 0 0 0 1px var(--btn-bd)}
+.btn.def{font-weight:700;box-shadow:inset 0 0 0 1px var(--btn-bd),inset 0 2px #CEE7FF,inset 0 -3px #6982EE,inset 2px 0 #98B8EA,inset -2px 0 #98B8EA}
+.btn:hover{color:#000;box-shadow:inset 0 0 0 1px var(--btn-bd),inset 0 2px #FFF0CF,inset 0 -3px #E5A01A,inset 2px 0 #FBC761,inset -2px 0 #FBC761}
+.btn:active{background:linear-gradient(180deg,#CDCAC3,#E3E3DB 8%,#E3E3DB 94%,#F2F2F1);box-shadow:inset 0 0 0 1px var(--btn-bd)}
 
 /* Layout */
 .page{max-width:1200px;margin:0 auto;padding:20px 12px 28px;display:flex;flex-direction:column;gap:28px}
@@ -98,36 +101,39 @@ h1,h2,h3{margin:0;font-weight:700}
 .fp-steps{list-style:none;margin:0;padding:4px;display:flex;flex-direction:column;gap:2px}
 .fp-step{width:100%;text-align:left;display:flex;flex-direction:column;gap:8px;padding:8px 10px;border:0;background:transparent;cursor:pointer;font:inherit;color:inherit}
 .fp-step-h{display:flex;align-items:baseline;gap:10px;padding:2px 4px;margin:-2px -4px}
-.fp-step-n{font-size:12px;color:#404040}
+.fp-step-n{font-size:12px;color:#5F5D52}
 .fp-step-t{font-size:17px;font-weight:700}
-.fp-step[aria-current="step"] .fp-step-h{background:var(--navy);color:#FFFFFF}
+.fp-step[aria-current="step"] .fp-step-h{background:var(--sel);color:#FFFFFF}
 .fp-step[aria-current="step"] .fp-step-n{color:#FFFFFF}
 .fp-step-body,.fp-step-bar{display:none}
 .fp-step[aria-current="step"] .fp-step-body,.fp-step[aria-current="step"] .fp-step-bar{display:block}
 .fp-step-body{padding-left:30px;font-size:14px;line-height:1.5;color:#202020}
-.fp-step-bar{margin-left:30px;height:18px;padding:3px;background:#FFFFFF;box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--sh)}
-.fp-step-bar span{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,var(--navy) 0 8px,transparent 8px 10px)}
+.fp-step-bar{margin-left:30px;height:18px;padding:2px;border:1px solid #686868;border-radius:3px;background:#FFFFFF}
+.fp-step-bar span{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,transparent 0 8px,#FFFFFF 8px 10px),linear-gradient(180deg,#ACEDAD,#2ED330 45%,#8FE791)}
 
-/* App demo (mirrors the Win98 web client) */
+/* App demo (mirrors the XP web client) */
 .fp-it{transition:opacity .4s,transform .4s;opacity:0;transform:translateY(10px)}
 .fp-it.on{opacity:1;transform:none}
 .fp-div{height:22px;display:flex;align-items:center;gap:12px;font-size:11px;color:#404040}
-.fp-div::before,.fp-div::after{content:"";height:1px;flex:1;background:#808080}
+.fp-div::before,.fp-div::after{content:"";height:1px;flex:1;background:#ACA899}
 .fp-tool{height:32px;display:flex;align-items:center;gap:8px;padding:0 8px;font-size:12px;color:#404040;white-space:nowrap}
 .fp-tool b{font-weight:400;color:#000}
 .fp-scr{position:absolute;inset:0;transition:opacity .35s ease,transform .35s ease;background:var(--face)}
-.fp-tab{display:flex;align-items:center;justify-content:center;font-size:12px;color:#000;background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hi),inset -2px -2px var(--sh),inset 2px 2px var(--light)}
-.fp-tab.on{font-weight:700;background:#DFDFDF;box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--dk),inset -2px -2px var(--light),inset 2px 2px var(--sh)}
-.fp-chip{height:30px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;color:#000;background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hi),inset -2px -2px var(--sh),inset 2px 2px var(--light)}
-.fp-card{padding:12px 14px;background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hi),inset -2px -2px var(--sh),inset 2px 2px var(--light)}
+.fp-tab{display:flex;align-items:center;justify-content:center;font-size:12px;color:#000;border-radius:3px;background:linear-gradient(180deg,#FFFFFF,#ECEBE6 86%,#D6D0C5);box-shadow:inset 0 0 0 1px var(--btn-bd)}
+.fp-tab.on{font-weight:700;background:linear-gradient(180deg,#CDCAC3,#E3E3DB 8%,#E3E3DB 94%,#F2F2F1)}
+.fp-chip{height:30px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;color:#000;border-radius:3px;background:linear-gradient(180deg,#FFFFFF,#ECEBE6 86%,#D6D0C5);box-shadow:inset 0 0 0 1px var(--btn-bd)}
+.fp-card{padding:12px 14px;border-radius:3px;background:var(--face);background-image:linear-gradient(180deg,#FFFFFF,transparent 60%);box-shadow:inset 0 0 0 1px var(--sh),0 1px 2px rgba(0,0,0,.12)}
 .fp-badge{flex:none;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid;font-size:12px;white-space:nowrap}
 .fp-field{position:absolute;left:16px;width:328px;height:40px;padding:0 4px 0 10px;display:flex;align-items:center;justify-content:space-between;font-size:14px}
 .fp-drop{width:18px;height:32px;display:flex;align-items:center;justify-content:center}
 .fp-label{position:absolute;left:16px;font-size:14px}
-.fp-nav{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#000;min-height:44px;background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hi),inset -2px -2px var(--sh),inset 2px 2px var(--light)}
-.fp-nav.on{font-weight:700;background:#DFDFDF;box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--dk),inset -2px -2px var(--light),inset 2px 2px var(--sh)}
-.fp-press{background:var(--face);box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--dk),inset -2px -2px var(--dk),inset 2px 2px var(--hi),inset -3px -3px var(--sh),inset 3px 3px var(--light)}
-.fp-press.on{box-shadow:inset -1px -1px var(--hi),inset 1px 1px var(--dk),inset -2px -2px var(--light),inset 2px 2px var(--sh)}
+.fp-nav{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#FFFFFF;min-height:44px;border-radius:3px;background:linear-gradient(180deg,#5D9CF8,#3C81F3 15%,#3A7FF1 85%,#2D6AD8);box-shadow:inset 0 0 0 1px #1C4BB0,inset 1px 1px rgba(255,255,255,.3)}
+.fp-nav.start{border-radius:10px;font-family:'Trebuchet MS',Tahoma,sans-serif;font-style:italic;font-size:15px;text-shadow:1px 1px rgba(0,0,0,.45);background:linear-gradient(180deg,#78C46B,#48B648 12%,#3C9C3C 60%,#2E862E);box-shadow:inset 0 1px rgba(255,255,255,.4),inset -1px -1px rgba(0,0,0,.25)}
+.fp-nav.on{font-weight:700;background:linear-gradient(180deg,#1941A5,#1E52B7 15%,#1E52B7 85%,#2560C8);box-shadow:inset 0 0 0 1px #10307C,inset 1px 1px rgba(0,0,0,.3)}
+.fp-nav.start.on{background:linear-gradient(180deg,#2E862E,#3C9C3C 40%,#3C9C3C)}
+.fp-bar{background:linear-gradient(180deg,#3C81F3 0%,#3168D5 6%,#245EDB 15%,#245EDB 85%,#1941A5)}
+.fp-press{border-radius:3px;background:linear-gradient(180deg,#FFFFFF,#ECEBE6 86%,#D6D0C5);box-shadow:inset 0 0 0 1px var(--btn-bd),inset 0 2px #CEE7FF,inset 0 -3px #6982EE,inset 2px 0 #98B8EA,inset -2px 0 #98B8EA}
+.fp-press.on{background:linear-gradient(180deg,#CDCAC3,#E3E3DB 8%,#E3E3DB 94%,#F2F2F1);box-shadow:inset 0 0 0 1px var(--btn-bd)}
 [data-st-icon]{display:none}
 [data-st-icon].on{display:inline}
 
@@ -137,32 +143,37 @@ h1,h2,h3{margin:0;font-weight:700}
 .hull-box .bd{flex:1;display:flex;flex-direction:column;gap:12px;padding:16px 16px 18px}
 .hull-box h3{font-size:20px}
 .hull-box ul{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45}
-.hull-arrow{flex:0 1 120px;min-width:96px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:16px 8px;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:#FFFFFF;text-align:center}
+.hull-arrow{flex:0 1 120px;min-width:96px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:16px 8px;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:#FFFFFF;text-align:center;text-shadow:1px 1px rgba(0,0,0,.5)}
 
 /* Features: a details list view */
 .lv{margin-top:4px}
 .lv-h,.lv-r{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 24px;padding:0 12px}
 .lv-h{padding:0;gap:0;flex-wrap:nowrap}
-.lv-h span{padding:4px 8px;font-size:12px}
-.lv-r{padding:18px 12px;border-bottom:1px dotted #808080}
+.lv-h span.raised{padding:4px 8px;font-size:12px;border-radius:0;background:linear-gradient(180deg,#FFFFFF,#EBEADB);box-shadow:inset -1px 0 #D6D2C2,inset 0 -3px #E2DECD}
+.lv-r{padding:18px 12px;border-bottom:1px solid #EBEADB}
 .lv-r:last-child{border-bottom:0}
 .lv-n{flex:0 0 36px;font-size:13px;color:var(--navy)}
 .lv-r h3{flex:1 1 240px;display:flex;align-items:center;gap:10px;font-size:clamp(20px,2.4vw,26px)}
 .lv-r p{margin:0;flex:2 1 300px;font-size:15px;line-height:1.5}
-.lv-tag{flex:0 0 auto;font-size:12px;padding:2px 8px;border:1px solid #808080;background:var(--face)}
+.lv-tag{flex:0 0 auto;font-size:12px;padding:2px 8px;border:1px solid var(--sh);border-radius:3px;background:var(--face)}
 @media (max-width:640px){.lv-h{display:none}}
 
 /* GitHub App setup */
 .fp-gh{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
+.fp-gh li.raised{background:#FFFFFF;box-shadow:inset 0 0 0 1px var(--sh)}
 .fp-gh li{display:flex;flex-direction:column;gap:8px;padding:14px 16px 16px;font-size:14px;line-height:1.5}
-.fp-gh code{font-family:'Lucida Console','Courier New',ui-monospace,monospace;font-size:12.5px;padding:0 4px;background:#FFFFFF;border:1px solid #808080;overflow-wrap:anywhere}
+.fp-gh code{font-family:'Lucida Console',Consolas,'Courier New',ui-monospace,monospace;font-size:12.5px;padding:0 4px;background:#F4F3EE;border:1px solid var(--sh);overflow-wrap:anywhere}
 .fp-gh-n{font-size:12px;color:var(--navy)}
 
 /* Taskbar */
-.taskbar{position:fixed;left:0;right:0;bottom:0;z-index:10;height:40px;display:flex;align-items:center;gap:4px;padding:3px 3px 3px 3px;background:var(--face);box-shadow:inset 0 1px var(--light),inset 0 2px var(--hi)}
-.taskbar a{flex:0 1 auto;min-width:0;min-height:34px;padding:0 10px;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;justify-content:flex-start}
-.taskbar .start{flex:none;min-width:0;font-weight:700;padding:0 8px}
-.taskbar .tray{margin-left:auto;flex:none;display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;font-size:12px}
+.taskbar{position:fixed;left:0;right:0;bottom:0;z-index:10;height:40px;display:flex;align-items:center;gap:4px;padding:3px 0 3px 0;background:linear-gradient(180deg,#3C81F3 0%,#3168D5 6%,#245EDB 15%,#245EDB 85%,#1941A5)}
+.taskbar a{flex:0 1 160px;min-width:0;min-height:32px;padding:0 10px;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;justify-content:flex-start;color:#FFFFFF;background:linear-gradient(180deg,#5D9CF8,#3C81F3 15%,#3A7FF1 85%,#2D6AD8);box-shadow:inset 0 0 0 1px #1C4BB0,inset 1px 1px rgba(255,255,255,.3)}
+.taskbar a:hover{color:#FFFFFF;filter:brightness(1.1);box-shadow:inset 0 0 0 1px #1C4BB0,inset 1px 1px rgba(255,255,255,.3)}
+.taskbar a:active{background:linear-gradient(180deg,#1941A5,#1E52B7 15%,#1E52B7 85%,#2560C8);box-shadow:inset 0 0 0 1px #10307C,inset 1px 1px rgba(0,0,0,.3)}
+.taskbar .start{flex:none;min-width:0;min-height:40px;margin:-3px 4px -3px 0;padding:0 18px 0 10px;border-radius:0 12px 12px 0;font-family:'Trebuchet MS',Tahoma,sans-serif;font-size:18px;font-style:italic;font-weight:700;text-shadow:1px 1px rgba(0,0,0,.45);background:linear-gradient(180deg,#78C46B,#48B648 12%,#3C9C3C 60%,#2E862E);box-shadow:inset 0 1px rgba(255,255,255,.4),inset -1px -1px rgba(0,0,0,.25)}
+.taskbar .start:hover{filter:brightness(1.08);box-shadow:inset 0 1px rgba(255,255,255,.4),inset -1px -1px rgba(0,0,0,.25)}
+.taskbar .start:active{background:linear-gradient(180deg,#2E862E,#3C9C3C 40%,#3C9C3C)}
+.taskbar .tray{margin-left:auto;flex:none;display:flex;align-items:center;gap:6px;height:40px;margin-top:-3px;margin-bottom:-3px;padding:0 14px;font-size:12px;color:#FFFFFF;border-radius:0;background:linear-gradient(180deg,#0C59B9,#139EE9 6%,#18B5F2 12%,#139BEB 40%,#1290E8 90%,#0D8DEA);box-shadow:inset 1px 0 #095BC9,inset 2px 0 rgba(255,255,255,.25)}
 @media (max-width:640px){.taskbar .tsk{display:none}}
 </style>
 </head>
@@ -173,7 +184,7 @@ h1,h2,h3{margin:0;font-weight:700}
 <section id="top" class="win" aria-labelledby="hero-title">
 <div class="tb">
 <svg viewBox="250 225 800 800" width="16" height="16" fill="#FFFFFF" aria-hidden="true"><path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path><path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path><path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path><path d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path></svg>
-<span class="tb-t">Fleetpocket 98</span>
+<span class="tb-t">Fleetpocket XP</span>
 <span class="tb-b" aria-hidden="true">
 <span class="raised"><svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 6h5v2H1z"></path></svg></span>
 <span class="raised"><svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="#000"><path d="M.5.5h8v8h-8z"></path><path d="M.5 1.5h8" stroke-width="2"></path></svg></span>
@@ -191,9 +202,9 @@ h1,h2,h3{margin:0;font-weight:700}
 <div class="body" style="display: flex; flex-wrap: wrap; align-items: center; gap: 32px">
 <div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
 <span class="status" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase">
-<span style="width: 8px; height: 8px; background: #008000; box-shadow: inset -1px -1px #004000"></span>
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #2ED330; box-shadow: inset -1px -1px #1A8A1C"></span>
 Self-hosted · MIT · Single owner</span>
-<h1 id="hero-title" style="font-size: clamp(40px, 6.4vw, 80px); line-height: 1; letter-spacing: -0.03em">Your coding fleet, <span style="color: #000080">in your pocket.</span></h1>
+<h1 id="hero-title" style="font-size: clamp(40px, 6.4vw, 80px); line-height: 1; letter-spacing: -0.03em">Your coding fleet, <span style="color: #0054E3">in your pocket.</span></h1>
 <p class="lead" style="max-width: 540px; font-size: 19px">Run Claude Code against your GitHub repositories from your phone, in isolated containers, and get a pull request back.</p>
 <div style="display: flex; flex-wrap: wrap; gap: 10px">
 <a class="btn def" href="https://github.com/AndrewSl105/fleetpocket">Self-host it</a>
@@ -202,7 +213,7 @@ Self-hosted · MIT · Single owner</span>
 </div>
 
 <div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-<button type="button" id="sea" class="fp-sea-btn sunken" aria-label="Make a splash behind the fleet" style="position: relative; display: block; width: 100%; min-height: 440px; padding: 2px; margin: 0; border: 0; background: #F0F0F0; cursor: pointer; font: inherit; color: inherit; touch-action: pan-y; overflow: hidden">
+<button type="button" id="sea" class="fp-sea-btn sunken" aria-label="Make a splash behind the fleet" style="position: relative; display: block; width: 100%; min-height: 440px; padding: 2px; margin: 0; border: 0; background: #FFFFFF; cursor: pointer; font: inherit; color: inherit; touch-action: pan-y; overflow: hidden">
 <img class="fp-hero-img" src="docs/brand/fleetpocket-hero.png" alt="" loading="lazy" decoding="async">
 <svg viewBox="150 200 1000 900" preserveAspectRatio="xMidYMid meet" style="position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); overflow: visible" aria-hidden="true">
 <defs>
@@ -356,10 +367,10 @@ Restart</button>
 <div id="phWrap" style="flex: 1 1 384px; min-width: 0; display: flex; justify-content: center">
 <div id="phSizer" style="width: 384px; height: 784px; position: relative">
 <div id="phone" role="img" aria-label="Animated demo of the Fleetpocket mobile app: a task is created, Claude works in a container, asks a question, and opens a pull request." style="position: absolute; left: 0; top: 0; width: 384px; height: 784px; transform-origin: 0 0; border-radius: 34px; background: #2A2A2A; padding: 12px; box-shadow: inset -2px -2px #000, inset 2px 2px #6A6A6A, 6px 6px 0 rgba(0, 0, 0, 0.3)">
-<div style="position: relative; width: 360px; height: 760px; border-radius: 14px; overflow: hidden; background: #C0C0C0; font-family: Tahoma, 'MS Sans Serif', Geneva, Verdana, sans-serif; color: #000">
+<div style="position: relative; width: 360px; height: 760px; border-radius: 14px; overflow: hidden; background: #ECE9D8; font-family: Tahoma, 'Segoe UI', Geneva, Verdana, sans-serif; color: #000">
 
 <div id="scrList" class="fp-scr">
-<div style="position: absolute; left: 16px; top: 16px; font-size: 20px; font-weight: 700">Tasks</div>
+<div style="position: absolute; left: 16px; top: 12px; width: 328px; height: 32px; padding: 0 10px; display: flex; align-items: center; border-radius: 7px 7px 0 0; background: linear-gradient(180deg,#0997FF,#0053EE 8%,#0053EE 40%,#0066FF 88%,#003DD7 97%); color: #FFFFFF; text-shadow: 1px 1px #0F1089; font-family: 'Trebuchet MS', Tahoma, sans-serif; font-size: 17px; font-weight: 700">Tasks</div>
 <div style="position: absolute; left: 16px; top: 56px; width: 328px; height: 44px; display: grid; gap: 2px; grid-template-columns: repeat(4, minmax(0, 1fr))">
 <span id="tabActive" class="fp-tab on">Active</span>
 <span id="tabPr" class="fp-tab">PR open</span>
@@ -374,7 +385,7 @@ Restart</button>
 <div class="fp-card">
 <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start">
 <span style="font-size: 14px; font-weight: 700; line-height: 1.35">Retry webhook deliveries with backoff</span>
-<span class="fp-badge" style="border-color: rgba(0, 0, 128, 0.25); background: rgba(0, 0, 128, 0.12); color: #000080">
+<span class="fp-badge" style="border-color: rgba(0, 84, 227, 0.25); background: rgba(0, 84, 227, 0.12); color: #0054E3">
 <svg class="fp-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9"></path></svg>
 Running</span>
 </div>
@@ -407,7 +418,7 @@ PR open</span>
 </div>
 
 <div id="scrNew" class="fp-scr" style="opacity: 0">
-<div style="position: absolute; left: 16px; top: 16px; font-size: 20px; font-weight: 700">New task</div>
+<div style="position: absolute; left: 16px; top: 12px; width: 328px; height: 32px; padding: 0 10px; display: flex; align-items: center; border-radius: 7px 7px 0 0; background: linear-gradient(180deg,#0997FF,#0053EE 8%,#0053EE 40%,#0066FF 88%,#003DD7 97%); color: #FFFFFF; text-shadow: 1px 1px #0F1089; font-family: 'Trebuchet MS', Tahoma, sans-serif; font-size: 17px; font-weight: 700">New task</div>
 <div class="fp-label" style="top: 60px">Project</div>
 <div class="fp-field field" style="top: 84px">Vatary<span class="fp-drop raised"><svg width="8" height="5" viewBox="0 0 8 5" aria-hidden="true"><path d="M0 0h8L4 5z"></path></svg></span></div>
 <div class="fp-label" style="top: 140px">Repository</div>
@@ -442,10 +453,10 @@ PR open</span>
 <span id="prChip" style="flex: none; display: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid rgba(139, 92, 246, 0.5); color: #6D28D9; font-weight: 700">PR #42</span>
 </div>
 <div id="branch" class="mono" style="position: absolute; left: 16px; top: 104px; font-size: 12px; color: #404040; opacity: 0; transition: opacity .3s">agent/57-add-csv-export</div>
-<div style="position: absolute; left: 0; top: 128px; width: 360px; height: 44px; border-bottom: 1px solid #FFFFFF; box-shadow: 0 1px #808080 inset; display: flex; align-items: flex-end; gap: 0; padding: 0 8px">
-<span style="position: relative; z-index: 1; display: flex; align-items: center; height: 34px; margin-bottom: -1px; padding: 0 14px; font-size: 13px; font-weight: 700; background: #C0C0C0; box-shadow: inset 1px 1px #FFFFFF, inset -1px 0 #0A0A0A, inset -2px 0 #808080">Activity</span>
-<span style="display: flex; align-items: center; height: 30px; padding: 0 14px; font-size: 13px; background: #C0C0C0; box-shadow: inset 1px 1px #FFFFFF, inset -1px 0 #0A0A0A, inset -2px 0 #808080">Diff</span>
-<span style="display: flex; align-items: center; height: 30px; padding: 0 14px; font-size: 13px; background: #C0C0C0; box-shadow: inset 1px 1px #FFFFFF, inset -1px 0 #0A0A0A, inset -2px 0 #808080">Info</span>
+<div style="position: absolute; left: 0; top: 128px; width: 360px; height: 44px; box-shadow: 0 -1px #919B9C inset; display: flex; align-items: flex-end; gap: 0; padding: 0 8px">
+<span style="position: relative; z-index: 1; display: flex; align-items: center; height: 34px; padding: 0 14px; font-size: 13px; font-weight: 700; border-radius: 3px 3px 0 0; background: #FFFFFF; box-shadow: inset 1px 0 #919B9C, inset -1px 0 #919B9C, inset 0 3px #FFC73C, inset 0 1px #E68B2C">Activity</span>
+<span style="display: flex; align-items: center; height: 30px; padding: 0 14px; font-size: 13px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg,#FFFFFF,#ECEBE6 70%,#D6D0C5); box-shadow: inset 1px 0 #919B9C, inset -1px 0 #919B9C, inset 0 1px #919B9C">Diff</span>
+<span style="display: flex; align-items: center; height: 30px; padding: 0 14px; font-size: 13px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg,#FFFFFF,#ECEBE6 70%,#D6D0C5); box-shadow: inset 1px 0 #919B9C, inset -1px 0 #919B9C, inset 0 1px #919B9C">Info</span>
 </div>
 
 <div style="position: absolute; left: 0; top: 172px; width: 360px; height: 478px; overflow: hidden">
@@ -480,7 +491,7 @@ PR open</span>
 </div>
 </div>
 
-<div class="raised" style="position: absolute; left: 0; top: 650px; width: 360px; height: 110px; padding: 8px 12px 0">
+<div class="panel" style="position: absolute; left: 0; top: 650px; width: 360px; height: 110px; padding: 8px 12px 0">
 <div id="compHint" style="height: 18px; padding: 0 4px; font-size: 12px; color: #404040; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"></div>
 <div style="margin-top: 6px; display: flex; align-items: flex-end; gap: 6px">
 <span class="raised" style="flex: none; width: 36px; height: 40px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="3" y="3" width="18" height="18"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"></path></svg></span>
@@ -490,9 +501,9 @@ PR open</span>
 </div>
 </div>
 
-<div id="nav" class="raised" style="position: absolute; left: 0; top: 700px; width: 360px; height: 60px; padding: 4px 4px 12px; display: grid; gap: 4px; grid-template-columns: repeat(4, minmax(0, 1fr)); transition: opacity .3s">
+<div id="nav" class="fp-bar" style="position: absolute; left: 0; top: 700px; width: 360px; height: 60px; padding: 4px 4px 12px; display: grid; gap: 4px; grid-template-columns: repeat(4, minmax(0, 1fr)); transition: opacity .3s">
 <span id="navTasks" class="fp-nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="3" y="5" width="6" height="6"></rect><path d="m3 17 2 2 4-4M13 6h8M13 12h8M13 18h8"></path></svg>Tasks</span>
-<span id="navPlus" class="fp-nav" style="font-weight: 700"><svg viewBox="250 225 800 800" width="16" height="16" fill="#064BFF" aria-hidden="true"><path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path><path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path><path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path><path d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path></svg>New</span>
+<span id="navPlus" class="fp-nav start" style="font-weight: 700"><svg viewBox="250 225 800 800" width="18" height="18" fill="#FFFFFF" aria-hidden="true"><path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path><path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path><path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path><path d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path></svg>New</span>
 <span class="fp-nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M2 4h7l2 3h11v13H2z"></path></svg>Projects</span>
 <span class="fp-nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"></path></svg>Settings</span>
 </div>
@@ -523,12 +534,12 @@ PR open</span>
 <p class="lead" style="flex: 1 1 320px; max-width: 420px">The agent never gets a GitHub token or Docker access. The server holds every credential and performs every side effect.</p>
 </div>
 
-<div class="hull sunken" style="background: #008080; padding: 16px">
+<div class="hull sunken" style="background: linear-gradient(180deg, #4A8DE6, #3A6EA5); padding: 16px">
 
 <div class="hull-box win">
 <div class="tb off"><span class="tb-t">You · on deck</span></div>
 <div class="bd">
-<svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" fill="#C0C0C0" stroke="#000" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" fill="#000080"></rect><path d="M11 18.5h2" stroke="#000" stroke-width="1.4"></path></svg>
+<svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" fill="#ECE9D8" stroke="#000" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" fill="#0054E3"></rect><path d="M11 18.5h2" stroke="#000" stroke-width="1.4"></path></svg>
 <h3>Your phone</h3>
 <ul>
 <li>Telegram bot, Mini App or web</li>
@@ -566,7 +577,7 @@ PR open</span>
 <div class="hull-box win">
 <div class="tb off"><span class="tb-t">Container · the vessel</span></div>
 <div class="bd">
-<svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z" fill="#C0C0C0" stroke="#000" stroke-width="1.4"></path><path d="m3 8 9 5 9-5M12 13v8" fill="none" stroke="#000" stroke-width="1.4"></path></svg>
+<svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z" fill="#ECE9D8" stroke="#000" stroke-width="1.4"></path><path d="m3 8 9 5 9-5M12 13v8" fill="none" stroke="#000" stroke-width="1.4"></path></svg>
 <h3>Claude Code at work</h3>
 <ul>
 <li>A fresh Docker container per task</li>
@@ -601,19 +612,19 @@ PR open</span>
 </div>
 <div class="lv-r">
 <span class="lv-n mono">01</span>
-<h3><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H9l-5 4v-4H3z" fill="#FFFFFF" stroke="#000" stroke-width="1.4"></path><path d="M7 8h10M7 11h7" stroke="#000080" stroke-width="1.6"></path></svg>Telegram bot</h3>
+<h3><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H9l-5 4v-4H3z" fill="#FFFFFF" stroke="#000" stroke-width="1.4"></path><path d="M7 8h10M7 11h7" stroke="#0054E3" stroke-width="1.6"></path></svg>Telegram bot</h3>
 <p>Start tasks and answer the agent from the chat you already have open.</p>
 <span class="lv-tag">Chat</span>
 </div>
 <div class="lv-r">
 <span class="lv-n mono">02</span>
-<h3><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" fill="#C0C0C0" stroke="#000" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" fill="#000080"></rect></svg>Telegram Mini App</h3>
+<h3><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" fill="#ECE9D8" stroke="#000" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" fill="#0054E3"></rect></svg>Telegram Mini App</h3>
 <p>The full task board inside Telegram: projects, statuses and live progress.</p>
 <span class="lv-tag">Mini App</span>
 </div>
 <div class="lv-r">
 <span class="lv-n mono">03</span>
-<h3><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" fill="#C0C0C0" stroke="#000" stroke-width="1.4"></rect><rect x="4" y="5" width="16" height="10" fill="#008080"></rect><path d="M8 21h8M12 17v4" stroke="#000" stroke-width="1.4"></path></svg>Web client</h3>
+<h3><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" fill="#ECE9D8" stroke="#000" stroke-width="1.4"></rect><rect x="4" y="5" width="16" height="10" fill="#3A6EA5"></rect><path d="M8 21h8M12 17v4" stroke="#000" stroke-width="1.4"></path></svg>Web client</h3>
 <p>The same app in any browser, with a sidebar layout on desktop.</p>
 <span class="lv-tag">Browser</span>
 </div>
@@ -636,12 +647,12 @@ PR open</span>
 <div class="body" style="display: flex; flex-direction: column; gap: 28px">
 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px 32px">
 <svg viewBox="250 260 800 730" style="flex: 0 0 96px; width: 96px; height: auto" aria-hidden="true">
-<g fill="#C0C0C0" stroke="#000" stroke-width="14">
+<g fill="#ECE9D8" stroke="#000" stroke-width="14">
 <path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
 <path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
 <path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
 </g>
-<path fill="#000080" stroke="#000" stroke-width="14" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
+<path fill="#0054E3" stroke="#000" stroke-width="14" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
 </svg>
 <div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
 <h2 id="launch-title" style="font-size: clamp(36px, 6vw, 72px); line-height: 1; letter-spacing: -0.03em">Launch your fleet.</h2>
@@ -670,14 +681,14 @@ PR open</span>
 </div>
 </section>
 
-<footer style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; padding: 0 4px; font-size: 12px; color: #FFFFFF">
+<footer style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; padding: 0 4px; font-size: 12px; color: #FFFFFF; text-shadow: 1px 1px rgba(0, 0, 0, 0.6)">
 <span>Fleetpocket · MIT License · Heading 045°</span>
 <span>Not affiliated with Anthropic or Telegram</span>
 </footer>
 </main>
 
 <nav class="taskbar" aria-label="Taskbar">
-<a class="btn start" href="#top"><svg viewBox="250 225 800 800" width="18" height="18" fill="#064BFF" aria-hidden="true"><path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path><path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path><path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path><path d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path></svg>Start</a>
+<a class="btn start" href="#top"><svg viewBox="250 225 800 800" width="20" height="20" fill="#FFFFFF" style="filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.4))" aria-hidden="true"><path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path><path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path><path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path><path d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path></svg>start</a>
 <a class="btn tsk" href="#how">Ship's log</a>
 <a class="btn tsk" href="#security">The hull</a>
 <a class="btn tsk" href="#features">The helm</a>
@@ -761,7 +772,7 @@ PR open</span>
 // App demo: a 24.5 s replay of the mobile app, driven by one clock.
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var ACCENT = '#000080';
+  var ACCENT = '#0054E3';
   var LOOP = 24500;
   var STEPS = [
     { a: 0, b: 6800, title: 'Describe the change', body: 'Pick a project and say what you want, from Telegram, the Mini App or the web.' },
@@ -772,10 +783,10 @@ PR open</span>
   ];
   var PROMPT = 'Add a CSV export button to the Tables toolbar. Escape quotes and cover it with tests.';
   var TONE = {
-    accent: { bg: 'rgba(0, 0, 128, 0.12)', fg: ACCENT, bd: 'rgba(0, 0, 128, 0.25)' },
+    accent: { bg: 'rgba(0, 84, 227, 0.12)', fg: ACCENT, bd: 'rgba(0, 84, 227, 0.25)' },
     amber: { bg: 'rgba(245, 158, 11, 0.15)', fg: '#B45309', bd: 'rgba(245, 158, 11, 0.3)' },
     violet: { bg: 'rgba(139, 92, 246, 0.15)', fg: '#6D28D9', bd: 'rgba(139, 92, 246, 0.3)' },
-    grey: { bg: '#DFDFDF', fg: '#404040', bd: '#808080' }
+    grey: { bg: '#F4F3EE', fg: '#5F5D52', bd: '#ACA899' }
   };
   var META = {
     queued: ['Queued', 'grey'], preparing: ['Preparing', 'accent'], running: ['Running', 'accent'],
@@ -817,8 +828,8 @@ PR open</span>
   });
   var stIcons = document.querySelectorAll('[data-st-icon]');
   var spinners = document.querySelectorAll('.fp-spin');
-  var RAISED = 'inset -1px -1px #0A0A0A, inset 1px 1px #FFFFFF, inset -2px -2px #808080, inset 2px 2px #DFDFDF';
-  var PRESSED = 'inset -1px -1px #FFFFFF, inset 1px 1px #0A0A0A, inset -2px -2px #DFDFDF, inset 2px 2px #808080';
+  var RAISED = 'inset 0 0 0 1px #003C74';
+  var PRESSED = 'inset 0 0 0 1px #003C74, inset 1px 1px rgba(0, 0, 0, 0.25)';
 
   function btw(a, b) { return t >= a && t < b; }
 
@@ -826,7 +837,7 @@ PR open</span>
     STEPS.forEach(function (st, i) {
       var on = btw(st.a, st.b), s = stepEls[i];
       if (on) s.btn.setAttribute('aria-current', 'step'); else s.btn.removeAttribute('aria-current');
-      // Win98 progress bars fill in whole blocks.
+      // XP progress bars fill in whole chunks.
       var pct = on ? Math.min(100, ((t - st.a) / (st.b - st.a)) * 100) : 0;
       s.bar.style.width = on ? (Math.floor(pct / 5) * 5) + '%' : '0';
     });
