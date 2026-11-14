@@ -234,7 +234,7 @@ function Canvas() {
         </div>
         {!loading && tasks.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="pointer-events-auto win-window px-6 py-5 text-center">
+            <div className="pointer-events-auto win-panel px-6 py-5 text-center">
               <p className="text-sm">{tc.empty}</p>
               <Button asChild className="mt-3 h-10">
                 <Link to="/new">{t.tasks.createFirst}</Link>
@@ -245,7 +245,7 @@ function Canvas() {
       </div>
 
       {/* Toolbar */}
-      <div className="absolute top-3 left-3 flex items-center gap-1 win-raised p-1">
+      <div className="absolute top-3 left-3 flex items-center gap-1 win-panel p-1">
         <div role="radiogroup" aria-label={tc.show} className="flex">
           {(['live', 'all'] as const).map((f) => (
             <button

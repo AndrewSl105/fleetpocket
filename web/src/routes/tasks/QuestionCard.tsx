@@ -31,7 +31,7 @@ export function QuestionCard({ taskId, item, open }: Props) {
     <section
       aria-label={t.task.question.title}
       className={cn(
-        'win-window px-3.5 py-3',
+        'win-panel px-3.5 py-3',
         open && !answered && 'outline-2 outline-offset-[-5px] outline-amber-500',
       )}
     >

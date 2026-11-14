@@ -100,8 +100,8 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
       )}
       {uploading && (
         <div className="space-y-1" role="status" aria-live="polite">
-          <div className="win-field h-3 overflow-hidden p-[2px]">
-            <div className="h-full bg-[repeating-linear-gradient(90deg,var(--win-select)_0_6px,transparent_6px_8px)] transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
+          <div className="win-field h-3 overflow-hidden rounded-[3px] p-[2px]">
+            <div className="fp-chunks h-full transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">{t.attachments.uploading(Math.round(progress * 100))}</p>
         </div>

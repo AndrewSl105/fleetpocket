@@ -20,9 +20,9 @@ export function TaskCard({ task, projectName, selected }: { task: Task; projectN
       to={`/tasks/${task.id}`}
       aria-current={selected ? 'page' : undefined}
       className={cn(
-        'win-raised block p-3.5 active:win-pressed',
+        'win-panel block p-3.5 hover:bg-accent active:bg-muted',
         waiting && 'border-l-4 border-amber-500',
-        selected && 'win-pressed bg-muted outline-1 outline-offset-[-5px] outline-dotted outline-foreground',
+        selected && 'bg-accent outline-2 outline-offset-[-2px] outline-(--win-select)',
       )}
     >
       <div className="flex items-start justify-between gap-3">

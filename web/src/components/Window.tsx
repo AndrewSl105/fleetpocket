@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/** A Windows 98 window: bevelled frame, gradient title bar, then the body. */
+/** A Windows XP window: blue frame with a rounded Luna title bar, then the body. */
 export function Window({
   title,
   icon,
@@ -21,8 +21,8 @@ export function Window({
   children: ReactNode
 }) {
   return (
-    <section className={cn('win-window flex flex-col p-[3px]', className)}>
-      <div className={cn('flex h-[22px] shrink-0 items-center gap-1 pr-0.5 pl-1 text-sm', inactive ? 'win-titlebar-inactive' : 'win-titlebar')}>
+    <section className={cn('win-window flex flex-col px-[3px] pb-[3px]', className)}>
+      <div className={cn('-mx-[3px] flex h-[30px] shrink-0 items-center gap-1.5 pr-1 pl-2 text-[13px]', inactive ? 'win-titlebar-inactive' : 'win-titlebar')}>
         {icon}
         <span className="min-w-0 flex-1 truncate">{title}</span>
         {controls}
@@ -32,15 +32,16 @@ export function Window({
   )
 }
 
-/** A small raised title bar button (minimise, maximise, close). */
-export function TitleButton({ label, onClick, children }: { label: string; onClick?: () => void; children: ReactNode }) {
+/** A title bar button (minimise, maximise, close); `close` makes it the red X. */
+export function TitleButton({ label, onClick, close, children }: { label: string; onClick?: () => void; close?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="win-raised flex h-[16px] w-[18px] items-center justify-center text-foreground active:win-pressed [&_svg]:size-3"
+      data-close={close || undefined}
+      className="win-caption flex size-[21px] items-center justify-center [&_svg]:size-3 [&_svg]:stroke-[3]"
     >
       {children}
     </button>
