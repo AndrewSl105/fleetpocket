@@ -48,35 +48,35 @@ export function AppShell() {
     <div className="flex h-(--app-height) overflow-hidden bg-background pt-(--safe-top)">
       <DeepLink />
       {/* Desktop sidebar: a Start menu that stays open */}
-      <aside className="win-raised hidden w-56 shrink-0 p-[3px] lg:flex">
-        <div className="win-titlebar flex w-6 shrink-0 items-end justify-center pb-2">
-          <span className="text-base tracking-wide whitespace-nowrap [writing-mode:vertical-rl] rotate-180">
-            {t.app.name} <span className="font-normal">98</span>
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 px-2 py-3">
+      <aside className="hidden w-60 shrink-0 flex-col overflow-hidden rounded-tr-[8px] bg-(--win-frame) p-[3px] pl-0 lg:flex">
+        <div className="win-titlebar flex items-center gap-2.5 px-2.5 py-2.5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[3px] border-2 border-white/80 bg-white shadow-[1px_1px_2px_rgb(0_0_0/0.4)]">
             <Logo className="size-7" />
-            <span className="font-bold">{t.app.name}</span>
-          </div>
-          <div className="win-groove mx-1 mb-1 h-0.5" />
-          <nav className="flex flex-col" aria-label="Main">
-            {SIDEBAR_NAV.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'flex h-10 items-center gap-3 px-3 text-sm',
-                  isActive(pathname, item.to)
-                    ? 'bg-(--win-select) text-(--win-select-fg)'
-                    : 'text-foreground hover:bg-(--win-select) hover:text-(--win-select-fg)',
-                )}
-              >
-                <item.icon className="size-5" aria-hidden="true" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          </span>
+          <span className="truncate text-[15px]">{t.app.name}</span>
+        </div>
+        <div className="h-0.5 shrink-0 bg-[linear-gradient(90deg,transparent,#da884a_50%,transparent)]" aria-hidden="true" />
+        <nav className="flex min-h-0 flex-1 flex-col bg-field py-1.5" aria-label="Main">
+          {SIDEBAR_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={cn(
+                'mx-1 flex h-10 items-center gap-3 rounded-[2px] px-2.5 text-sm',
+                isActive(pathname, item.to)
+                  ? 'win-selected font-bold'
+                  : 'text-foreground hover:bg-(--win-select) hover:text-(--win-select-fg)',
+              )}
+            >
+              <item.icon className="size-5" aria-hidden="true" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="win-taskbar flex h-9 shrink-0 items-center justify-end px-3 text-xs" aria-hidden="true">
+          <span className="font-(family-name:--font-title) italic">
+            {t.app.name} <span className="font-bold">XP</span>
+          </span>
         </div>
       </aside>
 
@@ -85,11 +85,11 @@ export function AppShell() {
         <div className="min-h-0 flex-1">
           <Outlet />
         </div>
-        {/* Mobile bottom tabs, only on tab roots: the taskbar, with New as the Start button */}
+        {/* Mobile bottom tabs, only on tab roots: the taskbar, with New as the green Start button */}
         {!deep && (
           <nav
             aria-label="Main"
-            className="win-raised grid shrink-0 grid-cols-4 gap-1 px-1 pt-1 pb-[calc(var(--safe-bottom)+4px)] lg:hidden"
+            className="win-taskbar grid shrink-0 grid-cols-4 gap-1 px-1 pt-1 pb-[calc(var(--safe-bottom)+4px)] lg:hidden"
           >
             {NAV.map((item) => {
               const active = isActive(pathname, item.to)
@@ -99,14 +99,15 @@ export function AppShell() {
                   to={item.to}
                   onClick={() => haptic.select()}
                   className={cn(
-                    'flex min-h-11 items-center justify-center gap-1 px-1 text-[12px] text-foreground',
-                    active ? 'win-pressed bg-muted font-bold' : 'win-raised',
+                    'flex min-h-11 items-center justify-center gap-1 px-1 text-[12px]',
+                    'primary' in item ? 'win-start rounded-[10px] text-[15px]' : 'win-task',
+                    active && 'font-bold',
                   )}
                 >
                   {'primary' in item ? (
                     <>
-                      <Logo className="size-4 shrink-0" />
-                      <span className="font-bold">{item.label}</span>
+                      <Logo className="size-5 shrink-0 text-white drop-shadow-[1px_1px_0_rgb(0_0_0/0.4)]" />
+                      <span>{item.label}</span>
                     </>
                   ) : (
                     <>

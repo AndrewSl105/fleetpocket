@@ -92,7 +92,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
         <div className="flex justify-end">
           <div
             className={cn(
-              'win-raised max-w-[85%] px-3.5 py-2.5 text-[15px] whitespace-pre-wrap text-foreground',
+              'win-panel max-w-[85%] bg-accent px-3.5 py-2.5 text-[15px] whitespace-pre-wrap text-foreground',
               item.pending && 'opacity-70',
             )}
           >

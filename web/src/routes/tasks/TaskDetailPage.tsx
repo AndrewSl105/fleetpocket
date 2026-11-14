@@ -46,7 +46,7 @@ function TaskDetail({ id }: { id: number }) {
   return (
     <div className="flex h-full flex-col">
       <TaskHeader task={view} stopping={stopping} />
-      <div role="tablist" aria-label="Task sections" className="flex shrink-0 items-end px-2 pt-1 [box-shadow:inset_0_-1px_var(--win-hi)]">
+      <div role="tablist" aria-label="Task sections" className="flex shrink-0 items-end px-2 pt-1 [box-shadow:inset_0_-1px_var(--win-tab-border)]">
         {TABS.map((name) => (
           <button
             key={name}
@@ -57,8 +57,8 @@ function TaskDetail({ id }: { id: number }) {
               setTab(name)
             }}
             className={cn(
-              'relative h-10 px-3 text-sm text-foreground [box-shadow:inset_1px_1px_var(--win-hi),inset_-1px_0_var(--win-dark),inset_-2px_0_var(--win-shadow)]',
-              tab === name && 'z-10 -mx-0.5 h-11 bg-background font-bold',
+              'win-tab relative h-10 px-3 text-sm text-foreground',
+              tab === name && 'z-10 -mx-0.5 h-11 font-bold',
             )}
           >
             {t.task.tabs[name]}
