@@ -75,7 +75,7 @@ export function AppShell() {
         </nav>
         <div className="win-taskbar flex h-9 shrink-0 items-center justify-end px-3 text-xs" aria-hidden="true">
           <span className="font-(family-name:--font-title) italic">
-            {t.app.name} <span className="font-bold">XP</span>
+            {t.app.name}
           </span>
         </div>
       </aside>
