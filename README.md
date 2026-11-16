@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/brand/fleetpocket-icon.png" alt="Fleetpocket logo" width="96"></p>
+<p align="center"><img src="docs/brand/fleetpocket-icon.png" alt="FleetOps logo" width="96"></p>
 
-<h1 align="center">Fleetpocket</h1>
+<h1 align="center">FleetOps</h1>
 
 <p align="center"><strong>Run coding agents (Claude Code, OpenAI Codex or Cursor) on your GitHub repositories from your phone, and get a pull request back.</strong></p>
 
-<p align="center"><a href="https://andrewsl105.github.io/fleetpocket/">Website</a> · <a href="docs/DEPLOY.md">Set it up</a> · MIT license</p>
+<p align="center"><a href="https://andrewsl105.github.io/FleetOps/">Website</a> · <a href="docs/DEPLOY.md">Set it up</a> · MIT license</p>
 
 Describe a change from your phone. The agent you pick does the work in an isolated container on your own server, asks you when it needs a decision, and opens a pull request when it's done. You review it whenever you like.
 
@@ -17,13 +17,13 @@ Describe a change from your phone. The agent you pick does the work in an isolat
 
 ## Steer from wherever you are
 
-- **Install it on your phone**: Fleetpocket is a progressive web app. Add it to your home screen and it opens full screen like a native app.
+- **Install it on your phone**: FleetOps is a progressive web app. Add it to your home screen and it opens full screen like a native app.
 - **Built for mobile first**: the task board, projects, live progress and answer buttons are laid out for a phone, with a taskbar at the bottom for one-handed use.
 - **The same app on desktop**: in any browser, with a Start menu sidebar and the task next to the list, all in a Windows XP look.
 
 ## Your keys stay with you
 
-Fleetpocket runs on your server, for one owner: you. The agent works in a sealed container with only the code it was asked to change. It gets no GitHub token, no Docker access and no host network. Your server keeps every key and does the pushing and the pull requests itself. You sign in with a password and a code from your authenticator app.
+FleetOps runs on your server, for one owner: you. The agent works in a sealed container with only the code it was asked to change. It gets no GitHub token, no Docker access and no host network. Your server keeps every key and does the pushing and the pull requests itself. You sign in with a password and a code from your authenticator app.
 
 ## Set it up
 
@@ -32,14 +32,14 @@ You need a small Linux server (Ubuntu 24.04 with Docker), a domain, a key for at
 **1. Run the installer** on the server:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/AndrewSl105/FleetOps/main/deploy/install.sh | sh
 ```
 
 It installs Docker if needed, asks for your domain, which agents to use and their keys, writes `/srv/fleetpocket/.env`, starts everything and prints a setup link.
 
 - **Claude**: run `claude setup-token` on your computer, or use an Anthropic API key. ([details](docs/DEPLOY.md#4-claude-auth))
 - **Codex or Cursor** (optional): set `OPENAI_API_KEY` for Codex or `CURSOR_API_KEY` for Cursor, and `DEFAULT_AGENT` to choose the agent for projects that don't pick one.
-- **GitHub**: create your own GitHub App and install it on the repositories Fleetpocket may work on. ([details](docs/DEPLOY.md#5-github-app))
+- **GitHub**: create your own GitHub App and install it on the repositories FleetOps may work on. ([details](docs/DEPLOY.md#5-github-app))
 
 **5. Fill in `.env`** with your domain, the values from steps 3 and 4, and two random secrets. Every variable is described in the file. ([details](docs/DEPLOY.md#2-env))
 
