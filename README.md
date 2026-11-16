@@ -1,10 +1,10 @@
+<img src="docs/brand/fleetpocket-icon.png" alt="Fleetpocket logo" width="96" align="right">
+
 # Fleetpocket
 
 **Run Claude Code on your GitHub repositories from your phone, and get a pull request back.**
 
 [Website](https://andrewsl105.github.io/fleetpocket/) · [Set it up](docs/DEPLOY.md) · MIT license
-
-<img src="docs/screenshots/demo.gif" alt="Fleetpocket demo: a task is created, Claude works on it, asks a question and opens a pull request" width="320">
 
 Describe a change in Telegram or in the web app. Claude Code does the work in an isolated container on your own server, asks you when it needs a decision, and opens a pull request when it's done. You review it whenever you like.
 
@@ -19,21 +19,11 @@ Describe a change in Telegram or in the web app. Claude Code does the work in an
 
 - **Telegram bot**: start tasks and answer Claude from the chat you already have open. Give each project its own topic in a group.
 - **Telegram Mini App**: the full task board inside Telegram, with projects, statuses and live progress.
-- **Web app**: the same app in any browser, with a sidebar layout on desktop.
+- **Web app**: the same app in any browser, in a Windows XP look: a Start menu sidebar on desktop and a taskbar on phones.
 
 ## Your keys stay with you
 
 Fleetpocket runs on your server, for one owner: you. Claude works in a sealed container with only the code it was asked to change. It gets no GitHub token, no Docker access and no host network. Your server keeps every key and does the pushing and the pull requests itself. You sign in with a password and a code from your authenticator app.
-
-## Screenshots
-
-<table>
-  <tr>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tasks-phone-dark.png"><img src="docs/screenshots/tasks-phone-light.png" alt="Task list with running, waiting and paused tasks" width="200"></picture></td>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-question-phone-dark.png"><img src="docs/screenshots/task-question-phone-light.png" alt="Task waiting on a question, with answer buttons" width="200"></picture></td>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-pr-phone-dark.png"><img src="docs/screenshots/task-pr-phone-light.png" alt="Finished task with its summary, pull request and CI result" width="200"></picture></td>
-  </tr>
-</table>
 
 ## Set it up
 
@@ -91,3 +81,16 @@ To update later, run `docker compose -f docker-compose.deploy.yml pull`, pull th
 ## License
 
 [MIT](LICENSE)
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tasks-phone-dark.png"><img src="docs/screenshots/tasks-phone-light.png" alt="Task list with running, waiting and paused tasks" width="200"></picture></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-question-phone-dark.png"><img src="docs/screenshots/task-question-phone-light.png" alt="Task waiting on a question, with answer buttons" width="200"></picture></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-pr-phone-dark.png"><img src="docs/screenshots/task-pr-phone-light.png" alt="Finished task with its summary, pull request and CI result" width="200"></picture></td>
+  </tr>
+  <tr>
+    <td colspan="3"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-running-desktop-dark.png"><img src="docs/screenshots/task-running-desktop-light.png" alt="Desktop layout: Start menu sidebar, task list and a running task with its live timeline" width="640"></picture></td>
+  </tr>
+</table>
