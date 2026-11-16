@@ -15,6 +15,7 @@ security:
   - session: []
   - telegramBearer: []
 tags:
+  - name: setup
   - name: auth
   - name: projects
   - name: tasks
@@ -22,6 +23,132 @@ tags:
   - name: system
 
 paths:
+  /api/v1/setup/status:
+    get:
+      operationId: setupStatus
+      tags: [setup]
+      summary: Whether the first-run setup wizard is needed
+      security: []
+      responses:
+        '200':
+          description: Setup state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [setup_required, github_configured]
+                properties:
+                  setup_required: { type: boolean, description: No owner exists; every other API route answers 409 setup_required }
+                  github_configured: { type: boolean }
+
+  /api/v1/setup/owner:
+    post:
+      operationId: setupOwner
+      tags: [setup]
+      summary: Set the owner password and get a new TOTP secret (setup mode only)
+      security: []
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, password]
+              additionalProperties: false
+              properties:
+                code: { type: string, description: One-time setup code from the server log }
+                password: { type: string, minLength: 12 }
+      responses:
+        '200':
+          description: Pending owner; confirm it with a TOTP code
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [otpauth_uri, secret]
+                properties:
+                  otpauth_uri: { type: string, description: 'otpauth://totp/... for the QR code' }
+                  secret: { type: string, description: Base32 secret for manual entry }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /api/v1/setup/owner/confirm:
+    post:
+      operationId: setupOwnerConfirm
+      tags: [setup]
+      summary: Confirm the first TOTP code, save the owner and leave setup mode
+      security: []
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, totp]
+              additionalProperties: false
+              properties:
+                code: { type: string, description: One-time setup code from the server log }
+                totp: { type: string, description: Current 6-digit code }
+      responses:
+        '200':
+          description: Owner saved; logged in (sets the fleetpocket_session cookie)
+          headers:
+            Set-Cookie: { schema: { type: string } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SessionInfo' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /api/v1/setup/github/manifest:
+    post:
+      operationId: setupGitHubManifest
+      tags: [setup]
+      summary: Start creating the GitHub App from a manifest
+      description: POST `manifest` (as JSON text) in an HTML form to `action_url`; its `state` is bound to this session for one hour.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                organization: { type: string, description: 'Create the App on this organization; omitted or empty: the personal account' }
+      responses:
+        '200':
+          description: Form target and manifest
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action_url, manifest]
+                properties:
+                  action_url: { type: string }
+                  manifest: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/setup/github/callback:
+    get:
+      operationId: setupGitHubCallback
+      tags: [setup]
+      summary: GitHub's redirect after the App was created (browser navigation)
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+      responses:
+        '303':
+          description: To the App's installation page on success, else to `/setup?step=github&github_error=state|configured|conversion|key|save`
+        '401': { $ref: '#/components/responses/Error' }
+
   /api/v1/auth/login:
     post:
       operationId: login

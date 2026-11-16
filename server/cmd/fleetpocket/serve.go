@@ -24,6 +24,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
+	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 	"github.com/andrewsl105/fleetpocket/server/internal/telegram"
@@ -48,6 +49,17 @@ func runServe() error {
 	defer st.Close()
 	if err := st.Migrate(ctx); err != nil {
 		return err
+	}
+
+	settings, err := st.Settings(ctx)
+	if err != nil {
+		return err
+	}
+	owner := setup.ResolveOwner(cfg.AdminPasswordHash, cfg.AdminTOTPSecret, settings)
+	wizard := setup.New(owner.PasswordHash == "", cfg.PublicBaseURL)
+	cfg.GitHubAppID, cfg.GitHubWebhookSecret = setup.ResolveGitHub(cfg.GitHubAppID, cfg.GitHubWebhookSecret, settings)
+	if cfg.GitHubAppID != 0 && cfg.GitHubPrivateKeyPath == "" {
+		cfg.GitHubPrivateKeyPath = setup.DefaultPEMPath
 	}
 
 	dc, err := runnermgr.NewDockerClient(cfg.DockerHost)
@@ -130,12 +142,19 @@ func runServe() error {
 		Tasks:    taskSvc,
 		Projects: &projects.Service{Store: st},
 		Auth: &auth.Manager{
-			Store: st, PasswordHash: cfg.AdminPasswordHash, TOTPSecret: cfg.AdminTOTPSecret,
+			Store: st, PasswordHash: owner.PasswordHash, TOTPSecret: owner.TOTPSecret,
 			SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
 		},
 		Hub:   hub,
 		Nodes: nodeSvc,
 		Files: files,
+		Setup: wizard,
+		// Exit after the response is sent; Docker's restart policy starts the
+		// server again with the new GitHub App.
+		Restart: func() {
+			slog.Warn("restarting to enable the new GitHub App")
+			time.AfterFunc(2*time.Second, cancel)
+		},
 		Diff: func(ctx context.Context, t *store.Task, repo *store.Repository, limit int) (string, bool, error) {
 			return registry.For(t.Node).Diff(ctx, t.ID, repo.BaseBranch, limit)
 		},

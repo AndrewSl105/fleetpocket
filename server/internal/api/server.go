@@ -13,6 +13,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
+	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 )
@@ -53,7 +54,15 @@ type Server struct {
 	Tickets *auth.Tickets
 	// Files serves attachments; nil disables the download endpoint.
 	Files *attachments.Files
-	Now   func() time.Time
+	// Setup is the first-run wizard; nil or inactive once the owner exists.
+	Setup *setup.Wizard
+	// Restart restarts the process after the wizard created the GitHub App.
+	Restart func()
+	Now     func() time.Time
+}
+
+func (s *Server) githubConfigured() bool {
+	return s.GitHub != nil || (s.Setup != nil && s.Setup.GitHubCreated())
 }
 
 func (s *Server) now() time.Time {
@@ -73,6 +82,11 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	a := s.requireSession
 
+	mux.HandleFunc("GET /api/v1/setup/status", s.setupStatus)
+	mux.HandleFunc("POST /api/v1/setup/owner", s.setupOwner)
+	mux.HandleFunc("POST /api/v1/setup/owner/confirm", s.setupOwnerConfirm)
+	mux.HandleFunc("POST /api/v1/setup/github/manifest", a(s.setupGitHubManifest))
+	mux.HandleFunc("GET /api/v1/setup/github/callback", a(s.setupGitHubCallback))
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/telegram", s.loginTelegram)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
@@ -137,7 +151,7 @@ func (s *Server) Handler() http.Handler {
 	root := http.NewServeMux()
 	root.Handle("/webhooks/", mux)
 	root.Handle("/", api)
-	return logRequests(root)
+	return logRequests(s.setupGate(root))
 }
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {

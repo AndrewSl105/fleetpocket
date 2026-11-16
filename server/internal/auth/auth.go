@@ -12,6 +12,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pquerna/otp/totp"
@@ -31,9 +32,12 @@ var (
 )
 
 type Manager struct {
-	Store          *store.Store
+	Store *store.Store
+	// PasswordHash and TOTPSecret are empty until the setup wizard creates
+	// the owner; after Handler starts, change them only with SetOwner.
 	PasswordHash   string
 	TOTPSecret     string
+	ownerMu        sync.RWMutex
 	SessionSecret  []byte
 	CookieInsecure bool
 	Now            func() time.Time
@@ -49,14 +53,30 @@ func (m *Manager) now() time.Time {
 // CheckLogin verifies the password and the current TOTP code. Both are always
 // evaluated so timing does not reveal which one failed.
 func (m *Manager) CheckLogin(password, code string) error {
-	pwErr := bcrypt.CompareHashAndPassword([]byte(m.PasswordHash), []byte(password))
-	codeOK, _ := totp.ValidateCustom(strings.TrimSpace(code), m.TOTPSecret, m.now(), totp.ValidateOpts{
-		Period: 30, Skew: 1, Digits: 6,
-	})
+	m.ownerMu.RLock()
+	hash, secret := m.PasswordHash, m.TOTPSecret
+	m.ownerMu.RUnlock()
+	pwErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	codeOK := secret != "" && ValidTOTP(code, secret, m.now())
 	if pwErr != nil || !codeOK {
 		return ErrBadCredentials
 	}
 	return nil
+}
+
+// SetOwner installs the owner created by the setup wizard.
+func (m *Manager) SetOwner(hash, secret string) {
+	m.ownerMu.Lock()
+	defer m.ownerMu.Unlock()
+	m.PasswordHash, m.TOTPSecret = hash, secret
+}
+
+// ValidTOTP checks a 6-digit code with one period of clock skew.
+func ValidTOTP(code, secret string, now time.Time) bool {
+	ok, _ := totp.ValidateCustom(strings.TrimSpace(code), secret, now, totp.ValidateOpts{
+		Period: 30, Skew: 1, Digits: 6,
+	})
+	return ok
 }
 
 // StartSession creates a session row, sets the cookie, and returns the signed

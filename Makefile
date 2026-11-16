@@ -25,7 +25,7 @@ TEST_DB_PORT ?= 55432
 FLEETPOCKET_TEST_DATABASE_URL ?= postgres://fleetpocket:fleetpocket@localhost:$(TEST_DB_PORT)/fleetpocket?sslmode=disable
 
 .PHONY: dev dev-setup dev-down dev-logs test test-db test-server test-agent test-web \
-	lint build gen-api e2e e2e-real screenshots deps
+	lint build gen-api test-install e2e e2e-real screenshots deps
 
 deps:
 	cd agent && npm ci
@@ -52,7 +52,7 @@ dev-logs:
 
 # ---- tests ----
 
-test: test-server test-agent test-web
+test: test-server test-agent test-web test-install
 
 test-db:
 	docker run -d --name fleetpocket-test-pg -e POSTGRES_USER=fleetpocket -e POSTGRES_PASSWORD=fleetpocket \
@@ -81,7 +81,12 @@ screenshots:
 
 # ---- lint, build, codegen ----
 
+# deploy/install.sh without root, Docker or network (env file handling).
+test-install:
+	sh deploy/install_test.sh
+
 lint:
+	shellcheck -s sh -x deploy/install.sh deploy/install_test.sh
 	cd server && go vet ./... && golangci-lint run
 	cd agent && npm run typecheck
 	cd web && npm run check:api && npm run typecheck && npm run lint
