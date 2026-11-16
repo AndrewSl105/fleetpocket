@@ -1,10 +1,10 @@
-<img src="docs/brand/fleetpocket-icon.png" alt="Fleetpocket logo" width="96" align="right">
+<p align="center"><img src="docs/brand/fleetpocket-icon.png" alt="Fleetpocket logo" width="96"></p>
 
-# Fleetpocket
+<h1 align="center">Fleetpocket</h1>
 
-**Run Claude Code on your GitHub repositories from your phone, and get a pull request back.**
+<p align="center"><strong>Run Claude Code on your GitHub repositories from your phone, and get a pull request back.</strong></p>
 
-[Website](https://andrewsl105.github.io/fleetpocket/) · [Set it up](docs/DEPLOY.md) · MIT license
+<p align="center"><a href="https://andrewsl105.github.io/fleetpocket/">Website</a> · <a href="docs/DEPLOY.md">Set it up</a> · MIT license</p>
 
 Describe a change in Telegram or in the web app. Claude Code does the work in an isolated container on your own server, asks you when it needs a decision, and opens a pull request when it's done. You review it whenever you like.
 
