@@ -5,7 +5,7 @@ Everything a client (the web app / Telegram Mini App) needs. The machine-readabl
 ## Conventions
 
 - Base path `/api/v1`. JSON request and response bodies (`Content-Type: application/json`). Unknown request fields are rejected. `POST /tasks` and `POST /tasks/{id}/message` also accept `multipart/form-data` to attach files (see [Attachments](#attachments)).
-- **Auth**: a session cookie `fleetpocket_session` (`HttpOnly`, `Secure`, `SameSite=Lax`, 30-day sliding expiry). Every endpoint except `auth/login`, `auth/telegram` and `auth/logout` requires it; without it you get `401 unauthorized`. **Telegram sessions** may instead send `Authorization: Bearer <token>` (the `token` from `auth/telegram`), because Telegram Web embeds the Mini App in a cross-site iframe where a `SameSite=Lax` cookie is never sent. Browser (`web`) sessions are cookie-only.
+- **Auth**: a session cookie `fleetpocket_session` (`HttpOnly`, `Secure`, `SameSite=Lax`, 30-day sliding expiry). Every endpoint except `auth/login`, `auth/telegram`, `auth/logout` and `setup/*` requires it; without it you get `401 unauthorized`. **Telegram sessions** may instead send `Authorization: Bearer <token>` (the `token` from `auth/telegram`), because Telegram Web embeds the Mini App in a cross-site iframe where a `SameSite=Lax` cookie is never sent. Browser (`web`) sessions are cookie-only.
 - **CSRF**: every non-GET request must send `X-Requested-With: fleetpocket`, otherwise `403 csrf`.
 - **Errors**: `{"error": {"code": "<machine code>", "message": "<human text>"}}`.
 
@@ -13,9 +13,9 @@ Everything a client (the web app / Telegram Mini App) needs. The machine-readabl
   |---|---|---|
   | 400 | `invalid_json`, `invalid` | malformed body, validation failure |
   | 401 | `unauthorized`, `bad_credentials` | no session; wrong login |
-  | 403 | `csrf`, `forbidden` | missing header; `/metrics` from outside |
+  | 403 | `csrf`, `forbidden`, `bad_setup_code` | missing header; `/metrics` from outside; wrong setup code |
   | 404 | `not_found` | unknown id or endpoint |
-  | 409 | `conflict`, `already_answered`, `in_use`, `not_running`, `no_workspace`, `not_mergeable` | action not allowed in the current state |
+  | 409 | `conflict`, `already_answered`, `in_use`, `not_running`, `no_workspace`, `not_mergeable`, `setup_required`, `setup_done`, `setup_out_of_order` | action not allowed in the current state |
   | 410 | `gone` | the attachment was removed |
   | 429 | `rate_limited` | 5 failed logins per IP per 15 minutes |
   | 503 | `github_disabled`, `telegram_disabled` | integration not configured |
@@ -31,7 +31,14 @@ Everything a client (the web app / Telegram Mini App) needs. The machine-readabl
 | `POST /auth/login` `{password, totp}` | password **and** current 6-digit TOTP code → sets the cookie. `{"ok":true,"kind":"web"}` |
 | `POST /auth/telegram` `{init_data}` | Mini App: pass `Telegram.WebApp.initData` verbatim. Valid for 1 hour after `auth_date`, only for the owner's Telegram user id → sets the cookie and returns `{"ok":true,"kind":"telegram","token":"…"}`. Keep `token` in memory only (never `localStorage`) and send it as `Authorization: Bearer`; it is the same session as the cookie |
 | `POST /auth/logout` | deletes the session (cookie or bearer token) and clears the cookie |
+| `GET /setup/status` | `{"setup_required":bool,"github_configured":bool}`, no session needed |
+| `POST /setup/owner` `{code, password}` | setup mode only. `code` is the one-time setup code the server logs at WARN on start (with the link `${PUBLIC_BASE_URL}/setup?code=…`; a restart makes a new one); `password` ≥ 12 characters. Returns `{"otpauth_uri","secret"}`; nothing is saved yet. Wrong code → `403 bad_setup_code` (counts toward the login rate limit); owner exists → `409 setup_done` |
+| `POST /setup/owner/confirm` `{code, totp}` | verifies the first TOTP code of the pending owner, saves it, leaves setup mode and logs in like `auth/login`. `409 setup_out_of_order` before `setup/owner` |
+| `POST /setup/github/manifest` `{organization?}` | session required. Returns `{"action_url","manifest"}`: POST the manifest (JSON text, form field `manifest`) to `action_url` (GitHub, personal account or `organizations/<org>`). `409 github_configured` if an App exists |
+| `GET /setup/github/callback?code&state` | GitHub's `redirect_url`. Checks `state` (one use, this session, 1 hour), converts `code` (`POST /app-manifests/{code}/conversions`), saves App ID + webhook secret, writes the key to `GITHUB_APP_PRIVATE_KEY_PATH`, redirects (303) to the App's installation page and restarts the server to enable it. Failures redirect to `/setup?step=github&github_error=<reason>` |
 | `GET /me` | `{"ok":true,"kind":"web"\|"telegram","agents":["claude","codex"],"default_agent":"claude"}`; use it as the session check on app start. `agents` are the coding agents with credentials on the server (`claude`, `codex`, `cursor`), the ones a task may use |
+
+**Setup mode.** When no owner login exists (neither `ADMIN_PASSWORD_HASH` + `ADMIN_TOTP_SECRET` in the server configuration nor one saved by the wizard), every route except `/healthz`, `/webhooks/*` and `/api/v1/setup/*` answers `409 setup_required`.
 
 ## Projects and repositories
 

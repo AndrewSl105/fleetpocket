@@ -14,6 +14,7 @@ import { TasksLayout } from '@/routes/tasks/TasksLayout'
 import { NoTaskSelected } from '@/routes/tasks/NoTaskSelected'
 import { NotFound } from '@/routes/NotFound'
 import { PageSpinner } from '@/components/PageSpinner'
+import { SetupPage } from '@/setup/SetupPage'
 
 const TaskDetailPage = lazy(() => import('@/routes/tasks/TaskDetailPage'))
 const NewTaskPage = lazy(() => import('@/routes/NewTaskPage'))
@@ -77,11 +78,16 @@ export function App({ runtime }: { runtime: Runtime }) {
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
             <ConfirmProvider>
-              <AuthGate>
-                <RealtimeProvider>
-                  <RouterProvider router={router} />
-                </RealtimeProvider>
-              </AuthGate>
+              {/* The first-run wizard runs before an owner (and so a session) exists. */}
+              {runtime.mode === 'browser' && window.location.pathname === '/setup' ? (
+                <SetupPage />
+              ) : (
+                <AuthGate>
+                  <RealtimeProvider>
+                    <RouterProvider router={router} />
+                  </RealtimeProvider>
+                </AuthGate>
+              )}
             </ConfirmProvider>
             <Toaster position="top-center" offset={{ top: 'calc(var(--safe-top) + 12px)' }} />
           </QueryClientProvider>

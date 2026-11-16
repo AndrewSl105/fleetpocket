@@ -29,29 +29,13 @@ Fleetpocket runs on your server, for one owner: you. The agent works in a sealed
 
 You need a small Linux server (Ubuntu 24.04 with Docker), a domain, a key for at least one agent (a Claude subscription or Anthropic API key, an OpenAI API key for Codex, or a Cursor API key) and a GitHub account. Below, `fleetpocket.example.com` stands for your domain.
 
-**1. Point your domain at the server.** Add an A record for `fleetpocket.example.com` and open ports 80 and 443. The HTTPS certificate is issued automatically.
-
-**2. Download Fleetpocket** on the server:
+**1. Run the installer** on the server:
 
 ```sh
-sudo mkdir -p /srv/fleetpocket/{workspaces,attachments,secrets,backups}
-sudo chown "$USER": /srv/fleetpocket
-sudo chown -R 1000:1000 /srv/fleetpocket/{workspaces,attachments,secrets}
-cd /srv/fleetpocket
-curl -fsSLO https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/docker-compose.deploy.yml
-curl -fsSLO https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/Caddyfile
-curl -fsSL -o .env https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/.env.example
-chmod 600 .env
+curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
 ```
 
-**3. Create your login**: a password and an authenticator code.
-
-```sh
-docker run --rm -it ghcr.io/andrewsl105/fleetpocket-server:latest hash-password
-docker run --rm ghcr.io/andrewsl105/fleetpocket-server:latest totp-setup
-```
-
-**4. Connect your accounts.** Each one gives you a few values for `.env`:
+It installs Docker if needed, asks for your domain, which agents to use and their keys, writes `/srv/fleetpocket/.env`, starts everything and prints a setup link.
 
 - **Claude**: run `claude setup-token` on your computer, or use an Anthropic API key. ([details](docs/DEPLOY.md#4-claude-auth))
 - **Codex or Cursor** (optional): set `OPENAI_API_KEY` for Codex or `CURSOR_API_KEY` for Cursor, and `DEFAULT_AGENT` to choose the agent for projects that don't pick one.
@@ -66,11 +50,11 @@ docker pull ghcr.io/andrewsl105/fleetpocket-agent:latest
 docker compose -f docker-compose.deploy.yml up -d
 ```
 
-Open `https://fleetpocket.example.com`, sign in, add a repository and start your first task.
+Telegram is optional: add the bot later ([details](docs/DEPLOY.md#6-telegram-bot-and-mini-app)). For unattended installs (cloud-init on Hetzner or DigitalOcean) use [`deploy/cloud-init.yaml`](deploy/cloud-init.yaml). To set everything up by hand instead, see [Manual setup](docs/DEPLOY.md#manual-setup).
 
 **Optional: run tasks on your Mac too.** In Settings → Computers → Add computer, copy one command into the Mac's Terminal and click Connect; then choose per project or per task whether it runs on the server or on your Mac. One login and one task list either way. ([details](docs/DEPLOY.md#11-run-tasks-on-your-own-computer-optional))
 
-To update later, run `docker compose -f docker-compose.deploy.yml pull`, pull the agent image again, then run `up -d`. The full [setup guide](docs/DEPLOY.md) also covers backups and automatic deploys with GitHub Actions.
+To update later, run the installer again: it keeps your `.env`, adds new settings, pulls the new images and restarts. The full [setup guide](docs/DEPLOY.md) also covers backups and automatic deploys with GitHub Actions.
 
 ## Docs
 

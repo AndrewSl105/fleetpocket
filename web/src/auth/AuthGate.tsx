@@ -42,6 +42,7 @@ export async function resolveAuth(runtime: Runtime): Promise<AuthState> {
     const s = await call(api.GET('/api/v1/me'))
     return { kind: 'ready', session: s.kind }
   } catch (e) {
+    if (isApiError(e, 'setup_required')) return { kind: 'unavailable', message: t.setup.required }
     if (runtime.mode === 'browser' && isApiError(e) && e.status === 401) return { kind: 'login' }
     if (runtime.mode === 'telegram' && isApiError(e) && (e.status === 401 || e.status === 403)) {
       return initDataExpired(runtime) ? { kind: 'expired' } : { kind: 'denied' }

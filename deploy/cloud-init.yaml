@@ -1,0 +1,24 @@
+#cloud-config
+# User data for a fresh Ubuntu 24.04 VPS (Hetzner, DigitalOcean, …): installs
+# Docker and Fleetpocket without questions. Fill in the domain (or replace
+# `--domain …` with `--sslip`) and one agent key, then get the setup link with
+#   ssh root@<server> tail -n 5 /var/log/fleetpocket-install.log
+#
+# User data stays readable through the provider's metadata service and
+# console. If that matters, leave the keys empty here, use --agents, and add
+# the key to /srv/fleetpocket/.env after boot (then: docker compose -f
+# /srv/fleetpocket/docker-compose.deploy.yml up -d).
+write_files:
+  - path: /root/fleetpocket-install.env
+    permissions: "0600"
+    content: |
+      CLAUDE_CODE_OAUTH_TOKEN=
+      ANTHROPIC_API_KEY=
+      OPENAI_API_KEY=
+      CURSOR_API_KEY=
+runcmd:
+  - >-
+    set -a && . /root/fleetpocket-install.env && set +a &&
+    curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh |
+    sh -s -- --yes --domain fleetpocket.example.com > /var/log/fleetpocket-install.log 2>&1;
+    rm -f /root/fleetpocket-install.env
