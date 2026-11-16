@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>Fleetpocket</title>
-<meta name="description" content="Run Claude Code against your GitHub repositories from your phone, in isolated containers, and get a pull request back. Self-hosted, MIT.">
+<meta name="description" content="Run Claude Code, Codex or Cursor against your GitHub repositories from your phone, in isolated containers, and get a pull request back. Self-hosted, MIT.">
 <link rel="icon" type="image/svg+xml" href="docs/brand/fleetpocket-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -284,7 +284,7 @@ code{font-family:var(--font-mono);font-size:.875em;padding:1px 6px;border-radius
 <div class="hero-copy">
 <span class="badge pill"><span class="dot dot-green"></span>Self-hosted · MIT · Single owner</span>
 <h1 id="hero-title" class="h1">Your coding fleet, <span class="accent-text">in your pocket.</span></h1>
-<p class="lead">Run Claude Code against your GitHub repositories from your phone, in isolated containers, and get a pull request back.</p>
+<p class="lead">Run Claude Code, OpenAI Codex or Cursor against your GitHub repositories from your phone, in isolated containers, and get a pull request back.</p>
 <div class="actions">
 <a class="btn btn-primary" href="https://github.com/AndrewSl105/fleetpocket">Self-host it</a>
 <a class="btn" href="#how">See how it works</a>
@@ -408,7 +408,7 @@ code{font-family:var(--font-mono);font-size:.875em;padding:1px 6px;border-radius
 </div>
 
 <div class="win-foot">
-<span>Go 1.27 · Node 24 · Docker · Telegram</span>
+<span>Go 1.27 · Node 24 · Docker · PWA</span>
 <span>MIT</span>
 </div>
 </section>
@@ -610,7 +610,7 @@ Attach images</div>
 <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" rx="1" fill="#2559D4"></rect><path d="M11 18.5h2" stroke="#0F1B33" stroke-width="1.4" stroke-linecap="round"></path></svg>
 <h3>Your phone</h3>
 <ul>
-<li>Telegram bot, Mini App or web</li>
+<li>Installable web app (PWA)</li>
 <li>Describes the change</li>
 <li>Answers questions</li>
 </ul>
@@ -642,9 +642,9 @@ Attach images</div>
 <div class="hull-card">
 <span class="eyebrow">Container · the vessel</span>
 <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4" stroke-linejoin="round"></path><path d="m3 8 9 5 9-5M12 13v8" fill="none" stroke="#0F1B33" stroke-width="1.4"></path></svg>
-<h3>Claude Code at work</h3>
+<h3>The agent at work</h3>
 <ul>
-<li>A fresh Docker container per task</li>
+<li>Claude Code, Codex or Cursor, in a fresh container per task</li>
 <li>Only a checkout of the repository</li>
 <li>No GitHub token, no Docker socket</li>
 </ul>
@@ -677,29 +677,35 @@ Attach images</div>
 <tbody>
 <tr>
 <td class="n">01</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H9l-5 4v-4H3z" fill="#FFFFFF" stroke="#0F1B33" stroke-width="1.4" stroke-linejoin="round"></path><path d="M7 8h10M7 11h7" stroke="#2559D4" stroke-width="1.6" stroke-linecap="round"></path></svg>Telegram bot</h3></td>
-<td>Start tasks and answer the agent from the chat you already have open.</td>
-<td><span class="badge"><span class="dot dot-blue"></span>Chat</span></td>
+<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><path d="M12 6.5v7M9 10.5l3 3 3-3" fill="none" stroke="#2559D4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>Installable app</h3></td>
+<td>A progressive web app: add it to your home screen and it opens full screen, like a native app.</td>
+<td><span class="badge"><span class="dot dot-blue"></span>PWA</span></td>
 </tr>
 <tr>
 <td class="n">02</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" rx="1" fill="#2559D4"></rect></svg>Telegram Mini App</h3></td>
-<td>The full task board inside Telegram: projects, statuses and live progress.</td>
-<td><span class="badge"><span class="dot dot-yellow"></span>Mini App</span></td>
+<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" rx="1" fill="#2559D4"></rect></svg>Mobile first</h3></td>
+<td>Task board, live progress and one-tap answers laid out for a phone, with a taskbar within thumb reach.</td>
+<td><span class="badge"><span class="dot dot-yellow"></span>Phone</span></td>
 </tr>
 <tr>
 <td class="n">03</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="4" y="5" width="16" height="10" rx="1" fill="#2559D4"></rect><path d="M8 21h8M12 17v4" stroke="#0F1B33" stroke-width="1.4" stroke-linecap="round"></path></svg>Web client</h3></td>
-<td>The same app in any browser, with a sidebar layout on desktop.</td>
+<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="4" y="5" width="16" height="10" rx="1" fill="#2559D4"></rect><path d="M8 21h8M12 17v4" stroke="#0F1B33" stroke-width="1.4" stroke-linecap="round"></path></svg>Desktop too</h3></td>
+<td>The same app in any browser, with a Start menu sidebar and the task next to the list.</td>
 <td><span class="badge"><span class="dot dot-green"></span>Browser</span></td>
+</tr>
+<tr>
+<td class="n">04</td>
+<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H9l-5 4v-4H3z" fill="#FFFFFF" stroke="#0F1B33" stroke-width="1.4" stroke-linejoin="round"></path><path d="M7 8h10M7 11h7" stroke="#2559D4" stroke-width="1.6" stroke-linecap="round"></path></svg>Any coding agent</h3></td>
+<td>Claude Code, OpenAI Codex or Cursor, chosen per project or per task.</td>
+<td><span class="badge"><span class="dot dot-blue"></span>Agents</span></td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
 <div class="win-foot" aria-hidden="true">
-<span>3 object(s)</span>
-<span>3 stations</span>
+<span>4 object(s)</span>
+<span>3 agents</span>
 </div>
 </section>
 
@@ -757,7 +763,7 @@ Attach images</div>
 <div class="foot-band">
 <div class="foot-in">
 <span>Fleetpocket · MIT License · Heading 045°</span>
-<span>Not affiliated with Anthropic or Telegram</span>
+<span>Not affiliated with Anthropic, OpenAI or Cursor</span>
 </div>
 </div>
 </footer>
@@ -828,8 +834,8 @@ Attach images</div>
   var $ = function (id) { return document.getElementById(id); };
   var LOOP = 24500;
   var STEPS = [
-    { a: 0, b: 6800, title: 'Describe the change', body: 'Pick a project and say what you want, from Telegram, the Mini App or the web.' },
-    { a: 6800, b: 8500, title: 'A fresh container spins up', body: 'Claude Code starts in a new Docker container that holds only a checkout of your repository.' },
+    { a: 0, b: 6800, title: 'Describe the change', body: 'Pick a project and say what you want, from your phone or any browser.' },
+    { a: 6800, b: 8500, title: 'A fresh container spins up', body: 'Claude Code, Codex or Cursor starts in a new Docker container that holds only a checkout of your repository.' },
     { a: 8500, b: 10900, title: 'Watch it work', body: 'Every read, edit and command streams to your phone as it happens.' },
     { a: 10900, b: 13400, title: 'Answer its questions', body: 'When Claude needs a decision, the question comes to you. One tap answers it.' },
     { a: 13400, b: LOOP, title: 'Get a pull request', body: 'The server commits, pushes and opens the PR. CI results land in the same timeline.' }
