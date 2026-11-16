@@ -6,20 +6,20 @@
 
 <p align="center"><a href="https://andrewsl105.github.io/fleetpocket/">Website</a> · <a href="docs/DEPLOY.md">Set it up</a> · MIT license</p>
 
-Describe a change in Telegram or in the web app. Claude Code does the work in an isolated container on your own server, asks you when it needs a decision, and opens a pull request when it's done. You review it whenever you like.
+Describe a change from your phone. Claude Code does the work in an isolated container on your own server, asks you when it needs a decision, and opens a pull request when it's done. You review it whenever you like.
 
 ## How it works
 
-1. **Describe the change.** Type it, dictate a voice message, or attach a screenshot.
+1. **Describe the change.** Type it and attach screenshots or files.
 2. **Claude works on a new branch.** You can follow every step live.
-3. **Answer its questions.** When Claude needs a decision, you get a message with answer buttons.
+3. **Answer its questions.** When Claude needs a decision, the task shows its question with answer buttons.
 4. **Get a pull request.** You see the summary, the PR and the CI result, and can send a follow-up if something needs changing.
 
 ## Steer from wherever you are
 
-- **Telegram bot**: start tasks and answer Claude from the chat you already have open. Give each project its own topic in a group.
-- **Telegram Mini App**: the full task board inside Telegram, with projects, statuses and live progress.
-- **Web app**: the same app in any browser, in a Windows XP look: a Start menu sidebar on desktop and a taskbar on phones.
+- **Install it on your phone**: Fleetpocket is a progressive web app. Add it to your home screen and it opens full screen like a native app.
+- **Built for mobile first**: the task board, projects, live progress and answer buttons are laid out for a phone, with a taskbar at the bottom for one-handed use.
+- **The same app on desktop**: in any browser, with a Start menu sidebar and the task next to the list, all in a Windows XP look.
 
 ## Your keys stay with you
 
@@ -27,7 +27,7 @@ Fleetpocket runs on your server, for one owner: you. Claude works in a sealed co
 
 ## Set it up
 
-You need a small Linux server (Ubuntu 24.04 with Docker), a domain, a Claude subscription or Anthropic API key, a GitHub account and a Telegram account. Below, `fleetpocket.example.com` stands for your domain.
+You need a small Linux server (Ubuntu 24.04 with Docker), a domain, a Claude subscription or Anthropic API key and a GitHub account. Below, `fleetpocket.example.com` stands for your domain.
 
 **1. Point your domain at the server.** Add an A record for `fleetpocket.example.com` and open ports 80 and 443. The HTTPS certificate is issued automatically.
 
@@ -55,7 +55,6 @@ docker run --rm ghcr.io/andrewsl105/fleetpocket-server:latest totp-setup
 
 - **Claude**: run `claude setup-token` on your computer, or use an Anthropic API key. ([details](docs/DEPLOY.md#4-claude-auth))
 - **GitHub**: create your own GitHub App and install it on the repositories Fleetpocket may work on. ([details](docs/DEPLOY.md#5-github-app))
-- **Telegram**: create a bot and a Mini App with @BotFather. ([details](docs/DEPLOY.md#6-telegram-bot-and-mini-app))
 
 **5. Fill in `.env`** with your domain, the values from steps 3 and 4, and two random secrets. Every variable is described in the file. ([details](docs/DEPLOY.md#2-env))
 
@@ -74,7 +73,7 @@ To update later, run `docker compose -f docker-compose.deploy.yml pull`, pull th
 
 ## Docs
 
-- [Setup guide](docs/DEPLOY.md): server, GitHub App, Telegram bot, updates and backups
+- [Setup guide](docs/DEPLOY.md): server, GitHub App, updates and backups
 - [Operations](docs/OPERATIONS.md): health checks, metrics, logs
 - [Development](docs/DEVELOPMENT.md): running it locally and contributing
 
