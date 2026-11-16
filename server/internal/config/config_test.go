@@ -72,3 +72,15 @@ func TestAgents(t *testing.T) {
 		t.Fatalf("DEFAULT_AGENT: %v %v", c, err)
 	}
 }
+
+func TestValidateOwnerCredentials(t *testing.T) {
+	cfg := validConfig()
+	cfg.AdminPasswordHash, cfg.AdminTOTPSecret = "", ""
+	if err := cfg.Validate(); err != nil || cfg.OwnerFromEnv() {
+		t.Fatalf("no owner in env must be valid setup mode: %v", err)
+	}
+	cfg.AdminTOTPSecret = "totp"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "or neither") {
+		t.Fatalf("half-set owner: %v", err)
+	}
+}

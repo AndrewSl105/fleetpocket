@@ -45,7 +45,10 @@ services:
       # workspaces and attachments resolve on the host. Must be owned by uid 1000.
       - /srv/fleetpocket/workspaces:/srv/fleetpocket/workspaces
       - /srv/fleetpocket/attachments:/srv/fleetpocket/attachments
-      - /srv/fleetpocket/secrets/github-app.pem:/secrets/github-app.pem:ro
+      # Writable so the setup wizard can save the key of the GitHub App it
+      # creates; only this one file is mounted. install.sh creates it empty
+      # (uid 1000, mode 600) because a missing file would become a directory.
+      - /srv/fleetpocket/secrets/github-app.pem:/secrets/github-app.pem
     # stack: Caddy reaches it, and it reaches GitHub, Telegram and registries.
     networks: [stack, internal]
     depends_on:

@@ -158,9 +158,11 @@ func (c *Config) Validate() error {
 		}
 	}
 	req("DATABASE_URL", c.DatabaseURL)
-	req("ADMIN_PASSWORD_HASH", c.AdminPasswordHash)
-	req("ADMIN_TOTP_SECRET", c.AdminTOTPSecret)
 	req("SESSION_SECRET", c.SessionSecret)
+	// Without both, the owner is created by the setup wizard and kept in the DB.
+	if (c.AdminPasswordHash == "") != (c.AdminTOTPSecret == "") {
+		errs = append(errs, errors.New("set both ADMIN_PASSWORD_HASH and ADMIN_TOTP_SECRET, or neither (setup wizard)"))
+	}
 	if !strings.HasPrefix(c.AdminPasswordHash, "$2") && c.AdminPasswordHash != "" {
 		errs = append(errs, errors.New("ADMIN_PASSWORD_HASH must be a bcrypt hash (use `fleetpocket hash-password`)"))
 	}
@@ -246,6 +248,9 @@ func (c *Config) EnabledAgents() []string {
 	}
 	return out
 }
+
+// OwnerFromEnv reports whether the owner's login comes from the environment.
+func (c *Config) OwnerFromEnv() bool { return c.AdminPasswordHash != "" && c.AdminTOTPSecret != "" }
 
 func (c *Config) GitHubEnabled() bool   { return c.GitHubAppID != 0 && c.GitHubPrivateKeyPath != "" }
 func (c *Config) TelegramEnabled() bool { return c.TelegramBotToken != "" }

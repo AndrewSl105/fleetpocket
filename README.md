@@ -37,50 +37,23 @@ Fleetpocket runs on your server, for one owner: you. Claude works in a sealed co
 
 ## Set it up
 
-You need a small Linux server (Ubuntu 24.04 with Docker), a domain, a Claude subscription or Anthropic API key, a GitHub account and a Telegram account. Below, `fleetpocket.example.com` stands for your domain.
+You need a small Linux server (Ubuntu or Debian), a Claude subscription or an Anthropic, OpenAI or Cursor API key, and a GitHub account. A domain pointing at the server is best; without one the installer offers a free `<ip>.sslip.io` name. Open ports 80 and 443.
 
-**1. Point your domain at the server.** Add an A record for `fleetpocket.example.com` and open ports 80 and 443. The HTTPS certificate is issued automatically.
-
-**2. Download Fleetpocket** on the server:
+**1. Run the installer** on the server:
 
 ```sh
-sudo mkdir -p /srv/fleetpocket/{workspaces,attachments,secrets,backups}
-sudo chown "$USER": /srv/fleetpocket
-sudo chown -R 1000:1000 /srv/fleetpocket/{workspaces,attachments,secrets}
-cd /srv/fleetpocket
-curl -fsSLO https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/docker-compose.deploy.yml
-curl -fsSLO https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/Caddyfile
-curl -fsSL -o .env https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/.env.example
-chmod 600 .env
+curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
 ```
 
-**3. Create your login**: a password and an authenticator code.
+It installs Docker if needed, asks for your domain, which agents to use and their keys, writes `/srv/fleetpocket/.env`, starts everything and prints a setup link.
 
-```sh
-docker run --rm -it ghcr.io/andrewsl105/fleetpocket-server:latest hash-password
-docker run --rm ghcr.io/andrewsl105/fleetpocket-server:latest totp-setup
-```
+**2. Open the link** (`https://<domain>/setup?code=…`) and follow the wizard: choose a password, scan the QR code with an authenticator app, click **Create GitHub App** and install it on your repositories, then add your first repository and start a task.
 
-**4. Connect your accounts.** Each one gives you a few values for `.env`:
-
-- **Claude**: run `claude setup-token` on your computer, or use an Anthropic API key. ([details](docs/DEPLOY.md#4-claude-auth))
-- **GitHub**: create your own GitHub App and install it on the repositories Fleetpocket may work on. ([details](docs/DEPLOY.md#5-github-app))
-- **Telegram**: create a bot and a Mini App with @BotFather. ([details](docs/DEPLOY.md#6-telegram-bot-and-mini-app))
-
-**5. Fill in `.env`** with your domain, the values from steps 3 and 4, and two random secrets. Every variable is described in the file. ([details](docs/DEPLOY.md#2-env))
-
-**6. Start it:**
-
-```sh
-docker pull ghcr.io/andrewsl105/fleetpocket-agent:latest
-docker compose -f docker-compose.deploy.yml up -d
-```
-
-Open `https://fleetpocket.example.com`, sign in, add a repository and start your first task.
+Telegram is optional: add the bot later ([details](docs/DEPLOY.md#6-telegram-bot-and-mini-app)). For unattended installs (cloud-init on Hetzner or DigitalOcean) use [`deploy/cloud-init.yaml`](deploy/cloud-init.yaml). To set everything up by hand instead, see [Manual setup](docs/DEPLOY.md#manual-setup).
 
 **Optional: run tasks on your Mac too.** In Settings → Computers → Add computer, copy one command into the Mac's Terminal and click Connect; then choose per project or per task whether it runs on the server or on your Mac. One login and one task list either way. ([details](docs/DEPLOY.md#11-run-tasks-on-your-own-computer-optional))
 
-To update later, run `docker compose -f docker-compose.deploy.yml pull`, pull the agent image again, then run `up -d`. The full [setup guide](docs/DEPLOY.md) also covers backups and automatic deploys with GitHub Actions.
+To update later, run the installer again: it keeps your `.env`, adds new settings, pulls the new images and restarts. The full [setup guide](docs/DEPLOY.md) also covers backups and automatic deploys with GitHub Actions.
 
 ## Docs
 

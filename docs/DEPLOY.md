@@ -6,7 +6,23 @@ One server, one domain. `/srv/fleetpocket/docker-compose.deploy.yml` runs `caddy
 
 Target: a fresh Ubuntu 24.04 VPS with Docker Engine and the Compose plugin, nothing else. Open ports 22, 80 and 443 (and 443/udp for HTTP/3). Below, `fleetpocket.example.com` stands for your domain.
 
-**Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#set-it-up), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
+## Quick setup
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
+```
+
+`deploy/install.sh` (POSIX sh, needs root; it re-runs itself with `sudo`) checks for Ubuntu/Debian and Docker (offering Docker's official `get.docker.com` script), creates the directories of step 1 with their owners, downloads the compose file, Caddyfile and `.env.example`, and writes `.env` (mode 600) with your domain, generated `PG_PASSWORD` and `SESSION_SECRET`, and the agent keys you enter (read without echo). It checks that the domain resolves to the server's public IP (via api.ipify.org) and offers `<ip-with-dashes>.sslip.io` if you have none (shared name: Let's Encrypt rate limits can delay the certificate). Then it pulls the images, starts the stack, waits for `/healthz` and prints the setup link from the server log.
+
+The server starts in **setup mode** because `.env` has no `ADMIN_PASSWORD_HASH`/`ADMIN_TOTP_SECRET`: it logs `setup required` with a one-time link (a restart prints a new one: `docker compose -f docker-compose.deploy.yml logs server | grep setup`). The wizard saves the owner login in Postgres, creates the GitHub App from a manifest (the permissions and events of step 5), stores its ID and webhook secret in Postgres, writes the key to `secrets/github-app.pem` and restarts the server once. Values in `.env` always win over the wizard's.
+
+- **Re-run to update**: the installer never changes existing `.env` values; it appends keys that are missing (new releases), refreshes the compose file and Caddyfile, pulls and restarts.
+- **Non-interactive** (cloud-init, see `deploy/cloud-init.yaml`): `sh -s -- --yes --domain <name>` (or `--sslip`), `--agents claude,codex`, `--skip-dns-check`; agent keys only from the environment (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CURSOR_API_KEY`).
+- Telegram (step 6) and automatic deploys (steps 7–9) are added by hand afterwards.
+
+## Manual setup
+
+The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#set-it-up), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
 
 **DNS**: create an A record (and AAAA for IPv6) for `fleetpocket.example.com` pointing at the server, and wait until `dig +short fleetpocket.example.com` returns its address before the first start: Caddy needs it to get the certificate.
 
@@ -30,7 +46,7 @@ sudo chown -R 1000:1000 /srv/fleetpocket/workspaces /srv/fleetpocket/attachments
 ├── .env                        created by hand (step 2), chmod 600
 ├── workspaces/                 task checkouts, uid 1000
 ├── attachments/                images attached to tasks, one folder per task, uid 1000
-├── secrets/github-app.pem      GitHub App key, uid 1000, chmod 600
+├── secrets/github-app.pem      GitHub App key, uid 1000, chmod 600 (must exist, even empty: it is a file mount the wizard writes)
 └── backups/                    pg_dump files (step 10)
 ```
 
@@ -58,6 +74,8 @@ Leave `COOKIE_INSECURE=false`, `CORS_ORIGINS` empty (same origin), `FLEETPOCKET_
 
 ## 3. Owner login (password + TOTP)
 
+Optional: without these two variables the server starts the setup wizard (see Quick setup).
+
 These commands pull the published server image. With your own private images, run the release workflow once first (step 8) and `docker login ghcr.io` as in step 7. `make dev-setup` on your machine prints the same values.
 
 ```sh
@@ -74,6 +92,8 @@ Run `claude setup-token` on your machine and put the result in `CLAUDE_CODE_OAUT
 **Codex and Cursor (optional).** Tasks can also run with OpenAI Codex or Cursor. Set `OPENAI_API_KEY` (an OpenAI API key; ChatGPT sign-in is not supported) for Codex and `CURSOR_API_KEY` (an API key from your Cursor dashboard) for Cursor. Pick the agent per project in its settings, or per task when you create it; `DEFAULT_AGENT` sets the agent for projects that pick none. A runner container only receives the key of its task's agent. Codex and Cursor never ask questions mid-run, report no cost (the budget limit does not apply to them) and enforce only the time limit.
 
 ## 5. GitHub App
+
+**Advanced**: the setup wizard creates this App for you. Create it by hand only to reuse an existing App or to keep its settings in `.env`; `GITHUB_APP_ID` and `GITHUB_WEBHOOK_SECRET` in `.env` win over the wizard's.
 
 On GitHub: **Settings → Developer settings → GitHub Apps → New GitHub App** (on your personal account).
 
