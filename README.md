@@ -73,6 +73,31 @@ Jungle Monkey runs for one owner: you. The agent works in a sealed container wit
 | Connecting GitHub | locally: device flow, `gh auth token` or a fine-grained PAT | server: your own GitHub App |
 | CI status | polled | server: GitHub webhooks; local: polled |
 
+## Features
+
+- **Steer from anywhere.** A progressive web app laid out for one hand on the phone, a desktop layout with the task list and open task side by side, and an optional Telegram bot and Mini App that ping you when an agent asks something.
+- **CI auto-fix.** A failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK; the loop ends as "✓ CI green" or hands back to you with the reason.
+- **MCP integrations with an egress allowlist.** Add MCP servers (Linear, Sentry, a database, any npm/pip package or Docker image) per project or globally. The agent reaches them through Jungle Monkey's gateway, which holds the credentials (encrypted at rest), enforces tool lists and call limits and logs every call. Lock a project's network to an allowlist: an egress proxy lets through only the listed hosts, and a blocked host shows up with a one-tap "Allow".
+- **Costs and budgets.** Every run records its tokens and cost: reported by Claude (marked API-equivalent on a subscription), estimated from an editable price table for Codex and Cursor (`≈$0.84`). The Costs screen totals them by project, agent and day with a CSV export; monthly caps per project or overall hold new runs at 100% (running ones finish), with a notice at 80% and a one-tap "Start anyway".
+- **Canvas node view.** Every running task as a live node: what it is doing now, its activity lanes (read, web, edit, shell, git), the files it touched, its time and cost. Switch any node to a plain terminal.
+- **Remote computers.** Add your Mac in Settings → Computers (it runs `fleetpocket-node`) and choose per project or per task whether a task runs on the server or on it. ([details](docs/DEPLOY.md#11-run-tasks-on-your-own-computer-optional))
+- **Checkpoints.** Turn them on and every agent step that changes files is saved. Tap "Restore here" on any step, see what it discards, add "…then do it with a migration instead", and the agent continues from there. Discarded steps stay in the timeline as an abandoned branch.
+- **Schedules and loops.** A schedule starts a task on a timetable (daily, weekdays, weekly or any cron, in your time zone) with its own per-run and monthly budget: nightly dependency updates, weekday lint fixes. Run one now, pause or duplicate it from the Schedules screen or Telegram's `/schedules`. Any task can also loop until a check passes: after each run Jungle Monkey runs your check (`npm test`, `go test ./...`) in the same container and hands the agent the failing output, up to a few iterations and a budget; the PR (or the local branch) arrives once, at the end.
+- **Ideas board** (off until you turn it on in Settings). A kanban for ideas: hold to talk and the voice note is transcribed (with `STT_PROVIDER`) into a card, or drop text, links, screenshots and files, or send `/idea` in Telegram. Drag cards between columns (long-press on a phone), then **Start task** from a card: the card moves to In progress, to Done when its PR merges, and shows ✕ if the task fails.
+- **Skill library.** Keep your playbooks as skills (`SKILL.md` folders: instructions plus templates) and tick which ones each project's tasks get; a task can add or drop one in the composer. Four diagram skills come with it (database schema, C4, sequence flow, infrastructure map), off until you enable them; import a `SKILL.md` or `.zip`, edit, duplicate or export any of them.
+
+## Your keys stay with you
+
+Jungle Monkey runs for one owner: you. The agent works in a sealed container with only the code it was asked to change. It gets no GitHub token, no Docker access and no host network. Jungle Monkey keeps every key and does the pushing and the pull requests itself, after checking the diff (no `.github/` changes, size limits, a secrets scan). MCP credentials stay in the gateway; with an allowlist, the container's only way out is the egress proxy. On a server you sign in with a password and a code from your authenticator app; locally, the CLI opens a one-time login link on `127.0.0.1`.
+
+## Docs
+
+- [Local mode](docs/LOCAL.md): `npx jungle-monkey`, commands, data, uninstall
+- [Setup guide](docs/DEPLOY.md): server, GitHub App, updates and backups. Deploying is manual: Actions → release → Run workflow from `main`; the landing page: Actions → pages → Run workflow
+- [Operations](docs/OPERATIONS.md): health checks, metrics, logs
+- [Development](docs/DEVELOPMENT.md): running it from source and contributing
+- Reference: [server spec](docs/SPEC-server.md), [web spec](docs/SPEC-web.md), [API](docs/API.md), [runner protocol](docs/PROTOCOL.md), [decisions](docs/DECISIONS.md)
+
 **Updating a server**: run the installer again. It keeps your `.env`, adds new settings, pulls the new images and restarts. Internal names (`fleetpocket-*` images, `/srv/fleetpocket`, `FLEETPOCKET_*` variables) are unchanged by the rename.
 
 ## Steer from anywhere

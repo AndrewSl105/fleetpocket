@@ -26,11 +26,11 @@ The server starts in **setup mode** because `.env` has no `ADMIN_PASSWORD_HASH`/
 
 - **Re-run to update**: the installer never changes existing `.env` values; it appends keys that are missing (new releases), refreshes the compose file and Caddyfile, pulls and restarts.
 - **Non-interactive** (cloud-init, see `deploy/cloud-init.yaml`): `sh -s -- --yes --domain <name>` (or `--sslip`), `--agents claude,codex`, `--skip-dns-check`; agent keys only from the environment (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CURSOR_API_KEY`).
-- Telegram (step 6) and automatic deploys (steps 7–9) are added by hand afterwards.
+- Telegram (step 6) and deploys from GitHub Actions (steps 7–9) are added by hand afterwards.
 
 ## Manual setup
 
-The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#install-three-paths), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
+The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#three-ways-to-install), and start the stack as in step 8; skip step 7. Steps 7–9 set up deploys from the repository with GitHub Actions (run by hand: *Actions → release → Run workflow* from `main`); they use the repository's own secrets and image names.
 
 **DNS**: create an A record (and AAAA for IPv6) for `fleetpocket.example.com` pointing at the server, and wait until `dig +short fleetpocket.example.com` returns its address before the first start: Caddy needs it to get the certificate.
 
@@ -156,7 +156,7 @@ Open `https://fleetpocket.example.com` in a browser and log in with the password
 
 ## 9. Updates
 
-- **Releases**: every push to `main` builds only the images whose directories changed (`server/`, `agent/`, `web/`), copies `deploy/docker-compose.deploy.yml` and `deploy/Caddyfile` to `/srv/fleetpocket`, pulls the changed images and always `fleetpocket-agent` (the server never pulls it), runs `docker compose up -d` (recreates only what changed) and reloads Caddy.
+- **Releases** are manual: *Actions → release → Run workflow*, Use workflow from `main`. It builds all three images, copies `deploy/docker-compose.deploy.yml` and `deploy/Caddyfile` to `/srv/fleetpocket`, pulls the images (including `fleetpocket-agent`, which the server never pulls), runs `docker compose up -d` (recreates only what changed) and reloads Caddy. Pushing to `main` deploys nothing.
 - **New `.env` variables** are added by hand, then `docker compose -f docker-compose.deploy.yml up -d`.
 
 ## 10. Backups
@@ -193,5 +193,6 @@ While a task runs, the node keeps the Mac awake (`caffeinate -i`); if the Mac sl
 
 ## CI/CD
 
-- **`ci.yml`** (every pull request, pushes to `main` and manual runs; a manual run starts every job): path-filtered jobs. `server/**`, `agent/**` or `docs/openapi.yaml` → `go vet`, `go test -p 1` against Postgres with the fake agent image, golangci-lint. `agent/**` → typecheck and tests. `web/**` or `docs/openapi.yaml` → schema check (fails if `schema.ts` is stale), typecheck, lint, unit tests, build, bundle budgets, Playwright (mock mode). `deploy/**` → compose files and Caddyfile validate.
-- **`release.yml`** (push to `main`, or by hand for everything): builds and pushes only the changed images (`<sha>` and `latest`, linux/amd64), copies the deploy files to `/srv/fleetpocket`, pulls the changed images and always the agent image, `docker compose up -d`, reloads Caddy.
+- **`ci.yml`** (every pull request and manual runs; a manual run starts every job; it stays on pull requests because Jungle Monkey's CI status and CI auto-fix read the PR's check results): path-filtered jobs. `server/**`, `agent/**` or `docs/openapi.yaml` → `go vet`, `go test -p 1` against Postgres with the fake agent image, golangci-lint. `agent/**` → typecheck and tests. `web/**` or `docs/openapi.yaml` → schema check (fails if `schema.ts` is stale), typecheck, lint, unit tests, build, bundle budgets, Playwright (mock mode). `deploy/**` → compose files and Caddyfile validate.
+- **`release.yml`** (manual only: *Actions → release → Run workflow*): from `main` it builds and pushes every image (`<sha>` and `latest`, linux/amd64), copies the deploy files to `/srv/fleetpocket`, pulls the images, `docker compose up -d`, reloads Caddy; from a `vX.Y.Z` tag it runs only the npm release (see [LOCAL.md](LOCAL.md#owner-checklist)).
+- **`pages.yml`** (manual only: *Actions → pages → Run workflow*): publishes the landing page (`index.html`, `docs/brand/`).
