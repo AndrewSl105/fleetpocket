@@ -67,3 +67,14 @@ async function taskId(page: Page, title: string): Promise<number> {
     return body.items.find((i) => i.title === t)!.id
   }, title)
 }
+
+test('a cost without a price reads $?, never $0.00', async ({ page }) => {
+  await login(page)
+  await page.goto('/tasks/' + (await taskId(page, 'Rename the theme tokens')))
+  await expect(page.getByText('cost unknown').first()).toBeAttached()
+  await expect(page.getByText('$?', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('cost $?')).toBeVisible()
+  await page.goto('/costs')
+  await expect(page.getByText(/1 run without a price/).first()).toBeVisible()
+  await expect(page.getByText(/≈\$\d+\.\d+\+\?/).first()).toBeVisible()
+})

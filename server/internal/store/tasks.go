@@ -60,6 +60,7 @@ type Task struct {
 	AutoFixCostUSD    float64    `json:"autofix_cost_usd"`
 	CostEstimated     bool       `json:"cost_estimated"`
 	CostAPIEquivalent bool       `json:"cost_api_equivalent"`
+	CostUnknown       bool       `json:"cost_unknown"`
 	BudgetWait        *string    `json:"budget_wait"`
 	BudgetOverrideAt  *time.Time `json:"budget_override_at"`
 
@@ -72,23 +73,24 @@ const taskCols = `id, project_id, repository_id, title, prompt, status, status_r
 	pr_number, pr_url, ci_status, cost_usd_total::float8, turns, source, created_at, updated_at, finished_at, paused_at, cleaned_at,
 	last_activity, last_activity_at, queued_message, agent, node,
 	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha,
-	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at`
+	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at, cost_unknown`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	var attempts *int
 	var fixCost *float64
-	var estimated, apiEq *bool
+	var estimated, apiEq, unknown *bool
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
 		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
 		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA,
-		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt)
+		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt, &unknown)
 	if err != nil {
 		return nil, err
 	}
 	t.AutoFixAttempts = deref(attempts, 0)
 	t.AutoFixCostUSD, t.CostEstimated, t.CostAPIEquivalent = deref(fixCost, 0), deref(estimated, false), deref(apiEq, false)
+	t.CostUnknown = deref(unknown, false)
 	return &t, nil
 }
 

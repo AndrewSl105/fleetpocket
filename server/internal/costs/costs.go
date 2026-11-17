@@ -173,11 +173,19 @@ func Level(spent, limit float64) int {
 	return 0
 }
 
-// Format shows a cost as $0.84, or ≈$0.84 when part of it is estimated.
-func Format(usd float64, estimated bool) string {
+// Format shows a cost: $0.84; ≈$0.84 when part of it is estimated; $? when
+// it is unknown (runs with tokens but no price, nothing known); $0.84+?
+// when only part of it is known.
+func Format(usd float64, estimated, unknown bool) string {
+	if unknown && usd == 0 {
+		return "$?"
+	}
 	s := fmt.Sprintf("$%.2f", usd)
 	if estimated {
-		return "≈" + s
+		s = "≈" + s
+	}
+	if unknown {
+		s += "+?"
 	}
 	return s
 }

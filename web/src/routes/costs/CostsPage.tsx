@@ -7,6 +7,7 @@ import type { CostReport } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CostBar } from '@/components/CostBar'
+import { Cost } from '@/components/Cost'
 import { usd } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { copyText } from '@/components/CopyButton'
@@ -60,12 +61,12 @@ function Section({ title, children, action }: { title: string; children: React.R
 }
 
 /** One ruled row: label, a bar against the largest value, the amount. */
-function BarRow({ label, sub, value, max, estimated, to }: { label: string; sub?: string; value: number; max: number; estimated?: boolean; to?: string }) {
+function BarRow({ label, sub, value, max, estimated, unknown, to }: { label: string; sub?: string; value: number; max: number; estimated?: boolean; unknown?: boolean; to?: string }) {
   const body = (
     <>
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-sm font-medium">{label}</span>
-        <span className="shrink-0 font-mono text-sm tabular-nums">{usd(value, estimated)}</span>
+        <Cost className="shrink-0 font-mono text-sm tabular-nums" value={value} estimated={estimated} unknown={unknown} />
       </div>
       <CostBar value={value} max={max} className="mt-1.5" label={label} />
       {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
@@ -96,7 +97,7 @@ function Totals({ report }: { report: CostReport }) {
   return (
     <div className="fm-panel px-4 py-3.5">
       <div className="fm-label text-muted-foreground">{c.total}</div>
-      <div className="mt-0.5 text-3xl font-semibold tabular-nums">{usd(tot.cost_usd, tot.estimated_usd > 0)}</div>
+      <Cost className="mt-0.5 block text-3xl font-semibold tabular-nums" value={tot.cost_usd} estimated={tot.estimated_usd > 0} unknown={tot.unknown_runs > 0} />
       <div className="mt-1 text-xs text-muted-foreground">
         {c.runs(tot.runs)} · {c.tokens(tot.input_tokens, tot.output_tokens)}
       </div>
@@ -112,7 +113,9 @@ function Totals({ report }: { report: CostReport }) {
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
           <span className="fm-label">{c.budget}</span>
           <span className="font-mono tabular-nums">
-            {cap ? c.ofBudget(report.budget.month_cost_usd, cap) : `${usd(report.budget.month_cost_usd)} · ${c.noBudget}`}
+            {cap
+              ? c.ofBudget(report.budget.month_cost_usd, cap, report.budget.month_cost_unknown)
+              : `${usd(report.budget.month_cost_usd, false, report.budget.month_cost_unknown)} · ${c.noBudget}`}
           </span>
         </div>
         {cap ? <CostBar value={report.budget.month_cost_usd} max={cap} tone="budget" className="mt-1.5" label={c.budget} /> : null}
@@ -170,7 +173,7 @@ export default function CostsPage() {
                 <ul className="divide-y fm-field">
                   {data.by_project.map((p) => {
                     const b = budgets.get(p.key)
-                    const sub = b?.monthly_usd ? `${c.budget}: ${c.ofBudget(b.month_cost_usd, b.monthly_usd)}` : c.runs(p.runs)
+                    const sub = b?.monthly_usd ? `${c.budget}: ${c.ofBudget(b.month_cost_usd, b.monthly_usd, b.month_cost_unknown)}` : c.runs(p.runs)
                     return (
                       <BarRow
                         key={p.key}
@@ -179,6 +182,7 @@ export default function CostsPage() {
                         value={p.cost_usd}
                         max={maxOf(data.by_project)}
                         estimated={p.estimated_usd > 0}
+                        unknown={p.unknown_runs > 0}
                         to={`/projects/${encodeURIComponent(p.key)}`}
                       />
                     )
@@ -200,6 +204,7 @@ export default function CostsPage() {
                       value={a.cost_usd}
                       max={maxOf(data.by_agent)}
                       estimated={a.estimated_usd > 0}
+                      unknown={a.unknown_runs > 0}
                     />
                   ))}
                 </ul>
@@ -224,7 +229,7 @@ export default function CostsPage() {
                   <li key={d.start} className="grid grid-cols-[4.5rem_1fr_4.5rem] items-center gap-3 px-3.5 py-2">
                     <span className="font-mono text-xs text-muted-foreground tabular-nums">{d.start.slice(5)}</span>
                     <CostBar value={d.cost_usd} max={maxOf(data.by_period)} label={d.start} />
-                    <span className="text-right font-mono text-xs tabular-nums">{usd(d.cost_usd, d.estimated_usd > 0)}</span>
+                    <Cost className="text-right font-mono text-xs tabular-nums" value={d.cost_usd} estimated={d.estimated_usd > 0} unknown={d.unknown_runs > 0} />
                   </li>
                 ))}
               </ol>

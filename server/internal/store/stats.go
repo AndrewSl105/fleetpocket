@@ -11,6 +11,9 @@ type Stats struct {
 	WaitingInput int     `json:"waiting_input"`
 	CostToday    float64 `json:"cost_usd_today"`
 	CostMonth    float64 `json:"cost_usd_month"`
+	// Some runs of the day / month have no price: the costs are lower bounds.
+	CostUnknownToday bool `json:"cost_unknown_today"`
+	CostUnknownMonth bool `json:"cost_unknown_month"`
 }
 
 // GetStats counts active work and sums run costs since local midnight and the
@@ -24,8 +27,10 @@ func (s *Store) GetStats(ctx context.Context, now time.Time) (*Stats, error) {
 		(SELECT count(*) FROM tasks WHERE status = 'queued'),
 		(SELECT count(*) FROM tasks WHERE status = 'waiting_input'),
 		(SELECT coalesce(sum(cost_usd), 0)::float8 FROM runs WHERE started_at >= $1),
-		(SELECT coalesce(sum(cost_usd), 0)::float8 FROM runs WHERE started_at >= $2)`, day, month).
-		Scan(&st.Running, &st.Queued, &st.WaitingInput, &st.CostToday, &st.CostMonth)
+		(SELECT coalesce(sum(cost_usd), 0)::float8 FROM runs WHERE started_at >= $2),
+		EXISTS (SELECT 1 FROM runs WHERE started_at >= $1 AND cost_source = 'unknown'),
+		EXISTS (SELECT 1 FROM runs WHERE started_at >= $2 AND cost_source = 'unknown')`, day, month).
+		Scan(&st.Running, &st.Queued, &st.WaitingInput, &st.CostToday, &st.CostMonth, &st.CostUnknownToday, &st.CostUnknownMonth)
 	return &st, err
 }
 

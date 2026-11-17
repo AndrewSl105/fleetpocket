@@ -5,7 +5,7 @@ import { useAnswer, useTask, useTaskEvents } from '@/api/hooks'
 import { useTaskSubscription } from '@/realtime/RealtimeProvider'
 import { buildTimeline, isStopping, type TimelineItem } from '@/lib/timeline'
 import { STATUS, type Tone } from '@/lib/status'
-import { duration, usd } from '@/lib/format'
+import { duration, costLabel, usd } from '@/lib/format'
 import {
   currentActivity,
   diffTotals,
@@ -198,7 +198,7 @@ function NodeBody({ task: listed, level, host, onPointerDown }: { task: Task; le
             <span className="shrink-0">#{task.id}</span>
             <span className="shrink-0 font-semibold">{derived.now.verb}</span>
             <span className="min-w-0 flex-1 truncate fp-node-muted">{derived.now.target}</span>
-            <span className="shrink-0 tabular-nums">{usd(cost)}</span>
+            <span className="shrink-0 tabular-nums">{usd(cost, task.cost_estimated, task.cost_unknown)}</span>
           </span>
         )}
       </div>
@@ -225,7 +225,7 @@ function NodeBody({ task: listed, level, host, onPointerDown }: { task: Task; le
         {derived.touched.length > 0 && <TouchedList touched={derived.touched} />}
         <footer className="fp-node-muted mt-auto flex shrink-0 items-center gap-3 font-mono text-[11px] tabular-nums">
           <span>{tn.step(derived.steps)}</span>
-          <span aria-label={tn.cost}>{usd(cost)}</span>
+          <span aria-label={`${tn.cost}: ${costLabel(cost, task.cost_estimated, task.cost_unknown)}`}>{usd(cost, task.cost_estimated, task.cost_unknown)}</span>
           <span className="ml-auto" aria-label={tn.elapsed}>
             {runEnd ? duration(runStart, runEnd) : <Ticking from={runStart} />}
           </span>
@@ -382,7 +382,7 @@ function Finished({ task, files, diff, cost }: { task: Task; files: number; diff
         </div>
         <div>
           <dt>{tn.costCell}</dt>
-          <dd>{usd(cost)}</dd>
+          <dd>{usd(cost, task.cost_estimated, task.cost_unknown)}</dd>
         </div>
       </dl>
       {task.pr_url && (

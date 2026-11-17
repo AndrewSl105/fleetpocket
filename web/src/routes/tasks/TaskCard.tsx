@@ -1,8 +1,9 @@
+import { Cost } from '@/components/Cost'
 import { Link } from 'react-router'
 import type { Task } from '@/api/types'
 import { StatusBadge } from '@/components/StatusBadge'
 import { HostChip } from '@/components/HostChip'
-import { relativeTime, usd } from '@/lib/format'
+import { relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
 
@@ -45,7 +46,7 @@ export function TaskCard({ task, projectName, selected }: { task: Task; projectN
         )}
         <span aria-hidden="true">·</span>
         <span className="shrink-0">{relativeTime(task.last_activity_at ?? task.updated_at)}</span>
-        <span className="ml-auto shrink-0 tabular-nums">{usd(task.cost_usd_total, task.cost_estimated)}</span>
+        <Cost className="ml-auto shrink-0 tabular-nums" value={task.cost_usd_total} estimated={task.cost_estimated} unknown={task.cost_unknown} />
       </div>
       </div>
       {waiting && <span className="sr-only">{t.tasks.needsAnswer}</span>}

@@ -76,7 +76,7 @@ func renderCard(c cardData) string {
 		if t.Status == "pushing" {
 			label = "Opening PR"
 		}
-		fmt.Fprintf(&b, "⏳ %s · %s · %d turns · %s", label, shortDuration(c.Now.Sub(started)), t.Turns, costs.Format(t.CostUSDTotal, t.CostEstimated))
+		fmt.Fprintf(&b, "⏳ %s · %s · %d turns · %s", label, shortDuration(c.Now.Sub(started)), t.Turns, costs.Format(t.CostUSDTotal, t.CostEstimated, t.CostUnknown))
 		if t.LastActivity != nil && strings.TrimSpace(*t.LastActivity) != "" {
 			if activity := activityLine(*t.LastActivity); activity != "" {
 				fmt.Fprintf(&b, "\n%s", esc(activity))
@@ -98,13 +98,13 @@ func renderCard(c cardData) string {
 				ci = "✗"
 			}
 		}
-		fmt.Fprintf(&b, "✅ PR #%d · CI %s · %s · %s", deref(t.PRNumber), ci, costs.Format(t.CostUSDTotal, t.CostEstimated), shortDuration(c.Now.Sub(created)))
+		fmt.Fprintf(&b, "✅ PR #%d · CI %s · %s · %s", deref(t.PRNumber), ci, costs.Format(t.CostUSDTotal, t.CostEstimated, t.CostUnknown), shortDuration(c.Now.Sub(created)))
 	case "failed":
 		b.WriteString("❌ " + esc(humanizeError(deref(t.StatusReason)).Summary))
 	case "cancelled":
 		b.WriteString("🚫 Cancelled")
 	case "completed":
-		fmt.Fprintf(&b, "✅ Completed · %s · %s", costs.Format(t.CostUSDTotal, t.CostEstimated), shortDuration(c.Now.Sub(t.CreatedAt)))
+		fmt.Fprintf(&b, "✅ Completed · %s · %s", costs.Format(t.CostUSDTotal, t.CostEstimated, t.CostUnknown), shortDuration(c.Now.Sub(t.CreatedAt)))
 	case "paused":
 		b.WriteString("⏸️ Paused")
 	default:

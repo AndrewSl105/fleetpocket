@@ -54,6 +54,15 @@ export function seedCosts() {
   addEvent(x.id, 'run_finished', { run_id: xr.id, exit_code: 0, cost_usd: 1.29, cost_source: 'estimated' }, false, ago(60 * 5 - 21))
   Object.assign(x, { status: 'completed', finished_at: ago(60 * 5 - 21), cost_usd_total: 1.29, cost_estimated: true, turns: 9, updated_at: ago(60 * 5 - 21) })
 
+  // Cursor "auto" has no price: its cost is unknown ($?).
+  const u = makeTask({ project_id: 'bioma', title: 'Rename the theme tokens', status: 'queued', agent: 'cursor', created_at: ago(60 * 3) })
+  const ur = startRun(u.id, 'initial', u.prompt, ago(60 * 3))
+  addEvent(u.id, 'started', { session_id: 'c-1', model: 'auto' }, true, ago(60 * 3))
+  addEvent(u.id, 'usage', { cost_usd_total: 0, input_tokens: 96_000, output_tokens: 4_100, turns: 3 }, true, ago(60 * 3 - 9))
+  Object.assign(ur, { model: 'auto', input_tokens: 96_000, output_tokens: 4_100, cost_usd: 0, cost_source: 'unknown', exit_code: 0, finished_at: ago(60 * 3 - 10) })
+  addEvent(u.id, 'run_finished', { run_id: ur.id, exit_code: 0, cost_usd: 0, cost_source: 'unknown' }, false, ago(60 * 3 - 10))
+  Object.assign(u, { status: 'completed', finished_at: ago(60 * 3 - 10), cost_unknown: true, turns: 3, updated_at: ago(60 * 3 - 10) })
+
   // Vatary has a monthly budget it has used up: a new task waits.
   const vatary = db.projects.find((p) => p.id === 'vatary')
   if (vatary) vatary.budget = { monthly_usd: 3.5 }
@@ -116,6 +125,13 @@ export function monthCost(projectId: string): number {
   return round({ ...emptySum(), cost_usd: startedRuns().filter(({ run, task }) => task.project_id === projectId && day(run.started_at!) >= start).reduce((n, { run }) => n + run.cost_usd, 0) }).cost_usd
 }
 
+/** Whether some of a project's runs this month have no price. */
+export function monthUnknown(projectId: string): boolean {
+  const now = new Date()
+  const start = day(new Date(now.getFullYear(), now.getMonth(), 1).toISOString())
+  return startedRuns().some(({ run, task }) => task.project_id === projectId && run.cost_source === 'unknown' && day(run.started_at!) >= start)
+}
+
 /** GET /costs over the mock runs, like costs.Aggregate on the server. */
 export function costReport(from: string, to: string, period: string): CostReport {
   const total = emptySum()
@@ -155,8 +171,18 @@ export function costReport(from: string, to: string, period: string): CostReport
     to,
     period: period as CostReport['period'],
     month_start: monthStart,
-    budget: { monthly_usd: costs.settings.monthly_budget_usd, month_cost_usd: Math.round(monthTotal * 1e4) / 1e4 },
-    projects: db.projects.map((p) => ({ project_id: p.id, name: p.name, monthly_usd: p.budget?.monthly_usd ?? null, month_cost_usd: monthCost(p.id) })),
+    budget: {
+      monthly_usd: costs.settings.monthly_budget_usd,
+      month_cost_usd: Math.round(monthTotal * 1e4) / 1e4,
+      month_cost_unknown: db.projects.some((p) => monthUnknown(p.id)),
+    },
+    projects: db.projects.map((p) => ({
+      project_id: p.id,
+      name: p.name,
+      monthly_usd: p.budget?.monthly_usd ?? null,
+      month_cost_usd: monthCost(p.id),
+      month_cost_unknown: monthUnknown(p.id),
+    })),
     total: round(total),
     by_project: keyed(projects),
     by_agent: keyed(agents),

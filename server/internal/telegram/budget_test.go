@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mymmrac/telego"
 
@@ -66,5 +67,20 @@ func TestBudgetWaitingStartsAnyway(t *testing.T) {
 	evs, _ := st.LastEvents(ctx, v.ID, []string{"budget"}, 1)
 	if len(evs) != 1 || !strings.Contains(string(evs[0].Payload), `"via": "telegram"`) && !strings.Contains(string(evs[0].Payload), `"via":"telegram"`) {
 		t.Fatalf("override event: %+v", evs)
+	}
+}
+
+func TestCardCostMarkers(t *testing.T) {
+	now := time.Now()
+	base := store.Task{ID: 1, Title: "t", ProjectID: "p", Status: "completed", CreatedAt: now}
+	unknown := base
+	unknown.CostUnknown = true
+	if got := renderCard(cardData{Task: &unknown, Now: now}); !strings.Contains(got, "Completed · $? ·") {
+		t.Fatalf("unknown: %q", got)
+	}
+	mixed := base
+	mixed.CostUSDTotal, mixed.CostEstimated, mixed.CostUnknown = 0.84, true, true
+	if got := renderCard(cardData{Task: &mixed, Now: now}); !strings.Contains(got, "≈$0.84+?") {
+		t.Fatalf("mixed: %q", got)
 	}
 }

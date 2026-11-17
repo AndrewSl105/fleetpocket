@@ -24,6 +24,8 @@ CREATE INDEX runs_started_at_idx ON runs (started_at);
 ALTER TABLE tasks ADD COLUMN autofix_cost_usd numeric(10,4);
 ALTER TABLE tasks ADD COLUMN cost_estimated boolean;
 ALTER TABLE tasks ADD COLUMN cost_api_equivalent boolean;
+-- Some run reported tokens but its model has no price (cost_source unknown).
+ALTER TABLE tasks ADD COLUMN cost_unknown boolean;
 -- The budget scope ('global' or 'project') a queued task waits for, and
 -- when the owner let it start anyway (good for the month it was given in).
 ALTER TABLE tasks ADD COLUMN budget_wait text;
@@ -49,6 +51,7 @@ DROP TABLE budget_alerts;
 ALTER TABLE projects DROP COLUMN budget;
 ALTER TABLE tasks DROP COLUMN budget_override_at;
 ALTER TABLE tasks DROP COLUMN budget_wait;
+ALTER TABLE tasks DROP COLUMN cost_unknown;
 ALTER TABLE tasks DROP COLUMN cost_api_equivalent;
 ALTER TABLE tasks DROP COLUMN cost_estimated;
 ALTER TABLE tasks DROP COLUMN autofix_cost_usd;

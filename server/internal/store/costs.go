@@ -127,10 +127,12 @@ func (s *Store) SetRunUsage(ctx context.Context, runID int64, u RunUsage) (*Task
 
 func recomputeTaskCostTx(ctx context.Context, tx q, taskID int64) (*Task, error) {
 	return scanTask(tx.QueryRow(ctx, `UPDATE tasks SET cost_usd_total = a.total, autofix_cost_usd = nullif(a.fix, 0),
-			cost_estimated = nullif(a.est, false), cost_api_equivalent = nullif(a.sub, false), turns = a.nturns, updated_at = now()
+			cost_estimated = nullif(a.est, false), cost_api_equivalent = nullif(a.sub, false), cost_unknown = nullif(a.unk, false),
+			turns = a.nturns, updated_at = now()
 		FROM (SELECT coalesce(sum(cost_usd), 0) AS total,
 				coalesce(sum(cost_usd) FILTER (WHERE autofix_attempt IS NOT NULL), 0) AS fix,
 				coalesce(bool_or(cost_source = 'estimated'), false) AS est,
+				coalesce(bool_or(cost_source = 'unknown'), false) AS unk,
 				coalesce(bool_or(cost_source = 'reported' AND auth = 'subscription'), false) AS sub,
 				coalesce(sum(turns), 0) AS nturns
 			FROM runs WHERE task_id = $1) a
@@ -256,6 +258,27 @@ func (s *Store) MonthSpend(ctx context.Context, monthStart time.Time) (float64, 
 		total += v
 	}
 	return total, by, rows.Err()
+}
+
+// MonthUnknown tells which projects (and whether any) have runs started
+// since monthStart whose cost is unknown (tokens but no price), so a
+// month-to-date sum can say it is incomplete.
+func (s *Store) MonthUnknown(ctx context.Context, monthStart time.Time) (bool, map[string]bool, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT t.project_id FROM runs r JOIN tasks t ON t.id = r.task_id
+		WHERE r.started_at >= $1 AND r.cost_source = 'unknown'`, monthStart)
+	if err != nil {
+		return false, nil, err
+	}
+	defer rows.Close()
+	by := map[string]bool{}
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return false, nil, err
+		}
+		by[p] = true
+	}
+	return len(by) > 0, by, rows.Err()
 }
 
 // AddBudgetAlert records that a scope reached level this month; false when

@@ -4,7 +4,7 @@ import { GROUPS } from '@/lib/status'
 import { addAttachment, addEvent, db, makeTask, MOCK_AGENTS, node, startRun, taskView } from './db'
 import { emitStatus, interruptRun, resumeAfterAnswer, setPush } from './simulator'
 import { integrationHandlers } from './integrations'
-import { costHandlers, monthCost } from './costs'
+import { costHandlers, monthCost, monthUnknown } from './costs'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -196,7 +196,7 @@ export const handlers = [
     const denied = guard(request)
     if (denied) return denied
     const archived = new URL(request.url).searchParams.get('archived') === 'true'
-    const items = db.projects.filter((p) => archived || !p.archived).map((p) => ({ ...p, month_cost_usd: monthCost(p.id) }))
+    const items = db.projects.filter((p) => archived || !p.archived).map((p) => ({ ...p, month_cost_usd: monthCost(p.id), month_cost_unknown: monthUnknown(p.id) }))
     return HttpResponse.json({ items, next_cursor: '' })
   }),
   http.post(`${API}/projects`, async ({ request }) => {
@@ -224,6 +224,7 @@ export const handlers = [
       ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null, ...body.ci_autofix },
       budget: body.budget ?? null,
       month_cost_usd: 0,
+      month_cost_unknown: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       repositories: [],
@@ -235,7 +236,7 @@ export const handlers = [
     const denied = guard(request)
     if (denied) return denied
     const p = db.projects.find((x) => x.id === params.id)
-    return p ? HttpResponse.json({ ...p, month_cost_usd: monthCost(p.id) }) : err(404, 'not_found', 'No such project')
+    return p ? HttpResponse.json({ ...p, month_cost_usd: monthCost(p.id), month_cost_unknown: monthUnknown(p.id) }) : err(404, 'not_found', 'No such project')
   }),
   http.patch(`${API}/projects/:id`, async ({ request, params }) => {
     const denied = guard(request)
@@ -614,6 +615,8 @@ export const handlers = [
       waiting_input: count('waiting_input'),
       cost_usd_today: 2.54,
       cost_usd_month: 41.7,
+      cost_unknown_today: false,
+      cost_unknown_month: db.tasks.some((t) => t.cost_unknown),
     })
   }),
   http.get('*/healthz', () => HttpResponse.json({ ok: true, checks: { database: 'ok', docker: 'ok' } })),

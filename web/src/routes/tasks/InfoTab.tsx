@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import type { TaskView } from '@/api/types'
+import { Cost } from '@/components/Cost'
 import { useTaskRuns } from '@/api/hooks'
-import { dateTime, duration, usd } from '@/lib/format'
+import { dateTime, duration } from '@/lib/format'
 import { HostChip } from '@/components/HostChip'
 import { t } from '@/i18n/en'
 import { IntegrationsInfo } from '@/routes/integrations/IntegrationsLine'
@@ -72,7 +73,7 @@ export function InfoTab({ task }: { task: TaskView }) {
                       {run.started_at ? duration(run.started_at, run.finished_at) : ti.queuedRun}
                     </td>
                     <td className="px-3 py-2 text-right">{run.turns}</td>
-                    <td className="px-3 py-2 text-right">{run.cost_source === 'unknown' ? '?' : usd(run.cost_usd, run.cost_source === 'estimated')}</td>
+                    <td className="px-3 py-2 text-right"><Cost value={run.cost_usd} estimated={run.cost_source === 'estimated'} unknown={run.cost_source === 'unknown'} /></td>
                     <td className="px-3 py-2 text-right">{run.finished_at ? (run.exit_code ?? '—') : '…'}</td>
                   </tr>
                 ))}

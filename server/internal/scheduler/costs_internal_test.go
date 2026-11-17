@@ -103,6 +103,15 @@ func TestRunUsageReportedAndEstimated(t *testing.T) {
 	if *r.CostSource != costs.SourceUnknown || r.CostUSD != 0 || r.InputTokens != 2000 {
 		t.Fatalf("cursor run: %+v", r)
 	}
+	if got, _ := s.Store.GetTask(ctx, u.ID); !got.CostUnknown || got.CostUSDTotal != 0 {
+		t.Fatalf("cursor task: %+v", got)
+	}
+	if st, _ := s.Store.GetStats(ctx, time.Now()); !st.CostUnknownToday || !st.CostUnknownMonth {
+		t.Fatalf("stats: %+v", st)
+	}
+	if any, by, _ := s.Store.MonthUnknown(ctx, costs.MonthStart(time.Now())); !any || !by["demo"] {
+		t.Fatalf("month unknown: %v %v", any, by)
+	}
 	// A "*" row the owner adds prices it from then on.
 	tbl := costs.PriceTable{Updated: "2026-11-17", Prices: []costs.Price{{Agent: "cursor", Model: "*", InputUSD: 1, OutputUSD: 1}}}
 	if err := s.Store.SetCostSettings(ctx, store.CostSettings{PriceTable: &tbl}); err != nil {
@@ -111,6 +120,9 @@ func TestRunUsageReportedAndEstimated(t *testing.T) {
 	s.recordUsage(ctx, u, ur.ID, usageEv(0, 1_000_000, 0), ub)
 	if r, _ = s.Store.GetRun(ctx, ur.ID); *r.CostSource != costs.SourceEstimated || r.CostUSD != 1 {
 		t.Fatalf("cursor with a * row: %+v", r)
+	}
+	if got, _ := s.Store.GetTask(ctx, u.ID); got.CostUnknown || !got.CostEstimated {
+		t.Fatalf("cursor task once priced: %+v", got)
 	}
 }
 

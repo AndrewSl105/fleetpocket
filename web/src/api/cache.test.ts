@@ -33,6 +33,7 @@ const task = (id: number, status: Task['status'], project = 'p'): Task => ({
   autofix_cost_usd: 0,
   cost_estimated: false,
   cost_api_equivalent: false,
+  cost_unknown: false,
   budget_wait: null,
   budget_override_at: null,
   source: 'web',

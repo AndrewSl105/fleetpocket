@@ -64,7 +64,7 @@ func TestCostsAPI(t *testing.T) {
 	if code != 200 || rep["total"].(map[string]any)["cost_usd"] != 1.5 || rep["total"].(map[string]any)["api_equivalent_usd"] != 1.5 {
 		t.Fatalf("report: %d %v", code, rep)
 	}
-	if b := rep["budget"].(map[string]any); b["monthly_usd"] != 50.0 || b["month_cost_usd"] != 1.5 {
+	if b := rep["budget"].(map[string]any); b["monthly_usd"] != 50.0 || b["month_cost_usd"] != 1.5 || b["month_cost_unknown"] != false {
 		t.Fatalf("budget: %v", b)
 	}
 	if ps := rep["projects"].([]any); len(ps) != 1 || ps[0].(map[string]any)["monthly_usd"] != 20.0 {
@@ -80,7 +80,7 @@ func TestCostsAPI(t *testing.T) {
 		t.Fatalf("reversed range: %d", code)
 	}
 	_, tk := c.do("GET", "/api/v1/tasks/"+itoa(id), nil)
-	if tk["cost_api_equivalent"] != true || tk["cost_estimated"] != false || tk["budget_wait"] != nil {
+	if tk["cost_api_equivalent"] != true || tk["cost_estimated"] != false || tk["cost_unknown"] != false || tk["budget_wait"] != nil {
 		t.Fatalf("task: %v", tk)
 	}
 

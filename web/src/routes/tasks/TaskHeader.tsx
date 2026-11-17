@@ -17,7 +17,7 @@ import { CIBadge } from '@/components/CIBadge'
 import { useConfirm } from '@/components/confirm'
 import { CopyButton, copyText } from '@/components/CopyButton'
 import { can } from '@/lib/status'
-import { usd } from '@/lib/format'
+import { Cost } from '@/components/Cost'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { taskNumber } from './TaskCard'
@@ -156,7 +156,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
         </span>
         <HostChip node={task.node} />
         <span className="tabular-nums" title={task.cost_api_equivalent ? c.apiEquivalentHint : undefined}>
-          {usd(task.cost_usd_total, task.cost_estimated)}
+          <Cost value={task.cost_usd_total} estimated={task.cost_estimated} unknown={task.cost_unknown} />
           {task.cost_api_equivalent && <span className="fm-label ml-1">{c.apiEquivalent}</span>}
           {task.autofix_cost_usd > 0 && <span> ({c.autofixShare(task.autofix_cost_usd)})</span>}
         </span>

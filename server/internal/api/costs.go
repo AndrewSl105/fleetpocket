@@ -78,8 +78,9 @@ func (s *Server) putCostSettings(w http.ResponseWriter, r *http.Request) {
 
 // budgetView is a scope's monthly cap and month-to-date cost.
 type budgetView struct {
-	MonthlyUSD   *float64 `json:"monthly_usd"`
-	MonthCostUSD float64  `json:"month_cost_usd"`
+	MonthlyUSD       *float64 `json:"monthly_usd"`
+	MonthCostUSD     float64  `json:"month_cost_usd"`
+	MonthCostUnknown bool     `json:"month_cost_unknown"`
 }
 
 type projectBudgetView struct {
@@ -159,6 +160,11 @@ func (s *Server) getCosts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, err)
 		return
 	}
+	anyUnknown, unknown, err := s.Store.MonthUnknown(ctx, month)
+	if err != nil {
+		writeErr(w, r, err)
+		return
+	}
 	ps, err := s.Store.ListProjects(ctx, true, "", 10000)
 	if err != nil {
 		writeErr(w, r, err)
@@ -166,7 +172,7 @@ func (s *Server) getCosts(w http.ResponseWriter, r *http.Request) {
 	}
 	out := costReport{
 		From: from.Format("2006-01-02"), To: last.Format("2006-01-02"), MonthStart: month.Format("2006-01-02"),
-		Budget:   budgetView{MonthlyUSD: cs.MonthlyBudgetUSD, MonthCostUSD: roundCents(total)},
+		Budget:   budgetView{MonthlyUSD: cs.MonthlyBudgetUSD, MonthCostUSD: roundCents(total), MonthCostUnknown: anyUnknown},
 		Projects: []projectBudgetView{},
 		Report:   costs.Aggregate(runs, from, to, period, loc),
 	}
@@ -179,7 +185,7 @@ func (s *Server) getCosts(w http.ResponseWriter, r *http.Request) {
 			cap = p.Budget.MonthlyUSD
 		}
 		out.Projects = append(out.Projects, projectBudgetView{ProjectID: p.ID, Name: p.Name,
-			budgetView: budgetView{MonthlyUSD: cap, MonthCostUSD: roundCents(by[p.ID])}})
+			budgetView: budgetView{MonthlyUSD: cap, MonthCostUSD: roundCents(by[p.ID]), MonthCostUnknown: unknown[p.ID]}})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -188,13 +194,18 @@ func roundCents(v float64) float64 { return float64(int64(v*1e4+0.5)) / 1e4 }
 
 // withMonthCost fills in the projects' month-to-date cost.
 func (s *Server) withMonthCost(ctx context.Context, ps ...*store.Project) error {
-	_, by, err := s.Store.MonthSpend(ctx, costs.MonthStart(s.now()))
+	month := costs.MonthStart(s.now())
+	_, by, err := s.Store.MonthSpend(ctx, month)
+	if err != nil {
+		return err
+	}
+	_, unknown, err := s.Store.MonthUnknown(ctx, month)
 	if err != nil {
 		return err
 	}
 	for _, p := range ps {
 		if p != nil {
-			p.MonthCostUSD = roundCents(by[p.ID])
+			p.MonthCostUSD, p.MonthCostUnknown = roundCents(by[p.ID]), unknown[p.ID]
 		}
 	}
 	return nil

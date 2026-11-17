@@ -60,7 +60,11 @@ export function useBudgetOverride(taskId: number) {
   })
 }
 
-/** The report's rows as CSV (one row per day, project and agent). */
+/**
+ * The report's rows as CSV (one row per day, project and agent). cost_usd is
+ * "unknown" when none of the row's runs has a price; with some priced, it is
+ * the known part and unknown_runs counts the others.
+ */
 export function costsCsv(report: CostReport): string {
   const head = ['day', 'project_id', 'agent', 'cost_usd', 'estimated_usd', 'autofix_usd', 'api_equivalent_usd', 'runs', 'unknown_runs', 'input_tokens', 'output_tokens']
   const cell = (v: string | number) => {
@@ -70,7 +74,7 @@ export function costsCsv(report: CostReport): string {
   const lines = [head.join(',')]
   for (const r of report.rows) {
     lines.push(
-      [r.day, r.project_id, r.agent, r.cost_usd, r.estimated_usd, r.autofix_usd, r.api_equivalent_usd, r.runs, r.unknown_runs, r.input_tokens, r.output_tokens]
+      [r.day, r.project_id, r.agent, r.runs > 0 && r.unknown_runs === r.runs ? 'unknown' : r.cost_usd, r.estimated_usd, r.autofix_usd, r.api_equivalent_usd, r.runs, r.unknown_runs, r.input_tokens, r.output_tokens]
         .map(cell)
         .join(','),
     )

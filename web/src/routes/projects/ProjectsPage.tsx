@@ -54,7 +54,7 @@ export default function ProjectsPage() {
                         <span className="font-mono">{p.id}</span> · {t.projects.repos(p.repositories.length)}
                         {n > 0 && <span className="text-primary"> · {t.projects.active(n)}</span>}
                       </div>
-                      <MonthCost spent={p.month_cost_usd} cap={p.budget?.monthly_usd ?? null} />
+                      <MonthCost spent={p.month_cost_usd} unknown={p.month_cost_unknown} cap={p.budget?.monthly_usd ?? null} />
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                   </Link>
@@ -69,13 +69,14 @@ export default function ProjectsPage() {
 }
 
 /** Month-to-date cost, against the monthly budget when the project has one. */
-function MonthCost({ spent, cap }: { spent: number; cap: number | null }) {
-  if (!cap) return spent > 0 ? <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">{c.monthToDate(spent)}</div> : null
+function MonthCost({ spent, unknown, cap }: { spent: number; unknown: boolean; cap: number | null }) {
+  if (!cap)
+    return spent > 0 || unknown ? <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">{c.monthToDate(spent, unknown)}</div> : null
   return (
     <div className="mt-1.5">
       <CostBar value={spent} max={cap} tone="budget" label={c.budget} />
       <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">
-        {c.budget}: {c.ofBudget(spent, cap)}
+        {c.budget}: {c.ofBudget(spent, cap, unknown)}
       </div>
     </div>
   )

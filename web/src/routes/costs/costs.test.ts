@@ -24,14 +24,39 @@ describe('costsCsv', () => {
 })
 
 describe('timeline cost labels', () => {
-  it('marks estimates with ≈ and unknown costs with ?', async () => {
+  it('marks estimates with ≈ and unknown costs with $?', async () => {
     const { dividerText } = await import('@/routes/tasks/TimelineRow')
     expect(dividerText('run_finished:0|0.84|estimated')).toContain('cost ≈$0.84')
     expect(dividerText('run_finished:0|0.84|reported')).toContain('cost $0.84')
-    expect(dividerText('run_finished:0|0|unknown')).toContain('cost ?')
+    expect(dividerText('run_finished:0|0|unknown')).toContain('cost $?')
     expect(dividerText('run_finished:0')).not.toContain('cost')
     expect(dividerText('budget:{"phase":"warning","scope":"global","spent_usd":80,"limit_usd":100}')).toBe(
       'The global monthly budget is at 80% ($80.0 of $100.0)',
     )
+  })
+})
+
+describe('cost format', () => {
+  it('is one format for known, estimated, unknown and partly unknown costs', async () => {
+    const { usd, costLabel } = await import('@/lib/format')
+    expect(usd(0.84)).toBe('$0.84')
+    expect(usd(0.84, true)).toBe('≈$0.84')
+    expect(usd(0, false, true)).toBe('$?')
+    expect(usd(0.84, false, true)).toBe('$0.84+?')
+    expect(usd(0.84, true, true)).toBe('≈$0.84+?')
+    expect(costLabel(0, false, true)).toBe('cost unknown')
+    expect(costLabel(0.84, true, true)).toBe('about $0.84 plus an unknown part')
+  })
+
+  it("writes 'unknown' in the CSV when none of a row's runs has a price", () => {
+    const report = {
+      rows: [
+        { ...sum, day: '2026-11-02', project_id: 'p', agent: 'cursor', runs: 1, unknown_runs: 1 },
+        { ...sum, day: '2026-11-02', project_id: 'p', agent: 'codex', cost_usd: 1, runs: 2, unknown_runs: 1 },
+      ],
+    } as unknown as CostReport
+    const lines = costsCsv(report).trim().split('\n')
+    expect(lines[1]).toBe('2026-11-02,p,cursor,unknown,0,0,0,1,1,0,0')
+    expect(lines[2]).toBe('2026-11-02,p,codex,1,0,0,0,2,1,0,0')
   })
 })

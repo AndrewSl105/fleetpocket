@@ -742,13 +742,15 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [running, queued, waiting_input, cost_usd_today, cost_usd_month]
+                required: [running, queued, waiting_input, cost_usd_today, cost_usd_month, cost_unknown_today, cost_unknown_month]
                 properties:
                   running: { type: integer }
                   queued: { type: integer }
                   waiting_input: { type: integer }
                   cost_usd_today: { type: number }
                   cost_usd_month: { type: number }
+                  cost_unknown_today: { type: boolean, description: Some of today's runs have no price (cost_usd_today is a lower bound) }
+                  cost_unknown_month: { type: boolean, description: Some of this month's runs have no price }
 
   /api/v1/settings/ci-autofix:
     get:
@@ -1576,14 +1578,15 @@ components:
 
     BudgetStatus:
       type: object
-      required: [monthly_usd, month_cost_usd]
+      required: [monthly_usd, month_cost_usd, month_cost_unknown]
       properties:
         monthly_usd: { type: [number, 'null'], description: The monthly cap; null is none }
         month_cost_usd: { type: number, description: Cost of runs started this calendar month }
+        month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
 
     Project:
       type: object
-      required: [id, name, instructions, services, env, archived, ci_autofix, budget, month_cost_usd, created_at, updated_at, repositories]
+      required: [id, name, instructions, services, env, archived, ci_autofix, budget, month_cost_usd, month_cost_unknown, created_at, updated_at, repositories]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1604,6 +1607,7 @@ components:
         ci_autofix: { $ref: '#/components/schemas/CIAutoFixSettings' }
         budget: { $ref: '#/components/schemas/ProjectBudget' }
         month_cost_usd: { type: number, description: Cost of the project's runs started this calendar month }
+        month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         repositories: { type: array, items: { $ref: '#/components/schemas/Repository' } }
@@ -1670,7 +1674,7 @@ components:
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1708,6 +1712,7 @@ components:
         autofix_cost_usd: { type: number, description: Part of cost_usd_total spent by CI auto-fix runs }
         cost_estimated: { type: boolean, description: 'Some run''s cost is an estimate: show ≈' }
         cost_api_equivalent: { type: boolean, description: Some run's cost was reported for a Claude subscription (OAuth) login, i.e. what the API would charge }
+        cost_unknown: { type: boolean, description: 'Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?`' }
         budget_wait:
           type: [string, 'null']
           enum: [global, project, null]

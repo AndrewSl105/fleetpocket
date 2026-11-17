@@ -1157,6 +1157,8 @@ export interface components {
             monthly_usd: number | null;
             /** @description Cost of runs started this calendar month */
             month_cost_usd: number;
+            /** @description Some of those runs have no price; month_cost_usd is a lower bound */
+            month_cost_unknown: boolean;
         };
         Project: {
             id: string;
@@ -1187,6 +1189,8 @@ export interface components {
             budget: components["schemas"]["ProjectBudget"];
             /** @description Cost of the project's runs started this calendar month */
             month_cost_usd: number;
+            /** @description Some of those runs have no price; month_cost_usd is a lower bound */
+            month_cost_unknown: boolean;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -1295,6 +1299,8 @@ export interface components {
             cost_estimated: boolean;
             /** @description Some run's cost was reported for a Claude subscription (OAuth) login */
             cost_api_equivalent: boolean;
+            /** @description Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?` */
+            cost_unknown: boolean;
             /**
              * @description Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.
              * @enum {string|null}
@@ -3213,6 +3219,10 @@ export interface operations {
                         waiting_input: number;
                         cost_usd_today: number;
                         cost_usd_month: number;
+                        /** @description Some of today's runs have no price (cost_usd_today is a lower bound) */
+                        cost_unknown_today: boolean;
+                        /** @description Some of this month's runs have no price */
+                        cost_unknown_month: boolean;
                     };
                 };
             };

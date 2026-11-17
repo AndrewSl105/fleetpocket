@@ -80,3 +80,23 @@ func TestLevelAndMonth(t *testing.T) {
 		t.Fatalf("MonthStart = %v", m)
 	}
 }
+
+func TestFormat(t *testing.T) {
+	cases := []struct {
+		usd          float64
+		est, unknown bool
+		want         string
+	}{
+		{0.84, false, false, "$0.84"},
+		{0.84, true, false, "≈$0.84"},
+		{0, false, true, "$?"},
+		{0.84, false, true, "$0.84+?"},
+		{0.84, true, true, "≈$0.84+?"},
+		{0, false, false, "$0.00"},
+	}
+	for _, c := range cases {
+		if got := Format(c.usd, c.est, c.unknown); got != c.want {
+			t.Errorf("Format(%v, %v, %v) = %q, want %q", c.usd, c.est, c.unknown, got, c.want)
+		}
+	}
+}

@@ -35,7 +35,7 @@ export function dividerText(text: string): string {
     const [code, cost, source] = text.slice('run_finished:'.length).split('|')
     const done = tl.runFinished(code === '' ? null : Number(code))
     if (cost === undefined) return done
-    return `${done} · ${c.runCost(source === 'unknown' ? '?' : usd(Number(cost), source === 'estimated'))}`
+    return `${done} · ${c.runCost(usd(Number(cost), source === 'estimated', source === 'unknown'))}`
   }
   if (text.startsWith('budget:')) {
     try {

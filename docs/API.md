@@ -81,7 +81,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 
 `ci_autofix` holds the project's CI auto-fix overrides (see [CI auto-fix](#ci-auto-fix)); a `PATCH` replaces the object as a whole and `null` fields inherit the global default.
 
-`budget` is the project's monthly cap, `{"monthly_usd": 50}` or `null` (none; `monthly_usd` `0` or `null` in a `PATCH` removes it); see [Costs and budgets](#costs-and-budgets). `month_cost_usd` (read-only) is the cost of the project's runs started this calendar month.
+`budget` is the project's monthly cap, `{"monthly_usd": 50}` or `null` (none; `monthly_usd` `0` or `null` in a `PATCH` removes it); see [Costs and budgets](#costs-and-budgets). `month_cost_usd` (read-only) is the cost of the project's runs started this calendar month; `month_cost_unknown` says some of them have no price.
 
 `services` accepts `postgres` and `redis`. `env` keys must match `[A-Z_][A-Z0-9_]*`; auth and service variables (`DATABASE_URL`, `REDIS_URL`, Claude, OpenAI and Cursor keys, `CODEX_HOME`, …) are reserved.
 
@@ -98,14 +98,14 @@ A **project** groups repositories and holds run settings. All override fields ar
   "created_at": "…", "updated_at": "…", "finished_at": null, "paused_at": null,
   "last_activity": "Edit src/tables/export.ts", "last_activity_at": "…",
   "queued_message": null,
-  "autofix_cost_usd": 0, "cost_estimated": false, "cost_api_equivalent": true,
+  "autofix_cost_usd": 0, "cost_estimated": false, "cost_api_equivalent": true, "cost_unknown": false,
   "budget_wait": null, "budget_override_at": null
 }
 ```
 
 - `agent`: the coding agent, fixed when the task is created (the request's `agent`, else the project's, else the server default), so follow-ups and resumes continue the same session.
 - `node`: the computer the task runs on (`null`: the server), fixed when the task is created: its workspace, agent session and containers live there. While that node is offline the task waits (`queued` tasks stay queued; a live task keeps its status and its stream resumes when the node reconnects; actions that need the workspace answer `503 host_offline`).
-- `cost_usd_total`: the sum of the runs' `cost_usd`: reported by Claude, estimated from the price table for Codex and Cursor (see [Costs and budgets](#costs-and-budgets)). `cost_estimated` is true when some run's cost is an estimate (show `≈$0.84`); `cost_api_equivalent` when some Claude run used a subscription (OAuth) login, so the cost is what the API would charge, not a bill. `autofix_cost_usd` is the part spent by CI auto-fix runs.
+- `cost_usd_total`: the sum of the runs' `cost_usd`: reported by Claude, estimated from the price table for Codex and Cursor (see [Costs and budgets](#costs-and-budgets)). `cost_estimated` is true when some run's cost is an estimate (show `≈$0.84`); `cost_api_equivalent` when some Claude run used a subscription (OAuth) login, so the cost is what the API would charge, not a bill. `autofix_cost_usd` is the part spent by CI auto-fix runs. `cost_unknown` is true when some run reported tokens but its model has no price (`cost_source: unknown`, counted as 0): the total is a lower bound. Clients show one format everywhere: `$0.84`, `≈$0.84` (estimate included), `$?` (nothing known), `$0.84+?` / `≈$0.84+?` (part unknown).
 - `budget_wait`: `global` or `project` while a queued task waits because that monthly cap is used up (`status_reason` is `waiting: budget`), else `null`. `budget_override_at`: when the owner let it start anyway.
 - `turns`: agent turns across all runs of the task (sum of each run's last reported `usage.turns`).
 - `last_activity`: one line (max 120 characters) describing the latest thing that happened: the latest `tool_use` summary, or the latest status change as `<status>` / `<status>: <reason>`, whichever came last. `last_activity_at` is when it was set. Both are `null` only for tasks that predate the field and have no surviving events.
@@ -147,7 +147,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `POST /tasks/{id}/budget-override` | `queued` only: the task starts although a monthly cap holds it, and may start runs until the calendar month ends; records a `budget` event (`override`, `via: "web"`). Otherwise `409` |
 | `POST /tasks/{id}/merge` | `pr_open` only: squash-merges the PR (commit title `<task title> (#<number>)`), deletes its branch, records `pr_closed {merged: true}` and completes the task ("PR merged"). `409 not_mergeable` with GitHub's reason when GitHub refuses (conflicts, required checks or reviews); `503 github_disabled` without the GitHub App |
 | `GET /tasks/{id}/attachments/{attachmentId}` | the image or file (`?thumb=1`: JPEG, longest side ≤ 480 px, images only); `410 gone` once removed |
-| `GET /stats` | `{running, queued, waiting_input, cost_usd_today, cost_usd_month}` (server-local days) |
+| `GET /stats` | `{running, queued, waiting_input, cost_usd_today, cost_usd_month, cost_unknown_today, cost_unknown_month}` (server-local days; `cost_unknown_*`: some runs have no price) |
 | `GET /settings/ci-autofix` | the global CI auto-fix default `{enabled, max_attempts, checks, budget_usd, allow_ci_changes}` (null fields: built-in default) |
 | `PUT /settings/ci-autofix` | replaces it; `400 invalid` for `max_attempts` outside 1–5 or a negative budget |
 | `GET /settings/costs` | `{monthly_budget_usd, price_table: {updated, prices: [{agent, model, input_usd, cached_input_usd, cache_write_usd, output_usd}]}, price_table_is_default}` |
@@ -207,8 +207,8 @@ Budgets, all off by default: the per-run `max_budget_usd` (as before), a monthly
 
 ```json
 {"from": "2026-11-01", "to": "2026-11-17", "period": "day", "month_start": "2026-11-01",
- "budget": {"monthly_usd": 100, "month_cost_usd": 41.2},
- "projects": [{"project_id": "vatary", "name": "Vatary", "monthly_usd": 50, "month_cost_usd": 30.5}],
+ "budget": {"monthly_usd": 100, "month_cost_usd": 41.2, "month_cost_unknown": false},
+ "projects": [{"project_id": "vatary", "name": "Vatary", "monthly_usd": 50, "month_cost_usd": 30.5, "month_cost_unknown": false}],
  "total": {"cost_usd": 41.2, "estimated_usd": 3.1, "autofix_usd": 1.9, "api_equivalent_usd": 38.1,
            "runs": 57, "unknown_runs": 1, "input_tokens": 9100000, "output_tokens": 410000},
  "by_project": [{"key": "vatary", "cost_usd": 30.5, …}], "by_agent": [{"key": "claude", …}],

@@ -21,6 +21,7 @@ const project: Project = {
   ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
   budget: null,
   month_cost_usd: 0,
+  month_cost_unknown: false,
   created_at: '',
   updated_at: '',
   repositories: [],

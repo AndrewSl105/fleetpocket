@@ -5,7 +5,7 @@ import { useSession } from '@/auth/AuthGate'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTheme, type ThemeChoice } from '@/lib/theme'
-import { usd } from '@/lib/format'
+import { Cost } from '@/components/Cost'
 import { cn } from '@/lib/utils'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
@@ -55,8 +55,8 @@ export default function SettingsPage() {
               <Stat className="col-span-2" label={s.running} value={stats.data.running} />
               <Stat className="col-span-2" label={s.queued} value={stats.data.queued} />
               <Stat className="col-span-2" label={s.waiting} value={stats.data.waiting_input} />
-              <Stat className="col-span-3" label={s.costToday} value={usd(stats.data.cost_usd_today)} />
-              <Stat className="col-span-3" label={s.costMonth} value={usd(stats.data.cost_usd_month)} />
+              <Stat className="col-span-3" label={s.costToday} value={<Cost value={stats.data.cost_usd_today} unknown={stats.data.cost_unknown_today} />} />
+              <Stat className="col-span-3" label={s.costMonth} value={<Cost value={stats.data.cost_usd_month} unknown={stats.data.cost_unknown_month} />} />
             </div>
           ) : (
             <div className="grid grid-cols-6 gap-2">

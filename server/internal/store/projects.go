@@ -31,10 +31,13 @@ type Project struct {
 	// month-to-date cost, filled in by the API.
 	Budget       *ProjectBudget `json:"budget"`
 	MonthCostUSD float64        `json:"month_cost_usd"`
-	Archived     bool           `json:"archived"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	Repositories []Repository   `json:"repositories"`
+	// MonthCostUnknown: some of this month's runs have no price, so
+	// MonthCostUSD is a lower bound.
+	MonthCostUnknown bool         `json:"month_cost_unknown"`
+	Archived         bool         `json:"archived"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
+	Repositories     []Repository `json:"repositories"`
 }
 
 type Repository struct {

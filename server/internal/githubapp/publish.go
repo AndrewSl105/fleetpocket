@@ -75,7 +75,7 @@ func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 	if stat = strings.TrimSpace(stat); stat != "" {
 		fmt.Fprintf(&b, "### Files changed\n\n```\n%s\n```\n\n", stat)
 	}
-	fmt.Fprintf(&b, "Cost: %s · Turns: %d", costs.Format(in.CostUSD, in.Task.CostEstimated), in.Turns)
+	fmt.Fprintf(&b, "Cost: %s · Turns: %d", costs.Format(in.CostUSD, in.Task.CostEstimated, in.Task.CostUnknown), in.Turns)
 	if p.TaskURL != nil {
 		if u := p.TaskURL(in.Task.ID); u != "" {
 			fmt.Fprintf(&b, " · [Task #%d](%s)", in.Task.ID, u)
@@ -97,7 +97,7 @@ func (p *Publisher) comment(in scheduler.PublishInput, stat string) string {
 	if stat = strings.TrimSpace(stat); stat != "" {
 		fmt.Fprintf(&b, "<details><summary>Files changed (whole PR)</summary>\n\n```\n%s\n```\n</details>\n\n", stat)
 	}
-	fmt.Fprintf(&b, "Task cost so far: %s", costs.Format(in.CostUSD, in.Task.CostEstimated))
+	fmt.Fprintf(&b, "Task cost so far: %s", costs.Format(in.CostUSD, in.Task.CostEstimated, in.Task.CostUnknown))
 	return b.String()
 }
 
