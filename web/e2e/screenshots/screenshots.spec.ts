@@ -156,6 +156,18 @@ test.describe('screens', () => {
     await shot(page, 'schedules')
   })
 
+  test('ideas board', async ({ page }) => {
+    // Off by default; the mock seeds four cards when it is turned on.
+    await open(page, '/')
+    await login(page)
+    await page.getByRole('link', { name: 'Settings' }).first().click()
+    await page.getByRole('switch', { name: 'Show the Ideas board' }).click()
+    await page.getByRole('link', { name: 'Open the board' }).click()
+    await expect(page.getByRole('heading', { name: 'Ideas' })).toBeVisible()
+    await expect(page.getByTestId('idea-card').first()).toBeVisible()
+    await shot(page, 'ideas')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

@@ -1,9 +1,9 @@
 import { Link } from 'react-router'
 import { Plug } from 'lucide-react'
 import { useIntegrations, useTaskEvents } from '@/api/hooks'
-import { t } from '@/i18n/en'
+import { ti } from '@/i18n/integrations'
 
-const it = t.integrations
+const it = ti
 
 /** What a task of the project gets: its MCP servers and the allowlist stamp. Nothing when it gets neither. */
 export function IntegrationsLine({ projectId }: { projectId: string }) {

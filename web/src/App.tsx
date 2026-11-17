@@ -29,6 +29,10 @@ const SkillEditPage = lazy(() => import('@/routes/skills/SkillEditPage'))
 const SchedulesPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.SchedulesPage })))
 const ScheduleDetailPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.ScheduleDetailPage })))
 const ScheduleEditPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.ScheduleEditPage })))
+// One chunk for the three Ideas screens.
+const IdeasPage = lazy(() => import('@/routes/ideas/screens').then((m) => ({ default: m.IdeasPage })))
+const IdeaDetailPage = lazy(() => import('@/routes/ideas/screens').then((m) => ({ default: m.IdeaDetailPage })))
+const IdeasArchivePage = lazy(() => import('@/routes/ideas/screens').then((m) => ({ default: m.IdeasArchivePage })))
 // Only the first-run wizard needs it (and its QR code library); keep it out of the initial bundle.
 // Local mode only (npx jungle-monkey): Docker, agent, a folder, GitHub, the first task.
 const OnboardingPage = lazy(() => import('@/local/OnboardingPage'))
@@ -72,6 +76,9 @@ export function createAppRouter() {
         { path: 'schedules/new', element: lazyPage(ScheduleEditPage) },
         { path: 'schedules/:id', element: lazyPage(ScheduleDetailPage) },
         { path: 'schedules/:id/edit', element: lazyPage(ScheduleEditPage) },
+        { path: 'ideas', element: lazyPage(IdeasPage) },
+        { path: 'ideas/archive', element: lazyPage(IdeasArchivePage) },
+        { path: 'ideas/:id', element: lazyPage(IdeaDetailPage) },
         { path: '*', element: <NotFound /> },
       ],
     },

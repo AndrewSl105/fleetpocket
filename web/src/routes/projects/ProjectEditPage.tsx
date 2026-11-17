@@ -35,6 +35,7 @@ import { NotFound } from '@/routes/NotFound'
 import { PrimaryAction } from '@/telegram/controls'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
+import { ti } from '@/i18n/integrations'
 import { c } from '@/i18n/costs'
 import { LocalRepoInfo } from '@/local/LocalRepoInfo'
 import { FolderBrowser } from '@/local/FolderBrowser'
@@ -252,8 +253,8 @@ function ProjectForm({ project }: { project?: Project }) {
           <Link to={`/projects/${project.id}/integrations`} className="flex min-h-11 items-center gap-3 fm-group px-3 py-2 hover:bg-muted">
             <Plug className="size-4 shrink-0" aria-hidden="true" />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium">{t.integrations.open}</span>
-              <span className="block text-xs text-muted-foreground">{t.integrations.openHint}</span>
+              <span className="block text-sm font-medium">{ti.open}</span>
+              <span className="block text-xs text-muted-foreground">{ti.openHint}</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </Link>

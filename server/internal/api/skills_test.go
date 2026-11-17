@@ -72,12 +72,15 @@ func TestSkillsAPI(t *testing.T) {
 
 	// Project enablement and task overrides.
 	c.do("POST", "/api/v1/projects", map[string]any{"id": "sk", "name": "Sk"})
-	// Diagram outputs stay off until the server collects them.
+	// With artifact outputs gated off, a project cannot default to them.
+	// (They are live now; the gate stays for a build that turns them off.)
+	was := tasks.ArtifactsEnabled
+	t.Cleanup(func() { tasks.ArtifactsEnabled = was })
+	tasks.ArtifactsEnabled = false
 	if code, _ := c.do("PATCH", "/api/v1/projects/sk", map[string]any{"default_output": "artifacts"}); code != 400 {
 		t.Fatalf("gated default_output: %d", code)
 	}
 	tasks.ArtifactsEnabled = true
-	t.Cleanup(func() { tasks.ArtifactsEnabled = false })
 	c.do("POST", "/api/v1/projects/sk/repositories", map[string]any{"full_name": "o/r", "installation_id": 1, "base_branch": "main"})
 	if code, p := c.do("PATCH", "/api/v1/projects/sk", map[string]any{"skills": []string{"demo", "nope"}, "default_output": "artifacts"}); code != 200 ||
 		fmt.Sprint(p["skills"]) != "[demo]" || p["default_output"] != "artifacts" {

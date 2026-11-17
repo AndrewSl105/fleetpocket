@@ -1,5 +1,8 @@
 import type { ApiEvent, Attachment, AutoFixPayload, TaskStatus } from '@/api/types'
 import { fullQuestionId } from '@/api/events'
+import { id as ideaStrings } from '@/i18n/ideas'
+
+const ideaEvent = ideaStrings.event
 
 export type TimelineItem =
   | { kind: 'claude'; key: string; text: string; at: string }
@@ -292,6 +295,11 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
       case 'branch_action': {
         const b = e.payload
         items.push({ kind: 'branch_action', key, action: b.action, branch: b.branch, into: b.into, fastForward: b.fast_forward, at })
+        break
+      }
+      case 'idea': {
+        const p = e.payload
+        items.push({ kind: 'divider', key, text: ideaEvent(p.action, p.title, p.column_name, p.reason), tone: p.action === 'failed' ? 'warn' : 'muted', at })
         break
       }
       case 'loop': {

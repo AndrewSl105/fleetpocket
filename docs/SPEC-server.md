@@ -202,7 +202,7 @@ Exit codes: `0` done, `1` error, `2` cancelled, `3` paused, `4` limit exceeded (
 
 **Subagents.** A Claude run may delegate to subagents (`RunCommand.subagents`, PROTOCOL.md "Subagents"). The scheduler sends three defaults when the project's `subagents` setting is on (default on): `explorer` (`CHEAP_MODEL_CLAUDE`, `Read Grep Glob`, finds and summarises code, never edits), `test-runner` (`CHEAP_MODEL_CLAUDE`, `Bash Read`, runs the project's tests/lint and reports failures concisely) and `reviewer` (the task's model, `Read Grep Bash`, reviews the diff against the task). Subagents use only the runner's pre-approved tools and the run's MCP tools, never `AskUserQuestion`; the policy hook applies to their tool calls. Their events carry `subagent: <name>` and their usage is part of the run's totals. Exploring and running tests on the cheap model keeps those tokens off the expensive one. Codex and Cursor ignore the list (DECISIONS.md).
 
-**Pipelines.** A pipeline (`server/internal/pipelines`) is a graph of stages; every stage is an ordinary task (same execution, outputs, attachments, skills, loops, checkpoints, CI auto-fix, nodes, costs). Tables `pipelines` and `pipeline_stages` (migration `00020`); tasks get nullable `pipeline_id`, `stage_id`, `base_ref` (start branch; NULL = the repository's base branch) and `push_branch`, and the task output `branch` (push without a PR).
+**Pipelines.** A pipeline (`server/internal/pipelines`) is a graph of stages; every stage is an ordinary task (same execution, outputs, attachments, skills, loops, checkpoints, CI auto-fix, nodes, costs). Tables `pipelines` and `pipeline_stages` (migration `00021_pipelines.sql`); tasks get nullable `pipeline_id`, `stage_id`, `base_ref` (start branch; NULL = the repository's base branch) and `push_branch`, and the task output `branch` (push without a PR).
 
 - *Templates* are Go code with a version: `scout-implement` (scout on the cheap model, `artifacts`, writes `report.md` + `manifest.json` → implement on the strong model, `pr`, gets `scout/report.md`), `design-parallel` (scout → design → approval → build×N → integrate → review/PR) and `audit` (scout → design with the diagram skills `db-schema`, `system-design-c4`, `infra-map` when present → report writing `audit.md`; artifacts only).
 - *Scheduling* (`pipelines.Advance`, pure and idempotent): a `waiting` stage becomes `ready` when every dependency is `done` or `skipped`; ready stages start in position order while fewer than `max_parallel` (default 3) stages run and the server has free task slots. A failed stage puts the pipeline in `needs_you` (retry stage with a note, skip stage, cancel pipeline). When the sum of the pipeline's task costs reaches `budget_usd` no new stage starts and the pipeline goes `needs_you` once running stages end; raising the budget resumes it.
@@ -347,6 +347,13 @@ Project-level settings override defaults (section 6).
 - *Next iteration.* A failed check (non-zero exit or timeout) queues a `loop` run that continues the agent's session (like a follow-up) with the check command, exit code and trimmed output as its prompt, a `loop` event (phase `iteration`) and a Telegram message; its run budget is what is left of the loop budget (at most the per-run budget). Nothing is pushed between iterations.
 - *Stop* (a `loop` event, phase `stopped`, `loop_state`, a Telegram message): the check passes (`passed`); `max_iterations` reached; the loop's runs cost `budget_usd` (`budget`); two iterations in a row commit no file changes (`no_changes`); a run limit, a missing check result, a failure or a cancel (`stopped`). Then the task is pushed once and its PR opened or updated as after any run (no other PR policy exists). A retry starts the loop over; follow-ups after it ended are ordinary runs. Metric: `fleetpocket_loops_total{project,state}`.
 
+**Ideas board** (`internal/ideas`; off by default: settings key `ideas` `{enabled, columns}`, `GET/PUT /api/v1/settings/ideas`; off, every `/ideas*` endpoint answers `409 ideas_disabled` and nothing else changes)
+
+- *Cards* (`ideas`): title, Markdown body, optional project, column, fractional position, tags, archive; attachments (`idea_attachments`: files with the task attachment rules and limits, voice notes, links), and the tasks started from it (`idea_tasks`). Columns are in the setting with stable ids: Inbox, Shaping, Ready, In progress, Done (renamable and reorderable, not removable) plus up to three added ones. Archive takes a card off the board; only archived cards can be deleted.
+- *Voice.* `POST /api/v1/ideas/voice` stores the recording and transcribes it with the same `STT_PROVIDER` client the Telegram bot uses (built once at start). The transcript becomes the body and its first sentence, cut to eight words, the title; without STT (or when it fails) the note is kept and titled "Voice note <time>".
+- *Links.* Saved with a preview fetched by the server (title and og:image thumbnail): http(s) on 80/443, no proxy, at most 3 redirects, 5 s, 512 KB of HTML; the dialer refuses every connection whose resolved address is not public, so redirects and DNS rebinding cannot reach internal hosts.
+- *From idea to task.* `POST /api/v1/tasks` with `idea_id` links the task and moves the card to In progress. A watcher on the event hub moves the card to Done when that task completes with "PR merged" (webhook, poller or the merge button) or "branch merged into …" (local repositories), and the card shows ✕ while its latest task is `failed`. Every automatic move sets the card's `auto_note` and writes an `idea` event on the task, which the bot sends as a silent message.
+
 **Workspace cleanup.** Delete the workspace and the Claude state volume 7 days after the task becomes terminal.
 
 ## 6. Database schema
@@ -462,6 +469,8 @@ Checkpoints (migration `00016_checkpoints.sql`): `checkpoints (id, task_id, run_
 
 Schedules and loops (migration `00017_schedules_loops.sql`): `schedules (id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop jsonb, enabled, next_run_at, created_at, updated_at)`, `schedule_firings (id, schedule_id, scheduled_for, trigger, outcome, reason, task_id, created_at)`, and on `tasks` the nullable `schedule_id` (ON DELETE SET NULL), `mcp_servers`, `run_budget_usd`, `pr_always`, `loop`, `loop_state`, `loop_iteration`, `loop_idle`, plus `runs.loop_iteration`.
 
+Ideas board (migration `00019_ideas.sql`): `ideas (id, project_id → projects ON DELETE SET NULL, title, body, column_id, position float8, tags text[], auto_note, source, archived_at, created_at, updated_at)`, `idea_attachments (id, idea_id, kind file|voice|link, original_name, mime, size_bytes, width, height, duration_ms, transcript, url, link_title, has_thumb, created_at)` with files under `<ATTACHMENTS_DIR>/ideas/<idea_id>/`, and `idea_tasks (idea_id, task_id)`. The setting is the `settings` row `ideas` (`{enabled, columns}`; missing = off with the five default columns).
+
 Backend-generated events (status changes, PR opened, CI result) go into `events` with `seq` NULL, so the web client reads one timeline per task. A first answer wins: answering an already answered question returns `409`.
 
 ## 7. REST API, WebSocket and auth
@@ -526,12 +535,13 @@ The bot runs as a goroutine in the same process, uses long polling (no public we
 | `/cancel <id>` · `/retry <id>` | control |
 | `/projects` | list projects |
 | `/schedules` | schedules with their next run and last result; **Run** and **Pause**/**Resume** buttons |
+| `/idea <text>` | save an idea to the Ideas board's Inbox; as a caption of (or a reply to) a voice message, photo or file it saves that, a voice note transcribed with `STT_PROVIDER`; the task draft card has a **Save as an idea** button. With the board off it says so |
 | `/app` | button that opens the Mini App (`WEB_APP_URL`) |
 
 **Messages**
 
 - One status message per task, edited in place as it moves through states, with the latest one-line activity ("Editing src/tables/export.ts"). Throttle edits to one per 3 s per message and coalesce.
-- Separate messages, which notify, only for: a question, PR opened, task failed, CI failed, budget or time limit hit. Silent messages for automatic steps: a schedule firing (started, skipped, missed, failed), a loop's next iteration and its end, CI auto-fix steps.
+- Separate messages, which notify, only for: a question, PR opened, task failed, CI failed, budget or time limit hit. Silent messages for automatic steps: a schedule firing (started, skipped, missed, failed), a loop's next iteration and its end, CI auto-fix steps, Ideas board moves (`idea` events).
 - A question shows its text plus inline buttons for `options` and a "Reply with text" hint; a reply to the question message is taken as the answer. After answering, edit the message to show the answer and who answered (web or Telegram).
 - Every task message has buttons: Open in app (Mini App deep link to the task), Cancel, and PR (when it exists).
 - Never send diffs or long logs to Telegram; link to the app instead. Respect Telegram's 4096-character limit and escape text for the chosen parse mode.
@@ -595,7 +605,7 @@ No service publishes ports. The reverse proxy (Caddy or Nginx Proxy Manager on t
 **Workflows**
 
 - `ci.yml` on pull requests: `go vet`, `go test ./...` (with a Postgres service), `golangci-lint`, runner `npm ci && npm run typecheck && npm test`.
-- `release.yml` on push to `main`: build and push both images, then SSH to the server (secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`), run `docker pull` for **both** the Fleetpocket and runner images (Fleetpocket starts runners from the local image and does not pull), then `docker compose -f docker-compose.deploy.yml up -d`.
+- `release.yml`, run by hand from `main` (manual only, see DECISIONS): build and push both images, then SSH to the server (secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`), run `docker pull` for **both** the Fleetpocket and runner images (Fleetpocket starts runners from the local image and does not pull), then `docker compose -f docker-compose.deploy.yml up -d`.
 - Migrations run automatically on Fleetpocket startup.
 
 **Observability**

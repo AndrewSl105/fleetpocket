@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, Link } from 'react-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, Link } from 'react-router'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -28,6 +28,10 @@ import { ComposerSkills } from '@/routes/skills/ComposerSkills'
 import { LoopFields } from '@/routes/loops/LoopFields'
 import { loopInput, NO_LOOP } from '@/routes/schedules/scheduleForm'
 import { lp } from '@/i18n/loops'
+import { fetchIdeaFile, ideaKeys } from '@/api/ideas'
+import { useQueryClient } from '@tanstack/react-query'
+import type { IdeaPrefill } from '@/routes/ideas/IdeaDetailPage'
+import { id as ideaText } from '@/i18n/ideas'
 
 const LAST_PROJECT = 'fleetpocket.lastProject'
 const PROJECT_AGENT = 'project' // Radix Select items cannot have an empty value
@@ -77,6 +81,9 @@ export default function NewTaskPage() {
   const projects = useProjects()
   const create = useCreateTask()
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  // "Start task" on an idea: its text, project and files prefill the form, and the task is linked to it.
+  const fromIdea = useRef((useLocation().state as { idea?: IdeaPrefill } | null)?.idea ?? null).current
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -104,15 +111,18 @@ export default function NewTaskPage() {
   // Pre-select the last used project once projects load.
   useEffect(() => {
     if (!projects.data?.length || form.getValues('project_id')) return
-    const last = storage.get(LAST_PROJECT)
+    const last = fromIdea?.projectId ?? storage.get(LAST_PROJECT)
     const pick = projects.data.find((p) => p.id === last) ?? projects.data[0]
     form.setValue('project_id', pick.id)
-  }, [projects.data, form])
+  }, [projects.data, form, fromIdea])
 
   // Draft per project; reset the repo choice when the project changes.
   useEffect(() => {
     if (!projectId) return
-    form.setValue('prompt', storage.get(draftKey(projectId)) ?? '')
+    // An idea's text stays when the project changes; otherwise each project has its draft.
+    if (fromIdea) {
+      if (!form.getValues('prompt')) form.setValue('prompt', fromIdea.prompt)
+    } else form.setValue('prompt', storage.get(draftKey(projectId)) ?? '')
     const def = project?.repositories.find((r) => r.is_default) ?? project?.repositories[0]
     form.setValue('repository_id', def ? String(def.id) : '')
     form.setValue('agent', '')
@@ -120,11 +130,26 @@ export default function NewTaskPage() {
     form.setValue('start_from', 'last_commit')
     form.setValue('skills_add', [])
     form.setValue('skills_remove', [])
-  }, [projectId, project, form])
+  }, [projectId, project, form, fromIdea])
 
   useEffect(() => {
-    if (projectId) storage.set(draftKey(projectId), prompt || null)
-  }, [projectId, prompt])
+    if (projectId && !fromIdea) storage.set(draftKey(projectId), prompt || null)
+  }, [projectId, prompt, fromIdea])
+
+  // The idea's files join the attachments (fetched through the API client, as Telegram Web needs).
+  const { add } = picker
+  useEffect(() => {
+    if (!fromIdea?.files.length) return
+    let live = true
+    void Promise.allSettled(fromIdea.files.map(async (f) => new File([await fetchIdeaFile(fromIdea.ideaId, f)], f.name, { type: f.mime }))).then((res) => {
+      if (!live) return
+      add(res.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : [])))
+      if (res.some((r) => r.status === 'rejected')) toast.error(ideaText.filesFailed)
+    })
+    return () => {
+      live = false
+    }
+  }, [fromIdea, add])
 
   const submit = form.handleSubmit(async (values) => {
     try {
@@ -132,10 +157,13 @@ export default function NewTaskPage() {
       if (files.length) setProgress(0)
       const task = await create.mutateAsync({
         ...toCreateBody(values, local),
+        ...(fromIdea ? { idea_id: fromIdea.ideaId } : {}),
         files,
         onProgress: files.length ? setProgress : undefined,
       })
       picker.clear()
+      // The card moved to In progress.
+      if (fromIdea) void qc.invalidateQueries({ queryKey: ideaKeys.all })
       haptic.success()
       storage.set(LAST_PROJECT, values.project_id)
       storage.set(draftKey(values.project_id), null)
@@ -179,6 +207,14 @@ export default function NewTaskPage() {
       >
         <DropOverlay show={picker.dragging} />
         <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.newTask.title}</h1>
+        {fromIdea && (
+          <p className="fm-ask px-3 py-2 text-sm" data-testid="from-idea">
+            <span className="fm-label mr-2 text-[10px]">{ideaText.title}</span>
+            <Link to={`/ideas/${fromIdea.ideaId}`} className="underline">
+              {fromIdea.title}
+            </Link>
+          </p>
+        )}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">

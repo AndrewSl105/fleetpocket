@@ -135,3 +135,57 @@ func TestWatchSweepsWhenTaskCompletes(t *testing.T) {
 		}
 	}
 }
+
+// Idea files live under ideas/<idea_id>/, which the task pass of SweepAll
+// must not take for a task folder; the idea pass keeps live rows' files and
+// removes the rest.
+func TestSweepAllKeepsIdeaFiles(t *testing.T) {
+	st := testutil.DB(t)
+	ctx := context.Background()
+	f := &attachments.Files{Dir: t.TempDir()}
+	dur := 1000
+	idea, err := st.CreateIdea(ctx, store.IdeaFields{Title: "i"}, []store.NewIdeaAttachment{
+		{Kind: store.IdeaVoice, Name: "v.webm", Mime: "audio/webm", Size: 3, DurationMS: &dur},
+		{Kind: store.IdeaFile, Name: "a.png", Mime: "image/png", Size: 3, HasThumb: true},
+	}, f.PlaceIdea([]attachments.IdeaFile{{Data: []byte("ogg")}, {Data: []byte("png"), Thumb: []byte("t")}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	voice, img := idea.VoiceNotes[0], idea.Attachments[0]
+	if filepath.Ext(f.IdeaPath(voice)) != ".webm" || filepath.Ext(f.IdeaPath(img)) != ".png" {
+		t.Fatalf("names: %s %s", f.IdeaPath(voice), f.IdeaPath(img))
+	}
+	stray := filepath.Join(f.IdeaDir(idea.ID), "999.bin")
+	if err := os.WriteFile(stray, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gone := filepath.Join(f.Dir, attachments.IdeasDir, "424242")
+	if err := os.MkdirAll(gone, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.SweepAll(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	if !exists(t, f.IdeaPath(voice)) || !exists(t, f.IdeaPath(img)) || !exists(t, f.IdeaThumbPath(img)) {
+		t.Fatal("live idea files removed")
+	}
+	if exists(t, stray) || exists(t, gone) {
+		t.Fatal("stray idea file or folder of a missing idea kept")
+	}
+	if err := f.RemoveIdea(idea.ID); err != nil || exists(t, f.IdeaDir(idea.ID)) {
+		t.Fatalf("remove idea: %v", err)
+	}
+}
+
+func TestAudioType(t *testing.T) {
+	for in, want := range map[string]string{"audio/webm;codecs=opus": "audio/webm", "audio/mp4": "audio/mp4", "video/webm": "audio/webm", "audio/ogg; codecs=opus": "audio/ogg"} {
+		if got, ok := attachments.AudioType(in); !ok || got != want {
+			t.Errorf("%s: %q %v", in, got, ok)
+		}
+	}
+	for _, in := range []string{"", "text/html", "video/mp4", "audio/"} {
+		if _, ok := attachments.AudioType(in); ok {
+			t.Errorf("%s accepted", in)
+		}
+	}
+}

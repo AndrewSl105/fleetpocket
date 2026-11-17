@@ -23,6 +23,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/githubapp"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
+	"github.com/andrewsl105/fleetpocket/server/internal/ideas"
 	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
 	"github.com/andrewsl105/fleetpocket/server/internal/maintenance"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
@@ -215,9 +216,22 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		skillScan = skills.Gitleaks("gitleaks")
 	}
 	scheds := &schedules.Service{Store: st, Tasks: taskSvc, Hub: hub, OnFiring: met.ScheduleFiring}
+	// One speech-to-text client for the bot's voice messages and the Ideas
+	// board's voice notes (STT_PROVIDER; nil when off).
+	var stt interface {
+		Transcribe(ctx context.Context, name, mime string, data []byte) (string, error)
+	}
+	switch cfg.STTProvider {
+	case "openai":
+		stt = &telegram.OpenAITranscriber{APIKey: cfg.OpenAIAPIKey}
+	case "whispercpp":
+		stt = &telegram.WhisperCPPTranscriber{URL: cfg.WhisperCPPURL}
+	}
+	ideaSvc := &ideas.Service{Store: st, Files: files, Hub: hub, STT: stt}
 	srv := &api.Server{
 		Pipelines:    pipes,
 		Schedules:    scheds,
+		Ideas:        ideaSvc,
 		SkillScanner: skillScan,
 		Webhook:      webhook,
 		Metrics:      met.Handler(),
@@ -309,16 +323,13 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			return fmt.Errorf("telegram: %w", err)
 		}
 		bot := &telegram.Bot{
-			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
+			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Ideas: ideaSvc, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
 			WebAppURL: cfg.WebAppURL, MiniAppLink: cfg.TelegramMiniAppLink, OnError: met.TelegramError,
 			STTEnabled: cfg.STTProvider != "off",
 		}
 		scheds.Notify = bot
-		switch cfg.STTProvider {
-		case "openai":
-			bot.STT = &telegram.OpenAITranscriber{APIKey: cfg.OpenAIAPIKey}
-		case "whispercpp":
-			bot.STT = &telegram.WhisperCPPTranscriber{URL: cfg.WhisperCPPURL}
+		if stt != nil {
+			bot.STT = stt
 		}
 		wg.Add(1)
 		go func() {
@@ -357,6 +368,11 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	go func() {
 		defer wg.Done()
 		pipes.Run(ctx, 5*time.Second, nil)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ideaSvc.Watch(ctx)
 	}()
 	wg.Add(1)
 	go func() {

@@ -12,6 +12,7 @@ import { t } from '@/i18n/en'
 import { ComputersSection } from './settings/ComputersSection'
 import { AutoFixSection } from './settings/AutoFixSection'
 import { CheckpointsSection } from './settings/CheckpointsSection'
+import { IdeasSection } from './settings/IdeasSection'
 import { GlobalServersSection } from './integrations/GlobalServersSection'
 import { CostSettingsSection } from './settings/CostSettingsSection'
 import { GitHubSection } from './settings/GitHubSection'
@@ -123,6 +124,7 @@ export default function SettingsPage() {
         <AutoFixSection />
 
         <CheckpointsSection />
+        <IdeasSection />
         <CostSettingsSection />
         <GlobalServersSection />
 

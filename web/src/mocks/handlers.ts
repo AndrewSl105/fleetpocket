@@ -11,6 +11,7 @@ import { isLocalMock } from './mode'
 import { repoState } from './localdb'
 import { knownSlugs, skillHandlers, taskSkills } from './skills'
 import { mockLoop, scheduleHandlers } from './schedules'
+import { ideaHandlers, ideasEnabled, ideaState, linkIdeaTask } from './ideas'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -153,6 +154,7 @@ export const handlers = [
   ...localHandlers(API, guard, err, pushEvent),
   ...skillHandlers(API, guard, err),
   ...scheduleHandlers(API, guard, err),
+  ...ideaHandlers(API, guard, err),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')
@@ -184,12 +186,12 @@ export const handlers = [
     }
     failures = 0
     setSession('web')
-    return HttpResponse.json({ ok: true, kind: 'web', mode: mode(), ...MOCK_AGENTS })
+    return HttpResponse.json({ ok: true, kind: 'web', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS })
   }),
   http.post(`${API}/auth/telegram`, async () => {
     await delay(400)
     setSession('telegram')
-    return HttpResponse.json({ ok: true, kind: 'telegram', token: 'mock-telegram-token', mode: mode(), ...MOCK_AGENTS })
+    return HttpResponse.json({ ok: true, kind: 'telegram', token: 'mock-telegram-token', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS })
   }),
   http.post(`${API}/ws/ticket`, ({ request }) => {
     const denied = guard(request)
@@ -202,7 +204,7 @@ export const handlers = [
   }),
   http.get(`${API}/me`, () => {
     const kind = session()
-    return kind ? HttpResponse.json({ ok: true, kind: kind as 'web' | 'telegram', mode: mode(), ...MOCK_AGENTS }) : err(401, 'unauthorized', 'Not signed in')
+    return kind ? HttpResponse.json({ ok: true, kind: kind as 'web' | 'telegram', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS }) : err(401, 'unauthorized', 'Not signed in')
   }),
 
   // ---- Projects ----
@@ -344,9 +346,12 @@ export const handlers = [
   http.post(`${API}/tasks`, async ({ request }) => {
     const denied = guard(request)
     if (denied) return denied
-    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'output', 'skills_add', 'skills_remove', 'loop', 'start_from'])
+    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'output', 'skills_add', 'skills_remove', 'loop', 'start_from', 'idea_id'])
     if ('error' in read) return read.error
     const f = read.fields
+    const ideaId = f.idea_id ? Number(f.idea_id) : 0
+    if (ideaId && !ideasEnabled()) return err(409, 'ideas_disabled', 'the ideas board is off')
+    if (ideaId && !ideaState.ideas.some((i) => i.id === ideaId)) return err(400, 'invalid', `idea ${ideaId} does not exist`)
     const body = { project_id: f.project_id, prompt: f.prompt ?? '', repository_id: f.repository_id ? Number(f.repository_id) : undefined, title: f.title }
     const p = db.projects.find((x) => x.id === body.project_id)
     if (!p) return err(404, 'not_found', 'No such project')
@@ -388,6 +393,7 @@ export const handlers = [
     mockLoop(task, typeof f.loop === 'string' ? JSON.parse(f.loop) : (f.loop as LoopInput | undefined))
     startRun(task.id, 'initial', task.prompt)
     addEvent(task.id, 'status', { status: 'queued' })
+    if (ideaId) linkIdeaTask(ideaId, task)
     pushTask(task)
     return HttpResponse.json(taskView(task), { status: 201 })
   }),

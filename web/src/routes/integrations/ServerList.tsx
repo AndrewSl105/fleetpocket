@@ -8,9 +8,10 @@ import { useConfirm } from '@/components/confirm'
 import { relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
+import { ti } from '@/i18n/integrations'
 import { ServerDialog } from './ServerDialog'
 
-const it = t.integrations
+const it = ti
 
 export function toolsLabel(s: MCPServer): string {
   if (s.tools_mode === 'allow') return it.toolsAllow(s.tools.length)

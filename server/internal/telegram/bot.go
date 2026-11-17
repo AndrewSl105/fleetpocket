@@ -18,6 +18,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
+	"github.com/andrewsl105/fleetpocket/server/internal/ideas"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 )
@@ -40,6 +41,8 @@ type Bot struct {
 	OwnerID int64
 	// Schedules backs /schedules; nil disables it.
 	Schedules Schedules
+	// Ideas backs /idea and the draft's Idea button; nil disables them.
+	Ideas *ideas.Service
 
 	WebAppURL, MiniAppLink string
 	EditInterval           time.Duration
@@ -434,6 +437,14 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 		b.sendEgressBlocked(ctx, ev)
 	case "budget":
 		b.sendBudget(ctx, ev)
+	case ideas.EventIdea:
+		t, err := b.Store.GetTask(ctx, ev.TaskID)
+		if err != nil {
+			return
+		}
+		if text := renderIdeaEvent(t, ev.Payload); text != "" {
+			_, _ = b.sendTask(ctx, t, "idea", text, nil, true)
+		}
 	case "loop":
 		t, err := b.Store.GetTask(ctx, ev.TaskID)
 		if err != nil {
@@ -617,7 +628,7 @@ func (b *Bot) onCallback(ctx context.Context, cq *telego.CallbackQuery) {
 		b.overrideBudget(ctx, c, answer)
 	case "schedule_run", "schedule_pause", "schedule_resume":
 		b.scheduleCallback(ctx, c, answer)
-	case "draft_create", "draft_cancel", "draft_project", "draft_repo", "draft_edit", "draft_agent", "draft_node":
+	case "draft_create", "draft_cancel", "draft_project", "draft_repo", "draft_edit", "draft_agent", "draft_node", "draft_idea":
 		b.handleDraftCallback(ctx, cq, c, answer)
 	default:
 		answer("Unknown action")

@@ -12,6 +12,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
+	"github.com/andrewsl105/fleetpocket/server/internal/ideas"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
@@ -84,7 +85,9 @@ type Server struct {
 	Gateway *mcpgateway.Gateway
 	// Schedules fires recurring tasks.
 	Schedules *schedules.Service
-	Now       func() time.Time
+	// Ideas is the Ideas board; nil answers its endpoints 409 ideas_disabled.
+	Ideas *ideas.Service
+	Now   func() time.Time
 }
 
 func (s *Server) githubConfigured() bool {
@@ -147,6 +150,23 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/schedules/{id}/run", a(s.runSchedule))
 	mux.HandleFunc("POST /api/v1/schedules/{id}/duplicate", a(s.duplicateSchedule))
 	mux.HandleFunc("GET /api/v1/schedules/{id}/firings", a(s.scheduleFirings))
+
+	mux.HandleFunc("GET /api/v1/settings/ideas", a(s.getIdeaSettings))
+	mux.HandleFunc("PUT /api/v1/settings/ideas", a(s.putIdeaSettings))
+	mux.HandleFunc("GET /api/v1/ideas", a(s.listIdeas))
+	mux.HandleFunc("POST /api/v1/ideas", a(s.createIdea))
+	mux.HandleFunc("POST /api/v1/ideas/voice", a(s.createVoiceIdea))
+	mux.HandleFunc("GET /api/v1/ideas/{id}", a(s.ideaHandler(s.getIdea)))
+	mux.HandleFunc("PATCH /api/v1/ideas/{id}", a(s.ideaHandler(s.updateIdea)))
+	mux.HandleFunc("DELETE /api/v1/ideas/{id}", a(s.ideaHandler(s.deleteIdea)))
+	mux.HandleFunc("POST /api/v1/ideas/{id}/move", a(s.ideaHandler(s.moveIdea)))
+	mux.HandleFunc("POST /api/v1/ideas/{id}/archive", a(s.ideaHandler(s.archiveIdea(true))))
+	mux.HandleFunc("POST /api/v1/ideas/{id}/unarchive", a(s.ideaHandler(s.archiveIdea(false))))
+	mux.HandleFunc("POST /api/v1/ideas/{id}/attachments", a(s.ideaHandler(s.addIdeaFiles)))
+	mux.HandleFunc("POST /api/v1/ideas/{id}/voice", a(s.ideaHandler(s.addIdeaVoice)))
+	mux.HandleFunc("POST /api/v1/ideas/{id}/links", a(s.ideaHandler(s.addIdeaLink)))
+	mux.HandleFunc("GET /api/v1/ideas/{id}/attachments/{attachmentId}", a(s.ideaHandler(s.ideaAttachment)))
+	mux.HandleFunc("DELETE /api/v1/ideas/{id}/attachments/{attachmentId}", a(s.ideaHandler(s.deleteIdeaAttachment)))
 
 	mux.HandleFunc("GET /api/v1/tasks", a(s.listTasks))
 	mux.HandleFunc("POST /api/v1/tasks", a(s.createTask))
