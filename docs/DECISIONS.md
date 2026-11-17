@@ -155,6 +155,24 @@ Deviations from the specs (`docs/SPEC-server.md` for server and agent, `docs/SPE
   - "Budget hit" is an attempt run that stops at a limit (its own budget, turns or duration): what it committed is pushed and the loop ends as needs you. There is no loop-wide budget beyond attempts × per-attempt budget.
   - An attempt that commits nothing ends the loop (CI would never run again); so does a failed attempt run.
 
+- 2026-11-17 — MCP gateway and egress allowlist (PR 2):
+  - Owner-entered secrets use a new `internal/secretbox` (AES-256-GCM, random nonce, `mcp_server:<id>` as additional data so a ciphertext cannot be moved to another row), keyed by `SECRETS_KEY` (64 hex chars or base64 of 32 bytes); all of a server's secrets are one sealed JSON object. Without the key only MCP is disabled (API `503 secrets_disabled`, runs skip servers with a warning in the `integrations` event).
+  - Local mode keeps its generated `SECRETS_KEY` in the OS keychain through `internal/secrets` (like the agent keys), not in `config.json`, so the key does not sit next to the embedded database.
+  - The gateway is a handler on the server's main listener at `/api/mcp-gateway/` instead of a sidecar or a listener joined to each task network: runners already have egress to the public URL (and in allowlist mode the proxy always allows the gateway), it works unchanged for tasks on nodes and in local mode, the existing Caddy `/api/*` route serves it, and it can write events and metrics directly. It sits outside `/api/v1` and ahead of the session, CSRF, setup and local Host checks; the run token is its only credential.
+  - The runner therefore does not reach the gateway "inside the task network" but over HTTP(S) to `MCP_GATEWAY_URL` (default `PUBLIC_BASE_URL`; local mode `host.docker.internal`). On Linux local mode the loopback listener is unreachable from containers; documented in OPERATIONS.
+  - Run tokens (`jmg_` + 32 random bytes) are stored as SHA-256 on `runs` with an expiry (max duration + 15 min) and the server ids, so a server restart with re-attached runners keeps MCP working; `FinishRun` clears the hash. Lookup is by hash, so no comparison touches the token. Per-run call counts and open upstream sessions are in memory: a restart resets the counts.
+  - The gateway is a translating MCP proxy built on `github.com/modelcontextprotocol/go-sdk` v1.8.0 (client to the upstream, stateless Streamable HTTP server to the runner), not a byte-level HTTP forwarder: it can filter `tools/list`, enforce the tool list and limit on `tools/call`, and speak SSE, Streamable HTTP and stdio upstreams the same way.
+  - Stdio MCP servers run as sidecars on the server's own Docker on a per-task `fleetpocket-mcp-<task>` network the runner is never on, attached over stdin/stdout like runners, instead of inside the task network: they need no network path to anyone, so "exposed to the gateway only" holds by construction, and it works for tasks on nodes. npm and pip packages run in the agent image (it has node and python); `image` servers run as given.
+  - `read_only` is enforced for the bundled Postgres server (own connection, `default_transaction_read_only`, extended protocol = one statement, `BEGIN READ ONLY`, always rolled back); for other servers it exposes only tools annotated `readOnlyHint`, the only signal MCP gives.
+  - Calls to hidden tools are refused in a receiving middleware so they are still recorded (`mcp_call` with `denied`); arguments and results are never stored, only their sizes. Upstream error text is stored with every secret value replaced.
+  - The egress proxy is a mode of the server binary (`fleetpocket egress-proxy`, `internal/egress`) run from `EGRESS_PROXY_IMAGE` (compose: the server's own image and tag), not a third-party image; the Docker tests cross-compile it and mount it into the agent image instead of building the server image (gitleaks download).
+  - Allowlist semantics: `*.domain` matches subdomains only; an entry without a port allows 80 and 443; IP literals only when listed; allowed names that resolve to private, loopback or link-local addresses are refused unless they are the gateway host. "GitHub (read-only)" cannot be enforced through CONNECT (TLS); the runner has no GitHub token, so it is anonymous public reads. The Docker Hub preset is offered as asked although the runner has no Docker.
+  - Egress is per project only, without a global default (unlike CI auto-fix): an allowlist is specific to a project's stack, and `open` is the default everywhere.
+  - Switching a task between open and allowlist recreates its network and removes its Postgres/Redis sidecars (their data is throwaway); the proxy is recreated every run so allowlist changes apply to the next run.
+  - Tasks on nodes in allowlist mode fail at preparation with an explanation (fail closed): nodes cannot create the proxy sidecar or an internal network without a node protocol change. MCP servers do work for node tasks (remote and Postgres through the public gateway, stdio on the server's Docker).
+  - Runners in allowlist mode also get `NODE_USE_ENV_PROXY=1` (Node 26 in the agent image) so Node's built-in fetch honours the proxy.
+  - Automatic actions that notify: only `egress_blocked` goes to Telegram (with "Allow for this project"); `mcp_call` events are the agent's own actions and stay in the timeline and metrics. There is no web push in this codebase.
+
 ## Agent
 
 - Runner `seq` continues across runs of a task (read from `.fleetpocket/events.jsonl`), so replay is a simple `seq > last persisted` filter per task.
@@ -187,6 +205,10 @@ Deviations from the specs (`docs/SPEC-server.md` for server and agent, `docs/SPE
 - A `message` that arrives during a Codex or Cursor turn runs as one more turn after it (neither SDK accepts input mid-turn); Fleetpocket does not send `message` to a live runner anyway.
 - Cursor without a project model uses `auto`; a local Cursor agent needs a model before its first send.
 
+- 2026-11-17 — MCP servers (PR 2): the `run` command's optional `mcp` block (gateway URLs + run token) is passed per agent, each verified in the installed package: Claude Agent SDK 0.3.299 `options.mcpServers` with `McpHttpServerConfig` (`type: "http"`, `url`, `headers`) and `mcp__<name>` added to `allowedTools` (the `tools` option only selects built-in tools, so MCP tools are not filtered by it); Codex 0.164.0 `config.mcp_servers.<name>.url` + `bearer_token_env_var` (keys found in the bundled `codex` binary; the token is in the CLI's env as `FLEETPOCKET_MCP_TOKEN`, hidden from commands by the existing `*TOKEN*` exclude, never in `--config` argv); Cursor SDK 1.0.40 `AgentOptions.mcpServers` (`type: "http"`, `url`, `headers`). Whether Cursor's local agent honours `HTTPS_PROXY` is not verified; the UI says so.
+- 2026-11-17 — The gateway token is visible inside the container (process memory, possibly argv of the Claude CLI subprocess); that is accepted because it is not a third-party credential: it reaches only the run's servers through the gateway's policy and dies with the run.
+- 2026-11-17 — The fake runner probes MCP (`tools/list` per server, `mcp-call <server> <tool> <json>` in the prompt) and egress (`egress-probe <url>` via curl) so Docker tests exercise the token, the gateway and the proxy from a real container.
+
 ## Deployment and CI
 
 - Images are built for linux/amd64 only (the target VPS). CI builds the runner image to run the Docker integration tests with the fake runner.
@@ -207,6 +229,8 @@ Deviations from the specs (`docs/SPEC-server.md` for server and agent, `docs/SPE
 
 - 2026-11-17 — **npm packaging** (`npm/`): `jungle-monkey` was free on npm (`npm view` gave 404), so the main package is `jungle-monkey`; platform packages `@jungle-monkey/{darwin-arm64,darwin-x64,linux-x64,linux-arm64,win32-x64}` with `os`/`cpu`, versions in lockstep, generated by `npm/build.mjs` from `bin/` (`make npm-pack`). The launcher has no dependencies and no install scripts; when the optional package is missing it downloads `jungle-monkey-<key>` from the GitHub Release `v<version>` of `AndrewSl105/jungle_monkey` (`JM_DOWNLOAD_BASE` overrides), rejects a SHA-256 mismatch against the shipped `checksums.txt` and caches it in `<data dir>/bin/<version>/`.
 - 2026-11-17 — The release pipeline, the PR dry-run job and the ubuntu/macOS smoke job are **not** in this PR: the agent that wrote it may not modify `.github/`. `make jungle-monkey-all` (with `JM_VERSION=vX.Y.Z`) and `make npm-pack` are the build steps those jobs should run; docs/LOCAL.md lists them for the owner.
+
+- 2026-11-17 — `install.sh` generates `SECRETS_KEY` (`openssl rand -hex 32`) like `SESSION_SECRET`: written on install and appended on upgrade when the key is missing, never rotated (`install_test.sh` covers both). The deploy compose sets `EGRESS_PROXY_IMAGE` to the server image with the same `SERVER_TAG`; the dev compose sets a fixed development `SECRETS_KEY`, `MCP_GATEWAY_URL=http://host.docker.internal:<port>` and `EGRESS_PROXY_IMAGE=fleetpocket-server:dev`. No Caddyfile change: the gateway lives under `/api/`.
 
 ## Web
 
@@ -262,6 +286,8 @@ One line each. "Backend ask" marks something Fleetpocket should add.
 
 
 - 2026-11-17 — CI auto-fix: the CI stamp sits next to the status stamp in the task header (dashed "ask" tone for needs you); the held-fix question card is answerable on a `pr_open` task when `autofix_state` is `held`. Project overrides use a three-way select (default/on/off) because null means "inherit the global default". The mock seeds tasks 10 (green after one fix) and 11 (held fix) with older timestamps so the existing screenshots and e2e ids stay the same.
+
+- 2026-11-17 — MCP and egress (PR 2): Integrations is its own lazy route (`/projects/:id/integrations`) linked from the project form rather than a section of it, because servers and the egress policy save through their own endpoints, not the project PATCH. Shared (global) servers are managed in Settings with the same list and dialog. Secret inputs are password fields that start empty with the stored hint as placeholder; a removed stored row is sent as `null`. The secret rows are labelled "Secret name"/"Secret value" so they do not collide with the server's Name field. The mock seeds task 12 (gateway calls, a denied tool, a blocked host) after the existing tasks so earlier e2e ids and screenshots stay the same. The new strings grow the initial bundle to ~176 KB of the 180 KB budget.
 
 ### Integration with the real backend
 

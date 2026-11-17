@@ -38,6 +38,7 @@ One repo, `fleetpocket-server`, holds the Go backend and the TypeScript runner, 
 **Not in v1** (keep the design open for them, do not build them)
 
 - Automatic CI fixing is opt-in (off by default): see "CI auto-fix" in section 5.
+- MCP servers and the egress allowlist are opt-in (none / `open` by default): see "MCP gateway and egress allowlist" in section 5.
 - Any web UI or HTML in this repo.
 - Multiple users, roles, organisations.
 - Docker access from inside the runner, Docker-in-Docker.
@@ -106,13 +107,15 @@ Clients reach only Fleetpocket; Fleetpocket alone holds credentials and starts c
 | `docker-proxy` | permanent | `internal` | read-only `docker.sock`, filtered API |
 | `fleetpocket-agent-<task>` | one run | `fleetpocket-task-<task>` | Claude auth only |
 | `fleetpocket-svc-<task>-<name>` | one task | `fleetpocket-task-<task>` | throwaway Postgres/Redis |
+| `fleetpocket-svc-<task>-egress` | one run (allowlist projects only) | `fleetpocket-task-<task>` (alias `egress-proxy`) + `fleetpocket-egress-<task>` | the egress allowlist and the run's gateway token |
+| `fleetpocket-mcp-<task>-<name>` | one run (stdio MCP servers only) | `fleetpocket-mcp-<task>`, on the server's Docker; the runner is never on it | that MCP server's own secrets (env) |
 
 **Key rules**
 
 - Fleetpocket talks to Docker only through `docker-socket-proxy` (`DOCKER_HOST=tcp://docker-proxy:2375`).
-- Each task gets its own bridge network. Runner and its sidecars share it; nothing else is on it. It has internet egress (Anthropic API, npm, Go proxy, PyPI).
+- Each task gets its own bridge network. Runner and its sidecars share it; nothing else is on it. It has internet egress (Anthropic API, npm, Go proxy, PyPI) unless the project is in egress `allowlist` mode: then the network is `internal` and the egress proxy sidecar is the only way out.
 - Runners never join `internal` or `proxy`.
-- Communication with the runner is only via its attached stdin/stdout. No ports.
+- Communication with the runner is only via its attached stdin/stdout. No ports. The runner itself may call out to the server's MCP gateway (`/api/mcp-gateway/`, through the public URL) with its run's token; MCP servers' credentials never reach it.
 - Workspaces live on the host at `WORKSPACES_DIR` (default `/srv/fleetpocket/workspaces`), bind-mounted into Fleetpocket at the **same path**, so the path Fleetpocket uses is also valid for Docker bind mounts.
 
 **Task lifecycle**
@@ -235,6 +238,9 @@ A single Go binary: REST + WebSocket API, Telegram bot, scheduler, Docker orches
 | `DEFAULT_MAX_TURNS` / `DEFAULT_MAX_BUDGET_USD` / `DEFAULT_MAX_DURATION` | `150` / `5` / `2h` |  |
 | `QUESTION_TIMEOUT` | `20m` |  |
 | `EVENT_RETENTION` | `720h` (30 days) |  |
+| `SECRETS_KEY` | — | 32 bytes (64 hex chars or base64); AES-256-GCM key for owner-entered secrets (MCP credentials) in Postgres. `install.sh` generates it, also on upgrade; local mode keeps one in the keychain. Empty: MCP servers are disabled, nothing else changes |
+| `MCP_GATEWAY_URL` | `PUBLIC_BASE_URL` (local mode: `http://host.docker.internal:<port>`) | the server's base URL as runners and the egress proxy reach it |
+| `EGRESS_PROXY_IMAGE` | `ghcr.io/andrewsl105/fleetpocket-server:latest` (compose: the server's own tag) | image of the egress proxy sidecar (`fleetpocket egress-proxy`) |
 
 Project-level settings override defaults (section 6).
 
@@ -269,6 +275,16 @@ Project-level settings override defaults (section 6).
 - An attempt saves the trimmed logs as a task attachment and queues a `followup` run on the same branch (`runs.autofix_attempt`, `runs.max_budget_usd`) whose prompt names the failing checks, the signature and the attachment and says: fix the cause, keep the change minimal, do not skip, delete or weaken tests, do not edit CI configuration. The runner gets no token.
 - Before an attempt's commits are pushed, the scheduler inspects `git diff origin/<branch>...HEAD`: changes under `.github/workflows/` or other CI config, deleted test files, added skip markers, coverage threshold changes (or a diff too large to read). Unless `allow_ci_changes`, it does not push: the loop is `held`, the task stays `pr_open` with an open question "The fix changes CI or tests. Push anyway?" (`Push anyway` / `Discard`; changes under `.github/` can only be discarded). Discard removes the workspace (the next run re-clones the branch).
 - After the push the loop waits for CI. All checks passing ends it as `green` ("✓ CI green after N fixes"). A fix run with no changes, a run that hits a limit, or a failed run ends it as `needs_you`. New checks on a commit Jungle Monkey did not push, a follow-up message from the owner, or the PR closing cancel it. Every step is an `autofix` timeline event and a Telegram notification.
+
+**MCP gateway and egress allowlist** (`internal/mcpgateway`, `internal/egress`; nothing changes for a project with no MCP servers and egress `open`)
+
+- *Registry.* `mcp_servers` rows belong to a project or are global (`project_id` NULL); a project turns global ones on (`project_id`'s rows in `project_mcp_globals`). Kinds: `remote` (Streamable HTTP or SSE URL; secrets are header values or a bearer token), `stdio` (an npm or pip package run in the agent image, or any Docker image; secrets are its environment), `postgres` (the bundled server: tools `query` and `list_tables`; secret `DATABASE_URL`). Per server: tool list (`all`, `allow` or `deny` with names or `*` patterns), `read_only` (default on for `postgres`), `max_calls` per run, enabled flag, last use and status.
+- *Secrets.* One JSON object per server, sealed with AES-256-GCM under `SECRETS_KEY` (`internal/secretbox`, random nonce, the row id as additional data). Never logged, never returned: the API shows `secret_hints` (last characters). They are opened only by the gateway in memory, or put into a stdio sidecar's environment.
+- *Gateway.* Mounted on the main listener at `/api/mcp-gateway/` (outside `/api/v1`: no session, no CSRF), so the existing reverse-proxy route serves it and runners on nodes reach it through the public URL. Each run that has MCP servers (or an allowlist) gets a random token; its SHA-256, expiry (the run's maximum duration + 15 min) and server ids are stored on `runs`; `FinishRun` clears it. A request with a missing, expired, finished or foreign token is `401`; a server outside the run's scope is `404`. The gateway connects to the upstream with the decrypted credentials (Go MCP SDK client), exposes only the allowed tools to the runner (stateless Streamable HTTP), counts calls against `max_calls`, and writes an `mcp_call` event per call (server, tool, duration, ok/error, argument and result sizes; never arguments, results or secrets). A denied tool or the limit is an `mcp_call` with `denied`.
+- *Read-only Postgres.* Each call opens its own connection with `default_transaction_read_only=on`, runs one statement through the extended protocol (no multi-statement strings) inside `BEGIN READ ONLY`, and always rolls back; a read-only database role is still recommended.
+- *Stdio servers* run as sidecars on the server's own Docker (also for tasks on nodes), on a per-task network the runner is never on, with `CapDrop ALL`, `no-new-privileges` and the sidecar memory limit. The gateway talks to them only over their attached stdin/stdout; they start on first use in a run and are removed when it ends.
+- *Agents.* The `run` command's `mcp` block (PROTOCOL.md) carries the gateway URLs and the token: Claude gets `mcpServers` (HTTP) and `mcp__<name>` in `allowedTools`; Codex gets `mcp_servers.<name>.url` with `bearer_token_env_var`; Cursor gets `mcpServers`.
+- *Egress* (`projects.egress`, NULL = `open`): in `allowlist` mode the task network is created `internal` (an existing network of the other mode is recreated with its sidecars), and an egress proxy sidecar — the server image's `fleetpocket egress-proxy` — joins it as `egress-proxy` plus its own bridge network. The runner gets `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` (and `NODE_USE_ENV_PROXY=1`). The proxy allows `CONNECT` and plain HTTP only to the project's hosts (presets: the task's agent API, npm, PyPI, Go proxy, crates, Docker Hub, GitHub; plus listed `host`, `*.domain` = subdomains only, `host:port`; no port = 80/443) and the gateway, refuses names that resolve to private addresses (except the gateway), and reports each refused host once per run: an `egress_blocked` event, a Telegram message with "Allow for this project" and `POST /projects/{id}/egress/allow`, which takes effect on the next run. The proxy is recreated every run. Tools that ignore the proxy variables cannot reach the network. A task on a node in allowlist mode fails with an explanation instead of running open.
 
 **Workspace cleanup.** Delete the workspace and the Claude state volume 7 days after the task becomes terminal.
 

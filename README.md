@@ -15,6 +15,7 @@ Describe a change from your phone. The agent you pick works in a sealed containe
 3. **Answer its questions.** When Claude needs a decision, the task shows its question with answer buttons. Codex and Cursor make their own choices and list open questions in the summary.
 4. **Get a pull request.** Read the summary, the PR and the CI result, and send a follow-up if something needs changing.
 5. **Get it back green** (optional). Turn on CI auto-fix and a failing check starts a minimal fix from the trimmed CI logs, up to a few attempts. A fix that touches CI config or tests waits for your OK.
+6. **Give it your tools, not your keys** (optional). Add MCP servers (Linear, Sentry, a database, any npm/pip package or image) per project: the agent reaches them through Jungle Monkey's gateway, which holds the credentials, enforces tool lists and call limits and logs every call. Lock a project's network to an allowlist and blocked hosts show up with a one-tap "Allow".
 
 ## Steer from anywhere
 
