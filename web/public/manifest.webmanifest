@@ -1,7 +1,7 @@
 {
   "name": "Jungle Monkey",
   "short_name": "JMonkey",
-  "description": "Send a coding agent into your GitHub repo from your phone. Get a pull request back.",
+  "description": "Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

@@ -32,7 +32,7 @@ for (const p of platforms) {
   writeFileSync(join(dir, 'package.json'), JSON.stringify({
     name: `@jungle-monkey/${p.key}`,
     version: v,
-    description: `jungle-monkey binary for ${p.key}`,
+    description: `Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor (jungle-monkey binary for ${p.key})`,
     license: 'MIT',
     repository: { type: 'git', url: 'git+https://github.com/AndrewSl105/jungle_monkey.git', directory: 'npm' },
     os: [p.os],
