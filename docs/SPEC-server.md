@@ -37,7 +37,7 @@ One repo, `fleetpocket-server`, holds the Go backend and the TypeScript runner, 
 
 **Not in v1** (keep the design open for them, do not build them)
 
-- Automatic CI fixing. Store CI results and notify only; the hook point must exist.
+- Automatic CI fixing. Store CI results and notify only; the hook point must exist. (In progress: the decision core lives in `internal/autofix`, not yet wired; see DECISIONS.)
 - Any web UI or HTML in this repo.
 - Multiple users, roles, organisations.
 - Docker access from inside the runner, Docker-in-Docker.
