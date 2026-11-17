@@ -6,7 +6,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 FLEETPOCKET_DIR=$(mktemp -d)
 trap 'rm -rf "$FLEETPOCKET_DIR"' EXIT
 FLEETPOCKET_INSTALL_LIB=1
-# shellcheck source=install.sh
+# shellcheck source=deploy/install.sh
 . "$here/install.sh" # sets DIR=$FLEETPOCKET_DIR
 cp "$here/.env.example" "$DIR/.env.example"
 
