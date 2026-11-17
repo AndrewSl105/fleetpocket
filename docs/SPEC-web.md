@@ -102,6 +102,7 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 - Diff tab: file list with +/- counts, then per-file unified diff (split view on desktop). Lazy-loaded.
 - Each run's end divider in the timeline carries its cost (`cost $0.12`, `cost ≈$0.12`, `cost $?` without a price); `budget` events (80%, used up, waiting, started anyway) are dividers.
 - Info tab: prompt, timestamps, runs list (kind, duration, cost in the same format, exit), CI status, the MCP servers and network mode the latest run got (its `integrations` event; the project's current settings when none is loaded).
+- **Checkpoints** (only when the task has `checkpoint` events): a dashed ruled marker row "CHECKPOINT 2 · 3 FILES CHANGED" (or "· BEFORE A QUESTION") with **Restore here** (disabled, with the reason as its label, while the task is busy, after its PR closed or after `WORKSPACE_RETENTION`). It opens a lazy dialog: what the restore discards (later runs, steps, messages, commits, and the files of `git diff <checkpoint> HEAD` with +/− counts), whether Claude forks its session or a new session starts from a summary, a note that pushed commits are replaced with force-with-lease, an optional follow-up ("…then do it with a migration instead") and **Restore and continue**. Events between a checkpoint and its `checkpoint_restored` fold into one dashed, greyed "ABANDONED BRANCH · N ENTRIES" row that expands to the struck-through history; `checkpoint_restored` and `branch_force_pushed` are dividers.
 - **MCP and egress** in the timeline: an `integrations` divider ("MCP: db, linear · network: allowlist"), each `mcp_call` as a compact row (server · tool, time, "not allowed" / "call limit" in red), and `egress_blocked` as a dashed card "Blocked: host" with **Allow for this project** (`POST /projects/{id}/egress/allow`, next run).
 
 **4. Projects**
@@ -114,6 +115,7 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 **5. Settings**
 
 - Stats from `GET /api/v1/stats` (running, queued, cost today and this month), the CI auto-fix default for all projects (`GET/PUT /api/v1/settings/ci-autofix`), shared MCP servers (`/api/v1/mcp-servers` without a project; same list and dialog as Integrations), theme override in browser mode (system/light/dark), logout (browser mode only), app version and backend health.
+- **Checkpoints**: one switch, "Take checkpoints" (`GET/PUT /api/v1/settings/checkpoints`, off by default), with a line on what it does and that checkpoints last as long as the workspace.
 - **Budgets and prices**: the global monthly budget and the price table (agent, model, input / cached / output USD per million tokens, add/remove rows, restore the built-in table, "prices last checked" date), `GET/PUT /api/v1/settings/costs`. A link opens the Costs screen.
 
 **Costs** (`/costs`, lazy; in the desktop rail, and on phones from Settings and Projects)
