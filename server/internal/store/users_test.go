@@ -113,3 +113,28 @@ func TestInitials(t *testing.T) {
 		}
 	}
 }
+
+// A personal skill is never a default for everyone (even if flagged so).
+func TestPersonalSkillNotDefault(t *testing.T) {
+	st := testutil.DB(t)
+	ctx := context.Background()
+	u, _ := st.CreateUser(ctx, store.NewUser{Email: "m@b.co", Name: "M", Role: "member", PasswordHash: "h"}, nil)
+	if _, err := st.CreateProject(ctx, "p", store.ProjectFields{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateSkill(ctx, store.Skill{Slug: "team-wide", Name: "a", Description: "d", Body: "b", EnabledByDefault: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateSkill(ctx, store.Skill{Slug: "mine", Name: "b", Description: "d", Body: "b", EnabledByDefault: true, Personal: true, OwnerUserID: &u.ID}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.DefaultSkillSlugs(ctx, "p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range got {
+		if s == "mine" {
+			t.Fatalf("personal skill is a default: %v", got)
+		}
+	}
+}

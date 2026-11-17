@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -573,6 +574,12 @@ func (s *Scheduler) attachSkills(ctx context.Context, t *store.Task, cmd *runner
 	}
 	used := make([]string, 0, len(list))
 	for _, sk := range list {
+		// Team mode: a personal skill reaches its owner's tasks only (or a
+		// project an admin enabled it on), never someone else's by slug.
+		if sk.Personal && !slices.Contains(defaults, sk.Slug) &&
+			(sk.OwnerUserID == nil || t.CreatedByID == nil || *sk.OwnerUserID != *t.CreatedByID) {
+			continue
+		}
 		files := []runnermgr.SkillFile{{Path: skills.SkillFileName, Content: sk.Body}}
 		for _, f := range sk.Files {
 			files = append(files, runnermgr.SkillFile{Path: f.Path, Content: f.Content})

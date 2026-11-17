@@ -161,7 +161,7 @@ func (s *Store) SeedSkills(ctx context.Context, seed []Skill) error {
 func (s *Store) DefaultSkillSlugs(ctx context.Context, projectID string) ([]string, error) {
 	var out []string
 	err := s.Pool.QueryRow(ctx, `SELECT coalesce(array_agg(slug ORDER BY slug), '{}') FROM skills
-		WHERE enabled_by_default OR id IN (SELECT skill_id FROM project_skills WHERE project_id = $1)`, projectID).Scan(&out)
+		WHERE (enabled_by_default AND NOT personal) OR id IN (SELECT skill_id FROM project_skills WHERE project_id = $1)`, projectID).Scan(&out)
 	return out, err
 }
 

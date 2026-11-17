@@ -118,8 +118,12 @@ func (s *Server) insertSkill(w http.ResponseWriter, r *http.Request, in skillInp
 		return
 	}
 	if a := actorOf(r); a.Team {
-		// Admins' skills are team skills; members' are personal.
+		// Admins' skills are team skills; members' are personal, and a
+		// personal skill is never enabled for everyone.
 		sk.OwnerUserID, sk.Personal = a.uid(), !a.admin()
+		if sk.Personal {
+			sk.EnabledByDefault = false
+		}
 	}
 	out, err := s.Store.CreateSkill(r.Context(), sk)
 	if err != nil {
@@ -142,6 +146,9 @@ func (s *Server) updateSkill(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeSkillErr(w, r, err)
 		return
+	}
+	if old, err := s.Store.GetSkill(r.Context(), id); err == nil && old.Personal {
+		sk.EnabledByDefault = false // promote it first
 	}
 	out, err := s.Store.UpdateSkill(r.Context(), id, sk)
 	if err != nil {
@@ -170,6 +177,9 @@ func (s *Server) duplicateSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	src, err := s.Store.GetSkill(r.Context(), id)
+	if err == nil && !s.skillVisible(r, src) {
+		err = store.ErrNotFound
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -184,6 +194,10 @@ func (s *Server) duplicateSkill(w http.ResponseWriter, r *http.Request) {
 		}
 		cp := *src
 		cp.Slug, cp.EnabledByDefault = slug, false
+		if a := actorOf(r); a.Team {
+			// The copy belongs to whoever made it: team-wide for admins, personal for members.
+			cp.OwnerUserID, cp.Personal = a.uid(), !a.admin()
+		}
 		out, err := s.Store.CreateSkill(r.Context(), cp)
 		if errors.Is(err, store.ErrConflict) {
 			continue
@@ -245,6 +259,9 @@ func (s *Server) exportSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sk, err := s.Store.GetSkill(r.Context(), id)
+	if err == nil && !s.skillVisible(r, sk) {
+		err = store.ErrNotFound
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
