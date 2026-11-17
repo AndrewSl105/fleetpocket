@@ -124,7 +124,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | | |
 |---|---|
 | `GET /tasks?project=&status=` | newest first. `status` takes a comma-separated list |
-| `POST /tasks` `{project_id, prompt, repository_id?, title?, agent?, node?}` | `repository_id` defaults to the project's default repo; `title` to the first line of the prompt (80 chars); `agent` to the project's agent; `node` (`"server"` or a node id) to the project's host. `400 invalid` when the agent has no credentials on that host (for a node: the agents it reported when it last connected) or the node is unknown. As multipart, add images in `files[]` |
+| `POST /tasks` `{project_id, prompt, repository_id?, title?, agent?, node?, output?, skills_add?, skills_remove?}` | `output` (`pr`, `artifacts`, `pr_and_artifacts`) defaults to the project's `default_output`, else `pr`; values other than `pr` are refused with `400` until diagram collection ships. `skills_add`/`skills_remove` (slugs; comma-separated in multipart) change the project's skills for this task. `repository_id` defaults to the project's default repo; `title` to the first line of the prompt (80 chars); `agent` to the project's agent; `node` (`"server"` or a node id) to the project's host. `400 invalid` when the agent has no credentials on that host (for a node: the agents it reported when it last connected) or the node is unknown. As multipart, add images in `files[]` |
 | `GET /tasks/{id}` | task view (see above) |
 | `GET /tasks/{id}/events?after_id=` | timeline, oldest first; `after_id` (or `cursor`) is the last event id you have. Heartbeats are not returned |
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
@@ -210,6 +210,31 @@ A **node** is a computer that runs tasks next to the server, with its own Docker
 | `POST /nodes/pair` `{code, name?}` | owner: registers the node (id from the name, `-2`… when taken) and hands its token to the computer → `201` node. Codes ignore case and the dash |
 
 `agents` and `platform`/`version` are what the node reported when it last connected. A node's tasks count only against its `max_concurrent`.
+
+## Skills
+
+A **skill** is a `SKILL.md` folder (Claude Agent Skills format) the runner writes into a task's workspace. A task gets the skills its project enables, plus those `enabled_by_default`, plus the task's `skills_add`, minus its `skills_remove`; `Task.skills` lists the slugs its last run used.
+
+```json
+{
+  "id": 3, "slug": "db-schema", "name": "db-schema", "description": "Draw the database schema …",
+  "body": "---\nname: db-schema\ndescription: …\n---\n# …", "files": [{"path": "ref/notes.md", "content": "…"}],
+  "enabled_by_default": false, "projects": ["vatary"], "created_at": "…", "updated_at": "…"
+}
+```
+
+| | |
+|---|---|
+| `GET /skills` | `{items}`, by slug |
+| `POST /skills` `{slug, body, files?, enabled_by_default?}` | `name` and `description` come from the frontmatter (both required). `400 invalid`: slug not `^[a-z][a-z0-9-]{1,63}$`, more than 50 files or 1 MB in total (SKILL.md included), a binary file, a path that is absolute, contains `..` or a backslash or is under `.git`, or a secrets-scan finding (the publisher's gitleaks). `409 conflict` when the slug is taken |
+| `GET /skills/{id}` · `PUT /skills/{id}` · `DELETE /skills/{id}` | `PUT` takes the same body as `POST`. Delete also removes it from every project |
+| `POST /skills/{id}/duplicate` | copy as `<slug>-copy` (`-copy-2`, …), not enabled by default |
+| `POST /skills/import` (multipart `file`, `slug?`) | a `SKILL.md`, or a `.zip` with `SKILL.md` at the root or in one folder (that folder's name is the slug unless `slug` is given). At most 2 MB. Same validation as `POST` |
+| `GET /skills/{id}/export` | `application/zip`: `<slug>/SKILL.md` and the extra files |
+
+Projects: `PATCH /projects/{id}` takes `skills` (slugs; replaces the list, unknown slugs ignored) and `default_output`; `Project` returns both.
+
+Seeded once on first start (deletable, off by default): `db-schema`, `system-design-c4`, `sequence-flow`, `infra-map`.
 
 ## WebSocket
 

@@ -59,6 +59,27 @@ type RunCommand struct {
 	Model              string     `json:"model,omitempty"`
 	Limits             Limits     `json:"limits"`
 	Commit             CommitInfo `json:"commit"`
+	Skills             []Skill    `json:"skills,omitempty"`
+	Output             string     `json:"output,omitempty"` // "pr" (default) | "artifacts" | "pr_and_artifacts"
+}
+
+// Task output modes.
+const (
+	OutputPR             = "pr"
+	OutputArtifacts      = "artifacts"
+	OutputPRAndArtifacts = "pr_and_artifacts"
+)
+
+// Skill is one skill folder the runner writes before the session starts.
+// Files include SKILL.md; paths are relative to the skill folder.
+type Skill struct {
+	Slug  string      `json:"slug"`
+	Files []SkillFile `json:"files"`
+}
+
+type SkillFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 type AnswerCommand struct {

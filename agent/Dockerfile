@@ -12,7 +12,7 @@ ARG TARGETARCH
 ARG GO_VERSION=1.27.2
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git python3 python3-pip python3-venv build-essential ripgrep jq ca-certificates curl \
+ && apt-get install -y --no-install-recommends git python3 python3-pip python3-venv build-essential ripgrep jq postgresql-client ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xz

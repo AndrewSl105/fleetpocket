@@ -18,6 +18,7 @@ function userMessage(text: string): SDKUserMessage {
 type AskInput = { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> };
 
 export const claudeSession: Session = async ({ cmd, workspace, emitter, control }) => {
+  const policyOpts = { artifactsOnly: cmd.output === "artifacts" };
   const mapper = new Mapper(workspace);
   // queryAbort ends the SDK session: on cancel (control.abort) and on pause.
   const queryAbort = new AbortController();
@@ -40,7 +41,7 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
     if (toolName !== ASK_TOOL) {
       // Reached only for tools outside ALLOWED_TOOLS or edits the mode does not
       // auto-accept. Nobody can approve interactively, so the policy decides.
-      const d = checkTool(toolName, toolInput, workspace);
+      const d = checkTool(toolName, toolInput, workspace, policyOpts);
       return d.allow ? { behavior: "allow", updatedInput: toolInput } : { behavior: "deny", message: d.reason };
     }
     const questions = (toolInput as AskInput).questions ?? [];
@@ -73,7 +74,7 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
 
   const preToolUse: HookCallback = async (hookInput) => {
     if (hookInput.hook_event_name !== "PreToolUse") return {};
-    const d = checkTool(hookInput.tool_name, hookInput.tool_input, workspace);
+    const d = checkTool(hookInput.tool_name, hookInput.tool_input, workspace, policyOpts);
     if (d.allow) return {};
     return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason } };
   };
