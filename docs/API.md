@@ -54,6 +54,7 @@ A **project** groups repositories and holds run settings. All override fields ar
   "max_duration_sec": null, "runner_memory": null, "runner_cpus": null,
   "telegram_thread_id": null, "archived": false,
   "ci_autofix": {"enabled": null, "max_attempts": null, "checks": null, "budget_usd": null, "allow_ci_changes": null},
+  "budget": null, "month_cost_usd": 12.34,
   "created_at": "…", "updated_at": "…",
   "repositories": [{"id": 1, "project_id": "vatary", "full_name": "andrewsl105/vatary-server",
                     "base_branch": "dev", "installation_id": 123, "is_default": true}]
@@ -80,6 +81,8 @@ A **project** groups repositories and holds run settings. All override fields ar
 
 `ci_autofix` holds the project's CI auto-fix overrides (see [CI auto-fix](#ci-auto-fix)); a `PATCH` replaces the object as a whole and `null` fields inherit the global default.
 
+`budget` is the project's monthly cap, `{"monthly_usd": 50}` or `null` (none; `monthly_usd` `0` or `null` in a `PATCH` removes it); see [Costs and budgets](#costs-and-budgets). `month_cost_usd` (read-only) is the cost of the project's runs started this calendar month.
+
 `services` accepts `postgres` and `redis`. `env` keys must match `[A-Z_][A-Z0-9_]*`; auth and service variables (`DATABASE_URL`, `REDIS_URL`, Claude, OpenAI and Cursor keys, `CODEX_HOME`, …) are reserved.
 
 ## Tasks
@@ -94,24 +97,27 @@ A **project** groups repositories and holds run settings. All override fields ar
   "cost_usd_total": 0.42, "turns": 17, "source": "web", "agent": "claude", "node": null,
   "created_at": "…", "updated_at": "…", "finished_at": null, "paused_at": null,
   "last_activity": "Edit src/tables/export.ts", "last_activity_at": "…",
-  "queued_message": null
+  "queued_message": null,
+  "autofix_cost_usd": 0, "cost_estimated": false, "cost_api_equivalent": true,
+  "budget_wait": null, "budget_override_at": null
 }
 ```
 
 - `agent`: the coding agent, fixed when the task is created (the request's `agent`, else the project's, else the server default), so follow-ups and resumes continue the same session.
 - `node`: the computer the task runs on (`null`: the server), fixed when the task is created: its workspace, agent session and containers live there. While that node is offline the task waits (`queued` tasks stay queued; a live task keeps its status and its stream resumes when the node reconnects; actions that need the workspace answer `503 host_offline`).
-- `cost_usd_total`: reported by Claude only; Codex and Cursor tasks stay at `0` (their usage still shows as tokens in `usage` events).
+- `cost_usd_total`: the sum of the runs' `cost_usd`: reported by Claude, estimated from the price table for Codex and Cursor (see [Costs and budgets](#costs-and-budgets)). `cost_estimated` is true when some run's cost is an estimate (show `≈$0.84`); `cost_api_equivalent` when some Claude run used a subscription (OAuth) login, so the cost is what the API would charge, not a bill. `autofix_cost_usd` is the part spent by CI auto-fix runs.
+- `budget_wait`: `global` or `project` while a queued task waits because that monthly cap is used up (`status_reason` is `waiting: budget`), else `null`. `budget_override_at`: when the owner let it start anyway.
 - `turns`: agent turns across all runs of the task (sum of each run's last reported `usage.turns`).
 - `last_activity`: one line (max 120 characters) describing the latest thing that happened: the latest `tool_use` summary, or the latest status change as `<status>` / `<status>: <reason>`, whichever came last. `last_activity_at` is when it was set. Both are `null` only for tasks that predate the field and have no surviving events.
 - `queued_message`: text sent with `POST …/message` while a run was active (several messages are joined by a blank line), or `null`. It becomes the input of the next run as soon as the current run ends.
 
-`GET /tasks/{id}` and all task actions return this object plus `repository`, `latest_run` (`{id, kind, input, exit_code, last_seq, cost_usd, turns, started_at, finished_at}` or `null`) and `open_question` (`{id, text, options, created_at, …}` or `null`).
+`GET /tasks/{id}` and all task actions return this object plus `repository`, `latest_run` (a run as in `GET /tasks/{id}/runs`, or `null`) and `open_question` (`{id, text, options, created_at, …}` or `null`).
 
 ### Status
 
 | status | meaning | actions available |
 |---|---|---|
-| `queued` | waiting for a slot on its host (or for its node to come online) | message (queued), cancel |
+| `queued` | waiting for a slot on its host (or for its node to come online, or for a monthly budget: `budget_wait`) | message (queued), cancel, budget override (when `budget_wait` is set) |
 | `preparing` | cloning, creating branch and sidecars | message (queued), cancel |
 | `running` | Claude is working | message (queued), interrupt, cancel |
 | `waiting_input` | Claude asked a question (`open_question`) | answer, message (queued), interrupt, cancel |
@@ -131,18 +137,22 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /tasks/{id}` | task view (see above) |
 | `GET /tasks/{id}/events?after_id=` | timeline, oldest first; `after_id` (or `cursor`) is the last event id you have. Heartbeats are not returned |
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
-| `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup` or `retry`; `cost_usd` is the run's own cost. Paginated with `limit`/`cursor` |
+| `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, autofix_attempt, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup` or `retry`; `cost_usd` and the token counts are the run's own (not the session's); `cost_source` is `reported`, `estimated`, `unknown` (tokens but no price, cost 0) or `null` (no usage yet, or a run from before it was recorded); `auth` is `subscription` (Claude OAuth: API-equivalent cost), `api_key` or `null`. Paginated with `limit`/`cursor` |
 | `GET /tasks/{id}/diff` | `{"diff", "truncated", "base", "branch"}`: `git diff base...branch` from the workspace, capped at 1 MB. `409 no_workspace` before cloning or after cleanup; `503 host_offline` while the task's node is offline |
 | `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix_guard`): `Push anyway` pushes the held fix, anything else discards it |
 | `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`completed`: starts a new run right away. Otherwise `409` |
 | `POST /tasks/{id}/interrupt` | `running`/`waiting_input`: stops Claude and **ends the run** ("Interrupted by the user."); what it committed is pushed as for any finished run, and the session is kept. A queued message then starts the next run; otherwise send a follow-up message |
 | `POST /tasks/{id}/cancel` | ends the task (`cancelled`), stops the runner |
 | `POST /tasks/{id}/retry` | `failed`/`cancelled` only: queues the original prompt again on the same branch |
+| `POST /tasks/{id}/budget-override` | `queued` only: the task starts although a monthly cap holds it, and may start runs until the calendar month ends; records a `budget` event (`override`, `via: "web"`). Otherwise `409` |
 | `POST /tasks/{id}/merge` | `pr_open` only: squash-merges the PR (commit title `<task title> (#<number>)`), deletes its branch, records `pr_closed {merged: true}` and completes the task ("PR merged"). `409 not_mergeable` with GitHub's reason when GitHub refuses (conflicts, required checks or reviews); `503 github_disabled` without the GitHub App |
 | `GET /tasks/{id}/attachments/{attachmentId}` | the image or file (`?thumb=1`: JPEG, longest side ≤ 480 px, images only); `410 gone` once removed |
 | `GET /stats` | `{running, queued, waiting_input, cost_usd_today, cost_usd_month}` (server-local days) |
 | `GET /settings/ci-autofix` | the global CI auto-fix default `{enabled, max_attempts, checks, budget_usd, allow_ci_changes}` (null fields: built-in default) |
 | `PUT /settings/ci-autofix` | replaces it; `400 invalid` for `max_attempts` outside 1–5 or a negative budget |
+| `GET /settings/costs` | `{monthly_budget_usd, price_table: {updated, prices: [{agent, model, input_usd, cached_input_usd, cache_write_usd, output_usd}]}, price_table_is_default}` |
+| `PUT /settings/costs` `{monthly_budget_usd, price_table}` | replaces both; `monthly_budget_usd` `null`/`0` removes the global cap, `price_table: null` restores the built-in table. `400 invalid` for an unknown agent, an empty model, a negative price or a model listed twice |
+| `GET /costs?from=&to=&period=` | the cost report, see [Costs and budgets](#costs-and-budgets) |
 
 ### Timeline events
 
@@ -168,7 +178,7 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `message_dropped` | `{text, reason: "failed"\|"cancelled"}`: a queued message that never started a run |
   | `interrupt` | `{}` |
   | `run_started` | `{run_id, kind}` (`initial`, `resume`, `followup`, `retry`) |
-  | `run_finished` | `{run_id, exit_code}` |
+  | `run_finished` | `{run_id, exit_code, cost_usd?, cost_source?, auth?}` (the cost fields once the run reported usage) |
   | `pr_opened` | `{number, url}` |
   | `pr_updated` | `{number, url}` (a later run pushed to the same PR) |
   | `pr_closed` | `{number, merged}` |
@@ -179,12 +189,34 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `integrations` | `{servers, egress, warning?}`: the MCP servers and egress mode a run got (only when it has servers or an allowlist) |
   | `mcp_call` | `{server, tool, ok, duration_ms, args_bytes, result_bytes, denied?, error?}`: one call through the MCP gateway (`denied`: `denied` = tool not allowed, `limit` = `max_calls` reached; `tool: ""` = connection failed). Never arguments, results or credentials |
   | `egress_blocked` | `{host}`: the egress proxy refused a host (once per host and run); also sent to Telegram with an "Allow for this project" button |
+  | `budget` | `{phase, scope?, project_id?, level?, spent_usd?, limit_usd?, via?}`: a monthly budget step, see [Costs and budgets](#costs-and-budgets) |
 
 ### CI auto-fix
 
 Off by default. When it is on (globally via `PUT /settings/ci-autofix` or per project via `ci_autofix`) and a check fails on the commit Jungle Monkey last pushed to a task's PR, the server fetches the failed checks' logs, attaches them (trimmed) to the task and queues a follow-up run that fixes the cause (`latest_run.autofix_attempt` is set). Task fields: `autofix_state` (`fixing`, `held`, `approved`, `waiting`, `green`, `needs_you`, `cancelled`, or `null`), `autofix_attempts`, `autofix_max_attempts`.
 
 `autofix` event phases: `started` `{attempt, max_attempts, run_id, checks: [{name, url, conclusion}], signature, head_sha, attachments}`; `pushed` `{attempt, max_attempts}`; `held` `{attempt, max_attempts, reasons}` (the fix changes CI or tests; an open question asks "Push anyway?"); `discarded`; `green` `{fixes}`; `needs_you` `{reason, attempt, max_attempts, checks?, signature?}`; `cancelled` `{reason}` (a human push, a follow-up message, the PR closed).
+
+### Costs and budgets
+
+Every run records its agent, model, tokens (`input_tokens` includes cache reads and writes) and `cost_source`. Claude reports its cost (`reported`); Codex and Cursor report tokens only, so their cost is `estimated` from the price table (`GET/PUT /settings/costs`; matched by agent and model, `*` for any model of an agent) or `unknown` (cost 0) when no row matches. The built-in table lists OpenAI's API prices for Codex models; Codex's `default` model and Cursor's `auto` route to different models, so they need a row the owner adds. Estimates count toward budgets.
+
+Budgets, all off by default: the per-run `max_budget_usd` (as before), a monthly cap per project (`budget`) and a global monthly cap (`monthly_budget_usd`). Months are calendar months in the server's local time, by run start. When a scope reaches 80% of its cap this month, a `budget` event (`warning`) goes on the task whose run crossed it and to Telegram; at 100% (`reached`) running runs **finish** (a monthly cap never stops a run) and new runs of that scope wait: their queued tasks get `budget_wait` and a `budget` event (`waiting`), sent to Telegram with a "Start anyway" button. Each notice is sent once per scope, month and level. `POST /tasks/{id}/budget-override` (or the button) lets that task start anyway (`override`). Raising or removing a cap, or a new month, releases waiting tasks.
+
+`GET /costs?from=YYYY-MM-DD&to=YYYY-MM-DD&period=day|week|month` (default: the first of this month to today, by day; at most 400 days) returns:
+
+```json
+{"from": "2026-11-01", "to": "2026-11-17", "period": "day", "month_start": "2026-11-01",
+ "budget": {"monthly_usd": 100, "month_cost_usd": 41.2},
+ "projects": [{"project_id": "vatary", "name": "Vatary", "monthly_usd": 50, "month_cost_usd": 30.5}],
+ "total": {"cost_usd": 41.2, "estimated_usd": 3.1, "autofix_usd": 1.9, "api_equivalent_usd": 38.1,
+           "runs": 57, "unknown_runs": 1, "input_tokens": 9100000, "output_tokens": 410000},
+ "by_project": [{"key": "vatary", "cost_usd": 30.5, …}], "by_agent": [{"key": "claude", …}],
+ "by_period": [{"start": "2026-11-01", "cost_usd": 2.4, …}, …],
+ "rows": [{"day": "2026-11-01", "project_id": "vatary", "agent": "claude", "cost_usd": 2.4, …}]}
+```
+
+Every sum has the fields of `total`. `by_period` lists every day, week (from Monday) or month of the range, empty ones included; `rows` is one row per day, project and agent (the web client's CSV export).
 
 ### Attachments
 

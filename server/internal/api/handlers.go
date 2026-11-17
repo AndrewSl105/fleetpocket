@@ -129,6 +129,10 @@ func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
 	if out.Items == nil {
 		out.Items = []*store.Project{}
 	}
+	if err := s.withMonthCost(r.Context(), out.Items...); err != nil {
+		writeErr(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -147,6 +151,9 @@ func (s *Server) createProject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getProject(w http.ResponseWriter, r *http.Request) {
 	p, err := s.Store.GetProject(r.Context(), r.PathValue("id"))
+	if err == nil {
+		err = s.withMonthCost(r.Context(), p)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -160,9 +167,15 @@ func (s *Server) updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := s.Projects.Update(r.Context(), r.PathValue("id"), in)
+	if err == nil {
+		err = s.withMonthCost(r.Context(), p)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
+	}
+	if in.Budget != nil && s.Tasks != nil && s.Tasks.Executor != nil {
+		s.Tasks.Executor.Wake() // a raised cap lets waiting tasks start
 	}
 	writeJSON(w, http.StatusOK, p)
 }

@@ -491,6 +491,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{id}/budget-override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a task that waits for a monthly budget anyway
+         * @description Only a queued task. The task may start runs despite the monthly caps until the calendar month ends; a `budget` event (phase `override`) records it.
+         */
+        post: operations["overrideTaskBudget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats": {
         parameters: {
             query?: never;
@@ -522,6 +542,49 @@ export interface paths {
         get: operations["getCIAutoFixDefaults"];
         /** Replace the global CI auto-fix default */
         put: operations["putCIAutoFixDefaults"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Global monthly budget and the price table */
+        get: operations["getCostSettings"];
+        /**
+         * Replace the global monthly budget and the price table
+         * @description `monthly_budget_usd` null or 0 removes the global cap. `price_table` null restores the built-in table.
+         */
+        put: operations["putCostSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cost report and month-to-date budgets
+         * @description Runs started from `from` through `to` (dates in the server's local time; default: the first of this month to
+         *     today, at most 400 days), summed in total, by project, by agent, by `period` and per day × project × agent
+         *     (`rows`, the CSV export). `budget` and `projects` are always this calendar month.
+         */
+        get: operations["getCosts"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -996,6 +1059,8 @@ export interface components {
             archived?: boolean;
             /** @description Replaces the project's CI auto-fix overrides as a whole; null fields inherit the global default */
             ci_autofix?: components["schemas"]["CIAutoFixSettings"];
+            /** @description Replaces the project's monthly cap; null or 0 `monthly_usd` removes it */
+            budget?: components["schemas"]["ProjectBudget"];
         };
         /** @description CI auto-fix settings (docs/SPEC-server.md "CI auto-fix"). A null field inherits the level below (project → global default → built-in default). */
         CIAutoFixSettings: {
@@ -1009,6 +1074,89 @@ export interface components {
             budget_usd?: number | null;
             /** @description Push fixes that touch CI configuration, delete or skip tests, or change coverage thresholds without asking; built-in default false */
             allow_ci_changes?: boolean | null;
+        };
+        /** @description A project's monthly cap (docs/SPEC-server.md "Costs and budgets"); null is none */
+        ProjectBudget: {
+            monthly_usd?: number | null;
+        } | null;
+        /** @description USD per million tokens. The cache rates default to `input_usd` when null. */
+        Price: {
+            agent: components["schemas"]["Agent"];
+            /** @description Model name as the run reports it; `*` matches any model of the agent without a row of its own */
+            model: string;
+            input_usd: number;
+            cached_input_usd?: number | null;
+            cache_write_usd?: number | null;
+            output_usd: number;
+        };
+        /** @description Prices for agents that report tokens but no cost (Codex, Cursor); their runs' costs are estimates. */
+        PriceTable: {
+            /** @description When the prices were last checked (YYYY-MM-DD) */
+            updated?: string;
+            prices: components["schemas"]["Price"][];
+        };
+        CostSettings: {
+            /** @description Global monthly cap; null is none */
+            monthly_budget_usd: number | null;
+            price_table: components["schemas"]["PriceTable"];
+            /** @description The built-in table (never edited) */
+            price_table_is_default: boolean;
+        };
+        CostSum: {
+            /** @description All runs' cost */
+            cost_usd: number;
+            /** @description Part of cost_usd estimated from the price table */
+            estimated_usd: number;
+            /** @description Part of cost_usd spent by CI auto-fix runs */
+            autofix_usd: number;
+            /** @description Part of cost_usd reported for Claude subscription (OAuth) runs */
+            api_equivalent_usd: number;
+            runs: number;
+            /** @description Runs with tokens but no price (cost 0) */
+            unknown_runs: number;
+            /** Format: int64 */
+            input_tokens: number;
+            /** Format: int64 */
+            output_tokens: number;
+        };
+        CostReport: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            period: "day" | "week" | "month";
+            /** Format: date */
+            month_start: string;
+            budget: components["schemas"]["BudgetStatus"];
+            projects: (components["schemas"]["BudgetStatus"] & {
+                project_id: string;
+                name: string;
+            })[];
+            total: components["schemas"]["CostSum"];
+            by_project: components["schemas"]["KeyedCostSum"][];
+            by_agent: components["schemas"]["KeyedCostSum"][];
+            /** @description Every day, week (from Monday) or month of the range, empty ones included */
+            by_period: (components["schemas"]["CostSum"] & {
+                /** Format: date */
+                start: string;
+            })[];
+            rows: (components["schemas"]["CostSum"] & {
+                /** Format: date */
+                day: string;
+                project_id: string;
+                agent: string;
+            })[];
+        };
+        KeyedCostSum: components["schemas"]["CostSum"] & {
+            /** @description Project id or agent */
+            key: string;
+        };
+        BudgetStatus: {
+            /** @description The monthly cap; null is none */
+            monthly_usd: number | null;
+            /** @description Cost of runs started this calendar month */
+            month_cost_usd: number;
         };
         Project: {
             id: string;
@@ -1036,6 +1184,9 @@ export interface components {
             telegram_thread_id?: number | null;
             archived: boolean;
             ci_autofix: components["schemas"]["CIAutoFixSettings"];
+            budget: components["schemas"]["ProjectBudget"];
+            /** @description Cost of the project's runs started this calendar month */
+            month_cost_usd: number;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -1109,7 +1260,7 @@ export interface components {
             pr_url?: string | null;
             /** @enum {string|null} */
             ci_status?: "pending" | "success" | "failure" | null;
-            /** @description Reported by Claude only; 0 for Codex and Cursor */
+            /** @description Sum of the runs' cost: reported by Claude, estimated from the price table for Codex and Cursor (0 when their model has no price) */
             cost_usd_total: number;
             /** @description Agent turns across all runs */
             turns: number;
@@ -1138,6 +1289,22 @@ export interface components {
             autofix_attempts: number;
             /** @description Attempt cap of the current loop */
             autofix_max_attempts: number | null;
+            /** @description Part of cost_usd_total spent by CI auto-fix runs */
+            autofix_cost_usd: number;
+            /** @description Some run's cost is an estimate: show ≈ */
+            cost_estimated: boolean;
+            /** @description Some run's cost was reported for a Claude subscription (OAuth) login */
+            cost_api_equivalent: boolean;
+            /**
+             * @description Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.
+             * @enum {string|null}
+             */
+            budget_wait: "global" | "project" | null;
+            /**
+             * Format: date-time
+             * @description When the owner let it start despite the monthly caps (good for that calendar month)
+             */
+            budget_override_at: string | null;
         };
         /**
          * @description CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
@@ -1170,11 +1337,37 @@ export interface components {
             turns: number;
             /** @description Set on runs CI auto-fix started (the attempt number) */
             autofix_attempt?: number | null;
+            /** @description Agent of the run; null for runs from before it was recorded */
+            agent?: string | null;
+            /** @description Model the run reported in `started` */
+            model?: string | null;
+            /**
+             * Format: int64
+             * @description All input
+             */
+            input_tokens?: number;
+            /** Format: int64 */
+            output_tokens?: number;
+            /** Format: int64 */
+            cache_read_tokens?: number;
+            /** Format: int64 */
+            cache_write_tokens?: number;
+            cost_source?: components["schemas"]["CostSource"];
+            /**
+             * @description How the agent was authenticated, when known; `subscription` (Claude OAuth) makes the cost API-equivalent
+             * @enum {string|null}
+             */
+            auth?: "api_key" | "subscription" | null;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */
             finished_at?: string | null;
         };
+        /**
+         * @description Where cost_usd came from: reported by the agent, estimated from the price table, or unknown (tokens but no price; cost 0). null for runs without usage yet or from before it was recorded.
+         * @enum {string|null}
+         */
+        CostSource: "reported" | "estimated" | "unknown" | null;
         Question: {
             /** @description "<run_id>-<runner question id>"; pass it to /answer */
             id: string;
@@ -1197,9 +1390,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -1256,6 +1449,11 @@ export interface components {
             type: "started";
             session_id: string;
             model: string;
+            /**
+             * @description Claude only; absent when unknown
+             * @enum {string}
+             */
+            auth?: "api_key" | "subscription";
         };
         AssistantTextEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1377,6 +1575,10 @@ export interface components {
             output_tokens: number;
             /** @description Turns in this run */
             turns: number;
+            /** @description Part of input_tokens; absent from older runners */
+            cache_read_tokens?: number;
+            /** @description Part of input_tokens; absent from older runners */
+            cache_write_tokens?: number;
         };
         CommittedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1630,6 +1832,12 @@ export interface components {
             run_id: number;
             /** @description Runner exit code (PROTOCOL.md) */
             exit_code: number;
+            /** @description The run's cost (absent before costs were recorded) */
+            cost_usd?: number;
+            /** @enum {string} */
+            cost_source?: "reported" | "estimated" | "unknown";
+            /** @enum {string} */
+            auth?: "api_key" | "subscription";
         };
         PrOpenedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1918,6 +2126,35 @@ export interface components {
              * @enum {string}
              */
             type: "egress_blocked";
+        };
+        BudgetEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "budget";
+            seq: null;
+            /**
+             * @description Monthly budgets: `warning` (this task's run took the scope to 80% this month), `reached` (100%: running runs finish,
+             *     new runs wait), `waiting` (this queued task is held: "waiting: budget"), `override` (the owner let it start anyway,
+             *     `via` web or telegram). Sent once per scope, month and level for warning and reached.
+             */
+            payload: {
+                /** @enum {string} */
+                phase: "warning" | "reached" | "waiting" | "override";
+                /** @enum {string} */
+                scope?: "global" | "project";
+                project_id?: string;
+                /** @enum {integer} */
+                level?: 80 | 100;
+                spent_usd?: number;
+                limit_usd?: number;
+                /** @enum {string} */
+                via?: "web" | "telegram";
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "budget";
         };
         IntegrationsEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -2929,6 +3166,32 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    overrideTaskBudget: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Allowed; the scheduler picks it up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
     getStats: {
         parameters: {
             query?: never;
@@ -2997,6 +3260,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CIAutoFixSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getCostSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cost settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+        };
+    };
+    putCostSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    monthly_budget_usd?: number | null;
+                    price_table?: components["schemas"]["PriceTable"] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getCosts: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                period?: "day" | "week" | "month";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostReport"];
                 };
             };
             400: components["responses"]["Error"];

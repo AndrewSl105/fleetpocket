@@ -113,8 +113,14 @@ func validate(f store.ProjectFields) error {
 			return err
 		}
 	}
+	if f.Budget != nil && f.Budget.MonthlyUSD != nil && (*f.Budget.MonthlyUSD < 0 || *f.Budget.MonthlyUSD > MaxMonthlyBudgetUSD) {
+		return fmt.Errorf("%w: budget.monthly_usd must be 0 to %d", ErrInvalid, MaxMonthlyBudgetUSD)
+	}
 	return nil
 }
+
+// MaxMonthlyBudgetUSD bounds monthly caps (projects.budget, the global one).
+const MaxMonthlyBudgetUSD = 1_000_000
 
 // ValidateAutoFix checks CI auto-fix overrides (project or global default).
 func ValidateAutoFix(o store.AutoFixOverrides) error {

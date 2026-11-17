@@ -136,6 +136,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/projects/{id}/egress/allow", a(s.allowEgress))
 	mux.HandleFunc("GET /api/v1/settings/ci-autofix", a(s.getAutoFixDefaults))
 	mux.HandleFunc("PUT /api/v1/settings/ci-autofix", a(s.putAutoFixDefaults))
+	mux.HandleFunc("GET /api/v1/settings/costs", a(s.getCostSettings))
+	mux.HandleFunc("PUT /api/v1/settings/costs", a(s.putCostSettings))
+	mux.HandleFunc("GET /api/v1/costs", a(s.getCosts))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/budget-override", a(s.budgetOverride))
 	if s.Nodes != nil {
 		mux.HandleFunc("GET /api/v1/nodes", a(s.listNodes))
 		mux.HandleFunc("POST /api/v1/nodes", a(s.createNode))

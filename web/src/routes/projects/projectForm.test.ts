@@ -19,6 +19,8 @@ const project: Project = {
   telegram_thread_id: null,
   archived: false,
   ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
+  budget: null,
+  month_cost_usd: 0,
   created_at: '',
   updated_at: '',
   repositories: [],

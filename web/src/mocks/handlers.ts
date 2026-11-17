@@ -219,6 +219,8 @@ export const handlers = [
       name: body.id,
       ...body,
       ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null, ...body.ci_autofix },
+      budget: body.budget ?? null,
+      month_cost_usd: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       repositories: [],

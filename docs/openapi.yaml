@@ -716,6 +716,20 @@ paths:
         '409': { description: 'Not pr_open (`conflict`), or GitHub refused the merge (`not_mergeable`; the message says why)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '503': { $ref: '#/components/responses/Error' }
 
+  /api/v1/tasks/{id}/budget-override:
+    post:
+      operationId: overrideTaskBudget
+      tags: [tasks]
+      summary: Start a task that waits for a monthly budget anyway
+      description: Only a queued task. The task may start runs despite the monthly caps until the calendar month ends; a `budget` event (phase `override`) records it.
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Allowed; the scheduler picks it up, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
   /api/v1/stats:
     get:
       operationId: getStats
@@ -764,6 +778,62 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/settings/costs:
+    get:
+      operationId: getCostSettings
+      tags: [settings]
+      summary: Global monthly budget and the price table
+      responses:
+        '200':
+          description: The cost settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CostSettings' }
+    put:
+      operationId: putCostSettings
+      tags: [settings]
+      summary: Replace the global monthly budget and the price table
+      description: '`monthly_budget_usd` null or 0 removes the global cap. `price_table` null restores the built-in table.'
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                monthly_budget_usd: { type: [number, 'null'], minimum: 0 }
+                price_table: { oneOf: [{ $ref: '#/components/schemas/PriceTable' }, { type: 'null' }] }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CostSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/costs:
+    get:
+      operationId: getCosts
+      tags: [system]
+      summary: Cost report and month-to-date budgets
+      description: |
+        Runs started from `from` through `to` (dates in the server's local time; default: the first of this month to
+        today, at most 400 days), summed in total, by project, by agent, by `period` and per day × project × agent
+        (`rows`, the CSV export). `budget` and `projects` are always this calendar month.
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: period, in: query, schema: { type: string, enum: [day, week, month], default: day } }
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CostReport' }
         '400': { $ref: '#/components/responses/Error' }
 
   /api/v1/mcp-servers:
@@ -1387,6 +1457,9 @@ components:
         ci_autofix:
           $ref: '#/components/schemas/CIAutoFixSettings'
           description: Replaces the project's CI auto-fix overrides as a whole; null fields inherit the global default
+        budget:
+          $ref: '#/components/schemas/ProjectBudget'
+          description: Replaces the project's monthly cap; null or 0 `monthly_usd` removes it
 
     CIAutoFixSettings:
       type: object
@@ -1399,9 +1472,118 @@ components:
         budget_usd: { type: [number, 'null'], minimum: 0, description: Budget of one attempt; null or 0 is half the project's task budget }
         allow_ci_changes: { type: [boolean, 'null'], description: 'Push fixes that touch CI configuration, delete or skip tests, or change coverage thresholds without asking; built-in default false' }
 
+    ProjectBudget:
+      type: [object, 'null']
+      additionalProperties: false
+      description: A project's monthly cap (docs/SPEC-server.md "Costs and budgets"); null is none
+      properties:
+        monthly_usd: { type: [number, 'null'], minimum: 0 }
+
+    Price:
+      type: object
+      required: [agent, model, input_usd, output_usd]
+      additionalProperties: false
+      description: USD per million tokens. The cache rates default to `input_usd` when null.
+      properties:
+        agent: { $ref: '#/components/schemas/Agent' }
+        model: { type: string, description: 'Model name as the run reports it; `*` matches any model of the agent without a row of its own' }
+        input_usd: { type: number, minimum: 0 }
+        cached_input_usd: { type: [number, 'null'], minimum: 0 }
+        cache_write_usd: { type: [number, 'null'], minimum: 0 }
+        output_usd: { type: number, minimum: 0 }
+
+    PriceTable:
+      type: object
+      required: [prices]
+      additionalProperties: false
+      description: Prices for agents that report tokens but no cost (Codex, Cursor); their runs' costs are estimates.
+      properties:
+        updated: { type: string, description: 'When the prices were last checked (YYYY-MM-DD)' }
+        prices: { type: array, items: { $ref: '#/components/schemas/Price' } }
+
+    CostSettings:
+      type: object
+      required: [monthly_budget_usd, price_table, price_table_is_default]
+      properties:
+        monthly_budget_usd: { type: [number, 'null'], description: Global monthly cap; null is none }
+        price_table: { $ref: '#/components/schemas/PriceTable' }
+        price_table_is_default: { type: boolean, description: The built-in table (never edited) }
+
+    CostSum:
+      type: object
+      required: [cost_usd, estimated_usd, autofix_usd, api_equivalent_usd, runs, unknown_runs, input_tokens, output_tokens]
+      properties:
+        cost_usd: { type: number, description: All runs' cost, estimates included }
+        estimated_usd: { type: number, description: Part of cost_usd estimated from the price table }
+        autofix_usd: { type: number, description: Part of cost_usd spent by CI auto-fix runs }
+        api_equivalent_usd: { type: number, description: Part of cost_usd reported for Claude subscription (OAuth) runs, i.e. what the API would charge }
+        runs: { type: integer }
+        unknown_runs: { type: integer, description: Runs with tokens but no price (cost 0) }
+        input_tokens: { type: integer, format: int64 }
+        output_tokens: { type: integer, format: int64 }
+
+    CostReport:
+      type: object
+      required: [from, to, period, month_start, budget, projects, total, by_project, by_agent, by_period, rows]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        period: { type: string, enum: [day, week, month] }
+        month_start: { type: string, format: date }
+        budget: { $ref: '#/components/schemas/BudgetStatus' }
+        projects:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/BudgetStatus'
+              - type: object
+                required: [project_id, name]
+                properties:
+                  project_id: { type: string }
+                  name: { type: string }
+        total: { $ref: '#/components/schemas/CostSum' }
+        by_project: { type: array, items: { $ref: '#/components/schemas/KeyedCostSum' } }
+        by_agent: { type: array, items: { $ref: '#/components/schemas/KeyedCostSum' } }
+        by_period:
+          type: array
+          description: Every day, week (from Monday) or month of the range, empty ones included
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CostSum'
+              - type: object
+                required: [start]
+                properties:
+                  start: { type: string, format: date }
+        rows:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CostSum'
+              - type: object
+                required: [day, project_id, agent]
+                properties:
+                  day: { type: string, format: date }
+                  project_id: { type: string }
+                  agent: { type: string }
+
+    KeyedCostSum:
+      allOf:
+        - $ref: '#/components/schemas/CostSum'
+        - type: object
+          required: [key]
+          properties:
+            key: { type: string, description: Project id or agent }
+
+    BudgetStatus:
+      type: object
+      required: [monthly_usd, month_cost_usd]
+      properties:
+        monthly_usd: { type: [number, 'null'], description: The monthly cap; null is none }
+        month_cost_usd: { type: number, description: Cost of runs started this calendar month }
+
     Project:
       type: object
-      required: [id, name, instructions, services, env, archived, ci_autofix, created_at, updated_at, repositories]
+      required: [id, name, instructions, services, env, archived, ci_autofix, budget, month_cost_usd, created_at, updated_at, repositories]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1420,6 +1602,8 @@ components:
         telegram_thread_id: { type: [integer, 'null'], format: int64 }
         archived: { type: boolean }
         ci_autofix: { $ref: '#/components/schemas/CIAutoFixSettings' }
+        budget: { $ref: '#/components/schemas/ProjectBudget' }
+        month_cost_usd: { type: number, description: Cost of the project's runs started this calendar month }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         repositories: { type: array, items: { $ref: '#/components/schemas/Repository' } }
@@ -1486,7 +1670,7 @@ components:
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1500,7 +1684,7 @@ components:
         pr_number: { type: [integer, 'null'] }
         pr_url: { type: [string, 'null'] }
         ci_status: { type: [string, 'null'], enum: [pending, success, failure, null] }
-        cost_usd_total: { type: number, description: 'Reported by Claude only; 0 for Codex and Cursor' }
+        cost_usd_total: { type: number, description: 'Sum of the runs'' cost: reported by Claude, estimated from the price table for Codex and Cursor (0 when their model has no price)' }
         turns: { type: integer, description: Agent turns across all runs }
         source: { type: string, enum: [web, telegram, api] }
         agent: { $ref: '#/components/schemas/Agent', description: 'Fixed when the task is created: the request''s agent, else the project''s, else the server default' }
@@ -1521,6 +1705,14 @@ components:
           $ref: '#/components/schemas/AutoFixState'
         autofix_attempts: { type: integer, description: CI auto-fix attempts made in the current loop }
         autofix_max_attempts: { type: [integer, 'null'], description: Attempt cap of the current loop }
+        autofix_cost_usd: { type: number, description: Part of cost_usd_total spent by CI auto-fix runs }
+        cost_estimated: { type: boolean, description: 'Some run''s cost is an estimate: show ≈' }
+        cost_api_equivalent: { type: boolean, description: Some run's cost was reported for a Claude subscription (OAuth) login, i.e. what the API would charge }
+        budget_wait:
+          type: [string, 'null']
+          enum: [global, project, null]
+          description: 'Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
+        budget_override_at: { type: [string, 'null'], format: date-time, description: When the owner let it start despite the monthly caps (good for that calendar month) }
 
     AutoFixState:
       type: [string, 'null']
@@ -1554,8 +1746,21 @@ components:
         cost_usd: { type: number, description: This run's own cost (not the session total) }
         turns: { type: integer, description: Last usage.turns the runner reported for this run }
         autofix_attempt: { type: [integer, 'null'], description: Set on runs CI auto-fix started (the attempt number) }
+        agent: { type: [string, 'null'], description: Agent of the run; null for runs from before it was recorded }
+        model: { type: [string, 'null'], description: 'Model the run reported in `started`' }
+        input_tokens: { type: integer, format: int64, description: All input, cache reads and writes included }
+        output_tokens: { type: integer, format: int64 }
+        cache_read_tokens: { type: integer, format: int64 }
+        cache_write_tokens: { type: integer, format: int64 }
+        cost_source: { $ref: '#/components/schemas/CostSource' }
+        auth: { type: [string, 'null'], enum: [api_key, subscription, null], description: 'How the agent was authenticated, when known; `subscription` (Claude OAuth) makes the cost API-equivalent' }
         started_at: { type: [string, 'null'], format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }
+
+    CostSource:
+      type: [string, 'null']
+      enum: [reported, estimated, unknown, null]
+      description: 'Where cost_usd came from: reported by the agent, estimated from the price table, or unknown (tokens but no price; cost 0). null for runs without usage yet or from before it was recorded.'
 
     Question:
       type: object
@@ -1605,6 +1810,7 @@ components:
         - $ref: '#/components/schemas/MCPCallEvent'
         - $ref: '#/components/schemas/EgressBlockedEvent'
         - $ref: '#/components/schemas/IntegrationsEvent'
+        - $ref: '#/components/schemas/BudgetEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -1636,10 +1842,11 @@ components:
           mcp_call: '#/components/schemas/MCPCallEvent'
           egress_blocked: '#/components/schemas/EgressBlockedEvent'
           integrations: '#/components/schemas/IntegrationsEvent'
+          budget: '#/components/schemas/BudgetEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget]
 
     EventBase:
       type: object
@@ -1699,6 +1906,7 @@ components:
             type: { type: string, enum: [started] }
             session_id: { type: string }
             model: { type: string }
+            auth: { type: string, enum: [api_key, subscription], description: Claude only; absent when unknown }
 
     AssistantTextEvent:
       allOf:
@@ -1810,6 +2018,8 @@ components:
             input_tokens: { type: integer }
             output_tokens: { type: integer }
             turns: { type: integer, description: Turns in this run }
+            cache_read_tokens: { type: integer, description: Part of input_tokens; absent from older runners }
+            cache_write_tokens: { type: integer, description: Part of input_tokens; absent from older runners }
 
     CommittedEvent:
       allOf:
@@ -2052,6 +2262,9 @@ components:
       properties:
         run_id: { type: integer, format: int64 }
         exit_code: { type: integer, description: Runner exit code (PROTOCOL.md) }
+        cost_usd: { type: number, description: "The run's cost (absent before costs were recorded)" }
+        cost_source: { type: string, enum: [reported, estimated, unknown] }
+        auth: { type: string, enum: [api_key, subscription] }
 
     PrOpenedEvent:
       allOf:
@@ -2325,6 +2538,30 @@ components:
               required: [host]
               properties:
                 host: { type: string, description: 'The refused host (once per host and run); POST /projects/{id}/egress/allow allows it' }
+
+    BudgetEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [budget] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [phase]
+              description: |
+                Monthly budgets: `warning` (this task's run took the scope to 80% this month), `reached` (100%: running runs finish,
+                new runs wait), `waiting` (this queued task is held: "waiting: budget"), `override` (the owner let it start anyway,
+                `via` web or telegram). Sent once per scope, month and level for warning and reached.
+              properties:
+                phase: { type: string, enum: [warning, reached, waiting, override] }
+                scope: { type: string, enum: [global, project] }
+                project_id: { type: string }
+                level: { type: integer, enum: [80, 100] }
+                spent_usd: { type: number }
+                limit_usd: { type: number }
+                via: { type: string, enum: [web, telegram] }
 
     IntegrationsEvent:
       allOf:
