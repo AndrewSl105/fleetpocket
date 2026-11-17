@@ -37,7 +37,7 @@ export function InfoTab({ task }: { task: TaskView }) {
         <Row label={t.hosts.runsOn}>
           <HostChip node={task.node} always className="text-sm text-foreground" />
         </Row>
-        <IntegrationsInfo projectId={task.project_id} />
+        <IntegrationsInfo taskId={task.id} projectId={task.project_id} />
         {task.ci_status && <Row label={ti.ci}>{task.ci_status}</Row>}
         {task.branch && (
           <Row label="Branch">

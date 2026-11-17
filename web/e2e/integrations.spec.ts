@@ -40,6 +40,8 @@ test('project integrations: servers, test connection, add, egress', async ({ pag
   await servers.getByRole('button', { name: 'Edit MCP server: notion' }).click()
   await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Secret value' })).toHaveAttribute('placeholder', /…9z9z/)
   await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Secret value' })).toHaveValue('')
+  await page.getByRole('dialog').getByRole('button', { name: 'Test connection' }).click()
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Connected · 4 tools')
   await page.keyboard.press('Escape')
 
   // Shared servers and network access.
@@ -57,6 +59,9 @@ test('a blocked host can be allowed from the timeline', async ({ page }) => {
   await expect(page.getByText('MCP: db, linear, sentry · network: allowlist')).toBeVisible()
   await expect(page.getByText('linear · delete_issue')).toBeVisible()
   await expect(page.getByText('Blocked: status.linear.app')).toBeVisible()
+  await page.getByRole('tab', { name: 'Info' }).click()
+  await expect(page.getByText('db, linear, sentry')).toBeVisible()
+  await page.getByRole('tab', { name: 'Activity' }).click()
   await page.getByRole('button', { name: 'Allow for this project' }).click()
   await expect(page.getByText('status.linear.app allowed from the next run').first()).toBeVisible()
 })

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { errorMessage, useSaveMCPServer } from '@/api/hooks'
-import type { MCPServer } from '@/api/types'
+import { errorMessage, useSaveMCPServer, useTestMCPServer } from '@/api/hooks'
+import type { MCPServer, MCPTestResult } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -60,6 +60,8 @@ export function ServerDialog({ open, onOpenChange, server, projectId }: Props) {
 
 function ServerFormBody({ server, projectId, onDone }: { server?: MCPServer; projectId: string | null; onDone: () => void }) {
   const save = useSaveMCPServer()
+  const test = useTestMCPServer()
+  const [result, setResult] = useState<MCPTestResult | null>(null)
   const [form, setForm] = useState<ServerForm>(() => (server ? toForm(server) : { ...emptyForm() }))
   const [initial] = useState(() => (server ? toForm(server).secrets : []))
   const errors = validate(form)
@@ -72,10 +74,16 @@ function ServerFormBody({ server, projectId, onDone }: { server?: MCPServer; pro
   async function submit() {
     if (Object.keys(errors).length) return
     try {
-      await save.mutateAsync({ id: server?.id, body: toInput(form, initial, server ? undefined : projectId) })
+      const saved = await save.mutateAsync({ id: server?.id, body: toInput(form, initial, server ? undefined : projectId) })
       haptic.success()
       toast.success(it.saved)
       onDone()
+      // A new server is tested right away, as the gateway would connect.
+      if (!server) {
+        test.mutate(saved.id, {
+          onSuccess: (r) => (r.ok ? toast.success(`${saved.name}: ${it.testOk(r.tools.length)}`) : toast.error(`${saved.name}: ${it.testFailed}: ${r.error ?? ''}`)),
+        })
+      }
     } catch (e) {
       haptic.error()
       toast.error(errorMessage(e))
@@ -217,6 +225,25 @@ function ServerFormBody({ server, projectId, onDone }: { server?: MCPServer; pro
       </div>
       {errors.maxCalls && <p className="text-xs text-destructive">{errors.maxCalls}</p>}
 
+      {server && (
+        <div className="space-y-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full"
+            disabled={test.isPending}
+            onClick={() => test.mutate(server.id, { onSuccess: setResult, onError: (e) => toast.error(errorMessage(e)) })}
+          >
+            {test.isPending ? it.testing : it.test}
+          </Button>
+          <p className="text-xs text-muted-foreground">{it.testSaved}</p>
+          {result && (
+            <p role="status" className={result.ok ? 'text-xs text-olive-text' : 'text-xs text-danger'}>
+              {result.ok ? `${it.testOk(result.tools.length)}: ${result.tools.filter((x) => x.allowed).map((x) => x.name).join(', ')}` : `${it.testFailed}: ${result.error ?? ''}`}
+            </p>
+          )}
+        </div>
+      )}
       <Button type="submit" className="h-11 w-full" disabled={Object.keys(errors).length > 0 || save.isPending}>
         {t.common.save}
       </Button>
