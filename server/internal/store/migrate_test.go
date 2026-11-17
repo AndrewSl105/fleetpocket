@@ -27,4 +27,11 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err != nil || p.CIAutoFix.Enabled == nil || !*p.CIAutoFix.Enabled || *p.CIAutoFix.MaxAttempts != 2 {
 		t.Fatalf("ci_autofix: %+v %v", p, err)
 	}
+	// 00012: MCP servers, egress, run gateway tokens.
+	if _, err := st.CreateMCPServer(ctx, &store.MCPServer{Name: "g", Kind: store.MCPRemote, ToolsMode: "all"}); err != nil {
+		t.Fatalf("mcp_servers: %v", err)
+	}
+	if err := st.SetProjectEgress(ctx, "p", store.Egress{Mode: store.EgressAllowlist}); err != nil {
+		t.Fatalf("egress: %v", err)
+	}
 }

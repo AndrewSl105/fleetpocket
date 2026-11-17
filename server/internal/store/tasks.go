@@ -517,7 +517,7 @@ func (s *Store) SetRunContainer(ctx context.Context, id int64, containerID strin
 
 // FinishRun records the exit code once; later calls are no-ops.
 func (s *Store) FinishRun(ctx context.Context, id int64, exitCode int) (bool, error) {
-	tag, err := s.Pool.Exec(ctx, `UPDATE runs SET exit_code = $2, finished_at = now() WHERE id = $1 AND finished_at IS NULL`, id, exitCode)
+	tag, err := s.Pool.Exec(ctx, `UPDATE runs SET exit_code = $2, finished_at = now(), gateway_token_hash = NULL WHERE id = $1 AND finished_at IS NULL`, id, exitCode)
 	return err == nil && tag.RowsAffected() == 1, err
 }
 
