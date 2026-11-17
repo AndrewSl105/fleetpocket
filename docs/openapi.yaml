@@ -1877,10 +1877,11 @@ components:
 
     SessionInfo:
       type: object
-      required: [ok, kind, agents, default_agent]
+      required: [ok, kind, agents, default_agent, mode]
       properties:
         ok: { type: boolean }
         kind: { type: string, enum: [web, telegram] }
+        mode: { type: string, enum: [server, local], description: '`local`: `npx jungle-monkey` on the owner''s computer (local repositories, optional GitHub)' }
         agents:
           type: array
           items: { $ref: '#/components/schemas/Agent' }

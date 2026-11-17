@@ -10,6 +10,7 @@ import (
 
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
+	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
@@ -108,7 +109,11 @@ func (s *Server) sessionInfo(kind string) map[string]any {
 	if def == "" {
 		def = "claude"
 	}
-	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def}
+	mode := s.Cfg.Mode
+	if mode == "" {
+		mode = config.ModeServer
+	}
+	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def, "mode": mode}
 }
 
 // ---- projects ----

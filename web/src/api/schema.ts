@@ -1477,6 +1477,11 @@ export interface components {
             ok: boolean;
             /** @enum {string} */
             kind: "web" | "telegram";
+            /**
+             * @description `local`: `npx jungle-monkey` on the owner's computer (local repositories, optional GitHub)
+             * @enum {string}
+             */
+            mode: "server" | "local";
             /** @description Agents with credentials on the server, which tasks may use */
             agents: components["schemas"]["Agent"][];
             default_agent: components["schemas"]["Agent"];
