@@ -188,6 +188,10 @@ func (s *Scheduler) Cancel(ctx context.Context, taskID int64) error {
 		if err != nil {
 			return err
 		}
+		// Cancelled between two loop iterations: the loop ends here.
+		if tasks.IsTerminal(t.Status) {
+			s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "cancelled"})
+		}
 		if err := s.host(t).RemoveAll(ctx, taskID); err != nil && !hosts.IsOffline(err) {
 			return err
 		}
@@ -843,6 +847,7 @@ func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, r
 	defer s.Wake()
 
 	if t.Status == tasks.Cancelled {
+		s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "cancelled"})
 		_ = h.RemoveAll(ctx, taskID)
 		return
 	}

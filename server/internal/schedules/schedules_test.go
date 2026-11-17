@@ -199,3 +199,24 @@ func TestEnableDisableDuplicate(t *testing.T) {
 		t.Fatalf("missing: %v", err)
 	}
 }
+
+func TestQueuedCronFiringOfAPausedSchedule(t *testing.T) {
+	f := newFixture(t)
+	sc := f.create(schedules.Input{Concurrency: store.ConcurrencyQueue})
+	first, _ := f.svc.RunNow(f.ctx, sc.ID, "web")
+	f.now = time.Date(2026, 11, 17, 10, 0, 5, 0, time.UTC)
+	f.svc.Tick(f.ctx) // 10:00 while the first task is queued: the firing waits
+	if h := f.history(sc.ID); h[0].Outcome != store.FiringQueued || h[0].Trigger != store.TriggerCron {
+		t.Fatalf("queued: %+v", h[0])
+	}
+	if _, err := f.svc.SetEnabled(f.ctx, sc.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.st.SetStatus(f.ctx, *first.TaskID, nil, tasks.Completed, "", true); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.Tick(f.ctx)
+	if h := f.history(sc.ID); h[0].Outcome != store.FiringSkipped || h[0].TaskID != nil {
+		t.Fatalf("paused: %+v", h[0])
+	}
+}

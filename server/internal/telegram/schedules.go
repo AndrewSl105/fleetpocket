@@ -129,7 +129,6 @@ func (b *Bot) scheduleCallback(ctx context.Context, c store.TelegramCallback, an
 // as a task message with its buttons; a skipped, queued, missed or failed
 // firing as a plain notice to the owner.
 func (b *Bot) ScheduleFired(ctx context.Context, sc *store.Schedule, f *store.ScheduleFiring) {
-	b.init()
 	how := "⏰ Schedule"
 	if f.Trigger == store.TriggerManual {
 		how = "▶️ Run now"

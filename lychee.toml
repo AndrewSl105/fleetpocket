@@ -28,4 +28,6 @@ exclude = [
   '^https://console\.anthropic\.com',
   '^https://platform\.openai\.com',
   '^https://cursor\.com/dashboard',
+  # Answers CI runners with 403 (bot protection); the page opens in a browser.
+  '^https://letsdatascience\.com/',
 ]

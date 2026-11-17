@@ -269,6 +269,12 @@ func (s *Store) FiringStartedTask(ctx context.Context, firingID, taskID int64) e
 	return err
 }
 
+// FiringSkipped marks a queued firing skipped.
+func (s *Store) FiringSkipped(ctx context.Context, firingID int64, reason string) error {
+	_, err := s.Pool.Exec(ctx, `UPDATE schedule_firings SET outcome = 'skipped', reason = $2 WHERE id = $1`, firingID, reason)
+	return err
+}
+
 // FiringFailed marks a queued firing failed.
 func (s *Store) FiringFailed(ctx context.Context, firingID int64, reason string) error {
 	_, err := s.Pool.Exec(ctx, `UPDATE schedule_firings SET outcome = 'failed', reason = $2 WHERE id = $1`, firingID, reason)
