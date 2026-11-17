@@ -62,4 +62,17 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if r, err := st.GetRun(ctx, run.ID); err != nil || r.RestoreCheckpointID != nil {
 		t.Fatalf("runs.restore_checkpoint_id: %+v %v", r, err)
 	}
+	// 00017: schedules, firings, task schedule and loop columns.
+	sid, err := st.CreateSchedule(ctx, store.ScheduleFields{Name: "s", ProjectID: "p", Prompt: "p", Cron: "@daily", Timezone: "UTC", Concurrency: "skip"})
+	if err != nil {
+		t.Fatalf("schedules: %v", err)
+	}
+	if _, err := st.AddFiring(ctx, store.ScheduleFiring{ScheduleID: sid, ScheduledFor: time.Now(), Trigger: "cron", Outcome: "skipped"}); err != nil {
+		t.Fatalf("schedule_firings: %v", err)
+	}
+	lt, err := st.CreateTask(ctx, store.Task{ProjectID: "p", RepositoryID: repo.ID, Title: "t", Prompt: "p", Source: "schedule", ScheduleID: &sid,
+		Loop: &store.LoopConfig{CheckCommand: "true", MaxIterations: 2}}, nil)
+	if err != nil || lt.LoopState == nil || lt.ScheduleID == nil {
+		t.Fatalf("tasks loop/schedule: %+v %v", lt, err)
+	}
 }

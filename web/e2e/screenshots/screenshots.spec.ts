@@ -138,6 +138,15 @@ test.describe('screens', () => {
     await shot(page, 'costs')
   })
 
+  test('skills', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/skills')
+    await expect(page.getByText('pr-checklist')).toBeVisible()
+    await shot(page, 'skills')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

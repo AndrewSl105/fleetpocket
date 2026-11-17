@@ -13,7 +13,7 @@ import type { EventBody } from "./protocol.ts";
 
 export const CHECKPOINT_REF_PREFIX = "refs/jm/checkpoints";
 
-export type CheckpointReason = "turn" | "question";
+export type CheckpointReason = "turn" | "question" | "iteration";
 
 export interface CheckpointOptions {
   workspace: string;
@@ -61,6 +61,13 @@ export class Checkpointer {
       // (deduplicated by tree, so free when nothing changed).
       this.snapshot("turn", false);
     }
+  }
+
+  // final takes the checkpoint that ends a loop iteration, even when nothing
+  // changed since the last one.
+  final(): void {
+    this.lastTurnSnapshotted = -1;
+    this.snapshot("iteration", true);
   }
 
   before(ev: EventBody): void {

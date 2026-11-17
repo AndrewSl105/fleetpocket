@@ -22,6 +22,7 @@ var commandList = []telego.BotCommand{
 	{Command: "cancel", Description: "Stop a task"},
 	{Command: "retry", Description: "Retry a failed task"},
 	{Command: "projects", Description: "List projects"},
+	{Command: "schedules", Description: "Scheduled tasks: run now, pause"},
 	{Command: "bind", Description: "Bind this topic"},
 	{Command: "app", Description: "Open Jungle Monkey"},
 }
@@ -35,6 +36,7 @@ Reply to any task card or notification to talk to that task.
 /task &lt;id&gt; — details
 /msg &lt;id&gt; &lt;text&gt; — message a task
 /cancel &lt;id&gt; · /retry &lt;id&gt;
+/schedules — scheduled tasks (run now, pause)
 /projects · /bind &lt;project&gt; · /app`
 
 func ParseCommand(text string) (cmd, args string, ok bool) {
@@ -187,6 +189,9 @@ func (b *Bot) handleCommand(ctx context.Context, m *telego.Message, cmd, args st
 		return err
 	case "projects":
 		b.listProjects(ctx, m)
+		return nil
+	case "schedules":
+		b.listSchedules(ctx, m)
 		return nil
 	case "bind":
 		if m.MessageThreadID == 0 {

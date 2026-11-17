@@ -58,6 +58,7 @@ You need Docker running and one agent login or key (Claude, Codex or Cursor). Th
 - **Canvas node view.** Every running task as a live node: what it is doing now, its activity lanes (read, web, edit, shell, git), the files it touched, its time and cost. Switch any node to a plain terminal.
 - **Remote computers.** Add your Mac in Settings → Computers (it runs `fleetpocket-node`) and choose per project or per task whether a task runs on the server or on it. ([details](docs/DEPLOY.md#11-run-tasks-on-your-own-computer-optional))
 - **Checkpoints.** Turn them on and every agent step that changes files is saved. Tap "Restore here" on any step, see what it discards, add "…then do it with a migration instead", and the agent continues from there. Discarded steps stay in the timeline as an abandoned branch.
+- **Skill library.** Keep your playbooks as skills (`SKILL.md` folders: instructions plus templates) and tick which ones each project's tasks get; a task can add or drop one in the composer. Four diagram skills come with it (database schema, C4, sequence flow, infrastructure map), off until you enable them; import a `SKILL.md` or `.zip`, edit, duplicate or export any of them.
 
 ## Your keys stay with you
 

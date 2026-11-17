@@ -50,6 +50,7 @@ func (s *Scheduler) prepareIntegrations(ctx context.Context, h hosts.Host, t *st
 		if err != nil {
 			return nil, fmt.Errorf("mcp servers: %w", err)
 		}
+		servers = pickMCP(servers, t.MCPServers)
 		if len(servers) > 0 && !s.Gateway.Enabled() {
 			s.addEvent(ctx, t.ID, &run.ID, EventIntegrations, map[string]any{"servers": []string{}, "egress": eg.Mode,
 				"warning": "MCP servers skipped: SECRETS_KEY is not set"})
@@ -168,4 +169,22 @@ func nonNilStrings(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// pickMCP keeps the servers a task names (its schedule's choice); nil
+// names keep all of the project's.
+func pickMCP(servers []*store.MCPServer, names []string) []*store.MCPServer {
+	if names == nil {
+		return servers
+	}
+	out := []*store.MCPServer{}
+	for _, sv := range servers {
+		for _, n := range names {
+			if sv.Name == n {
+				out = append(out, sv)
+				break
+			}
+		}
+	}
+	return out
 }

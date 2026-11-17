@@ -9,6 +9,7 @@ import { checkpointHandlers } from './checkpoints'
 import { localHandlers } from './local'
 import { isLocalMock } from './mode'
 import { repoState } from './localdb'
+import { knownSlugs, skillHandlers, taskSkills } from './skills'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -149,6 +150,7 @@ export const handlers = [
   ...costHandlers(API, guard, err),
   ...checkpointHandlers(API, guard, err, pushEvent),
   ...localHandlers(API, guard, err, pushEvent),
+  ...skillHandlers(API, guard, err),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')
@@ -233,6 +235,8 @@ export const handlers = [
       ...body,
       ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null, ...body.ci_autofix },
       budget: body.budget ?? null,
+      default_output: null,
+      skills: [],
       month_cost_usd: 0,
       month_cost_unknown: false,
       created_at: new Date().toISOString(),
@@ -254,6 +258,9 @@ export const handlers = [
     const p = db.projects.find((x) => x.id === params.id)
     if (!p) return err(404, 'not_found', 'No such project')
     const body = (await request.json()) as Record<string, unknown>
+    // Diagram outputs are refused until the server collects artifacts (tasks.ArtifactsEnabled).
+    if (body.default_output && body.default_output !== 'pr') return err(400, 'invalid', `default_output "${String(body.default_output)}" is not available yet`)
+    if (Array.isArray(body.skills)) body.skills = knownSlugs(body.skills as string[])
     for (const [k, v] of Object.entries(body)) {
       ;(p as Record<string, unknown>)[k] = v === '' || v === 0 ? (k === 'name' || k === 'instructions' ? v : null) : v
     }
@@ -334,13 +341,18 @@ export const handlers = [
   http.post(`${API}/tasks`, async ({ request }) => {
     const denied = guard(request)
     if (denied) return denied
-    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'start_from'])
+    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'output', 'skills_add', 'skills_remove', 'start_from'])
     if ('error' in read) return read.error
     const f = read.fields
     const body = { project_id: f.project_id, prompt: f.prompt ?? '', repository_id: f.repository_id ? Number(f.repository_id) : undefined, title: f.title }
     const p = db.projects.find((x) => x.id === body.project_id)
     if (!p) return err(404, 'not_found', 'No such project')
     if (!body.prompt?.trim()) return err(400, 'invalid', 'prompt is required')
+    if (f.output && f.output !== 'pr') return err(400, 'invalid', `output "${f.output}" is not available yet`)
+    // JSON sends arrays, multipart comma-separated slugs.
+    const list = (v: unknown) => (Array.isArray(v) ? (v as string[]) : typeof v === 'string' ? v.split(',').map((x) => x.trim()).filter(Boolean) : [])
+    const skillsAdd = list(f.skills_add)
+    const skillsRemove = list(f.skills_remove)
     const agent = (f.agent || p.agent || MOCK_AGENTS.default_agent) as Agent
     const nodeId = f.node === 'server' ? null : f.node || p.node || null
     const host = nodeId ? db.nodes.find((n) => n.id === nodeId) : null
@@ -362,6 +374,10 @@ export const handlers = [
       agent,
       node: nodeId,
       start_from: startFrom,
+      skills_add: skillsAdd,
+      skills_remove: skillsRemove,
+      // The server fills this when the run starts; the mock run starts at once.
+      skills: taskSkills(p.id, skillsAdd, skillsRemove),
     })
     const attachments = await storeImages(task.id, read.files)
     addEvent(task.id, 'created', { attachments })

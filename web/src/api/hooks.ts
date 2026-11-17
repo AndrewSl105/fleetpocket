@@ -183,7 +183,7 @@ function useTaskResult() {
   }
 }
 
-type CreateBody = { project_id: string; prompt: string; repository_id?: number; title?: string; agent?: Agent; node?: string; start_from?: StartFrom }
+type CreateBody = { project_id: string; prompt: string; repository_id?: number; title?: string; agent?: Agent; node?: string; skills_add?: string[]; skills_remove?: string[]; start_from?: StartFrom }
 
 /** Multipart body: the JSON fields as form fields plus files[] (API.md, "Attachments"). */
 export function toFormData(fields: Record<string, string | number | undefined>, files: File[]): FormData {
@@ -199,7 +199,12 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: ({ files = [], onProgress, ...body }: CreateBody & { files?: File[]; onProgress?: UploadProgress }) =>
       files.length
-        ? uploadForm<TaskView>('/api/v1/tasks', toFormData(body, files), onProgress)
+        ? uploadForm<TaskView>(
+            '/api/v1/tasks',
+            // Multipart takes the skill slugs comma-separated.
+            toFormData({ ...body, skills_add: body.skills_add?.join(','), skills_remove: body.skills_remove?.join(',') }, files),
+            onProgress,
+          )
         : call(api.POST('/api/v1/tasks', { params: { header: CSRF }, body })),
     onSuccess: (task) => {
       apply(task)

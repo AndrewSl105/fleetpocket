@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { t } from '@/i18n/en'
 import { c } from '@/i18n/costs'
+import { sk } from '@/i18n/skills'
 import { CostBar } from '@/components/CostBar'
 
 export default function ProjectsPage() {
@@ -25,7 +26,10 @@ export default function ProjectsPage() {
       <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.projects.title}</h1>
-          <Button asChild variant="outline" className="ml-2 h-10">
+          <Button asChild variant="outline" className="ml-2 h-10 px-3">
+            <Link to="/skills">{sk.open}</Link>
+          </Button>
+          <Button asChild variant="outline" className="ml-2 h-10 px-3">
             <Link to="/costs">{c.open}</Link>
           </Button>
           {/* Local mode: a project comes from a folder on this computer. */}
@@ -36,9 +40,10 @@ export default function ProjectsPage() {
               </Link>
             </Button>
           ) : (
-            <Button asChild variant="outline" className="ml-2 h-10">
-              <Link to="/projects/new">
-                <Plus /> {t.projects.new}
+            /* Three header buttons fit a 375 px phone only with this one as an icon. */
+            <Button asChild variant="outline" className="ml-2 h-10 max-sm:w-11 max-sm:px-0">
+              <Link to="/projects/new" aria-label={t.projects.new}>
+                <Plus /> <span className="max-sm:hidden">{t.projects.new}</span>
               </Link>
             </Button>
           )}

@@ -146,11 +146,12 @@ func MonthStart(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 }
 
-// Budget scopes. A schedule scope (PR 5) adds a kind here; the gate checks
-// every scope of a task.
+// Budget scopes; the gate checks every scope of a task (a schedule's
+// monthly cap holds only the tasks it fired).
 const (
-	ScopeGlobal  = "global"
-	ScopeProject = "project"
+	ScopeGlobal   = "global"
+	ScopeProject  = "project"
+	ScopeSchedule = "schedule"
 )
 
 // Alert levels, in percent of a cap.

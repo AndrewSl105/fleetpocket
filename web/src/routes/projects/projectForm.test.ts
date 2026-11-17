@@ -37,6 +37,12 @@ describe('patchBody', () => {
     expect(patchBody(v, project)).toEqual({ name: 'Vatary 2', model: '', max_turns: 0, services: ['postgres', 'redis'], max_budget_usd: 2.5 })
   })
 
+  it('sends the skill list when a skill is ticked, ignoring order', () => {
+    const withSkills = { ...project, skills: ['db-schema', 'infra-map'] }
+    expect(patchBody({ ...toFormValues(withSkills), skills: ['infra-map', 'db-schema'] }, withSkills)).toEqual({})
+    expect(patchBody({ ...toFormValues(project), skills: ['infra-map'] }, project)).toEqual({ skills: ['infra-map'] })
+  })
+
   it('sends the whole env map when a variable changes', () => {
     const v = { ...toFormValues(project), env: [{ key: 'NODE_ENV', value: 'test' }, { key: 'LOG', value: '1' }] }
     expect(patchBody(v, project)).toEqual({ env: { NODE_ENV: 'test', LOG: '1' } })

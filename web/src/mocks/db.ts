@@ -1,6 +1,7 @@
 import { seedIntegrations } from './integrations'
 import { seedCosts } from './costs'
 import { seedCheckpoints } from './checkpoints'
+import { seedSkills } from './skills'
 import type {
   Agent,
   ApiEvent,
@@ -49,6 +50,8 @@ function project(id: string, name: string, repositories: Repository[], extra: Pa
     archived: false,
     ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
     budget: null,
+    default_output: null,
+    skills: [],
     month_cost_usd: 0,
     month_cost_unknown: false,
     created_at: ago(60 * 24 * 30),
@@ -157,6 +160,7 @@ export function startRun(taskId: number, kind: Run['kind'], input: string, at?: 
     cost_usd: 0,
     turns: 0,
     autofix_attempt: null,
+    loop_iteration: null,
     agent: db.tasks.find((t) => t.id === taskId)?.agent ?? 'claude',
     model: null,
     input_tokens: 0,
@@ -207,6 +211,12 @@ export function makeTask(fields: Partial<Task> & Pick<Task, 'project_id' | 'titl
     skills_remove: [],
     local_branch: null,
     start_from: 'last_commit',
+    schedule_id: null,
+    mcp_servers: null,
+    run_budget_usd: null,
+    loop: null,
+    loop_state: null,
+    loop_iteration: 0,
     source: 'web',
     agent: (proj?.agent ?? MOCK_AGENTS.default_agent) as Agent,
     node: proj?.node ?? null,
@@ -400,6 +410,7 @@ export function seed() {
   seedIntegrations()
   seedCosts()
   seedCheckpoints()
+  seedSkills()
 }
 
 /** CI auto-fix: a PR that went green after one fix, and one whose fix waits for the owner. */

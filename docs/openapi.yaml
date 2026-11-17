@@ -22,6 +22,7 @@ tags:
   - name: nodes
   - name: system
   - name: settings
+  - name: schedules
 
 paths:
   /api/v1/setup/status:
@@ -419,6 +420,152 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/GitHubRepo' } }
         '503': { $ref: '#/components/responses/Error' }
 
+  /api/v1/schedules:
+    get:
+      operationId: listSchedules
+      tags: [schedules]
+      summary: List schedules
+      description: By name, each with its month-to-date spend, whether a task of it is still running, and its latest firing.
+      responses:
+        '200':
+          description: All schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Schedule' } }
+    post:
+      operationId: createSchedule
+      tags: [schedules]
+      summary: Create a schedule
+      description: 400 for a bad cron expression, time zone, concurrency, loop, agent, or a repository of another project.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleInput' } } }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getSchedule
+      tags: [schedules]
+      summary: One schedule
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateSchedule
+      tags: [schedules]
+      summary: Replace a schedule
+      description: Fields left out take their defaults. The next run is computed again from now.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleInput' } } }
+      responses:
+        '200':
+          description: Updated
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSchedule
+      tags: [schedules]
+      summary: Delete a schedule (its tasks stay, with schedule_id null)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/enable:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: enableSchedule
+      tags: [schedules]
+      summary: Resume a schedule
+      description: The next run is the first firing after now; firings while it was paused are not made up.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/disable:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: disableSchedule
+      tags: [schedules]
+      summary: Pause a schedule (next_run_at becomes null)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/run:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: runSchedule
+      tags: [schedules]
+      summary: Fire the schedule now (also when paused)
+      description: Applies the concurrency policy like a timed firing; the result's `outcome` says whether a task started (`task_id`), the firing waits (`queued`) or was `skipped`.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The firing
+          content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleFiring' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/duplicate:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: duplicateSchedule
+      tags: [schedules]
+      summary: Copy a schedule as "<name> (copy)", paused
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The copy
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/firings:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: listScheduleFirings
+      tags: [schedules]
+      summary: The schedule's history, newest first
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Firings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ScheduleFiring' } }
+        '404': { $ref: '#/components/responses/Error' }
+
   /api/v1/skills:
     get:
       operationId: listSkills
@@ -586,6 +733,7 @@ paths:
                 output: { $ref: '#/components/schemas/TaskOutput', description: "Defaults to the project's default_output, else `pr`. `artifacts` and `pr_and_artifacts` are refused with 400 until diagram collection ships" }
                 skills_add: { type: array, items: { type: string }, description: Skill slugs added to the project's skills for this task }
                 skills_remove: { type: array, items: { type: string }, description: Skill slugs removed from the project's skills for this task }
+                loop: { $ref: '#/components/schemas/LoopInput' }
                 start_from: { $ref: '#/components/schemas/StartFrom', description: '`working_tree` only for local repositories (400 otherwise); default `last_commit`' }
           multipart/form-data:
             schema:
@@ -602,6 +750,7 @@ paths:
                 output: { $ref: '#/components/schemas/TaskOutput' }
                 skills_add: { type: string, description: Comma-separated skill slugs }
                 skills_remove: { type: string, description: Comma-separated skill slugs }
+                loop: { type: string, description: 'LoopInput as JSON' }
                 start_from: { $ref: '#/components/schemas/StartFrom' }
                 'files[]':
                   type: array
@@ -2101,6 +2250,93 @@ components:
         files: { type: array, maxItems: 49, items: { $ref: '#/components/schemas/SkillFile' }, description: 'Extra files; at most 50 files and 1 MB per skill including SKILL.md' }
         enabled_by_default: { type: boolean, description: On for every project's tasks }
 
+    Schedule:
+      type: object
+      description: 'A recurring task (SPEC-server, "Schedules"). Each firing creates an ordinary task with `source: schedule` and `schedule_id`.'
+      required: [id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop, enabled, next_run_at, created_at, updated_at, month_spend_usd, busy, last_firing]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        project_id: { type: string }
+        repository_id: { type: [integer, 'null'], format: int64, description: "null: the project's default repository" }
+        prompt: { type: string }
+        agent: { type: [string, 'null'], enum: [claude, codex, cursor, null], description: "null: the project's agent" }
+        skills: { type: array, items: { type: string }, description: "Skill slugs added to the project's skills" }
+        mcp_servers: { type: [array, 'null'], items: { type: string }, description: "MCP server names (of the project's); null: all of them" }
+        cron: { type: string, description: 'Five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, @yearly; normalised' }
+        timezone: { type: string, description: IANA time zone the cron expression is read in }
+        run_budget_usd: { type: [number, 'null'], description: "Each run's budget; null: the project's" }
+        monthly_budget_usd: { type: [number, 'null'], description: 'Monthly cap of its tasks; null: none' }
+        concurrency: { type: string, enum: [skip, queue], description: '`skip`: a firing while a task of the schedule is still running is skipped. `queue`: it waits (at most one) and starts when that task finishes' }
+        pr_only_if_changes: { type: boolean, description: 'false: a run without changes makes an empty commit so a PR is opened anyway' }
+        ends_at: { type: [string, 'null'], format: date-time, description: No firings after this }
+        loop: { $ref: '#/components/schemas/LoopConfigOrNull' }
+        enabled: { type: boolean }
+        next_run_at: { type: [string, 'null'], format: date-time, description: 'null while paused or after ends_at' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        month_spend_usd: { type: number, description: "Month-to-date cost of its tasks' runs" }
+        busy: { type: boolean, description: A task of it has not reached a PR or an end yet }
+        last_firing: { oneOf: [{ $ref: '#/components/schemas/ScheduleFiring' }, { type: 'null' }] }
+
+    ScheduleInput:
+      type: object
+      required: [name, project_id, prompt, cron]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        project_id: { type: string }
+        repository_id: { type: [integer, 'null'], format: int64 }
+        prompt: { type: string, minLength: 1 }
+        agent: { type: [string, 'null'], enum: [claude, codex, cursor, null] }
+        skills: { type: array, items: { type: string } }
+        mcp_servers: { type: [array, 'null'], items: { type: string } }
+        cron: { type: string }
+        timezone: { type: string, description: Default UTC }
+        run_budget_usd: { type: [number, 'null'], minimum: 0 }
+        monthly_budget_usd: { type: [number, 'null'], minimum: 0 }
+        concurrency: { type: string, enum: [skip, queue], description: Default skip }
+        pr_only_if_changes: { type: boolean, description: Default true }
+        ends_at: { type: [string, 'null'], format: date-time }
+        loop: { oneOf: [{ $ref: '#/components/schemas/LoopInput' }, { type: 'null' }] }
+        enabled: { type: boolean, description: Default true }
+
+    ScheduleFiring:
+      type: object
+      required: [id, schedule_id, scheduled_for, trigger, outcome, reason, task_id, created_at, task_status, task_cost_usd, task_pr_url, loop_state]
+      properties:
+        id: { type: integer, format: int64 }
+        schedule_id: { type: integer, format: int64 }
+        scheduled_for: { type: string, format: date-time, description: 'The cron time (manual runs: when asked)' }
+        trigger: { type: string, enum: [cron, manual] }
+        outcome: { type: string, enum: [started, queued, skipped, missed, failed], description: '`missed`: the server was down for more than one interval at that time' }
+        reason: { type: [string, 'null'] }
+        task_id: { type: [integer, 'null'], format: int64 }
+        created_at: { type: string, format: date-time }
+        task_status: { oneOf: [{ $ref: '#/components/schemas/TaskStatus' }, { type: 'null' }] }
+        task_cost_usd: { type: [number, 'null'] }
+        task_pr_url: { type: [string, 'null'] }
+        loop_state: { $ref: '#/components/schemas/LoopState' }
+
+    ScheduleEvent:
+      description: The schedule that started this task (`trigger` cron, or manual with `via`).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [schedule] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [schedule_id, name, trigger, scheduled_for]
+              properties:
+                schedule_id: { type: integer, format: int64 }
+                name: { type: string }
+                trigger: { type: string, enum: [cron, manual] }
+                scheduled_for: { type: string, format: date-time }
+                via: { type: string, enum: [web, telegram] }
+
     Skill:
       type: object
       required: [id, slug, name, description, body, files, enabled_by_default, created_at, updated_at, projects]
@@ -2255,7 +2491,7 @@ components:
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove, local_branch, start_from]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove, schedule_id, mcp_servers, run_budget_usd, loop, loop_state, loop_iteration, local_branch, start_from]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -2271,7 +2507,7 @@ components:
         ci_status: { type: [string, 'null'], enum: [pending, success, failure, null] }
         cost_usd_total: { type: number, description: 'Sum of the runs'' cost: reported by Claude, estimated from the price table for Codex and Cursor (0 when their model has no price)' }
         turns: { type: integer, description: Agent turns across all runs }
-        source: { type: string, enum: [web, telegram, api] }
+        source: { type: string, enum: [web, telegram, api, schedule], description: '`schedule`: fired by the schedule `schedule_id`' }
         agent: { $ref: '#/components/schemas/Agent', description: 'Fixed when the task is created: the request''s agent, else the project''s, else the server default' }
         node: { type: [string, 'null'], description: 'Node the task runs on, fixed when it is created; null is the server' }
         created_at: { type: string, format: date-time }
@@ -2302,9 +2538,46 @@ components:
         cost_unknown: { type: boolean, description: 'Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?`' }
         budget_wait:
           type: [string, 'null']
-          enum: [global, project, null]
+          enum: [global, project, schedule, null]
           description: 'Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
         budget_override_at: { type: [string, 'null'], format: date-time, description: When the owner let it start despite the monthly caps (good for that calendar month) }
+        schedule_id: { type: [integer, 'null'], format: int64, description: The schedule that fired the task (null once the schedule is deleted, or for other tasks) }
+        mcp_servers: { type: [array, 'null'], items: { type: string }, description: 'MCP server names the task may use (a subset of its project''s, set by its schedule); null: all of the project''s' }
+        run_budget_usd: { type: [number, 'null'], description: 'Budget of each run (set by its schedule); null: the project''s' }
+        loop: { $ref: '#/components/schemas/LoopConfigOrNull' }
+        loop_state: { $ref: '#/components/schemas/LoopState' }
+        loop_iteration: { type: integer, description: The current loop iteration (1-based; 0 without a loop) }
+
+    LoopConfig:
+      type: object
+      description: 'Loop until a check passes (SPEC-server, "Loops"): after each agent run the runner runs `check_command` in the task container; a non-zero exit starts the next iteration with the trimmed output. The PR is opened only when the loop ends.'
+      required: [check_command, max_iterations, budget_usd]
+      properties:
+        check_command: { type: string, minLength: 1, maxLength: 2000, description: 'e.g. `npm test`, `go test ./...`, `make lint`, or a script that exits 0 when done' }
+        max_iterations: { type: integer, minimum: 1, maximum: 10, default: 3 }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: 'Cap on the cost of all iterations; null: only the per-run budget' }
+        timeout_sec: { type: integer, minimum: 1, maximum: 3600, description: Check command timeout; absent means 600 }
+
+    LoopInput:
+      type: object
+      description: 'Loop until `check_command` passes. 400 with output `artifacts`.'
+      required: [check_command]
+      additionalProperties: false
+      properties:
+        check_command: { type: string, minLength: 1, maxLength: 2000 }
+        max_iterations: { type: integer, minimum: 1, maximum: 10, description: Default 3 }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: 'Cap on all iterations together; null or 0: none' }
+        timeout_sec: { type: integer, minimum: 1, maximum: 3600, description: Default 600 }
+
+    LoopConfigOrNull:
+      oneOf:
+        - $ref: '#/components/schemas/LoopConfig'
+        - type: 'null'
+
+    LoopState:
+      type: [string, 'null']
+      enum: [running, passed, max_iterations, budget, no_changes, stopped, null]
+      description: '`running`, or why the loop ended: the check passed, max_iterations reached, the loop budget used up, two iterations in a row without file changes, or `stopped` (a run limit, a missing check result). null: no loop.'
 
     StartFrom:
       type: string
@@ -2335,7 +2608,7 @@ components:
       properties:
         id: { type: integer, format: int64 }
         task_id: { type: integer, format: int64 }
-        kind: { type: string, enum: [initial, resume, followup, retry, restore] }
+        kind: { type: string, enum: [initial, resume, followup, retry, restore, loop], description: '`loop`: a loop iteration after a failed check' }
         input: { type: string }
         container_id: { type: [string, 'null'] }
         exit_code: { type: [integer, 'null'] }
@@ -2343,6 +2616,7 @@ components:
         cost_usd: { type: number, description: This run's own cost (not the session total) }
         turns: { type: integer, description: Last usage.turns the runner reported for this run }
         autofix_attempt: { type: [integer, 'null'], description: Set on runs CI auto-fix started (the attempt number) }
+        loop_iteration: { type: [integer, 'null'], description: The loop iteration the run belongs to (null without a loop) }
         agent: { type: [string, 'null'], description: Agent of the run; null for runs from before it was recorded }
         model: { type: [string, 'null'], description: 'Model the run reported in `started`' }
         input_tokens: { type: integer, format: int64, description: All input, cache reads and writes included }
@@ -2409,6 +2683,9 @@ components:
         - $ref: '#/components/schemas/IntegrationsEvent'
         - $ref: '#/components/schemas/BudgetEvent'
         - $ref: '#/components/schemas/CheckpointEvent'
+        - $ref: '#/components/schemas/CheckEvent'
+        - $ref: '#/components/schemas/LoopEvent'
+        - $ref: '#/components/schemas/ScheduleEvent'
         - $ref: '#/components/schemas/CheckpointRestoredEvent'
         - $ref: '#/components/schemas/BranchForcePushedEvent'
         - $ref: '#/components/schemas/BranchReadyEvent'
@@ -2446,6 +2723,9 @@ components:
           integrations: '#/components/schemas/IntegrationsEvent'
           budget: '#/components/schemas/BudgetEvent'
           checkpoint: '#/components/schemas/CheckpointEvent'
+          check: '#/components/schemas/CheckEvent'
+          loop: '#/components/schemas/LoopEvent'
+          schedule: '#/components/schemas/ScheduleEvent'
           checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
           branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
           branch_ready: '#/components/schemas/BranchReadyEvent'
@@ -2453,7 +2733,7 @@ components:
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, checkpoint_restored, branch_force_pushed, branch_ready, branch_action]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, check, loop, schedule, checkpoint_restored, branch_force_pushed, branch_ready, branch_action]
 
     EventBase:
       type: object
@@ -2663,7 +2943,34 @@ components:
             turn: { type: integer, description: The agent step (tool round) of the run at which it was taken }
             session_ref: { type: string, description: 'What the agent needs to resume at this point; "" when it cannot (Codex, Cursor)' }
             files_changed: { type: integer, description: Files changed since the previous checkpoint of the run (or HEAD) }
-            reason: { type: string, enum: [turn, question] }
+            reason: { type: string, enum: [turn, question, iteration], description: '`iteration`: the checkpoint that ends a loop iteration' }
+
+    CheckEvent:
+      description: The check command of a loop iteration ran in the runner container after the agent's work was committed (docs/PROTOCOL.md, "Loops"). Exit code 0 passes.
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, run_id, seq, payload]
+          properties:
+            type: { type: string, enum: [check] }
+            run_id: { type: integer, format: int64 }
+            seq: { type: integer, format: int64 }
+            payload: { $ref: '#/components/schemas/CheckPayload' }
+
+    CheckPayload:
+      allOf:
+        - $ref: '#/components/schemas/RunnerPayloadBase'
+        - type: object
+          required: [type, command, exit_code, output, duration_ms, timed_out]
+          properties:
+            type: { type: string, enum: [check] }
+            command: { type: string }
+            exit_code: { type: integer, description: '0 passes; 124 when the timeout killed it' }
+            output: { type: string, description: The end of stdout and stderr, trimmed like CI logs (the last 400 lines plus earlier error lines) }
+            duration_ms: { type: integer, format: int64 }
+            timed_out: { type: boolean }
+            iteration: { type: integer, description: The loop iteration (added by the server) }
+            max_iterations: { type: integer, description: The loop's max_iterations (added by the server) }
 
     CommittedPayload:
       allOf:
@@ -3315,12 +3622,38 @@ components:
                 `via` web or telegram). Sent once per scope, month and level for warning and reached.
               properties:
                 phase: { type: string, enum: [warning, reached, waiting, override] }
-                scope: { type: string, enum: [global, project] }
+                scope: { type: string, enum: [global, project, schedule] }
                 project_id: { type: string }
+                schedule_id: { type: integer, format: int64, description: 'scope schedule: the schedule whose monthly cap it is' }
+                schedule: { type: string, description: 'scope schedule: its name (warning, reached)' }
                 level: { type: integer, enum: [80, 100] }
                 spent_usd: { type: number }
                 limit_usd: { type: number }
                 via: { type: string, enum: [web, telegram] }
+
+    LoopEvent:
+      description: 'A loop (SPEC-server, "Loops"): `iteration` when an iteration is queued (1 when the task is created or retried; the next one after a failed check, with the check''s `exit_code` and the reason), `stopped` when the loop ended (`state` says why). The PR is opened after `stopped`.'
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [loop] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [phase, iteration]
+              properties:
+                phase: { type: string, enum: [iteration, stopped] }
+                iteration: { type: integer }
+                max_iterations: { type: integer }
+                check_command: { type: string }
+                run_id: { type: integer, format: int64, description: 'iteration: the run of the iteration' }
+                exit_code: { type: integer, description: 'iteration > 1: the failed check of the previous one' }
+                timed_out: { type: boolean }
+                state: { $ref: '#/components/schemas/LoopState' }
+                reason: { type: string }
+                spent_usd: { type: number, description: What the loop's runs cost so far }
 
     IntegrationsEvent:
       allOf:

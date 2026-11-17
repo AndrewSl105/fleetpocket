@@ -6,6 +6,7 @@ import { dateTime, duration } from '@/lib/format'
 import { HostChip } from '@/components/HostChip'
 import { t } from '@/i18n/en'
 import { IntegrationsInfo } from '@/routes/integrations/IntegrationsLine'
+import { sk } from '@/i18n/skills'
 
 const ti = t.task.info
 
@@ -39,6 +40,10 @@ export function InfoTab({ task }: { task: TaskView }) {
           <HostChip node={task.node} always className="text-sm text-foreground" />
         </Row>
         <IntegrationsInfo taskId={task.id} projectId={task.project_id} />
+        <Row label={sk.infoLabel}>
+          {/* The skills the last run got; before a run, only this task's changes to the project's set are known. */}
+          <span className="font-mono text-xs">{task.skills.length ? task.skills.join(', ') : sk.infoPlanned(task.skills_add, task.skills_remove) || sk.infoNone}</span>
+        </Row>
         {task.ci_status && <Row label={ti.ci}>{task.ci_status}</Row>}
         {task.branch && (
           <Row label="Branch">

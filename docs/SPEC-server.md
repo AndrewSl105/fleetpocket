@@ -349,12 +349,12 @@ CREATE TABLE repositories (
   base_branch     text NOT NULL DEFAULT 'dev',
   installation_id bigint NOT NULL,
   is_default      boolean NOT NULL DEFAULT false,
-  source          text NOT NULL DEFAULT 'github', -- 'github' | 'local' (00017, local mode)
+  source          text NOT NULL DEFAULT 'github', -- 'github' | 'local' (00018, local mode)
   path            text NOT NULL DEFAULT '',        -- local: absolute work tree
   remote_url      text NOT NULL DEFAULT '',        -- local: origin, informational
   UNIQUE (project_id, full_name)
 );
--- tasks (00017): local_branch text (the delivered jm/... branch),
+-- tasks (00018): local_branch text (the delivered jm/... branch),
 -- start_from text NOT NULL DEFAULT 'last_commit' ('last_commit' | 'working_tree').
 
 CREATE TABLE tasks (

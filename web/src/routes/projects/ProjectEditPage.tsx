@@ -40,6 +40,7 @@ import { LocalRepoInfo } from '@/local/LocalRepoInfo'
 import { FolderBrowser } from '@/local/FolderBrowser'
 import { useAddLocalRepo } from '@/api/local'
 import { lc } from '@/i18n/local'
+import { ProjectSkillsSection } from '@/routes/skills/ProjectSkillsSection'
 import { createBody, patchBody, projectSchema, toFormValues, type ProjectFormValues } from './projectForm'
 
 const f = t.projects.fields
@@ -243,6 +244,14 @@ function ProjectForm({ project }: { project?: Project }) {
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </Link>
+        )}
+
+        {project && (
+          <Controller
+            control={form.control}
+            name="skills"
+            render={({ field }) => <ProjectSkillsSection value={field.value} onChange={field.onChange} />}
+          />
         )}
 
         <Section title={f.env}>

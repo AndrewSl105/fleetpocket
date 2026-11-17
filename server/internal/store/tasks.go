@@ -72,6 +72,20 @@ type Task struct {
 	SkillsAdd    []string `json:"skills_add"`
 	SkillsRemove []string `json:"skills_remove"`
 
+	// Schedules (docs/SPEC-server.md "Schedules"): the schedule that fired
+	// the task, the MCP server names it gives the task (nil: the project's),
+	// its per-run budget (nil: the project's) and PRAlways (an empty commit
+	// when nothing changed, so a PR is opened anyway).
+	ScheduleID   *int64   `json:"schedule_id"`
+	MCPServers   []string `json:"mcp_servers"`
+	RunBudgetUSD *float64 `json:"run_budget_usd"`
+	PRAlways     bool     `json:"-"`
+
+	// Loops (docs/SPEC-server.md "Loops"): nil Loop is today's behaviour.
+	Loop          *LoopConfig `json:"loop"`
+	LoopState     *string     `json:"loop_state"`
+	LoopIteration int         `json:"loop_iteration"`
+	LoopIdle      int         `json:"-"`
 	// Local repositories: the branch delivered into the owner's repository
 	// (jm/<id>-<slug>[-n]) and where the workspace started ("last_commit"
 	// or "working_tree").
@@ -88,21 +102,34 @@ const taskCols = `id, project_id, repository_id, title, prompt, status, status_r
 	last_activity, last_activity_at, queued_message, agent, node,
 	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha,
 	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at, cost_unknown,
-	output, skills, skills_add, skills_remove, local_branch, start_from`
+	output, skills, skills_add, skills_remove,
+	schedule_id, mcp_servers, run_budget_usd::float8, pr_always, loop, loop_state, loop_iteration, loop_idle,
+	local_branch, start_from`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	var attempts *int
 	var fixCost *float64
-	var estimated, apiEq, unknown *bool
+	var estimated, apiEq, unknown, prAlways *bool
+	var loop []byte
+	var loopIter, loopIdle *int
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
 		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
 		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA,
 		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt, &unknown,
-		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove, &t.LocalBranch, &t.StartFrom)
+		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove,
+		&t.ScheduleID, &t.MCPServers, &t.RunBudgetUSD, &prAlways, &loop, &t.LoopState, &loopIter, &loopIdle,
+		&t.LocalBranch, &t.StartFrom)
 	if err != nil {
 		return nil, err
+	}
+	t.PRAlways = deref(prAlways, false)
+	t.LoopIteration, t.LoopIdle = deref(loopIter, 0), deref(loopIdle, 0)
+	if len(loop) > 0 {
+		if err := json.Unmarshal(loop, &t.Loop); err != nil {
+			return nil, err
+		}
 	}
 	t.AutoFixAttempts = deref(attempts, 0)
 	t.AutoFixCostUSD, t.CostEstimated, t.CostAPIEquivalent = deref(fixCost, 0), deref(estimated, false), deref(apiEq, false)
@@ -117,11 +144,15 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 	err := s.Tx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = scanTask(tx.QueryRow(ctx, `INSERT INTO tasks (project_id, repository_id, title, prompt, status, source,
-				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove, start_from)
+				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove,
+				schedule_id, mcp_servers, run_budget_usd, pr_always, loop, loop_state, loop_iteration, loop_idle, start_from)
 			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7,
 				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}'),
-				coalesce(nullif($11, ''), 'last_commit')) RETURNING `+taskCols,
-			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove, t.StartFrom))
+				$11, $12, $13, nullif($14, false), $15, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 'running' END,
+				CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 1 END, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 0 END,
+				coalesce(nullif($16, ''), 'last_commit')) RETURNING `+taskCols,
+			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove,
+			t.ScheduleID, t.MCPServers, t.RunBudgetUSD, t.PRAlways, loopJSON(t.Loop), t.StartFrom))
 		if err != nil {
 			return err
 		}
@@ -135,6 +166,16 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 		}
 		ev, err := insertBackendEvent(ctx, tx, out.ID, nil, "status", map[string]any{"status": "queued"})
 		out.StatusEvents = []*Event{created, ev}
+		if err != nil || out.Loop == nil {
+			return err
+		}
+		// A loop's first iteration (docs/SPEC-server.md "Loops").
+		if _, err := tx.Exec(ctx, `UPDATE runs SET loop_iteration = 1 WHERE id = $1`, runID); err != nil {
+			return err
+		}
+		lev, err := insertBackendEvent(ctx, tx, out.ID, &runID, "loop", map[string]any{"phase": "iteration", "iteration": 1,
+			"max_iterations": out.Loop.MaxIterations, "check_command": out.Loop.CheckCommand, "run_id": runID})
+		out.StatusEvents = append(out.StatusEvents, lev)
 		return err
 	})
 	if isFKViolation(err) {
@@ -452,7 +493,8 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string, gate Bu
 			SELECT t.id FROM tasks t
 			WHERE t.status = 'queued' AND coalesce(t.node, '') IN (SELECT host FROM room)
 			  AND (t.budget_override_at >= $3 OR (NOT (SELECT b FROM global_blocked)
-			       AND t.project_id NOT IN (SELECT id FROM blocked_projects)))
+			       AND t.project_id NOT IN (SELECT id FROM blocked_projects)
+			       AND (t.schedule_id IS NULL OR t.schedule_id NOT IN (SELECT id FROM blocked_schedules))))
 			ORDER BY t.updated_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED`, max, online, gate.MonthStart, gate.GlobalUSD).Scan(&id)
 		if err == pgx.ErrNoRows {
 			return nil
@@ -515,17 +557,19 @@ type Run struct {
 	Auth             *string `json:"auth"`
 	// RestoreCheckpointID is the checkpoint a `restore` run starts from.
 	RestoreCheckpointID *int64 `json:"-"`
+	// LoopIteration is the loop iteration the run belongs to (nil: no loop).
+	LoopIteration *int `json:"loop_iteration"`
 }
 
 const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at,
 	autofix_attempt, max_budget_usd::float8, agent, model, coalesce(input_tokens, 0), coalesce(output_tokens, 0),
-	coalesce(cache_read_tokens, 0), coalesce(cache_write_tokens, 0), cost_source, auth, restore_checkpoint_id`
+	coalesce(cache_read_tokens, 0), coalesce(cache_write_tokens, 0), cost_source, auth, restore_checkpoint_id, loop_iteration`
 
 func scanRun(row interface{ Scan(...any) error }) (*Run, error) {
 	var r Run
 	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt,
 		&r.AutoFixAttempt, &r.MaxBudgetUSD, &r.Agent, &r.Model, &r.InputTokens, &r.OutputTokens,
-		&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostSource, &r.Auth, &r.RestoreCheckpointID); err != nil {
+		&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostSource, &r.Auth, &r.RestoreCheckpointID, &r.LoopIteration); err != nil {
 		return nil, err
 	}
 	return &r, nil

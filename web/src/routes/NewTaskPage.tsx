@@ -24,6 +24,7 @@ import { IntegrationsLine } from '@/routes/integrations/IntegrationsLine'
 import { StartFromField } from '@/local/StartFromField'
 import { useLocalRepoStatus } from '@/api/local'
 import { isLocalRepo } from '@/lib/local'
+import { ComposerSkills } from '@/routes/skills/ComposerSkills'
 
 const LAST_PROJECT = 'fleetpocket.lastProject'
 const PROJECT_AGENT = 'project' // Radix Select items cannot have an empty value
@@ -40,6 +41,9 @@ const schema = z.object({
   node: z.string(),
   // Local repositories only.
   start_from: z.enum(['last_commit', 'working_tree']),
+  // Changes to the project's skills for this task (slugs).
+  skills_add: z.array(z.string()),
+  skills_remove: z.array(z.string()),
 })
 type Values = z.infer<typeof schema>
 
@@ -56,6 +60,8 @@ export function toCreateBody(v: Values, localRepo = false) {
     ...(v.agent ? { agent: v.agent } : {}),
     ...(v.node ? { node: v.node } : {}),
     ...(localRepo ? { start_from: v.start_from } : {}),
+    ...(v.skills_add.length ? { skills_add: v.skills_add } : {}),
+    ...(v.skills_remove.length ? { skills_remove: v.skills_remove } : {}),
   }
 }
 
@@ -66,7 +72,7 @@ export default function NewTaskPage() {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '', start_from: 'last_commit' },
+    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '', skills_add: [], skills_remove: [], start_from: 'last_commit' },
   })
   const projectId = form.watch('project_id')
   const prompt = form.watch('prompt')
@@ -104,6 +110,8 @@ export default function NewTaskPage() {
     form.setValue('agent', '')
     form.setValue('node', '')
     form.setValue('start_from', 'last_commit')
+    form.setValue('skills_add', [])
+    form.setValue('skills_remove', [])
   }, [projectId, project, form])
 
   useEffect(() => {
@@ -291,6 +299,15 @@ export default function NewTaskPage() {
             render={({ field }) => <StartFromField value={field.value} onChange={field.onChange} dirty={repoStatus.data?.dirty} />}
           />
         )}
+        <ComposerSkills
+          project={project}
+          add={form.watch('skills_add')}
+          remove={form.watch('skills_remove')}
+          onChange={({ add, remove }) => {
+            form.setValue('skills_add', add)
+            form.setValue('skills_remove', remove)
+          }}
+        />
 
         <div className="space-y-2">
           <Label htmlFor="title">{t.newTask.titleLabel}</Label>

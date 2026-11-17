@@ -31,6 +31,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
+	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/secretbox"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
@@ -121,7 +122,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	sched := scheduler.New(&scheduler.Scheduler{
 		Cfg: cfg, Store: st, Hub: hub, Tasks: taskSvc, Hosts: registry, Files: files,
 		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome,
-			BudgetHeld: met.BudgetHeld, BudgetAlert: met.BudgetAlert},
+			BudgetHeld: met.BudgetHeld, BudgetAlert: met.BudgetAlert, LoopEnded: met.LoopEnded},
 	})
 	// MCP gateway: off (no servers can be added) without SECRETS_KEY.
 	box, err := secretbox.New(cfg.SecretsKey)
@@ -199,7 +200,9 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	if cfg.SecretsScan == "gitleaks" {
 		skillScan = skills.Gitleaks("gitleaks")
 	}
+	scheds := &schedules.Service{Store: st, Tasks: taskSvc, Hub: hub, OnFiring: met.ScheduleFiring}
 	srv := &api.Server{
+		Schedules:    scheds,
 		SkillScanner: skillScan,
 		Webhook:      webhook,
 		Metrics:      met.Handler(),
@@ -291,10 +294,11 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			return fmt.Errorf("telegram: %w", err)
 		}
 		bot := &telegram.Bot{
-			API: tg, Store: st, Tasks: taskSvc, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
+			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
 			WebAppURL: cfg.WebAppURL, MiniAppLink: cfg.TelegramMiniAppLink, OnError: met.TelegramError,
 			STTEnabled: cfg.STTProvider != "off",
 		}
+		scheds.Notify = bot
 		switch cfg.STTProvider {
 		case "openai":
 			bot.STT = &telegram.OpenAITranscriber{APIKey: cfg.OpenAIAPIKey}
@@ -328,6 +332,11 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	go func() {
 		defer wg.Done()
 		files.Watch(ctx, st, hub)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scheds.Run(ctx)
 	}()
 	wg.Add(1)
 	go func() {

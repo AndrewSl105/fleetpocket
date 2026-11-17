@@ -38,6 +38,8 @@ type Bot struct {
 	Tasks   *tasks.Service
 	Hub     *events.Hub
 	OwnerID int64
+	// Schedules backs /schedules; nil disables it.
+	Schedules Schedules
 
 	WebAppURL, MiniAppLink string
 	EditInterval           time.Duration
@@ -432,6 +434,14 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 		b.sendEgressBlocked(ctx, ev)
 	case "budget":
 		b.sendBudget(ctx, ev)
+	case "loop":
+		t, err := b.Store.GetTask(ctx, ev.TaskID)
+		if err != nil {
+			return
+		}
+		if text := renderLoop(t, ev.Payload); text != "" {
+			_, _ = b.sendTask(ctx, t, "loop", text, b.taskButtons(ctx, t, b.targetPrivate(ctx, t)), true)
+		}
 	case "error":
 		if p.Code == "limit_exceeded" || strings.Contains(strings.ToLower(p.Code), "limit") {
 			t, err := b.Store.GetTask(ctx, ev.TaskID)
@@ -605,6 +615,8 @@ func (b *Bot) onCallback(ctx context.Context, cq *telego.CallbackQuery) {
 		b.allowEgress(ctx, cq, c, answer)
 	case "budget_override":
 		b.overrideBudget(ctx, c, answer)
+	case "schedule_run", "schedule_pause", "schedule_resume":
+		b.scheduleCallback(ctx, c, answer)
 	case "draft_create", "draft_cancel", "draft_project", "draft_repo", "draft_edit", "draft_agent", "draft_node":
 		b.handleDraftCallback(ctx, cq, c, answer)
 	default:

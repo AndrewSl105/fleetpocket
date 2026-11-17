@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -297,7 +298,7 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var in tasks.CreateInput
 	if isMultipart(r) {
-		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove", "start_from")
+		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove", "loop", "start_from")
 		if !ok {
 			return
 		}
@@ -308,6 +309,12 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		}
 		in = tasks.CreateInput{ProjectID: f["project_id"], RepositoryID: repoID, Title: f["title"], Prompt: f["prompt"], Agent: f["agent"], Node: f["node"], Images: imgs,
 			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"]), StartFrom: f["start_from"]}
+		if f["loop"] != "" {
+			if err := json.Unmarshal([]byte(f["loop"]), &in.Loop); err != nil {
+				writeError(w, http.StatusBadRequest, "invalid", "loop: "+err.Error())
+				return
+			}
+		}
 	} else if !decode(w, r, &in) {
 		return
 	}

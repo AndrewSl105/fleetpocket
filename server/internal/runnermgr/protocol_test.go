@@ -121,3 +121,21 @@ func TestOpenAPIHasEveryRunnerEvent(t *testing.T) {
 		}
 	}
 }
+
+func TestParseCheckEventAndCommand(t *testing.T) {
+	ev, err := ParseEvent([]byte(`{"type":"check","command":"npm test","exit_code":0,"output":"ok","duration_ms":12,"timed_out":false,"ts":"2026-11-17T10:00:00.000Z","seq":9}`))
+	if err != nil || ev.ExitCode == nil || *ev.ExitCode != 0 || ev.Command != "npm test" || ev.DurationMS != 12 {
+		t.Fatalf("check: %+v %v", ev, err)
+	}
+	if _, err := ParseEvent([]byte(`{"type":"check","command":"x","ts":"2026-11-17T10:00:00.000Z","seq":9}`)); err == nil {
+		t.Fatal("check without exit_code accepted")
+	}
+	b, _ := json.Marshal(NewRun(RunCommand{Check: &CheckConfig{Command: "go test ./...", TimeoutSec: 300}, Commit: CommitInfo{AllowEmpty: true}}))
+	if !strings.Contains(string(b), `"check":{"command":"go test ./...","timeout_sec":300}`) || !strings.Contains(string(b), `"allow_empty":true`) {
+		t.Fatalf("%s", b)
+	}
+	b, _ = json.Marshal(NewRun(RunCommand{}))
+	if strings.Contains(string(b), "check") || strings.Contains(string(b), "allow_empty") {
+		t.Fatalf("today's command changed: %s", b)
+	}
+}
