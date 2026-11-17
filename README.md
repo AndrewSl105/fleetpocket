@@ -94,6 +94,14 @@ Jungle Monkey runs for one owner: you. The agent works in a sealed container wit
     <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/restore-checkpoint-phone-dark.png"><img src="docs/screenshots/restore-checkpoint-phone-light.png" alt="Restoring a checkpoint: what it discards and the follow-up" width="200"></picture></td>
   </tr>
   <tr>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/schedules-phone-dark.png"><img src="docs/screenshots/schedules-phone-light.png" alt="Schedules with their next run and budgets" width="200"></picture></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/skills-phone-dark.png"><img src="docs/screenshots/skills-phone-light.png" alt="The skill library" width="200"></picture></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/ideas-phone-dark.png"><img src="docs/screenshots/ideas-phone-light.png" alt="Ideas board on a phone: hold to talk and one column at a time" width="200"></picture></td>
+  </tr>
+  <tr>
     <td colspan="3"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-running-desktop-dark.png"><img src="docs/screenshots/task-running-desktop-light.png" alt="Desktop: rail, task list and a running task with its live timeline" width="640"></picture></td>
+  </tr>
+  <tr>
+    <td colspan="3"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/ideas-desktop-dark.png"><img src="docs/screenshots/ideas-desktop-light.png" alt="Desktop: the Ideas board with columns and cards" width="640"></picture></td>
   </tr>
 </table>
