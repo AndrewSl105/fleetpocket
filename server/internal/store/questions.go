@@ -96,3 +96,36 @@ func (s *Store) AnsweredQuestionOfRun(ctx context.Context, runID int64) (*Questi
 		WHERE run_id = $1 AND answer IS NOT NULL AND answered_via <> 'expired' ORDER BY answered_at DESC LIMIT 1`, runID))
 	return qn, notFound(err)
 }
+
+// QuestionsToEscalate are open questions asked before `before` that were
+// not sent to the admins yet, of tasks with a creator (team mode).
+func (s *Store) QuestionsToEscalate(ctx context.Context, before time.Time) ([]*Question, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT `+prefixedQ+` FROM questions q JOIN tasks t ON t.id = q.task_id
+		WHERE q.answer IS NULL AND q.escalated_at IS NULL AND q.created_at < $1 AND t.created_by IS NOT NULL
+		AND t.status IN ('waiting_input', 'paused') ORDER BY q.created_at LIMIT 50`, before)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Question
+	for rows.Next() {
+		q, err := scanQuestion(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, q)
+	}
+	return out, rows.Err()
+}
+
+// MarkEscalated records that a question went to the admins; ErrConflict
+// when it already did.
+func (s *Store) MarkEscalated(ctx context.Context, id string) error {
+	tag, err := s.Pool.Exec(ctx, `UPDATE questions SET escalated_at = now() WHERE id = $1 AND escalated_at IS NULL`, id)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrConflict
+	}
+	return err
+}
+
+var prefixedQ = prefixed("q.", questionCols)
