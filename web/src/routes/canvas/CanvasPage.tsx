@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/button'
 import { TaskList } from '@/routes/tasks/TaskList'
 import { t } from '@/i18n/en'
 import { TerminalWindow } from './TerminalWindow'
+import { TaskNode } from './TaskNode'
 import {
+  detailLevel,
   fitView,
   hostBlocks,
   HEADER_H,
@@ -33,7 +35,8 @@ const SERVER_ACCENT = '#7aa2f7'
 const NODE_ACCENTS = ['#4fd1b0', '#f0a35e', '#e98bd0', '#9ccf6a', '#6fc3f0']
 
 type Filter = 'live' | 'all'
-type Saved = { view: View; windows: Record<string, WindowState>; hidden: number[]; filter: Filter }
+type Mode = 'terminal' | 'node'
+type Saved = { view: View; windows: Record<string, WindowState>; hidden: number[]; filter: Filter; mode?: Mode }
 
 function load(): Saved | null {
   try {
@@ -75,6 +78,7 @@ function Canvas() {
   useTasksSubscription()
   const [saved] = useState(load)
   const [filter, setFilter] = useState<Filter>(saved?.filter ?? 'live')
+  const [mode, setMode] = useState<Mode>(saved?.mode ?? 'node')
   const active = useTasks({ group: 'active' })
   const prOpen = useTasks({ group: 'pr_open' })
   const done = useTasks({ group: 'done' })
@@ -105,11 +109,11 @@ function Canvas() {
   const [order, setOrder] = useState<number[]>([])
   const [focused, setFocused] = useState<number | null>(null)
 
-  // Persist (per browser): positions, view, hidden windows, filter.
+  // Persist (per browser): positions, view, hidden windows, filter, window view.
   useEffect(() => {
-    const id = window.setTimeout(() => storage.set(STORE, JSON.stringify({ view, windows: placed, hidden, filter } satisfies Saved)), 300)
+    const id = window.setTimeout(() => storage.set(STORE, JSON.stringify({ view, windows: placed, hidden, filter, mode } satisfies Saved)), 300)
     return () => window.clearTimeout(id)
-  }, [view, placed, hidden, filter])
+  }, [view, placed, hidden, filter, mode])
 
   const fit = useCallback(() => {
     const el = boardRef.current
@@ -190,6 +194,7 @@ function Canvas() {
 
   const columns = hostBlocks(tasks, hosts).map((b) => ({ ...b, info: hostInfo(b.id, nodes.data), count: tasks.filter((tk) => (tk.node ?? '') === b.id).length }))
   const loading = active.isPending || nodes.isPending
+  const level = detailLevel(view.zoom)
 
   return (
     <div className="relative h-full overflow-hidden">
@@ -214,21 +219,18 @@ function Canvas() {
               const w = placed[tk.id]
               if (!w) return null
               const h = hostInfo(tk.node, nodes.data)
-              const z = order.indexOf(tk.id) + 1
-              return (
-                <TerminalWindow
-                  key={tk.id}
-                  task={tk}
-                  win={w}
-                  z={z}
-                  focused={focused === tk.id}
-                  host={{ name: h.name, online: h.online, accent: accent(tk.node ?? '') }}
-                  onDragStart={startWindowDrag(tk.id)}
-                  onFocus={() => focus(tk.id)}
-                  onToggleMin={() => setWindows((ws) => ({ ...ws, ...placed, [tk.id]: { ...w, min: !w.min } }))}
-                  onHide={() => setHidden((hs) => [...hs, tk.id])}
-                />
-              )
+              const props = {
+                task: tk,
+                win: w,
+                z: order.indexOf(tk.id) + 1,
+                focused: focused === tk.id,
+                host: { name: h.name, online: h.online, accent: accent(tk.node ?? '') },
+                onDragStart: startWindowDrag(tk.id),
+                onFocus: () => focus(tk.id),
+                onToggleMin: () => setWindows((ws) => ({ ...ws, ...placed, [tk.id]: { ...w, min: !w.min } })),
+                onHide: () => setHidden((hs) => [...hs, tk.id]),
+              }
+              return mode === 'node' ? <TaskNode key={tk.id} {...props} level={level} /> : <TerminalWindow key={tk.id} {...props} />
             })}
           </div>
         </div>
@@ -256,6 +258,20 @@ function Canvas() {
               className={cn('fm-btn h-8 px-3 text-sm text-foreground', filter === f && 'fm-pressed bg-muted font-bold')}
             >
               {tc.filters[f]}
+            </button>
+          ))}
+        </div>
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+        <div role="radiogroup" aria-label={tc.viewMode} className="flex">
+          {(['terminal', 'node'] as const).map((m) => (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => setMode(m)}
+              className={cn('fm-btn h-8 px-3 font-mono text-xs tracking-[1px] text-foreground uppercase', mode === m && 'fm-pressed bg-muted font-bold')}
+            >
+              {tc.modes[m]}
             </button>
           ))}
         </div>

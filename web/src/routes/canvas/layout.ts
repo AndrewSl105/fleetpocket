@@ -117,6 +117,16 @@ export function fitView(rects: Rect[], width: number, height: number, pad = 48, 
   return { zoom, x: pad - minX * zoom + (width - 2 * pad - (maxX - minX) * zoom) / 2, y: top - minY * zoom }
 }
 
+/** How much of a node the zoom leaves room for; the window rect is the same at every level. */
+export type DetailLevel = 'dot' | 'chip' | 'strip' | 'full'
+
+export function detailLevel(zoom: number): DetailLevel {
+  if (zoom < 0.4) return 'dot'
+  if (zoom < 0.7) return 'chip'
+  if (zoom <= 1.1) return 'strip'
+  return 'full'
+}
+
 export function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
 }

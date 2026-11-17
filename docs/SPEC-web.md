@@ -113,6 +113,13 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 
 - Splash, login, access denied, not found, offline banner ("Reconnecting…" while the WebSocket is down), and an error boundary with a "Reload" action.
 
+**7. Canvas (desktop only)**
+
+- `/canvas`: a pan/zoom board with one window per task, one column per host. A toolbar switch `TERMINAL | NODE` (default NODE, saved with the rest of the canvas state in `localStorage`) picks how windows draw.
+- TERMINAL is the full timeline as a terminal. NODE (`routes/canvas/TaskNode.tsx`) is a compact live card: header (status light, `#id · title`, agent, window buttons), a NOW panel (animated glyph, verb, current target), lanes READ / WEB / EDIT / SHELL / GIT with counts and the latest 12 blocks, the 3 most recently touched files (R/W), and a footer with step count, cost and elapsed time. Waiting tasks answer the open question inline; finished tasks show PR, CI, files, diff and cost; live tasks keep the one-line composer.
+- Activity comes from the timeline items by a pure classifier (`lib/activity.ts`, last 200 items). Semantic zoom (`layout.detailLevel`): below 0.4 a status dot, 0.4–0.7 a chip, 0.7–1.1 a one-line strip, above 1.1 the full node; window rects never change between levels.
+- Motion is CSS only (transform/opacity) and off under `prefers-reduced-motion`; the verb and target are announced politely, at most every 2 s per node.
+
 **Copy.** English UI text, short and plain; keep all strings in one `src/i18n/en.ts` file so a Ukrainian translation can be added later.
 
 ## 5. Data layer: API client, caching, WebSocket

@@ -78,3 +78,316 @@
     animation: none;
   }
 }
+
+/* Node view: a compact live card per task (TaskNode.tsx). Paper and ink,
+   square corners, an ink offset shadow; only transform and opacity animate. */
+.fp-node {
+  --lane-read: #3f5a2e;
+  --lane-web: #2f6faf;
+  --lane-edit: #f06a1d;
+  --lane-shell: #1b1f1a;
+  --lane-git: #7a4e9e;
+  /* The shared composer (Prompt) draws with the terminal's variables. */
+  --term-bg: var(--paper-raised);
+  --term-fg: var(--ink);
+  --term-dim: var(--ink-muted);
+  --term-rule: var(--rule);
+  --term-bad: var(--danger);
+  --term-ask: var(--signal-text);
+  color: var(--ink);
+}
+.dark .fp-node {
+  /* Dark paper: lighter lane tones keep 3:1 against the card. */
+  --lane-read: #9fc27f;
+  --lane-web: #6fa8e0;
+  --lane-edit: #f2793a;
+  --lane-shell: var(--foreground);
+  --lane-git: #b48ad8;
+}
+.fp-node-frame {
+  border: 1.5px solid var(--ink);
+  background: var(--paper-raised);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.fp-node[data-status='waiting_input'] .fp-node-frame {
+  border-style: dashed;
+}
+/* Running: a soft orange glow that pulses (opacity of a pseudo layer). */
+.fp-node::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  box-shadow: 0 0 16px 3px var(--signal);
+  opacity: 0;
+}
+.fp-node[data-status='running']::after {
+  animation: fp-glow 2.4s ease-in-out infinite;
+}
+@keyframes fp-glow {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.fp-node-bar {
+  border-bottom: 1.5px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+.fp-node[data-status='pr_open'] .fp-node-bar,
+.fp-node[data-status='completed'] .fp-node-bar {
+  background: var(--olive);
+  color: var(--olive-ink);
+}
+.fp-node[data-status='pr_open'] .fp-node-bar .fm-icon-btn,
+.fp-node[data-status='completed'] .fp-node-bar .fm-icon-btn {
+  color: var(--olive-ink);
+}
+.fp-node-muted {
+  color: var(--ink-muted);
+}
+.fp-node-led[data-live='true'] {
+  animation: fp-led 1.6s steps(2, jump-none) infinite;
+}
+
+/* Zoomed out: the same rect, less inside; text and dot keep their screen size. */
+.fp-node-compact {
+  font-family: var(--font-mono);
+  font-size: calc(13px / var(--zoom, 1));
+  line-height: 1.3;
+}
+.fp-node-compact .fp-node-led {
+  width: calc(10px / var(--zoom, 1));
+  height: calc(10px / var(--zoom, 1));
+}
+.fp-node-dot {
+  display: block;
+  width: calc(16px / var(--zoom, 1));
+  height: calc(16px / var(--zoom, 1));
+}
+
+.fp-node-now {
+  min-height: 52px;
+}
+.fp-glyph {
+  display: flex;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+}
+.fp-glyph svg * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.fp-glyph .g-bob {
+  animation: g-bob 1.4s ease-in-out infinite;
+}
+.fp-glyph .g-squash {
+  animation: g-squash 1.6s ease-in-out infinite;
+}
+.fp-glyph .g-orbit {
+  transform-box: view-box;
+  transform-origin: 16px 16px;
+  animation: g-spin 2.4s linear infinite;
+}
+.fp-glyph .g-blink {
+  animation: fp-led 1s steps(2, jump-none) infinite;
+}
+.fp-glyph .g-fill {
+  transform-origin: left center;
+  animation: g-fill 1.8s ease-out infinite;
+}
+.fp-glyph .g-draw {
+  transform-origin: left center;
+  animation: g-fill 1.4s ease-in-out infinite alternate;
+}
+.fp-glyph .g-dot {
+  animation: g-pulse 1.2s ease-in-out infinite;
+}
+.fp-glyph .g-dot2 {
+  animation-delay: 0.2s;
+}
+.fp-glyph .g-dot3 {
+  animation-delay: 0.4s;
+}
+.fp-glyph .g-bounce {
+  animation: g-bounce 0.9s ease-in-out infinite alternate;
+}
+.fp-glyph .g-rise {
+  animation: g-rise 1.3s ease-in infinite;
+}
+@keyframes g-bob {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes g-squash {
+  50% {
+    transform: scaleX(0.2);
+  }
+}
+@keyframes g-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes g-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes g-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes g-bounce {
+  to {
+    transform: translateY(-3px);
+  }
+}
+@keyframes g-rise {
+  from {
+    transform: translateY(5px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-5px);
+    opacity: 0;
+  }
+}
+
+.fp-node-block {
+  width: 9px;
+  height: 10px;
+  opacity: 0.75;
+  animation: g-in 0.3s ease-out;
+}
+.fp-node-block[data-newest='true'] {
+  opacity: 1;
+}
+.fp-node-block[data-lane='read'] {
+  background: var(--lane-read);
+}
+.fp-node-block[data-lane='web'] {
+  background: var(--lane-web);
+}
+.fp-node-block[data-lane='edit'] {
+  background: var(--lane-edit);
+}
+.fp-node-block[data-lane='shell'] {
+  background: var(--lane-shell);
+}
+.fp-node-block[data-lane='git'] {
+  background: var(--lane-git);
+}
+@keyframes g-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.fp-node-touched {
+  animation: g-slide 0.3s ease-out;
+}
+@keyframes g-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.fp-node-badge {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+.fp-node-badge[data-mode='R'] {
+  background: var(--olive);
+  color: var(--olive-ink);
+}
+.fp-node-badge[data-mode='W'] {
+  background: #f06a1d;
+  color: #1b1f1a;
+}
+
+.fp-node-option {
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  padding: 1px 8px;
+  font-size: 12px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.fp-node-option:hover:not(:disabled) {
+  background: var(--signal);
+  color: var(--signal-ink);
+}
+.fp-node-option:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.fp-node-input {
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.fp-node-input::placeholder {
+  color: var(--ink-muted);
+}
+
+.fp-node-grid {
+  border: 1.5px solid var(--ink);
+}
+.fp-node-grid > div {
+  padding: 4px 8px;
+}
+.fp-node-grid > div + div {
+  border-left: 1.5px solid var(--ink);
+}
+.fp-node-grid dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--ink-muted);
+}
+.fp-node-grid dd {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-node::after,
+  .fp-node-led,
+  .fp-glyph *,
+  .fp-node-block,
+  .fp-node-touched {
+    animation: none !important;
+  }
+}
