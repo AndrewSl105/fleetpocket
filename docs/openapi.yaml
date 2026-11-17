@@ -9,6 +9,11 @@ info:
     REST API of Fleetpocket. See docs/API.md for behaviour, the task state
     machine, timeline event types and the WebSocket protocol.
     Every non-GET request must send `X-Requested-With: fleetpocket`.
+
+    Team mode (off by default, docs/SPEC-server.md "Teams"): every session
+    route needs a role. Viewers read; members also create tasks, schedules and
+    ideas and act on their own; admins do everything. A refused role is
+    `403 forbidden`. In single-owner mode every route works as before.
 servers:
   - url: /
 security:
@@ -24,6 +29,7 @@ tags:
   - name: settings
   - name: schedules
   - name: ideas
+  - name: team
 
 paths:
   /api/v1/setup/status:
@@ -170,6 +176,12 @@ paths:
               properties:
                 password: { type: string }
                 totp: { type: string, description: Current 6-digit code }
+                email:
+                  type: string
+                  description: |
+                    Team mode: the user's email. Without it, the owner credentials
+                    (ADMIN_PASSWORD_HASH/ADMIN_TOTP_SECRET or the setup wizard's) sign in
+                    as user #1, the break-glass admin.
       responses:
         '200':
           description: Logged in; sets the fleetpocket_session cookie
@@ -237,6 +249,30 @@ paths:
           description: Session is valid
           content: { application/json: { schema: { $ref: '#/components/schemas/SessionInfo' } } }
         '401': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateMe
+      tags: [team]
+      summary: Change my profile or password (team mode)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                github_login: { type: string, description: '"" clears' }
+                commit_email: { type: string, description: 'Adds Co-authored-by to commits made for you; "" clears' }
+                task_scope: { type: string, enum: [mine, everyone], description: Default of the Mine | Everyone filters }
+                current_password: { type: string }
+                new_password: { type: string, minLength: 12, description: Needs current_password; signs out your other sessions }
+      responses:
+        '200': { description: Me, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 
   /api/v1/projects:
     get:
@@ -694,6 +730,7 @@ paths:
       parameters:
         - { name: project, in: query, schema: { type: string } }
         - { name: status, in: query, schema: { type: string }, description: Comma-separated statuses }
+        - { name: created_by, in: query, schema: { type: string }, description: 'Team mode: `me` or a user id (the Mine and person filters)' }
         - $ref: '#/components/parameters/Limit'
         - { name: cursor, in: query, schema: { type: string } }
       responses:
@@ -2211,6 +2248,445 @@ paths:
         '101': { description: Switching protocols }
         '401': { description: Invalid node token }
 
+  /api/v1/signup/start:
+    post:
+      operationId: signupStart
+      tags: [team]
+      summary: Open an invite link
+      description: Checks the invite and returns a fresh TOTP secret to enrol. Nothing is stored until `POST /signup`.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              additionalProperties: false
+              properties:
+                token: { type: string }
+      responses:
+        '200': { description: Enrol this secret, content: { application/json: { schema: { $ref: '#/components/schemas/Enrollment' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '410': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /api/v1/signup:
+    post:
+      operationId: signup
+      tags: [team]
+      summary: Create the account from an invite
+      description: Needs a code from the enrolled TOTP secret; the invite is used up and a session starts.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, enrollment_id, name, email, password, totp]
+              additionalProperties: false
+              properties:
+                token: { type: string }
+                enrollment_id: { type: string }
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 12 }
+                totp: { type: string }
+      responses:
+        '201': { description: Signed in, content: { application/json: { schema: { $ref: '#/components/schemas/SessionInfo' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '410': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /api/v1/team:
+    get:
+      operationId: getTeam
+      tags: [team]
+      summary: Team mode status (admin)
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/TeamStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateTeam
+      tags: [team]
+      summary: Change team settings (admin)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                shared_key_fallback: { type: boolean, description: "Allow the server's shared keys as a fallback (default off)" }
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/TeamStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/team/enable:
+    post:
+      operationId: enableTeam
+      tags: [team]
+      summary: Create a team (admin)
+      description: The owner becomes user #1 (admin) with the existing password and TOTP; sessions and authorship move to them. Needs SECRETS_KEY.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+      responses:
+        '200':
+          description: Team mode is on
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, user]
+                properties:
+                  enabled: { type: boolean }
+                  user: { $ref: '#/components/schemas/Me' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/team/disable:
+    post:
+      operationId: disableTeam
+      tags: [team]
+      summary: Turn team mode off (admin)
+      description: Allowed only with one active user left; their credentials become the single owner's.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: Off
+          content: { application/json: { schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      tags: [team]
+      summary: List users
+      description: Admins see everything; members and viewers see names and roles (for the person filter).
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/TeamUser' } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/users/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+    patch:
+      operationId: updateUser
+      tags: [team]
+      summary: Change a user's role, budget or disable them (admin)
+      description: The last active admin and user #1 (the break-glass admin) cannot be demoted or disabled.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role: { $ref: '#/components/schemas/Role' }
+                monthly_budget_usd: { type: number, minimum: 0 }
+                clear_budget: { type: boolean }
+                disabled: { type: boolean }
+                live_tasks: { type: string, enum: [finish, cancel], description: "Disabling: what happens to the user's running tasks (default finish)" }
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user: { $ref: '#/components/schemas/TeamUser' }
+                  disable: { oneOf: [{ $ref: '#/components/schemas/DisableResult' }, { type: 'null' }] }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: removeUser
+      tags: [team]
+      summary: Remove a disabled user (admin)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/invites:
+    get:
+      operationId: listInvites
+      tags: [team]
+      summary: List invites (admin)
+      responses:
+        '200':
+          description: Invites, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Invite' } }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createInvite
+      tags: [team]
+      summary: Create an invite link (admin)
+      description: The token is shown once and stored hashed; single use.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              additionalProperties: false
+              properties:
+                role: { $ref: '#/components/schemas/Role' }
+                email: { type: [string, 'null'], description: Only this address may use it }
+                expires_in_hours: { type: integer, minimum: 0, description: 'Default 168 (7 days), at most 90 days' }
+      responses:
+        '201':
+          description: The invite and its link
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite, token, url]
+                properties:
+                  invite: { $ref: '#/components/schemas/Invite' }
+                  token: { type: string }
+                  url: { type: string }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/invites/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+    delete:
+      operationId: revokeInvite
+      tags: [team]
+      summary: Revoke an unused invite (admin)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/audit:
+    get:
+      operationId: listAudit
+      tags: [team]
+      summary: Audit log (admin), newest first
+      parameters:
+        - { name: actor, in: query, schema: { type: integer, format: int64 } }
+        - { name: action, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Limit'
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: A page of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+                  next_cursor: { type: string }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/me/totp:
+    post:
+      operationId: startTotpReset
+      tags: [team]
+      summary: Start a TOTP reset (team mode)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { description: Enrol this secret, content: { application/json: { schema: { $ref: '#/components/schemas/Enrollment' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/me/totp/confirm:
+    post:
+      operationId: confirmTotpReset
+      tags: [team]
+      summary: Store the new TOTP secret once a code from it works
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enrollment_id, password, totp]
+              additionalProperties: false
+              properties:
+                enrollment_id: { type: string }
+                password: { type: string }
+                totp: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/me/credentials:
+    get:
+      operationId: listCredentials
+      tags: [team]
+      summary: My agent keys (team mode)
+      description: Values are write-only; only the last 4 characters come back.
+      responses:
+        '200':
+          description: Keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, shared_key_fallback]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Credential' } }
+                  shared_key_fallback: { type: boolean }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/me/credentials/{provider}:
+    parameters: [{ name: provider, in: path, required: true, schema: { $ref: '#/components/schemas/Agent' } }]
+    put:
+      operationId: putCredential
+      tags: [team]
+      summary: Add or replace my key for a provider
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, value]
+              additionalProperties: false
+              properties:
+                kind: { type: string, enum: [oauth_token, api_key], description: '`oauth_token` (CLAUDE_CODE_OAUTH_TOKEN) is for claude only' }
+                value: { type: string, writeOnly: true }
+                label: { type: string }
+      responses:
+        '200': { description: The key (without its value), content: { application/json: { schema: { $ref: '#/components/schemas/Credential' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteCredential
+      tags: [team]
+      summary: Remove my key for a provider
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/me/credentials/{provider}/test:
+    parameters: [{ name: provider, in: path, required: true, schema: { $ref: '#/components/schemas/Agent' } }]
+    post:
+      operationId: testCredential
+      tags: [team]
+      summary: Run the provider's cheapest authenticated check with my key
+      description: 'Anthropic and OpenAI: list models; Cursor: API key info. A Claude subscription token is `not_testable`.'
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { description: Result, content: { application/json: { schema: { $ref: '#/components/schemas/KeyTestResult' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/me/telegram/link:
+    post:
+      operationId: telegramLinkCode
+      tags: [team]
+      summary: Get a one-time /link code (10 minutes)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: Send `command` to the bot
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, command, expires_at, bot_enabled]
+                properties:
+                  code: { type: string }
+                  command: { type: string, example: /link 123456 }
+                  expires_at: { type: string, format: date-time }
+                  bot_enabled: { type: boolean }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: telegramUnlink
+      tags: [team]
+      summary: Unlink my Telegram account
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/v1/skills/{id}/promote:
+    parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+    post:
+      operationId: promoteSkill
+      tags: [team]
+      summary: Make a personal skill a team skill (admin)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { description: The skill, content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/nodes/{id}/shared:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    put:
+      operationId: shareNode
+      tags: [team]
+      summary: Share a computer with the team (admin)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [shared]
+              additionalProperties: false
+              properties:
+                shared: { type: boolean }
+      responses:
+        '200': { description: The node, content: { application/json: { schema: { $ref: '#/components/schemas/Node' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /api/v1/ws/ticket:
     post:
       operationId: createWebSocketTicket
@@ -2347,9 +2823,11 @@ components:
 
     SessionInfo:
       type: object
-      required: [ok, kind, agents, default_agent, mode, ideas_enabled]
+      required: [ok, kind, agents, default_agent, mode, ideas_enabled, team_enabled]
       properties:
         ok: { type: boolean }
+        team_enabled: { type: boolean, description: Team mode is on (settings `team`); always false in local mode }
+        user: { $ref: '#/components/schemas/Me', description: 'Team mode only: the signed-in user' }
         ideas_enabled: { type: boolean, description: 'The Ideas board is on (settings `ideas`)' }
         kind: { type: string, enum: [web, telegram] }
         mode: { type: string, enum: [server, local], description: '`local`: `npx jungle-monkey` on the owner''s computer (local repositories, optional GitHub)' }
@@ -2358,6 +2836,132 @@ components:
           items: { $ref: '#/components/schemas/Agent' }
           description: Agents with credentials on the server, which tasks may use
         default_agent: { $ref: '#/components/schemas/Agent' }
+
+    Role:
+      type: string
+      enum: [admin, member, viewer]
+
+    UserRef:
+      type: object
+      required: [id, name, initials]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        initials: { type: string, example: AL }
+
+    UserRefOrNull:
+      oneOf: [{ $ref: '#/components/schemas/UserRef' }, { type: 'null' }]
+
+    Me:
+      type: object
+      required: [id, email, name, role, is_owner, github_login, commit_email, telegram_user_id, monthly_budget_usd, task_scope, disabled_at, created_at, last_login_at, initials, telegram_linked]
+      properties:
+        id: { type: integer, format: int64 }
+        email: { type: string }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        is_owner: { type: boolean, description: 'User #1, the break-glass admin (ADMIN_* credentials)' }
+        github_login: { type: [string, 'null'] }
+        commit_email: { type: [string, 'null'] }
+        telegram_user_id: { type: [integer, 'null'], format: int64 }
+        monthly_budget_usd: { type: [number, 'null'] }
+        task_scope: { type: [string, 'null'], enum: [mine, everyone, null], description: 'null: by role (admins everyone, others mine)' }
+        disabled_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: [string, 'null'], format: date-time }
+        initials: { type: string }
+        telegram_linked: { type: boolean }
+
+    TeamUser:
+      allOf:
+        - $ref: '#/components/schemas/Me'
+        - type: object
+          required: [active]
+          properties:
+            active: { type: boolean, description: Enrolled and not disabled }
+
+    TeamStatus:
+      type: object
+      required: [enabled, shared_key_fallback, secrets_key, server_keys]
+      properties:
+        enabled: { type: boolean }
+        shared_key_fallback: { type: boolean }
+        secrets_key: { type: boolean, description: SECRETS_KEY is set (team mode needs it) }
+        server_keys: { type: array, items: { $ref: '#/components/schemas/Agent' }, description: Agents with an env key on the server }
+        active_users: { type: integer }
+        active_admins: { type: integer }
+
+    Invite:
+      type: object
+      required: [id, role, email, created_by, expires_at, used_at, used_by, revoked_at, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        role: { $ref: '#/components/schemas/Role' }
+        email: { type: [string, 'null'] }
+        created_by: { type: [integer, 'null'], format: int64 }
+        expires_at: { type: string, format: date-time }
+        used_at: { type: [string, 'null'], format: date-time }
+        used_by: { type: [integer, 'null'], format: int64 }
+        revoked_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+
+    Enrollment:
+      type: object
+      required: [enrollment_id, role, email, totp_secret, otpauth_uri]
+      properties:
+        enrollment_id: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        email: { type: [string, 'null'], description: The invite's email lock }
+        totp_secret: { type: string }
+        otpauth_uri: { type: string }
+
+    Credential:
+      type: object
+      required: [provider, kind, last4, label, created_at, last_used_at]
+      properties:
+        provider: { $ref: '#/components/schemas/Agent' }
+        kind: { type: string, enum: [oauth_token, api_key] }
+        last4: { type: string, example: …4321 }
+        label: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, 'null'], format: date-time }
+
+    KeyTestResult:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, enum: [ok, invalid, not_testable, error] }
+        message: { type: string }
+
+    DisableResult:
+      type: object
+      required: [cancelled_tasks, live_tasks]
+      properties:
+        cancelled_tasks: { type: [array, 'null'], items: { type: integer, format: int64 } }
+        live_tasks: { type: [array, 'null'], items: { type: integer, format: int64 } }
+
+    AuditEntry:
+      type: object
+      required: [id, at, actor_user_id, action, target_type, target_id, meta]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        actor_user_id: { type: [integer, 'null'], format: int64 }
+        action: { type: string, example: user.role }
+        target_type: { type: string }
+        target_id: { type: string }
+        meta: { type: object, additionalProperties: true }
+
+    PersonCost:
+      type: object
+      required: [user_id, name, initials, cost_usd, runs, monthly_budget_usd]
+      properties:
+        user_id: { type: [integer, 'null'], format: int64 }
+        name: { type: string }
+        initials: { type: string }
+        cost_usd: { type: number }
+        runs: { type: integer }
+        monthly_budget_usd: { type: [number, 'null'] }
 
     Agent:
       type: string
@@ -2480,6 +3084,10 @@ components:
                   name: { type: string }
         total: { $ref: '#/components/schemas/CostSum' }
         by_project: { type: array, items: { $ref: '#/components/schemas/KeyedCostSum' } }
+        people:
+          type: array
+          description: 'Team mode only: cost by person (the task creator of each run) in the range'
+          items: { $ref: '#/components/schemas/PersonCost' }
         by_agent: { type: array, items: { $ref: '#/components/schemas/KeyedCostSum' } }
         by_period:
           type: array
@@ -2600,6 +3208,7 @@ components:
         month_spend_usd: { type: number, description: "Month-to-date cost of its tasks' runs" }
         busy: { type: boolean, description: A task of it has not reached a PR or an end yet }
         last_firing: { oneOf: [{ $ref: '#/components/schemas/ScheduleFiring' }, { type: 'null' }] }
+        created_by: { $ref: '#/components/schemas/UserRefOrNull', description: 'Team mode: its creator; its tasks are created as them and use their key' }
 
     ScheduleInput:
       type: object
@@ -2673,6 +3282,8 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         projects: { type: array, items: { type: string }, description: Ids of the projects that enable the skill }
+        personal: { type: boolean, description: 'Team mode: visible to its owner (and admins) only, until an admin promotes it' }
+        created_by: { $ref: '#/components/schemas/UserRefOrNull' }
 
     Repository:
       type: object
@@ -2794,6 +3405,8 @@ components:
         updated_at: { type: string, format: date-time }
         online: { type: boolean }
         active_tasks: { type: integer, description: Tasks preparing, running, waiting for input or pushing on it }
+        created_by: { $ref: '#/components/schemas/UserRefOrNull', description: 'Team mode: the computer''s owner' }
+        shared: { type: boolean, description: 'Team mode: an admin shared it, so members'' tasks may run on it' }
 
     PendingPairing:
       type: object
@@ -2808,8 +3421,8 @@ components:
 
     TaskStatus:
       type: string
-      enum: [queued, preparing, running, waiting_input, paused, pushing, pr_open, branch_ready, completed, failed, cancelled]
-      description: '`branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`'
+      enum: [queued, preparing, running, waiting_input, paused, pushing, pr_open, branch_ready, completed, failed, cancelled, needs_key]
+      description: '`branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`. `needs_key` (team mode): the creator has no key for the task''s agent and the shared-key fallback is off; no runner started. `POST /retry` queues it again once the key is added'
 
     Task:
       type: object
@@ -2860,9 +3473,10 @@ components:
         cost_unknown: { type: boolean, description: 'Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?`' }
         budget_wait:
           type: [string, 'null']
-          enum: [global, project, schedule, null]
-          description: 'Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
+          enum: [global, project, schedule, user, null]
+          description: '`user` (team mode): its creator''s monthly budget. Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
         budget_override_at: { type: [string, 'null'], format: date-time, description: When the owner let it start despite the monthly caps (good for that calendar month) }
+        created_by: { $ref: '#/components/schemas/UserRefOrNull', description: 'Team mode: who created the task (null in single-owner mode)' }
         schedule_id: { type: [integer, 'null'], format: int64, description: The schedule that fired the task (null once the schedule is deleted, or for other tasks) }
         mcp_servers: { type: [array, 'null'], items: { type: string }, description: 'MCP server names the task may use (a subset of its project''s, set by its schedule); null: all of the project''s' }
         run_budget_usd: { type: [number, 'null'], description: 'Budget of each run (set by its schedule); null: the project''s' }
@@ -3786,6 +4400,7 @@ components:
         linked_task_ids: { type: array, items: { type: integer, format: int64 } }
         linked_tasks: { type: array, items: { $ref: '#/components/schemas/IdeaTask' }, description: Oldest first }
         failed: { type: boolean, description: 'The latest linked task failed (the card''s ✕ stamp)' }
+        created_by: { $ref: '#/components/schemas/UserRefOrNull' }
 
     IdeaInput:
       type: object

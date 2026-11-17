@@ -55,7 +55,13 @@ func (s *Server) listSkills(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": list})
+	vis := make([]*store.Skill, 0, len(list))
+	for _, sk := range list {
+		if s.skillVisible(r, sk) {
+			vis = append(vis, sk)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": vis})
 }
 
 func (s *Server) getSkill(w http.ResponseWriter, r *http.Request) {
@@ -64,11 +70,37 @@ func (s *Server) getSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sk, err := s.Store.GetSkill(r.Context(), id)
+	if err == nil && !s.skillVisible(r, sk) {
+		err = store.ErrNotFound
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, sk)
+}
+
+// skillVisible: a personal skill is its owner's (and admins') only.
+func (s *Server) skillVisible(r *http.Request, sk *store.Skill) bool {
+	a := actorOf(r)
+	return !a.Team || !sk.Personal || a.admin() || sk.OwnerUserID != nil && *sk.OwnerUserID == a.UserID
+}
+
+// skillEditable: admins edit any skill, members their personal ones.
+func (s *Server) skillEditable(w http.ResponseWriter, r *http.Request, id int64) bool {
+	a := actorOf(r)
+	if !a.Team || a.admin() {
+		return true
+	}
+	sk, err := s.Store.GetSkill(r.Context(), id)
+	if err != nil {
+		return true // the handler answers 404
+	}
+	if sk.Personal && sk.OwnerUserID != nil && *sk.OwnerUserID == a.UserID {
+		return true
+	}
+	forbid(w, "members can change their personal skills only")
+	return false
 }
 
 func (s *Server) createSkill(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +117,10 @@ func (s *Server) insertSkill(w http.ResponseWriter, r *http.Request, in skillInp
 		writeSkillErr(w, r, err)
 		return
 	}
+	if a := actorOf(r); a.Team {
+		// Admins' skills are team skills; members' are personal.
+		sk.OwnerUserID, sk.Personal = a.uid(), !a.admin()
+	}
 	out, err := s.Store.CreateSkill(r.Context(), sk)
 	if err != nil {
 		writeErr(w, r, err)
@@ -95,7 +131,7 @@ func (s *Server) insertSkill(w http.ResponseWriter, r *http.Request, in skillInp
 
 func (s *Server) updateSkill(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, "id")
-	if !ok {
+	if !ok || !s.skillEditable(w, r, id) {
 		return
 	}
 	var in skillInput
@@ -117,7 +153,7 @@ func (s *Server) updateSkill(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteSkill(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, "id")
-	if !ok {
+	if !ok || !s.skillEditable(w, r, id) {
 		return
 	}
 	if err := s.Store.DeleteSkill(r.Context(), id); err != nil {

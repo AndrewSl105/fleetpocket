@@ -162,6 +162,7 @@ export const en = {
     completed: 'Completed',
     failed: 'Failed',
     cancelled: 'Cancelled',
+    needs_key: 'Needs key',
   },
   setup: {
     title: 'Set up Jungle Monkey',

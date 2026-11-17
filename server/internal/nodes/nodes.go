@@ -80,6 +80,15 @@ func (s *Service) View(ctx context.Context, n *store.Node) *store.NodeView {
 	return v
 }
 
+// Get returns one node as clients see it.
+func (s *Service) Get(ctx context.Context, id string) (*store.NodeView, error) {
+	n, err := s.Store.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.View(ctx, n), nil
+}
+
 func (s *Service) List(ctx context.Context) ([]*store.NodeView, error) {
 	ns, err := s.Store.ListNodes(ctx)
 	if err != nil {

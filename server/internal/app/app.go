@@ -38,6 +38,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
+	"github.com/andrewsl105/fleetpocket/server/internal/team"
 	"github.com/andrewsl105/fleetpocket/server/internal/telegram"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -144,6 +145,21 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	}
 	sched.Gateway = gateway
 	taskSvc.Executor = sched
+	authMgr := &auth.Manager{
+		Store: st, PasswordHash: owner.PasswordHash, TOTPSecret: owner.TOTPSecret,
+		SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
+		SameSiteStrict: cfg.Local(),
+	}
+	// Team mode (off until an admin turns it on; never in local mode).
+	teamSvc := &team.Service{Store: st, Box: box, Cfg: cfg, Owner: authMgr}
+	sched.Team = teamSvc
+	taskSvc.TeamOn = teamSvc.Enabled
+	taskSvc.NeedsKey = func(ctx context.Context, t *store.Task) string {
+		if _, err := teamSvc.AgentEnv(ctx, t); errors.Is(err, team.ErrNeedsKey) {
+			return team.NeedsKeyReason(t.Agent)
+		}
+		return ""
+	}
 	nodeSvc := &nodes.Service{Store: st, Hub: hub, Registry: registry, RunnerImage: cfg.RunnerImage}
 	registry.OnChange = func(id string, online bool) {
 		nodeSvc.Changed(id, online)
@@ -224,18 +240,15 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		Store:        st,
 		Tasks:        taskSvc,
 		Projects:     &projects.Service{Store: st},
-		Auth: &auth.Manager{
-			Store: st, PasswordHash: owner.PasswordHash, TOTPSecret: owner.TOTPSecret,
-			SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
-			SameSiteStrict: cfg.Local(),
-		},
-		UI:      opts.UI,
-		Local:   opts.Local,
-		Gateway: gateway,
-		Hub:     hub,
-		Nodes:   nodeSvc,
-		Files:   files,
-		Setup:   wizard,
+		Auth:         authMgr,
+		Team:         teamSvc,
+		UI:           opts.UI,
+		Local:        opts.Local,
+		Gateway:      gateway,
+		Hub:          hub,
+		Nodes:        nodeSvc,
+		Files:        files,
+		Setup:        wizard,
 		// Exit after the response is sent; Docker's restart policy starts the
 		// server again with the new GitHub App.
 		Restart: func() {
@@ -311,6 +324,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Ideas: ideaSvc, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
 			WebAppURL: cfg.WebAppURL, MiniAppLink: cfg.TelegramMiniAppLink, OnError: met.TelegramError,
 			STTEnabled: cfg.STTProvider != "off",
+			Team:       teamSvc, QuestionTimeout: cfg.QuestionTimeout,
 		}
 		scheds.Notify = bot
 		if stt != nil {

@@ -29,6 +29,7 @@ const LED: Record<TaskStatus, string> = {
   completed: '#7fd1a4',
   failed: '#f28b82',
   cancelled: '#8390a5',
+  needs_key: '#f5c56b',
 }
 const LIVE: TaskStatus[] = ['running', 'waiting_input', 'preparing', 'pushing']
 

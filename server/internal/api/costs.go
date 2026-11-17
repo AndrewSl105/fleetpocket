@@ -96,6 +96,8 @@ type costReport struct {
 	MonthStart string              `json:"month_start"`
 	Budget     budgetView          `json:"budget"`
 	Projects   []projectBudgetView `json:"projects"`
+	// People is the "by person" breakdown in the range (team mode only).
+	People []store.PersonCost `json:"people,omitempty"`
 	costs.Report
 }
 
@@ -186,6 +188,12 @@ func (s *Server) getCosts(w http.ResponseWriter, r *http.Request) {
 		}
 		out.Projects = append(out.Projects, projectBudgetView{ProjectID: p.ID, Name: p.Name,
 			budgetView: budgetView{MonthlyUSD: cap, MonthCostUSD: roundCents(by[p.ID]), MonthCostUnknown: unknown[p.ID]}})
+	}
+	if s.Team.Enabled(ctx) {
+		if out.People, err = s.Store.CostsByPerson(ctx, from, to); err != nil {
+			writeErr(w, r, err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

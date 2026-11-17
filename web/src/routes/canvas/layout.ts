@@ -20,6 +20,7 @@ export const ZOOM_MAX = 1.6
 /** Column order inside a host: what needs the owner first, then live work, then the rest. */
 const RANK: Record<TaskStatus, number> = {
   waiting_input: 0,
+  needs_key: 0,
   paused: 1,
   running: 2,
   preparing: 3,
