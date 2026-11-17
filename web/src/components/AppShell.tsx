@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { BookOpen, CalendarClock, FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
+import { BookOpen, Clock, FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
@@ -27,7 +27,7 @@ const SIDEBAR_NAV = [
   { to: '/canvas', label: t.nav.canvas, icon: SquareTerminal, end: true },
   ...NAV.slice(1, 3),
   { to: '/skills', label: t.nav.skills, icon: BookOpen, end: false },
-  { to: '/schedules', label: t.nav.schedules, icon: CalendarClock, end: false },
+  { to: '/schedules', label: t.nav.schedules, icon: Clock, end: false },
   { to: '/costs', label: t.nav.costs, icon: Receipt, end: true },
   NAV[3],
 ] as const
