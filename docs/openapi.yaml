@@ -2757,19 +2757,19 @@ paths:
         '200': { description: Metrics, content: { text/plain: { schema: { type: string } } } }
         '403': { $ref: '#/components/responses/Error' }
 
-  /tasks/{id}/artifacts:
+  /api/v1/tasks/{id}/artifacts:
     get:
       summary: Latest version of each artifact the task produced (.fleetpocket/out)
       parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
       responses:
         '200': { description: Artifacts, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/TaskArtifact' } } } } } } }
         '404': { description: Unknown task }
-  /pipeline-templates:
+  /api/v1/pipeline-templates:
     get:
       summary: Pipeline templates and the plan.json JSON Schema
       responses:
         '200': { description: Templates, content: { application/json: { schema: { type: object, required: [items, plan_schema], properties: { items: { type: array, items: { $ref: '#/components/schemas/PipelineTemplate' } }, plan_schema: { type: object } } } } } }
-  /pipelines:
+  /api/v1/pipelines:
     get:
       summary: Pipelines, newest first (without stages)
       parameters: [{ name: project, in: query, schema: { type: string } }]
@@ -2799,14 +2799,14 @@ paths:
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Pipeline' } } } }
         '400': { description: Invalid input }
-  /pipelines/{id}:
+  /api/v1/pipelines/{id}:
     get:
       summary: A pipeline with its stages
       parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
       responses:
         '200': { description: Pipeline, content: { application/json: { schema: { $ref: '#/components/schemas/Pipeline' } } } }
         '404': { description: Unknown pipeline }
-  /pipelines/{id}/{action}:
+  /api/v1/pipelines/{id}/{action}:
     post:
       summary: Owner actions (approve, plan, redesign, retry, skip, cancel, budget)
       parameters:
