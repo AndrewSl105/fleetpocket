@@ -593,7 +593,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
         <p>Add your Mac in Settings → Computers (it runs <code>fleetpocket-node</code>, which only connects out) and choose per project or per task whether a task runs on the server or on it.</p>
       </article>
       <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><path d="M10 44 H190" class="ink-s" stroke-width="2.5" fill="none"/><path class="draw sig-s" d="M40 44 C60 44 60 18 84 18 H130 C150 18 150 44 168 44" stroke-width="2.5" fill="none"/><circle cx="40" cy="44" r="4" class="ink-f"/><circle cx="168" cy="44" r="4" class="oli-f"/><text x="88" y="12" class="mt">jm/0042-…</text><text x="12" y="60" class="mt">main</text></svg></div>
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><path d="M10 44 H190" class="ink-s" stroke-width="2.5" fill="none"/><path class="draw sig-s" d="M40 44 C60 44 60 18 84 18 H130 C150 18 150 44 168 44" stroke-width="2.5" fill="none"/><circle cx="40" cy="44" r="4" class="ink-f"/><circle cx="168" cy="44" r="4" class="oli-f"/><text x="88" y="12" class="mt">jm/42-…</text><text x="12" y="60" class="mt">main</text></svg></div>
         <h3>Local repos</h3>
         <p>Point it at a folder on your disk and get a <code>jm/&lt;task id&gt;-&lt;slug&gt;</code> branch back in that repo: merge it into your current branch, check it out, discard it, or push it and open a PR when GitHub is connected.</p>
       </article>
@@ -816,7 +816,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
   function line(tool, arg, cls) { var p = el('p', 'ln' + (cls ? ' ' + cls : '')); if (tool) { p.appendChild(el('span', null, '› ')); p.appendChild(el('b', null, tool)); p.appendChild(document.createTextNode(' · ' + arg)) } else p.textContent = arg; return add(p) }
   function status(cls, text, say) { setStamp(stamp, cls, text); if (row) setStamp(row, cls, text); live(say || text) }
   function meta(c, turns) { cost.textContent = '$' + c.toFixed(2) + ' API-equivalent · ' + turns + ' turns' }
-  function brName() { return mode === 'gh' ? 'agent/42-retry-webhook-deliveries' : 'jm/0042-retry-webhook-deliveries' }
+  function brName() { return mode === 'gh' ? 'agent/42-retry-webhook-deliveries' : 'jm/42-retry-webhook-deliveries' }
   function setMode(m) {
     mode = m
     endGh.setAttribute('aria-pressed', m === 'gh'); endLocal.setAttribute('aria-pressed', m === 'local')
@@ -911,16 +911,15 @@ document.querySelectorAll('.copy').forEach(function (b) {
       c.appendChild(el('p', null, 'Retry webhook deliveries with backoff. 4 files, +186 −12.'))
       var m = action('Merge', function () { merged(c, 'Merged into main') }); m.className = 'ob p'; o.appendChild(m)
     } else {
-      status('br', '⎇ Branch ready', 'Branch ready: jm/0042-retry-webhook-deliveries')
-      c.appendChild(el('p', 'k ok', '⎇ BRANCH READY · jm/0042-…'))
-      c.appendChild(el('p', null, 'jm/0042-retry-webhook-deliveries in ~/code/hooks. 4 files, +186 −12.'))
+      status('br', '⎇ Branch ready', 'Branch ready: jm/42-retry-webhook-deliveries')
+      c.appendChild(el('p', 'k ok', '⎇ BRANCH READY · jm/42-…'))
+      c.appendChild(el('p', null, 'jm/42-retry-webhook-deliveries in ~/code/hooks. 4 files, +186 −12.'))
       var mm = action('Merge into current branch', function () { merged(c, 'Merged into main (your current branch)') }); mm.className = 'ob p'; o.appendChild(mm)
-      o.appendChild(action('Check out the branch', function () { line(null, 'Switched to branch jm/0042-retry-webhook-deliveries', 'out') }))
-      o.appendChild(action('Discard', function () { c.remove(); line(null, 'Branch discarded', 'sys'); live('Branch discarded') }))
+      o.appendChild(action('Check out the branch', function () { line(null, 'Switched to branch jm/42-retry-webhook-deliveries', 'out') }))
+      o.appendChild(action('Discard', function () { c.remove(); line(null, 'Branch discarded', 'sys'); status('ok', '✓ Completed', 'Branch discarded, task completed') }))
       o.appendChild(action('Push & open PR', function () {
-        line(null, '● Pushed jm/0042-retry-webhook-deliveries · PR #57 opened', '')
+        line(null, '● Pushed agent/42-retry-webhook-deliveries · PR #57 opened', '')
         c.remove(); mode = 'gh'; endGh.setAttribute('aria-pressed', true); endLocal.setAttribute('aria-pressed', false); ending()
-        branch.textContent = 'jm/0042-retry-webhook-deliveries'
       }))
     }
     c.appendChild(o); add(c)
