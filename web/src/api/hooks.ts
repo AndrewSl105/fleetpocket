@@ -29,6 +29,7 @@ import type {
   Project,
   ProjectFields,
   Run,
+  StartFrom,
   TaskView,
 } from './types'
 import { isApiError } from './errors'
@@ -182,7 +183,7 @@ function useTaskResult() {
   }
 }
 
-type CreateBody = { project_id: string; prompt: string; repository_id?: number; title?: string; agent?: Agent; node?: string }
+type CreateBody = { project_id: string; prompt: string; repository_id?: number; title?: string; agent?: Agent; node?: string; start_from?: StartFrom }
 
 /** Multipart body: the JSON fields as form fields plus files[] (API.md, "Attachments"). */
 export function toFormData(fields: Record<string, string | number | undefined>, files: File[]): FormData {
@@ -471,14 +472,25 @@ export function useDeleteNode(id: string) {
 
 // ---- System ----
 
+const meQuery = {
+  queryKey: keys.me,
+  queryFn: ({ signal }: { signal: AbortSignal }) => call(api.GET('/api/v1/me', { signal })),
+  staleTime: 5 * 60_000,
+}
+
 /** The agents tasks may use (those with credentials on the server) and the default. */
 export function useAgents() {
-  return useQuery({
-    queryKey: keys.me,
-    queryFn: ({ signal }) => call(api.GET('/api/v1/me', { signal })),
-    staleTime: 5 * 60_000,
-    select: (s) => ({ agents: s.agents, defaultAgent: s.default_agent }),
-  })
+  return useQuery({ ...meQuery, select: (s) => ({ agents: s.agents, defaultAgent: s.default_agent }) })
+}
+
+/** The session, the agents and the mode (`server`, or `local` for `npx jungle-monkey`). */
+export function useMe() {
+  return useQuery(meQuery)
+}
+
+/** `local` on `npx jungle-monkey`; undefined while /me loads. */
+export function useMode(): 'server' | 'local' | undefined {
+  return useQuery({ ...meQuery, select: (s) => s.mode }).data
 }
 
 export function useAutoFixDefaults() {

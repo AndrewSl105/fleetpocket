@@ -6,12 +6,17 @@ import { emitStatus, interruptRun, resumeAfterAnswer, setPush } from './simulato
 import { integrationHandlers } from './integrations'
 import { costHandlers, monthCost, monthUnknown } from './costs'
 import { checkpointHandlers } from './checkpoints'
+import { localHandlers } from './local'
+import { isLocalMock } from './mode'
+import { repoState } from './localdb'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
 let failures = 0
 
 function session(): string | null {
+  // Local mode: the CLI's one-time link has logged the browser in.
+  if (isLocalMock()) return 'web'
   try {
     return localStorage.getItem(SESSION_KEY)
   } catch {
@@ -99,6 +104,8 @@ function findTask(id: string | readonly string[] | undefined): Task | undefined 
 
 const API = '*/api/v1'
 
+const mode = () => (isLocalMock() ? 'local' : 'server')
+
 // ---- WebSocket ----
 
 const socket = ws.link('*/api/v1/ws')
@@ -141,6 +148,7 @@ export const handlers = [
   ...integrationHandlers(API, guard, err),
   ...costHandlers(API, guard, err),
   ...checkpointHandlers(API, guard, err, pushEvent),
+  ...localHandlers(API, guard, err, pushEvent),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')
@@ -172,12 +180,12 @@ export const handlers = [
     }
     failures = 0
     setSession('web')
-    return HttpResponse.json({ ok: true, kind: 'web', ...MOCK_AGENTS })
+    return HttpResponse.json({ ok: true, kind: 'web', mode: mode(), ...MOCK_AGENTS })
   }),
   http.post(`${API}/auth/telegram`, async () => {
     await delay(400)
     setSession('telegram')
-    return HttpResponse.json({ ok: true, kind: 'telegram', token: 'mock-telegram-token', ...MOCK_AGENTS })
+    return HttpResponse.json({ ok: true, kind: 'telegram', token: 'mock-telegram-token', mode: mode(), ...MOCK_AGENTS })
   }),
   http.post(`${API}/ws/ticket`, ({ request }) => {
     const denied = guard(request)
@@ -190,7 +198,7 @@ export const handlers = [
   }),
   http.get(`${API}/me`, () => {
     const kind = session()
-    return kind ? HttpResponse.json({ ok: true, kind: kind as 'web' | 'telegram', ...MOCK_AGENTS }) : err(401, 'unauthorized', 'Not signed in')
+    return kind ? HttpResponse.json({ ok: true, kind: kind as 'web' | 'telegram', mode: mode(), ...MOCK_AGENTS }) : err(401, 'unauthorized', 'Not signed in')
   }),
 
   // ---- Projects ----
@@ -326,7 +334,7 @@ export const handlers = [
   http.post(`${API}/tasks`, async ({ request }) => {
     const denied = guard(request)
     if (denied) return denied
-    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node'])
+    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'start_from'])
     if ('error' in read) return read.error
     const f = read.fields
     const body = { project_id: f.project_id, prompt: f.prompt ?? '', repository_id: f.repository_id ? Number(f.repository_id) : undefined, title: f.title }
@@ -339,14 +347,21 @@ export const handlers = [
     if (nodeId && !host) return err(400, 'invalid', `no computer "${nodeId}"`)
     const agentsHere = host ? host.agents : MOCK_AGENTS.agents
     if (!agentsHere.includes(agent)) return err(400, 'invalid', `agent ${agent} is not configured`)
+    const repositoryId = body.repository_id ?? p.repositories.find((r) => r.is_default)?.id ?? 1
+    const repo = p.repositories.find((r) => r.id === repositoryId)
+    const startFrom = f.start_from || 'last_commit'
+    if (startFrom !== 'last_commit' && startFrom !== 'working_tree') return err(400, 'invalid', 'start_from must be last_commit or working_tree')
+    if (startFrom === 'working_tree' && repo?.source !== 'local') return err(400, 'invalid', 'start_from working_tree is for local repositories only')
+    if (repo?.source === 'local' && !repoState(repo.path)) return err(409, 'repo_missing', `repository folder not found: ${repo.path}`)
     const task = makeTask({
       project_id: p.id,
       title: body.title || body.prompt.split('\n')[0].slice(0, 80),
       prompt: body.prompt,
       status: 'queued',
-      repository_id: body.repository_id ?? p.repositories.find((r) => r.is_default)?.id ?? 1,
+      repository_id: repositoryId,
       agent,
       node: nodeId,
+      start_from: startFrom,
     })
     const attachments = await storeImages(task.id, read.files)
     addEvent(task.id, 'created', { attachments })
@@ -450,7 +465,7 @@ export const handlers = [
     const body = { text: read.fields.text ?? '' }
     if (!body.text.trim()) return err(400, 'invalid', 'text is required')
     const queue = ['queued', 'preparing', 'running', 'waiting_input', 'pushing'].includes(task.status)
-    const followup = ['paused', 'pr_open', 'completed'].includes(task.status)
+    const followup = ['paused', 'pr_open', 'branch_ready', 'completed'].includes(task.status)
     if (!queue && !followup) return err(409, 'conflict', 'Not allowed in this state')
     await delay(250)
     const attachments = await storeImages(task.id, read.files)
@@ -491,7 +506,7 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
-    if (!GROUPS.active.includes(task.status) && task.status !== 'pr_open') return err(409, 'conflict', 'Not allowed')
+    if (!GROUPS.active.includes(task.status) && task.status !== 'pr_open' && task.status !== 'branch_ready') return err(409, 'conflict', 'Not allowed')
     emitStatus(task, 'cancelled', 'cancelled by the user')
     return HttpResponse.json(taskView(task))
   }),

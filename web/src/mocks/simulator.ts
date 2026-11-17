@@ -1,5 +1,6 @@
 import type { ApiEvent, Task } from '@/api/types'
 import { addEvent, db, pendingRuns, setStatus, startRun } from './db'
+import { deliveryBranch, DIFFSTAT, isLocalTask, repoOfTask, repoState } from './localdb'
 
 // Drives running tasks in mock mode so the live timeline has something to show.
 
@@ -54,6 +55,61 @@ const SCRIPT: Array<(task: Task) => void> = [
   (t) => emit(t.id, 'tool_result', { tool: 'Bash', ok: true }),
 ]
 
+/**
+ * Local-repository tasks (mock local mode): a short run that asks one question
+ * on its first run, then commits; delivery makes the task `branch_ready`.
+ */
+const LOCAL_SCRIPT: Array<(task: Task) => void> = [
+  (t) => emit(t.id, 'tool_use', { tool: 'Read', summary: 'Read src/auth/login.ts' }),
+  (t) => emit(t.id, 'tool_result', { tool: 'Read', ok: true }),
+  (t) => {
+    if (asked.has(t.id)) return
+    asked.add(t.id)
+    const run = (db.runs.get(t.id) ?? []).at(-1)
+    const text = 'Should failed logins be limited per IP address or per account?'
+    const options = ['Per IP address', 'Per account']
+    emit(t.id, 'question', { question_id: 'q1', text, options })
+    db.questions.set(t.id, [
+      ...(db.questions.get(t.id) ?? []),
+      { id: `${run?.id ?? 0}-q1`, task_id: t.id, run_id: run?.id ?? 0, text, options, answer: null, answered_via: null, created_at: new Date().toISOString(), answered_at: null },
+    ])
+    emitStatus(t, 'waiting_input')
+  },
+  (t) => emit(t.id, 'tool_use', { tool: 'Edit', summary: 'Edit src/auth/login.ts' }),
+  (t) => emit(t.id, 'tool_result', { tool: 'Edit', ok: true }),
+  (t) => {
+    t.cost_usd_total = Math.round((t.cost_usd_total + 0.18) * 100) / 100
+    emit(t.id, 'usage', { cost_usd_total: t.cost_usd_total, input_tokens: 38000, output_tokens: 2200, turns: 6 })
+    push.task(t)
+  },
+  (t) => emit(t.id, 'tool_use', { tool: 'Bash', summary: 'Bash npm test auth' }),
+  (t) => emit(t.id, 'tool_result', { tool: 'Bash', ok: true }),
+]
+const asked = new Set<number>()
+
+/**
+ * Delivery into the owner's repository (docs/API.md "Local repositories"):
+ * fetch as jm/<id>-<slug> and become branch_ready; a follow-up fast-forwards
+ * the delivered branch. Waits (pushing) while the folder is missing.
+ */
+function deliverLocal(task: Task) {
+  const repo = repoOfTask(task)
+  const git = repo && repoState(repo.path)
+  if (!repo || !git) {
+    const reason = `repository folder not found: ${repo?.path ?? ''}`
+    if (task.status_reason !== reason) emitStatus(task, 'pushing', reason)
+    return
+  }
+  const updated = !!task.local_branch && git.branches.has(task.local_branch) && git.branch !== task.local_branch
+  const previous = task.local_branch && !updated && git.branches.has(task.local_branch) ? task.local_branch : undefined
+  const branch = updated ? task.local_branch! : deliveryBranch(task, git)
+  git.branches.add(branch)
+  task.local_branch = branch
+  const commits = (db.events.get(task.id) ?? []).filter((e) => e.type === 'committed').length || 1
+  emit(task.id, 'branch_ready', { branch, commits, diffstat: DIFFSTAT, updated, ...(previous ? { previous } : {}) }, false)
+  emitStatus(task, 'branch_ready')
+}
+
 const progress = new Map<number, number>()
 let timer: ReturnType<typeof setInterval> | undefined
 
@@ -62,17 +118,20 @@ export function startSimulator(intervalMs = 2500) {
   timer = setInterval(() => {
     for (const task of db.tasks.filter((t) => t.status === 'running')) {
       const step = progress.get(task.id) ?? 0
-      if (step < SCRIPT.length) {
-        SCRIPT[step](task)
+      const script = isLocalTask(task) ? LOCAL_SCRIPT : SCRIPT
+      if (step < script.length) {
         progress.set(task.id, step + 1)
-      } else if (step === SCRIPT.length) {
+        script[step](task)
+      } else if (step === script.length) {
         emit(task.id, 'committed', { sha: Math.random().toString(16).slice(2, 12), files_changed: 3, insertions: 74, deletions: 19 })
-        emit(task.id, 'done', { session_id: 's', summary: 'Switched the audit log to keyset pagination; tests pass.', no_changes: false, cost_usd_total: task.cost_usd_total })
+        const summary = script === LOCAL_SCRIPT ? 'Limited failed logins with a token bucket; tests pass.' : 'Switched the audit log to keyset pagination; tests pass.'
+        emit(task.id, 'done', { session_id: 's', summary, no_changes: false, cost_usd_total: task.cost_usd_total })
         emitStatus(task, 'pushing')
         progress.set(task.id, step + 1)
       }
     }
-    for (const task of db.tasks.filter((t) => t.status === 'pushing')) {
+    for (const task of db.tasks.filter((t) => t.status === 'pushing' && isLocalTask(t))) deliverLocal(task)
+    for (const task of db.tasks.filter((t) => t.status === 'pushing' && !isLocalTask(t))) {
       const n = 40 + task.id
       Object.assign(task, { pr_number: n, pr_url: `https://github.com/andrewsl105/example/pull/${n}`, ci_status: 'pending' })
       emit(task.id, 'pr_opened', { number: n, url: task.pr_url }, false)
@@ -88,6 +147,8 @@ export function startSimulator(intervalMs = 2500) {
         push.event(task.id, events[events.length - 1])
         progress.set(task.id, 0)
       }
+      // A local task's follow-up (POST /message) starts its script again.
+      if (task.status === 'queued' && isLocalTask(task)) progress.set(task.id, 0)
       emitStatus(task, task.status === 'queued' ? 'preparing' : 'running')
     }
   }, intervalMs)
@@ -102,6 +163,7 @@ export function stopSimulator() {
   clearInterval(timer)
   timer = undefined
   progress.clear()
+  asked.clear()
 }
 
 export { emitStatus, interruptRun }
