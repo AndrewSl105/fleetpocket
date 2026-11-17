@@ -21,6 +21,8 @@ import { usd } from '@/lib/format'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { taskNumber } from './TaskCard'
+import { useBudgetOverride } from '@/api/costs'
+import { c } from '@/i18n/costs'
 
 export function githubUrl(task: TaskView): string | null {
   if (task.pr_url) return task.pr_url
@@ -37,6 +39,25 @@ function HostWaiting({ task }: { task: TaskView }) {
   if (h.online || ['completed', 'failed', 'cancelled'].includes(task.status)) return null
   return (
     <p className="mt-2 bg-grid px-2.5 py-1.5 text-xs text-signal-text">{t.hosts.waitingFor(h.name)}</p>
+  )
+}
+
+/** A queued task that a monthly cap holds: say so, with the owner's override. */
+function BudgetWaiting({ task }: { task: TaskView }) {
+  const override = useBudgetOverride(task.id)
+  if (task.status !== 'queued' || !task.budget_wait) return null
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
+      <p className="min-w-0 flex-1">{c.waitingBudget(task.budget_wait)}</p>
+      <button
+        type="button"
+        onClick={() => override.mutate()}
+        disabled={override.isPending}
+        className="fm-btn inline-flex h-11 items-center px-3 font-semibold disabled:opacity-60"
+      >
+        {c.startAnyway}
+      </button>
+    </div>
   )
 }
 
@@ -134,7 +155,11 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
           {task.repository && <span className="font-mono"> / {task.repository.full_name.split('/').pop()}</span>}
         </span>
         <HostChip node={task.node} />
-        <span className="tabular-nums">{usd(task.cost_usd_total)}</span>
+        <span className="tabular-nums" title={task.cost_api_equivalent ? c.apiEquivalentHint : undefined}>
+          {usd(task.cost_usd_total, task.cost_estimated)}
+          {task.cost_api_equivalent && <span className="fm-label ml-1">{c.apiEquivalent}</span>}
+          {task.autofix_cost_usd > 0 && <span> ({c.autofixShare(task.autofix_cost_usd)})</span>}
+        </span>
         {task.turns > 0 && <span className="tabular-nums">{t.task.turns(task.turns)}</span>}
         {task.pr_url && task.pr_number && (
           <a
@@ -161,6 +186,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
       </div>
       {task.branch && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{task.branch}</p>}
       <HostWaiting task={task} />
+      <BudgetWaiting task={task} />
       {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused') && (
         <div className="mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs text-danger">
           <p className="min-w-0 flex-1 py-1 break-words">{task.status_reason}</p>

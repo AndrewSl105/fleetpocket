@@ -12,6 +12,10 @@ import { t } from '@/i18n/en'
 import { ComputersSection } from './settings/ComputersSection'
 import { AutoFixSection } from './settings/AutoFixSection'
 import { GlobalServersSection } from './integrations/GlobalServersSection'
+import { CostSettingsSection } from './settings/CostSettingsSection'
+import { Link } from 'react-router'
+import { ChevronRight } from 'lucide-react'
+import { c } from '@/i18n/costs'
 
 const s = t.settings
 const version = import.meta.env.VITE_APP_VERSION || 'dev'
@@ -61,6 +65,13 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+          <Link to="/costs" className="mt-2 flex min-h-11 items-center gap-3 fm-group px-3.5 py-2 hover:bg-accent/60">
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{c.open}</span>
+              <span className="block text-xs text-muted-foreground">{c.openHint}</span>
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
         </section>
 
         {runtime.mode === 'browser' && (
@@ -89,6 +100,7 @@ export default function SettingsPage() {
         <ComputersSection />
 
         <AutoFixSection />
+        <CostSettingsSection />
         <GlobalServersSection />
 
         <section>

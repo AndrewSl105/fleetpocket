@@ -72,7 +72,7 @@ export function InfoTab({ task }: { task: TaskView }) {
                       {run.started_at ? duration(run.started_at, run.finished_at) : ti.queuedRun}
                     </td>
                     <td className="px-3 py-2 text-right">{run.turns}</td>
-                    <td className="px-3 py-2 text-right">{usd(run.cost_usd)}</td>
+                    <td className="px-3 py-2 text-right">{run.cost_source === 'unknown' ? '?' : usd(run.cost_usd, run.cost_source === 'estimated')}</td>
                     <td className="px-3 py-2 text-right">{run.finished_at ? (run.exit_code ?? '—') : '…'}</td>
                   </tr>
                 ))}

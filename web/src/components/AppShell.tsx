@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { FolderGit2, ListTodo, Plus, Settings, SquareTerminal } from 'lucide-react'
+import { FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
@@ -20,8 +20,14 @@ const NAV = [
   { to: '/settings', label: t.nav.settings, icon: Settings, end: true },
 ] as const
 
-/** The sidebar adds the canvas, a desktop view (not a mobile tab). */
-const SIDEBAR_NAV = [NAV[0], { to: '/canvas', label: t.nav.canvas, icon: SquareTerminal, end: true }, ...NAV.slice(1)] as const
+/** The sidebar adds the canvas, a desktop view, and Costs (on phones: from Settings and Projects). */
+const SIDEBAR_NAV = [
+  NAV[0],
+  { to: '/canvas', label: t.nav.canvas, icon: SquareTerminal, end: true },
+  ...NAV.slice(1, 3),
+  { to: '/costs', label: t.nav.costs, icon: Receipt, end: true },
+  NAV[3],
+] as const
 
 function isActive(pathname: string, to: string) {
   if (to === '/') return pathname === '/' || pathname.startsWith('/tasks')

@@ -23,6 +23,8 @@ export const keys = {
   me: ['me'] as const,
   stats: ['stats'] as const,
   autofixDefaults: ['settings', 'ci-autofix'] as const,
+  costSettings: ['settings', 'costs'] as const,
+  costs: (from: string, to: string, period: string) => ['costs', from, to, period] as const,
   integrations: (projectId: string) => ['integrations', projectId] as const,
   integrationsAll: ['integrations'] as const,
   globalMCP: ['mcp-servers', 'global'] as const,

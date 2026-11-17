@@ -45,7 +45,7 @@ export function TaskCard({ task, projectName, selected }: { task: Task; projectN
         )}
         <span aria-hidden="true">·</span>
         <span className="shrink-0">{relativeTime(task.last_activity_at ?? task.updated_at)}</span>
-        <span className="ml-auto shrink-0 tabular-nums">{usd(task.cost_usd_total)}</span>
+        <span className="ml-auto shrink-0 tabular-nums">{usd(task.cost_usd_total, task.cost_estimated)}</span>
       </div>
       </div>
       {waiting && <span className="sr-only">{t.tasks.needsAnswer}</span>}

@@ -34,6 +34,7 @@ import { NotFound } from '@/routes/NotFound'
 import { PrimaryAction } from '@/telegram/controls'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
+import { c } from '@/i18n/costs'
 import { createBody, patchBody, projectSchema, toFormValues, type ProjectFormValues } from './projectForm'
 
 const f = t.projects.fields
@@ -274,6 +275,9 @@ function ProjectForm({ project }: { project?: Project }) {
               <Input id="runner_memory" placeholder={t.common.serverDefault} className="h-11 font-mono" {...form.register('runner_memory')} />
             </Field>
           </div>
+          <Field id="monthly_budget_usd" label={c.projectCap} hint={c.projectCapHint} error={errors.monthly_budget_usd?.message}>
+            <Input id="monthly_budget_usd" inputMode="decimal" placeholder="—" className="h-11" {...form.register('monthly_budget_usd')} />
+          </Field>
         </Section>
 
         <Section title={af.title}>

@@ -32,6 +32,8 @@ export const projectSchema = z.object({
   autofix_checks: z.string(),
   autofix_budget_usd: numeric,
   autofix_allow_ci: z.enum(['', 'yes', 'no']),
+  // Monthly cap in USD: '' is none.
+  monthly_budget_usd: numeric,
 })
 
 export type ProjectFormValues = z.infer<typeof projectSchema>
@@ -54,6 +56,7 @@ export function toFormValues(p?: Project): ProjectFormValues {
     runner_memory: s(p?.runner_memory),
     runner_cpus: s(p?.runner_cpus),
     ...autoFixFormValues(p?.ci_autofix),
+    monthly_budget_usd: s(p?.budget?.monthly_usd),
   }
 }
 
@@ -95,6 +98,7 @@ type Full = Required<Pick<ProjectFields, 'name' | 'instructions' | 'services' | 
   runner_memory: string
   runner_cpus: number
   ci_autofix: CIAutoFixSettings
+  budget: { monthly_usd: number | null }
 }
 
 /** "" or 0 means "server default" for overrides (docs/API.md). */
@@ -113,6 +117,7 @@ function normalize(v: ProjectFormValues): Full {
     runner_memory: v.runner_memory.trim(),
     runner_cpus: Number(v.runner_cpus || 0),
     ci_autofix: autoFixSettings(v),
+    budget: { monthly_usd: Number(v.monthly_budget_usd || 0) || null },
   }
 }
 
@@ -125,6 +130,7 @@ export function createBody(v: ProjectFormValues): ProjectFields & { id: string }
   if (n.instructions) body.instructions = n.instructions
   for (const k of OVERRIDES) if (n[k]) Object.assign(body, { [k]: n[k] })
   if (Object.values(n.ci_autofix).some((x) => x !== null)) body.ci_autofix = n.ci_autofix
+  if (n.budget.monthly_usd) body.budget = n.budget
   return body
 }
 

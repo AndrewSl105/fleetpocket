@@ -82,3 +82,13 @@ describe('ci_autofix', () => {
     expect(createBody({ ...toFormValues(), id: 'n', name: 'N' })).not.toHaveProperty('ci_autofix')
   })
 })
+
+describe('monthly budget', () => {
+  it('sets, keeps and removes the cap', () => {
+    expect(patchBody({ ...toFormValues(project), monthly_budget_usd: '50' }, project)).toEqual({ budget: { monthly_usd: 50 } })
+    const capped = { ...project, budget: { monthly_usd: 50 } }
+    expect(patchBody(toFormValues(capped), capped)).toEqual({})
+    expect(patchBody({ ...toFormValues(capped), monthly_budget_usd: '' }, capped)).toEqual({ budget: { monthly_usd: null } })
+    expect(createBody({ ...toFormValues(), id: 'n', name: 'N', monthly_budget_usd: '20' })).toMatchObject({ budget: { monthly_usd: 20 } })
+  })
+})

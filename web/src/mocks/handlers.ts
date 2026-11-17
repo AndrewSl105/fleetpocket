@@ -4,6 +4,7 @@ import { GROUPS } from '@/lib/status'
 import { addAttachment, addEvent, db, makeTask, MOCK_AGENTS, node, startRun, taskView } from './db'
 import { emitStatus, interruptRun, resumeAfterAnswer, setPush } from './simulator'
 import { integrationHandlers } from './integrations'
+import { costHandlers, monthCost } from './costs'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -137,6 +138,7 @@ function pushTask(task: Task) {
 
 export const handlers = [
   ...integrationHandlers(API, guard, err),
+  ...costHandlers(API, guard, err),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')
@@ -194,7 +196,8 @@ export const handlers = [
     const denied = guard(request)
     if (denied) return denied
     const archived = new URL(request.url).searchParams.get('archived') === 'true'
-    return HttpResponse.json({ items: db.projects.filter((p) => archived || !p.archived), next_cursor: '' })
+    const items = db.projects.filter((p) => archived || !p.archived).map((p) => ({ ...p, month_cost_usd: monthCost(p.id) }))
+    return HttpResponse.json({ items, next_cursor: '' })
   }),
   http.post(`${API}/projects`, async ({ request }) => {
     const denied = guard(request)
@@ -232,7 +235,7 @@ export const handlers = [
     const denied = guard(request)
     if (denied) return denied
     const p = db.projects.find((x) => x.id === params.id)
-    return p ? HttpResponse.json(p) : err(404, 'not_found', 'No such project')
+    return p ? HttpResponse.json({ ...p, month_cost_usd: monthCost(p.id) }) : err(404, 'not_found', 'No such project')
   }),
   http.patch(`${API}/projects/:id`, async ({ request, params }) => {
     const denied = guard(request)

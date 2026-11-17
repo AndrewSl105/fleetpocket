@@ -78,7 +78,8 @@ export function startSimulator(intervalMs = 2500) {
       emit(task.id, 'pr_opened', { number: n, url: task.pr_url }, false)
       emitStatus(task, 'pr_open')
     }
-    for (const task of db.tasks.filter((t) => t.status === 'queued' || t.status === 'preparing')) {
+    // A task that waits for a monthly budget stays queued (the owner's override clears budget_wait).
+    for (const task of db.tasks.filter((t) => (t.status === 'queued' && !t.budget_wait) || t.status === 'preparing')) {
       const next = pendingRuns.get(task.id)
       if (task.status === 'preparing' && next) {
         pendingRuns.delete(task.id)

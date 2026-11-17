@@ -323,7 +323,7 @@ export function Prompt({ task, stopping }: { task: TaskView; stopping: boolean }
         aria-label={label}
         className="fp-term-input min-w-0 flex-1 outline-none"
       />
-      <span className="shrink-0 text-[11px] text-[var(--term-dim)] tabular-nums">{usd(task.cost_usd_total)}</span>
+      <span className="shrink-0 text-[11px] text-[var(--term-dim)] tabular-nums">{usd(task.cost_usd_total, task.cost_estimated)}</span>
       {can(task.status, 'interrupt') && !stopping && (
         <button
           type="button"

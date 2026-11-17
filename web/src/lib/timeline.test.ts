@@ -165,4 +165,18 @@ describe('integrations events', () => {
     expect(items[2]).toMatchObject({ ok: false, denied: 'denied' })
     expect(items[3]).toMatchObject({ host: 'status.linear.app' })
   })
+
+  it("shows a run's cost on its divider and budget steps as dividers", () => {
+    const items = buildTimeline([
+      ev('run_finished', { run_id: 3, exit_code: 0 }, { runner: false }),
+      ev('run_finished', { run_id: 4, exit_code: 0, cost_usd: 0.84, cost_source: 'estimated' }, { runner: false }),
+      ev('budget', { phase: 'waiting', scope: 'project', project_id: 'p', spent_usd: 5, limit_usd: 5 }, { runner: false }),
+      ev('budget', { phase: 'override', via: 'web' }, { runner: false }),
+    ])
+    expect(items.map((i) => (i.kind === 'divider' ? i.text.split(':')[0] : i.kind))).toEqual(['run_finished', 'run_finished', 'budget', 'budget'])
+    expect(items[0]).toMatchObject({ text: 'run_finished:0' })
+    expect(items[1]).toMatchObject({ text: 'run_finished:0|0.84|estimated' })
+    expect(items[2]).toMatchObject({ tone: 'warn' })
+    expect(items[3]).toMatchObject({ tone: 'muted' })
+  })
 })

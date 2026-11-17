@@ -5,6 +5,8 @@ import { useProjects, useTasks } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { t } from '@/i18n/en'
+import { c } from '@/i18n/costs'
+import { CostBar } from '@/components/CostBar'
 
 export default function ProjectsPage() {
   const projects = useProjects()
@@ -21,7 +23,10 @@ export default function ProjectsPage() {
       <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.projects.title}</h1>
-          <Button asChild variant="outline" className="h-10">
+          <Button asChild variant="outline" className="ml-2 h-10">
+            <Link to="/costs">{c.open}</Link>
+          </Button>
+          <Button asChild variant="outline" className="ml-2 h-10">
             <Link to="/projects/new">
               <Plus /> {t.projects.new}
             </Link>
@@ -49,6 +54,7 @@ export default function ProjectsPage() {
                         <span className="font-mono">{p.id}</span> · {t.projects.repos(p.repositories.length)}
                         {n > 0 && <span className="text-primary"> · {t.projects.active(n)}</span>}
                       </div>
+                      <MonthCost spent={p.month_cost_usd} cap={p.budget?.monthly_usd ?? null} />
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                   </Link>
@@ -57,6 +63,19 @@ export default function ProjectsPage() {
             })}
           </ul>
         )}
+      </div>
+    </div>
+  )
+}
+
+/** Month-to-date cost, against the monthly budget when the project has one. */
+function MonthCost({ spent, cap }: { spent: number; cap: number | null }) {
+  if (!cap) return spent > 0 ? <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">{c.monthToDate(spent)}</div> : null
+  return (
+    <div className="mt-1.5">
+      <CostBar value={spent} max={cap} tone="budget" label={c.budget} />
+      <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">
+        {c.budget}: {c.ofBudget(spent, cap)}
       </div>
     </div>
   )

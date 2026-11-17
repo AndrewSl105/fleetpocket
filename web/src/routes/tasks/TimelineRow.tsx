@@ -24,14 +24,26 @@ import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
 import { useAllowEgress, useTask } from '@/api/hooks'
 import { t } from '@/i18n/en'
+import { c } from '@/i18n/costs'
+import { usd } from '@/lib/format'
 
 const tl = t.task.timeline
 
 export function dividerText(text: string): string {
   if (text.startsWith('run_started:')) return tl.runStarted(text.slice('run_started:'.length))
   if (text.startsWith('run_finished:')) {
-    const code = text.slice('run_finished:'.length)
-    return tl.runFinished(code === '' ? null : Number(code))
+    const [code, cost, source] = text.slice('run_finished:'.length).split('|')
+    const done = tl.runFinished(code === '' ? null : Number(code))
+    if (cost === undefined) return done
+    return `${done} · ${c.runCost(source === 'unknown' ? '?' : usd(Number(cost), source === 'estimated'))}`
+  }
+  if (text.startsWith('budget:')) {
+    try {
+      const b = JSON.parse(text.slice('budget:'.length)) as { phase: string; scope?: string; project_id?: string; spent_usd?: number; limit_usd?: number; via?: string }
+      return c.budgetEvent(b.phase, b.scope, b.project_id, b.spent_usd, b.limit_usd, b.via)
+    } catch {
+      return text
+    }
   }
   if (text.startsWith('integrations:')) {
     const [servers, egress] = text.slice('integrations:'.length).split('|')

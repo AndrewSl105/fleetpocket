@@ -14,9 +14,10 @@ export function dateTime(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '—' : format(date, 'd MMM yyyy, HH:mm')
 }
 
-export function usd(value: number | null | undefined): string {
+/** $0.84; ≈$0.84 when part of it is an estimate (Task.cost_estimated). */
+export function usd(value: number | null | undefined, estimated = false): string {
   const v = value ?? 0
-  return `$${v < 10 ? v.toFixed(2) : v.toFixed(1)}`
+  return `${estimated ? '≈' : ''}$${v < 10 ? v.toFixed(2) : v.toFixed(1)}`
 }
 
 export function duration(fromIso: string | null | undefined, toIso: string | null | undefined): string {

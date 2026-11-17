@@ -1338,26 +1338,26 @@ export interface components {
             /** @description Set on runs CI auto-fix started (the attempt number) */
             autofix_attempt?: number | null;
             /** @description Agent of the run; null for runs from before it was recorded */
-            agent?: string | null;
+            agent: string | null;
             /** @description Model the run reported in `started` */
-            model?: string | null;
+            model: string | null;
             /**
              * Format: int64
              * @description All input
              */
-            input_tokens?: number;
+            input_tokens: number;
             /** Format: int64 */
-            output_tokens?: number;
+            output_tokens: number;
             /** Format: int64 */
-            cache_read_tokens?: number;
+            cache_read_tokens: number;
             /** Format: int64 */
-            cache_write_tokens?: number;
-            cost_source?: components["schemas"]["CostSource"];
+            cache_write_tokens: number;
+            cost_source: components["schemas"]["CostSource"];
             /**
              * @description How the agent was authenticated, when known; `subscription` (Claude OAuth) makes the cost API-equivalent
              * @enum {string|null}
              */
-            auth?: "api_key" | "subscription" | null;
+            auth: "api_key" | "subscription" | null;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */

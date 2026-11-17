@@ -170,7 +170,14 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
       case 'run_finished': {
         const r = e.payload
         openTools.clear()
-        items.push({ kind: 'divider', key, text: `run_finished:${r.exit_code ?? ''}`, at })
+        // The run's cost, when recorded: "|<usd>|<source>".
+        const cost = r.cost_usd != null && r.cost_source ? `|${r.cost_usd}|${r.cost_source}` : ''
+        items.push({ kind: 'divider', key, text: `run_finished:${r.exit_code ?? ''}${cost}`, at })
+        break
+      }
+      case 'budget': {
+        const b = e.payload
+        items.push({ kind: 'divider', key, text: `budget:${JSON.stringify(b)}`, tone: b.phase === 'override' ? 'muted' : 'warn', at })
         break
       }
       case 'interrupt':
