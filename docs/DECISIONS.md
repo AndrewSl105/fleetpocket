@@ -188,7 +188,7 @@ Deviations from the specs (`docs/SPEC-server.md` for server and agent, `docs/SPE
   - Settings are one `settings` row `costs` (`{monthly_budget_usd, price_table}`, `price_table` null = built-in) with its own endpoint, like `ci-autofix`; the project cap is a nullable jsonb `projects.budget` (`{monthly_usd}`) so more budget fields fit later.
   - `GET /api/v1/costs` returns sums and a day × project × agent breakdown computed in Go from the range's runs (at most 400 days), so the aggregation is one tested pure function (`costs.Aggregate`).
   - The PR body, PR comments and the Telegram card show `≈$` for tasks with estimated runs.
-  - A cost that includes runs without a price is never shown as a plain number: `$?` when nothing is known, `$0.84+?` when part is (`costs.Format` on the server, `usd()` on the web, the same rules). `tasks.cost_unknown` was added to migration 00013 itself (it had not been pushed or released), with `month_cost_unknown` on projects and the report and `cost_unknown_today`/`_month` on `/stats` computed on the fly.
+  - A cost that includes runs without a price is never shown as a plain number: `$?` when nothing is known, `$0.84+?` when part is (`costs.Format` on the server, `usd()` on the web, the same rules). `tasks.cost_unknown` is its own migration 00014 (00013 was already released), backfilled from runs with `cost_source = 'unknown'`, with `month_cost_unknown` on projects and the report and `cost_unknown_today`/`_month` on `/stats` computed on the fly.
 
 ## Agent
 
