@@ -89,6 +89,10 @@ export const RunCommand = z.object({
     .optional(),
   // Subagents of the lead agent (≤ 5); absent or empty: none.
   subagents: z.array(Subagent).max(5).optional(),
+  // A pipeline build subtask's file ownership: repository-relative globs
+  // ("**" spans directories). Claude's policy denies writes elsewhere; the
+  // server checks every provider's diff after the run.
+  owned_paths: z.array(z.string().min(1)).max(50).optional(),
 });
 
 export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;

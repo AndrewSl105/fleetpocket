@@ -92,7 +92,7 @@ export class SessionPoint {
 export const claudeSession: Session = async ({ cmd, workspace, emitter, control, checkpointer }) => {
   const point = new SessionPoint();
   if (checkpointer) checkpointer.sessionRef = () => point.ref();
-  const policyOpts = { artifactsOnly: cmd.output === "artifacts" };
+  const policyOpts = { artifactsOnly: cmd.output === "artifacts", ownedPaths: cmd.owned_paths };
   const mapper = new Mapper(workspace);
   // queryAbort ends the SDK session: on cancel (control.abort) and on pause.
   const queryAbort = new AbortController();

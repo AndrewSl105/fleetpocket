@@ -79,6 +79,9 @@ type RunCommand struct {
 	Check *CheckConfig `json:"check,omitempty"`
 	// Subagents the lead agent may delegate to (Claude only; ≤ 5).
 	Subagents []Subagent `json:"subagents,omitempty"`
+	// OwnedPaths restricts a pipeline build subtask's writes to these
+	// repository-relative globs (Claude's policy; the server re-checks the diff).
+	OwnedPaths []string `json:"owned_paths,omitempty"`
 }
 
 // Subagent is one subagent of the lead agent (docs/PROTOCOL.md,
