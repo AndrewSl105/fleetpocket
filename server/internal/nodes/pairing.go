@@ -320,7 +320,7 @@ func nonNil(s []string) []string {
 // ---- install script ----
 
 // DefaultDownloadURL is where release builds of fleetpocket-node are published.
-const DefaultDownloadURL = "https://github.com/AndrewSl105/fleetpocket/releases/download/node-latest"
+const DefaultDownloadURL = "https://github.com/AndrewSl105/jungle_monkey/releases/download/node-latest"
 
 //go:embed install.sh
 var installScript string
