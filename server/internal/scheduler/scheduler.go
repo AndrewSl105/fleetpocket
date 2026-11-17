@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/artifacts"
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
@@ -53,6 +54,8 @@ type PublishInput struct {
 	// Force rewrites the branch with --force-with-lease (a restore
 	// discarded commits that were already pushed).
 	Force bool
+	// NoPR: output "branch" pushes Branch (validated as usual) and opens no PR.
+	NoPR bool
 }
 
 type PublishResult struct {
@@ -104,7 +107,12 @@ type Scheduler struct {
 	// Hosts resolves a task's placement (the server or a node).
 	Hosts     *hosts.Registry
 	Publisher Publisher // nil: commits stay local (phase 3 / GitHub not configured)
-	Hooks     Hooks
+	// BeforePush, when set, runs before a task's commits are delivered; an
+	// error fails the task with nothing pushed (pipeline ownership check).
+	BeforePush func(ctx context.Context, h hosts.Host, t *store.Task) error
+	// StageFiles returns a pipeline stage's owned globs (sent as owned_paths).
+	StageFiles func(ctx context.Context, stageID int64) []string
+	Hooks      Hooks
 	// Files holds task attachments, mounted read-only into runners; nil = none.
 	Files *attachments.Files
 	// Gateway gives runs their MCP servers; nil = none.
@@ -316,7 +324,13 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		return
 	}
 	h := s.host(t)
-	if err := h.PrepareWorkspace(ctx, t.ID, WorkspaceRepo(repo, t), branch); err != nil {
+	start := WorkspaceRepo(repo, t)
+	if t.BaseRef != nil && *t.BaseRef != "" {
+		// A pipeline stage starts from the pipeline branch; its PR (if any)
+		// still targets the repository's base branch.
+		start.BaseBranch = *t.BaseRef
+	}
+	if err := h.PrepareWorkspace(ctx, t.ID, start, branch); err != nil {
 		s.failOrRequeue(ctx, t, run, "prepare workspace", err)
 		return
 	}
@@ -360,6 +374,9 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 	}
 
 	cmd := s.runCommand(t, run, project, repo, branch)
+	if t.StageID != nil && s.StageFiles != nil {
+		cmd.OwnedPaths = s.StageFiles(ctx, *t.StageID)
+	}
 	cmd.MCP = integ.mcp
 	if err := s.attachSkills(ctx, t, &cmd); err != nil {
 		s.failOrRequeue(ctx, t, run, "skills", err)
@@ -501,6 +518,7 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 		msg = fmt.Sprintf("Loop iteration %d: fix the failing check", max(t.LoopIteration, 1))
 	}
 	return runnermgr.NewRun(runnermgr.RunCommand{
+		Subagents:          s.subagents(t, p),
 		TaskID:             strconv.FormatInt(t.ID, 10),
 		Prompt:             run.Input,
 		AppendSystemPrompt: SystemPrompt(t, repo, branch, p.Instructions),
@@ -524,9 +542,43 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 	})
 }
 
+// subagents are the default subagents of a Claude run when the project has
+// them on: cheap explorer and test-runner, a reviewer on the task's model.
+// Codex and Cursor have no subagent option in their SDKs (docs/DECISIONS.md).
+func (s *Scheduler) subagents(t *store.Task, p *store.Project) []runnermgr.Subagent {
+	if t.Agent != "claude" || !p.Subagents {
+		return nil
+	}
+	cheap := s.Cfg.CheapModelClaude
+	return []runnermgr.Subagent{
+		{
+			Name:        "explorer",
+			Description: "Finds and summarises code: where things are defined, how they connect. Use it to explore the repository instead of reading many files yourself.",
+			Prompt:      "You explore a code repository. Find the code the request asks about and summarise it concisely with file paths and line numbers. Never edit files.",
+			Model:       cheap,
+			Tools:       []string{"Read", "Grep", "Glob"},
+		},
+		{
+			Name:        "test-runner",
+			Description: "Runs the project's tests and linters and reports the failures concisely.",
+			Prompt:      "Detect how this project runs its tests and lint (Makefile, package.json, go.mod, pyproject, ...), run them, and report only the failures: command, failing test or file, and the relevant error lines. Do not fix anything.",
+			Model:       cheap,
+			Tools:       []string{"Bash", "Read"},
+		},
+		{
+			Name:        "reviewer",
+			Description: "Reviews the current diff against the task and reports problems.",
+			Prompt:      "Review the working tree's changes (git diff, git status) against the task you are given. Report bugs, missed requirements, risky changes and missing tests as a short list. Do not edit files.",
+			Model:       s.model(t, p),
+			Tools:       []string{"Read", "Grep", "Bash"},
+		},
+	}
+}
+
 // wireOutput leaves "pr" off the wire so today's run command is unchanged.
+// "branch" (a pipeline stage) is a PR-less push: the runner works as for "pr".
 func wireOutput(o string) string {
-	if o == runnermgr.OutputPR {
+	if o == runnermgr.OutputPR || o == runnermgr.OutputBranch {
 		return ""
 	}
 	return o
@@ -561,6 +613,9 @@ func (s *Scheduler) attachSkills(ctx context.Context, t *store.Task, cmd *runner
 // project's agent (it names a model of that agent), else DEFAULT_MODEL for
 // Claude, else empty so Codex and Cursor use their own default.
 func (s *Scheduler) model(t *store.Task, p *store.Project) string {
+	if t.Model != nil && *t.Model != "" {
+		return *t.Model // a pipeline stage's model
+	}
 	if p.Model != nil && t.Agent == tasks.ProjectAgent(p, s.Cfg.DefaultAgent) {
 		return *p.Model
 	}
@@ -911,6 +966,51 @@ func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, r
 	}
 }
 
+// collectArtifacts saves the run's .fleetpocket/out files as artifacts. For
+// output "artifacts" it also ends the task (never a push, never a PR) and
+// returns true; for "pr_and_artifacts" the usual push follows.
+func (s *Scheduler) collectArtifacts(ctx context.Context, h hosts.Host, t *store.Task, limit string) bool {
+	files, err := h.CollectOutputs(ctx, t.ID)
+	if err != nil && hosts.IsOffline(err) {
+		s.log(t, 0).Warn("node offline after the run; artifacts are collected when it reconnects")
+		if t.Status != tasks.Pushing {
+			_, _ = s.Tasks.SetStatus(ctx, t.ID, tasks.Pushing, "waiting for "+deref(t.Node, ""))
+		}
+		return true
+	}
+	var runID *int64
+	if run, rerr := s.Store.LatestRun(ctx, t.ID); rerr == nil {
+		runID = &run.ID
+	}
+	list, warnings := artifacts.Collect(files)
+	if err != nil {
+		warnings = append(warnings, "outputs could not be read: "+err.Error())
+	}
+	added, err := s.Store.SaveArtifacts(ctx, t.ID, runID, list)
+	if err != nil {
+		s.fail(ctx, t, "save artifacts: "+err.Error())
+		return true
+	}
+	s.addEvent(ctx, t.ID, runID, "artifacts_collected", map[string]any{"count": len(list), "added": added, "warnings": warnings})
+	if t.Output != runnermgr.OutputArtifacts {
+		return false
+	}
+	// Artifacts never push: whatever the agent changed in the repository is discarded.
+	_ = h.RemoveAll(ctx, t.ID)
+	if len(list) == 0 && limit != "" {
+		s.fail(ctx, t, limit)
+		return true
+	}
+	reason := fmt.Sprintf("%d artifacts", len(list))
+	if len(list) == 0 {
+		reason = "no artifacts were produced"
+	}
+	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Completed, reason); err != nil {
+		s.log(t, 0).Error("set completed", "err", err)
+	}
+	return true
+}
+
 // afterRun pushes new commits (opening or updating the PR) or completes the
 // task when there is nothing to push. Also used to resume a crashed push.
 func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string, turns int, limit string) {
@@ -934,6 +1034,9 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	}
 	branch := deref(t.Branch, "")
 	h := s.host(t)
+	if t.Output != runnermgr.OutputPR && s.collectArtifacts(ctx, h, t, limit) {
+		return
+	}
 	unpushed, err := h.UnpushedCommits(ctx, t.ID, repo.BaseBranch, branch)
 	force := false
 	if err == nil {
@@ -985,8 +1088,24 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		return
 	}
 
+	if s.BeforePush != nil {
+		// A pipeline build's ownership check: nothing is pushed on failure.
+		if err := s.BeforePush(ctx, h, t); err != nil {
+			if hosts.IsOffline(err) {
+				return
+			}
+			s.addEvent(ctx, t.ID, nil, "diff_rejected", map[string]any{"reason": err.Error()})
+			s.fail(ctx, t, err.Error())
+			return
+		}
+	}
+
 	if repo.Local() && t.PRNumber == nil {
 		s.deliverLocal(ctx, h, t, repo, branch, force, limit)
+		return
+	}
+	if t.Output == runnermgr.OutputBranch && t.PushBranch != nil {
+		s.pushBranch(ctx, h, t, repo, branch, limit)
 		return
 	}
 
@@ -1071,6 +1190,44 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	s.afterPush(ctx, t, fix)
 	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.PROpen, limit); err != nil {
 		s.log(t, 0).Error("set pr_open", "err", err)
+	}
+}
+
+// pushBranch delivers output "branch" on a GitHub repository: the
+// publisher validates the diff and pushes to t.PushBranch, without a PR.
+func (s *Scheduler) pushBranch(ctx context.Context, h hosts.Host, t *store.Task, repo *store.Repository, branch, limit string) {
+	if t.Status != tasks.Pushing {
+		if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Pushing, ""); err != nil {
+			s.log(t, 0).Error("set pushing", "err", err)
+			return
+		}
+	}
+	if s.publisher() == nil {
+		s.fail(ctx, t, "output branch needs the GitHub App for a GitHub repository")
+		return
+	}
+	project, err := s.Store.GetProject(ctx, t.ProjectID)
+	if err != nil {
+		s.fail(ctx, t, err.Error())
+		return
+	}
+	to := *t.PushBranch
+	if _, err := s.publisher().Publish(ctx, PublishInput{Host: h, Task: t, Repo: GitHubRepo(repo), Project: project, Branch: to, NoPR: true}); err != nil {
+		if hosts.IsOffline(err) {
+			return
+		}
+		if errors.Is(err, ErrRejected) {
+			s.addEvent(ctx, t.ID, nil, "diff_rejected", map[string]any{"reason": err.Error()})
+		}
+		s.fail(ctx, t, err.Error())
+		return
+	}
+	if err := s.Store.SetLocalBranch(ctx, t.ID, &to); err != nil {
+		s.log(t, 0).Error("set branch", "err", err)
+	}
+	s.addEvent(ctx, t.ID, nil, "branch_ready", map[string]any{"branch": to, "pushed": true, "from": branch})
+	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.BranchReady, limit); err != nil {
+		s.log(t, 0).Error("set branch_ready", "err", err)
 	}
 }
 

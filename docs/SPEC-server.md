@@ -200,6 +200,19 @@ Exit codes: `0` done, `1` error, `2` cancelled, `3` paused, `4` limit exceeded (
 
 **Important:** SDK option and message names change between versions. Read the installed package's type definitions and current docs before coding; do not rely on memory.
 
+**Subagents.** A Claude run may delegate to subagents (`RunCommand.subagents`, PROTOCOL.md "Subagents"). The scheduler sends three defaults when the project's `subagents` setting is on (default on): `explorer` (`CHEAP_MODEL_CLAUDE`, `Read Grep Glob`, finds and summarises code, never edits), `test-runner` (`CHEAP_MODEL_CLAUDE`, `Bash Read`, runs the project's tests/lint and reports failures concisely) and `reviewer` (the task's model, `Read Grep Bash`, reviews the diff against the task). Subagents use only the runner's pre-approved tools and the run's MCP tools, never `AskUserQuestion`; the policy hook applies to their tool calls. Their events carry `subagent: <name>` and their usage is part of the run's totals. Exploring and running tests on the cheap model keeps those tokens off the expensive one. Codex and Cursor ignore the list (DECISIONS.md).
+
+**Pipelines.** A pipeline (`server/internal/pipelines`) is a graph of stages; every stage is an ordinary task (same execution, outputs, attachments, skills, loops, checkpoints, CI auto-fix, nodes, costs). Tables `pipelines` and `pipeline_stages` (migration `00020`); tasks get nullable `pipeline_id`, `stage_id`, `base_ref` (start branch; NULL = the repository's base branch) and `push_branch`, and the task output `branch` (push without a PR).
+
+- *Templates* are Go code with a version: `scout-implement` (scout on the cheap model, `artifacts`, writes `report.md` + `manifest.json` → implement on the strong model, `pr`, gets `scout/report.md`), `design-parallel` (scout → design → approval → build×N → integrate → review/PR) and `audit` (scout → design with the diagram skills `db-schema`, `system-design-c4`, `infra-map` when present → report writing `audit.md`; artifacts only).
+- *Scheduling* (`pipelines.Advance`, pure and idempotent): a `waiting` stage becomes `ready` when every dependency is `done` or `skipped`; ready stages start in position order while fewer than `max_parallel` (default 3) stages run and the server has free task slots. A failed stage puts the pipeline in `needs_you` (retry stage with a note, skip stage, cancel pipeline). When the sum of the pipeline's task costs reaches `budget_usd` no new stage starts and the pipeline goes `needs_you` once running stages end; raising the budget resumes it.
+- *Stage done rules* (`pipelines.StageOutcome`): `artifacts` → task `completed` with ≥ 1 artifact; `branch` → `branch_ready` (pushed); `pr` → `pr_open` or `branch_ready`. Anything else that ends the task fails the stage.
+- *Handoff*: a stage's prompt is its instructions + the pipeline prompt + its dependencies' summaries; dependencies' artifacts are attached as `<stage-key>/<file>`.
+- *Branches*: `jm/pipe-<id>` from the base branch when the pipeline starts; builds start from it and push `jm/pipe-<id>/<key>`; integrate starts from it, merges the build branches in dependency order and pushes back to it; review opens the single PR `jm/pipe-<id>` → base branch with the plan summary, a per-subtask checklist, the review notes and the Mermaid diagrams.
+- *Plan contract*: the design stage writes `plan.json`, checked against the embedded `plan.schema.json` and `pipelines.Validate`: 1–6 subtasks, unique keys not reserved for stages, known dependencies, no cycles, providers available on the server, no file-ownership overlap between subtasks that can run at the same time (not ordered by `depends_on`, transitively; glob prefixes), and with contracts a first subtask `contracts` that owns every contract path and on which every other subtask depends. An invalid plan gets one automatic follow-up with the errors, then `needs_you`. A valid plan sets `awaiting_approval`; approval fans out (`pipelines.FanOut`) one `build` stage per subtask (output `branch`, owned globs, roots depend on `design`), `integrate` (all builds) and `review` (cheap model, `pr`).
+- *Ownership*: a build's run command carries `owned_paths` (Claude's policy denies other writes); for every provider the server compares the diff with the globs after the run (`pipelines.OutsideOwnership`) and puts the stage in `needs_you` with the list before anything is pushed.
+- *Costs*: scout and review on the cheap model, plus explorer subagents, keep exploration tokens off the expensive model.
+
 **Fake mode.** With `FLEETPOCKET_RUNNER_FAKE=1`, do not call Claude: emit a scripted sequence (started, a few tool events, one question, wait for the answer, write a file, commit, done). The backend's integration tests use it.
 
 **Dockerfile**
@@ -250,6 +263,7 @@ A single Go binary: REST + WebSocket API, Telegram bot, scheduler, Docker orches
 | `RUNNER_MEMORY` / `RUNNER_CPUS` | `3g` / `2` | per runner, hard limits |
 | `SIDECAR_MEMORY` | `512m` | per sidecar |
 | `DEFAULT_MODEL` | empty (SDK default) |  |
+| `CHEAP_MODEL_CLAUDE` | `haiku` | model of the cheap Claude subagents (`explorer`, `test-runner`): an SDK alias or a full id |
 | `DEFAULT_MAX_TURNS` / `DEFAULT_MAX_BUDGET_USD` / `DEFAULT_MAX_DURATION` | `150` / `5` / `2h` |  |
 | `QUESTION_TIMEOUT` | `20m` |  |
 | `EVENT_RETENTION` | `720h` (30 days) |  |

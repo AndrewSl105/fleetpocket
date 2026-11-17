@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/artifacts"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -440,6 +441,13 @@ func (r *Remote) EventLog(ctx context.Context, taskID int64, afterSeq int64) ([]
 		}
 		afterSeq = next
 	}
+}
+
+// CollectOutputs: newer nodes only (an older node answers "unknown method").
+func (r *Remote) CollectOutputs(ctx context.Context, taskID int64) ([]artifacts.File, error) {
+	var out []artifacts.File
+	err := r.call(ctx, MOutputs, TaskParams{TaskID: taskID}, &out)
+	return out, err
 }
 
 func seqOf(line []byte) int64 {

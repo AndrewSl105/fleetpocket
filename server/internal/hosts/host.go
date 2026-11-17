@@ -10,8 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/artifacts"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -94,6 +98,10 @@ type Host interface {
 	// EventLog returns the lines of <workspace>/.fleetpocket/events.jsonl
 	// whose seq is greater than afterSeq (nil when there is no log).
 	EventLog(ctx context.Context, taskID int64, afterSeq int64) ([][]byte, error)
+	// CollectOutputs reads the regular files under <workspace>/.fleetpocket/out
+	// (paths relative to it; at most artifacts.MaxFiles+1 files, larger files
+	// truncated past artifacts.MaxFileBytes+1 so the caller can reject them).
+	CollectOutputs(ctx context.Context, taskID int64) ([]artifacts.File, error)
 
 	// PrepareAttachments makes the files available for the task's
 	// /attachments mount.
@@ -144,4 +152,38 @@ func FilterEventLog(r io.Reader, afterSeq int64) ([][]byte, error) {
 		out = append(out, append([]byte(nil), line...))
 	}
 	return out, sc.Err()
+}
+
+// ReadOutputs reads the output files of the workspace at ws (none when the
+// directory does not exist). Symlinks and other non-regular files are skipped.
+func ReadOutputs(ws string) ([]artifacts.File, error) {
+	root := filepath.Join(ws, filepath.FromSlash(artifacts.Dir))
+	var out []artifacts.File
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return filepath.SkipAll
+			}
+			return err
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		if len(out) > artifacts.MaxFiles {
+			return filepath.SkipAll
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		b, err := io.ReadAll(io.LimitReader(f, artifacts.MaxFileBytes+1))
+		_ = f.Close()
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, p)
+		out = append(out, artifacts.File{Path: filepath.ToSlash(rel), Content: string(b)})
+		return nil
+	})
+	return out, err
 }

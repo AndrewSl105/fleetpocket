@@ -1675,6 +1675,8 @@ export interface components {
              * @enum {string|null}
              */
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | "" | null;
+            /** @description Claude runs get the default subagents (explorer, test-runner, reviewer) */
+            subagents?: boolean;
             /** @description Replaces the project's enabled skills (slugs; unknown slugs are ignored) */
             skills?: string[];
         };
@@ -1812,6 +1814,8 @@ export interface components {
              * @enum {string|null}
              */
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | null;
+            /** @description Claude runs get the default subagents (explorer, test-runner, reviewer); default true */
+            subagents?: boolean;
             /** @description Slugs of the skills enabled for the project's tasks */
             skills?: string[];
             /** Format: date-time */
@@ -2416,6 +2420,8 @@ export interface components {
             /** @enum {string} */
             type: "assistant_text";
             text: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         ToolUseEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -2438,6 +2444,8 @@ export interface components {
             tool: string;
             /** @description Short, human-readable, e.g. "Edit src/tables/export.ts" */
             summary: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         ToolResultEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -2461,6 +2469,8 @@ export interface components {
             ok: boolean;
             /** @description Only when ok is false; first line of the error */
             summary?: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         QuestionEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */

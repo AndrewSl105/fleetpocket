@@ -82,7 +82,7 @@ test("assistant text and tool_use; tool_result ok and error", () => {
   ]);
 });
 
-test("AskUserQuestion and subagent frames are not mapped to tool events", () => {
+test("AskUserQuestion is not mapped to tool events", () => {
   const mp = new Mapper(WS);
   assert.deepEqual(
     mp.map(m({ type: "assistant", parent_tool_use_id: null, session_id: sid, message: { content: [{ type: "tool_use", id: "a", name: "AskUserQuestion", input: {} }] } })),
@@ -90,10 +90,6 @@ test("AskUserQuestion and subagent frames are not mapped to tool events", () => 
   );
   assert.deepEqual(
     mp.map(m({ type: "user", parent_tool_use_id: null, session_id: sid, message: { role: "user", content: [{ type: "tool_result", tool_use_id: "a", content: "x" }] } })),
-    [],
-  );
-  assert.deepEqual(
-    mp.map(m({ type: "assistant", parent_tool_use_id: "p", session_id: sid, message: { content: [{ type: "text", text: "sub" }] } })),
     [],
   );
 });
@@ -135,4 +131,43 @@ test("outcome mapping", () => {
   assert.equal(outcome({ ...base, last: result({ subtype: "error_during_execution", errors: ["x"] }) }).kind, "error");
   const intr = outcome({ ...base, interrupted: true, last: result({ subtype: "error_during_execution", errors: ["aborted"] }) });
   assert.equal(intr.kind, "done");
+});
+
+test("subagent events carry the subagent's name", () => {
+  const mp = new Mapper(WS);
+  const lead = mp.map(
+    m({
+      type: "assistant",
+      parent_tool_use_id: null,
+      session_id: sid,
+      message: { content: [{ type: "tool_use", id: "a1", name: "Agent", input: { subagent_type: "explorer", description: "Find the router", prompt: "…" } }] },
+    }),
+  );
+  assert.deepEqual(lead, [{ type: "tool_use", tool: "Agent", summary: "Agent explorer: Find the router" }]);
+  const sub = mp.map(
+    m({
+      type: "assistant",
+      parent_tool_use_id: "a1",
+      session_id: sid,
+      message: { content: [{ type: "tool_use", id: "s1", name: "Grep", input: { pattern: "router" } }] },
+    }),
+  );
+  assert.deepEqual(sub, [{ type: "tool_use", tool: "Grep", summary: "Grep router", subagent: "explorer" }]);
+  const res = mp.map(
+    m({ type: "user", parent_tool_use_id: "a1", session_id: sid, message: { content: [{ type: "tool_result", tool_use_id: "s1", is_error: false, content: "x" }] } }),
+  );
+  assert.deepEqual(res, [{ type: "tool_result", tool: "Grep", ok: true, subagent: "explorer" }]);
+});
+
+test("usage includes the subagents' models", () => {
+  const usage = new Mapper(WS).map(
+    result({
+      total_cost_usd: 0.5,
+      modelUsage: {
+        "claude-x": { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, webSearchRequests: 0, costUSD: 0.42, contextWindow: 1, maxOutputTokens: 1 },
+        haiku: { inputTokens: 40, outputTokens: 10, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, webSearchRequests: 0, costUSD: 0.08, contextWindow: 1, maxOutputTokens: 1 },
+      },
+    }),
+  );
+  assert.deepEqual(usage, [{ type: "usage", cost_usd_total: 0.5, input_tokens: 140, output_tokens: 60, turns: 3, cache_read_tokens: 0, cache_write_tokens: 0 }]);
 });

@@ -28,6 +28,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/metrics"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
+	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
@@ -124,6 +125,19 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome,
 			BudgetHeld: met.BudgetHeld, BudgetAlert: met.BudgetAlert, LoopEnded: met.LoopEnded},
 	})
+	// Pipelines: every stage is an ordinary task of this scheduler.
+	pipes := &pipelinerun.Driver{Store: st, Tasks: taskSvc,
+		CheapModel: func(provider string) string {
+			if provider == "claude" {
+				return cfg.CheapModelClaude
+			}
+			return "" // Codex and Cursor: their own default
+		}}
+	sched.BeforePush = pipes.OwnershipCheck
+	sched.StageFiles = func(ctx context.Context, stageID int64) []string {
+		files, _ := st.StageFiles(ctx, stageID)
+		return files
+	}
 	// MCP gateway: off (no servers can be added) without SECRETS_KEY.
 	box, err := secretbox.New(cfg.SecretsKey)
 	if err != nil {
@@ -202,6 +216,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	}
 	scheds := &schedules.Service{Store: st, Tasks: taskSvc, Hub: hub, OnFiring: met.ScheduleFiring}
 	srv := &api.Server{
+		Pipelines:    pipes,
 		Schedules:    scheds,
 		SkillScanner: skillScan,
 		Webhook:      webhook,
@@ -337,6 +352,11 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	go func() {
 		defer wg.Done()
 		scheds.Run(ctx)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		pipes.Run(ctx, 5*time.Second, nil)
 	}()
 	wg.Add(1)
 	go func() {

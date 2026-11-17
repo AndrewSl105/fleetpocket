@@ -19,6 +19,9 @@ const READ_TOOLS = new Set(["Read", "Grep", "Glob", "NotebookRead"]);
 export interface PolicyOptions {
   // Artifacts mode: file tools may only write under .fleetpocket/out/.
   artifactsOnly?: boolean;
+  // Pipeline build subtasks: file tools may only write paths matching these
+  // repository-relative globs (absent or empty: no restriction).
+  ownedPaths?: string[];
 }
 
 export function checkTool(toolName: string, input: unknown, workspace: string, opts: PolicyOptions = {}): PolicyDecision {
@@ -34,7 +37,9 @@ export function checkTool(toolName: string, input: unknown, workspace: string, o
     for (const p of paths) {
       if (isUnderGithubDir(p, workspace)) return deny(githubReason(p));
       if (isUnderAttachments(p, workspace)) return deny(attachmentsReason(p));
+      if (!isInsideWorkspace(p, workspace)) return deny(outsideReason(p));
       if (opts.artifactsOnly && !isUnderOut(p, workspace)) return deny(artifactsReason(p));
+      if (opts.ownedPaths?.length && !isOwned(p, workspace, opts.ownedPaths)) return deny(ownedReason(p, opts.ownedPaths));
     }
   }
   if (WRITE_TOOLS.has(toolName) || READ_TOOLS.has(toolName)) {
@@ -68,6 +73,51 @@ export function isUnderOut(p: string, workspace: string): boolean {
   const abs = isAbsolute(unquoted) ? normalize(unquoted) : resolve(workspace, unquoted);
   const out = resolve(workspace, OUT_DIR);
   return abs.startsWith(out + "/");
+}
+
+// File tools write inside the workspace (or the temp dir for scratch files);
+// the server only ever ships the workspace's diff.
+const outsideReason = (p: string) => `Writing outside the workspace is not allowed (${p}). Keep changes under the repository; use /tmp for scratch files.`;
+
+export function isInsideWorkspace(p: string, workspace: string): boolean {
+  const unquoted = p.replace(/^['"]|['"]$/g, "");
+  const abs = isAbsolute(unquoted) ? normalize(unquoted) : resolve(workspace, unquoted);
+  const ws = resolve(workspace);
+  return abs === ws || abs.startsWith(ws + "/") || abs === "/tmp" || abs.startsWith("/tmp/");
+}
+
+// Ownership globs mirror server/internal/pipelines/glob.go: segments match
+// like path.Match, "**" spans any number of segments. /tmp stays writable.
+const ownedReason = (p: string, globs: string[]) =>
+  `This subtask owns only ${globs.join(", ")}; ${p} belongs to another subtask. Leave it alone and mention the needed change in your summary.`;
+
+export function matchGlob(glob: string, file: string): boolean {
+  const split = (s: string) => s.split("/").filter((x) => x && x !== ".");
+  return matchSegs(split(glob), split(file));
+}
+
+function matchSegs(g: string[], f: string[]): boolean {
+  if (g.length === 0) return f.length === 0;
+  if (g[0] === "**") {
+    for (let i = 0; i <= f.length; i++) if (matchSegs(g.slice(1), f.slice(i))) return true;
+    return false;
+  }
+  if (f.length === 0 || !segRegex(g[0]).test(f[0])) return false;
+  return matchSegs(g.slice(1), f.slice(1));
+}
+
+function segRegex(seg: string): RegExp {
+  let re = "";
+  for (const ch of seg) re += ch === "*" ? "[^/]*" : ch === "?" ? "[^/]" : ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${re}$`);
+}
+
+export function isOwned(p: string, workspace: string, globs: string[]): boolean {
+  const unquoted = p.replace(/^['"]|['"]$/g, "");
+  const abs = isAbsolute(unquoted) ? normalize(unquoted) : resolve(workspace, unquoted);
+  if (abs === "/tmp" || abs.startsWith("/tmp/")) return true;
+  const rel = relative(resolve(workspace), abs);
+  return globs.some((g) => matchGlob(g, rel));
 }
 
 // Attached images are mounted read-only at /attachments; reading them is

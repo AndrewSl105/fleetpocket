@@ -14,6 +14,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
+	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
@@ -41,10 +42,12 @@ type GitHub interface {
 type DiffFunc func(ctx context.Context, t *store.Task, repo *store.Repository, limit int) (diff string, truncated bool, err error)
 
 type Server struct {
-	Cfg      *config.Config
-	Store    *store.Store
-	Tasks    *tasks.Service
-	Projects *projects.Service
+	// Pipelines drives pipelines; nil disables the pipeline endpoints.
+	Pipelines *pipelinerun.Driver
+	Cfg       *config.Config
+	Store     *store.Store
+	Tasks     *tasks.Service
+	Projects  *projects.Service
 	// SkillScanner is the secrets scan for skill files; nil skips it (SECRETS_SCAN=off).
 	SkillScanner skills.SecretsScanner
 	Auth         *auth.Manager
@@ -151,6 +154,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/tasks/{id}/events", a(s.taskEvents))
 	mux.HandleFunc("GET /api/v1/tasks/{id}/runs", a(s.taskRuns))
 	mux.HandleFunc("GET /api/v1/tasks/{id}/diff", a(s.taskDiff))
+	mux.HandleFunc("GET /api/v1/tasks/{id}/artifacts", a(s.listArtifacts))
+	mux.HandleFunc("GET /api/v1/pipeline-templates", a(s.listPipelineTemplates))
+	mux.HandleFunc("GET /api/v1/pipelines", a(s.listPipelines))
+	mux.HandleFunc("POST /api/v1/pipelines", a(s.createPipeline))
+	mux.HandleFunc("GET /api/v1/pipelines/{id}", a(s.getPipeline))
+	mux.HandleFunc("POST /api/v1/pipelines/{id}/{action}", a(s.pipelineAction))
 	mux.HandleFunc("GET /api/v1/tasks/{id}/attachments/{attachmentId}", a(s.attachment))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/answer", a(s.answer))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/message", a(s.message))
