@@ -94,6 +94,8 @@ export function classify(item: TimelineItem): Activity | null {
       return { kind: 'git', verb: v.commit, target: item.sha.slice(0, 7) }
     case 'pr':
       return { kind: 'git', verb: v.prOpen, target: `#${item.number}` }
+    case 'branch_ready':
+      return { kind: 'git', verb: v.branchReady, target: item.branch }
     case 'error':
       return { kind: 'failed', verb: v.failed, target: item.message }
     default:
@@ -136,7 +138,14 @@ function lastReason(items: TimelineItem[], fallback?: string | null): string {
  */
 export function currentActivity(
   items: TimelineItem[],
-  task: { status: TaskStatus; status_reason?: string | null; pr_number?: number | null; branch?: string | null; title: string },
+  task: {
+    status: TaskStatus
+    status_reason?: string | null
+    pr_number?: number | null
+    branch?: string | null
+    local_branch?: string | null
+    title: string
+  },
   openQuestion?: string,
 ): Activity {
   switch (task.status) {
@@ -149,6 +158,8 @@ export function currentActivity(
       return { kind: 'git', verb: v.push, target: task.branch ?? '' }
     case 'pr_open':
       return { kind: 'done', verb: v.prOpen, target: task.pr_number ? `#${task.pr_number}` : task.title }
+    case 'branch_ready':
+      return { kind: 'done', verb: v.branchReady, target: task.local_branch ?? task.title }
     case 'completed':
       return { kind: 'done', verb: v.done, target: task.title }
     case 'failed':

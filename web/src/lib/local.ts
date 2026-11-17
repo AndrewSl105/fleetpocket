@@ -1,5 +1,6 @@
 import { isApiError } from '@/api/errors'
 import type { GitHubConnStatus, Project, Repository, TaskView } from '@/api/types'
+import type { TimelineItem } from '@/lib/timeline'
 import { lc } from '@/i18n/local'
 
 /** github.com remotes in the forms git prints: https, ssh:// and scp-like git@github.com:owner/name. */
@@ -64,4 +65,23 @@ export function breadcrumb(path: string, home: string): Array<{ name: string; pa
 export function tildePath(path: string, home: string | undefined): string {
   if (!home || !path.startsWith(home)) return path
   return `~${path.slice(home.replace(/\/$/, '').length)}`
+}
+
+/** Timeline text of a `branch_ready` event. */
+export function branchReadyText(item: Extract<TimelineItem, { kind: 'branch_ready' }>): string {
+  return item.updated ? lc.timeline.updated(item.branch, item.commits) : lc.timeline.ready(item.branch, item.commits, item.diffstat)
+}
+
+/** Timeline text of a `branch_action` event. */
+export function branchActionText(item: Extract<TimelineItem, { kind: 'branch_action' }>): string {
+  switch (item.action) {
+    case 'merged':
+      return lc.timeline.merged(item.branch, item.into ?? '', !!item.fastForward)
+    case 'checked_out':
+      return lc.timeline.checked_out(item.branch)
+    case 'discarded':
+      return lc.timeline.discarded(item.branch)
+    case 'pushed':
+      return lc.timeline.pushed(item.branch)
+  }
 }

@@ -42,6 +42,10 @@ export type TimelineItem =
   | { kind: 'restored'; key: string; n: number; mode: string; instruction: string; at: string }
   /** A push after a restore rewrote the branch. */
   | { kind: 'force_push'; key: string; branch: string; from: string; at: string }
+  /** Local repositories: the task branch was delivered into the owner's repository. */
+  | { kind: 'branch_ready'; key: string; branch: string; commits: number; diffstat: string; updated: boolean; previous?: string; at: string }
+  /** Local repositories: Merge / Check out / Discard / Push & open PR. */
+  | { kind: 'branch_action'; key: string; action: 'merged' | 'checked_out' | 'discarded' | 'pushed'; branch: string; into?: string; fastForward?: boolean; at: string }
   /** Steps a restore discarded: kept, shown collapsed and greyed. */
   | { kind: 'abandoned'; key: string; items: TimelineItem[]; at: string }
   /** One CI auto-fix step (docs/API.md "CI auto-fix"). */
@@ -272,6 +276,16 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
       case 'branch_force_pushed':
         items.push({ kind: 'force_push', key, branch: e.payload.branch, from: e.payload.from, at })
         break
+      case 'branch_ready': {
+        const b = e.payload
+        items.push({ kind: 'branch_ready', key, branch: b.branch, commits: b.commits, diffstat: b.diffstat, updated: b.updated, previous: b.previous, at })
+        break
+      }
+      case 'branch_action': {
+        const b = e.payload
+        items.push({ kind: 'branch_action', key, action: b.action, branch: b.branch, into: b.into, fastForward: b.fast_forward, at })
+        break
+      }
       default:
         // ready, started, heartbeat and unknown types are not shown.
         break

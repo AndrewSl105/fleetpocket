@@ -12,6 +12,8 @@ export function StatusBadge({ status, className }: { status: TaskStatus; classNa
         <span className="fm-blink" aria-hidden="true">
           ●
         </span>
+      ) : meta.glyph ? (
+        <span aria-hidden="true">{meta.glyph}</span>
       ) : (
         <Icon className="size-3" strokeWidth={2.5} aria-hidden="true" />
       )}
