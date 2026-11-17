@@ -20,6 +20,7 @@ const NewTaskPage = lazy(() => import('@/routes/NewTaskPage'))
 const ProjectsPage = lazy(() => import('@/routes/projects/ProjectsPage'))
 const ProjectEditPage = lazy(() => import('@/routes/projects/ProjectEditPage'))
 const SettingsPage = lazy(() => import('@/routes/SettingsPage'))
+const IntegrationsPage = lazy(() => import('@/routes/integrations/IntegrationsPage'))
 const CanvasPage = lazy(() => import('@/routes/canvas/CanvasPage'))
 // Only the first-run wizard needs it (and its QR code library); keep it out of the initial bundle.
 const SetupPage = lazy(() => import('@/setup/SetupPage').then((m) => ({ default: m.SetupPage })))
@@ -51,6 +52,7 @@ export function createAppRouter() {
         { path: 'projects', element: lazyPage(ProjectsPage) },
         { path: 'projects/new', element: lazyPage(ProjectEditPage) },
         { path: 'projects/:id', element: lazyPage(ProjectEditPage) },
+        { path: 'projects/:id/integrations', element: lazyPage(IntegrationsPage) },
         { path: 'settings', element: lazyPage(SettingsPage) },
         { path: '*', element: <NotFound /> },
       ],

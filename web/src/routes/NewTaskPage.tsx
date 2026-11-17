@@ -20,6 +20,7 @@ import { AttachButton, DropOverlay, PickedImages } from '@/components/attachment
 import { haptic } from '@/telegram/haptics'
 import { storage } from '@/lib/storage'
 import { t } from '@/i18n/en'
+import { IntegrationsLine } from '@/routes/integrations/IntegrationsLine'
 
 const LAST_PROJECT = 'fleetpocket.lastProject'
 const PROJECT_AGENT = 'project' // Radix Select items cannot have an empty value
@@ -260,6 +261,7 @@ export default function NewTaskPage() {
             onPaste={picker.onPaste}
           />
           {errors.prompt && <p className="text-xs text-destructive">{errors.prompt.message}</p>}
+          {projectId && <IntegrationsLine projectId={projectId} />}
           <div className="flex items-start gap-2">
             <AttachButton picker={picker} disabled={create.isPending} className="-ml-2" />
             <div className="min-w-0 flex-1 pt-1">

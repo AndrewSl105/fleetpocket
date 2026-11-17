@@ -3,6 +3,7 @@ import type { Agent, ApiEvent, HostNode, Project, Task } from '@/api/types'
 import { GROUPS } from '@/lib/status'
 import { addAttachment, addEvent, db, makeTask, MOCK_AGENTS, node, startRun, taskView } from './db'
 import { emitStatus, interruptRun, resumeAfterAnswer, setPush } from './simulator'
+import { integrationHandlers } from './integrations'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -135,6 +136,7 @@ function pushTask(task: Task) {
 }
 
 export const handlers = [
+  ...integrationHandlers(API, guard, err),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')

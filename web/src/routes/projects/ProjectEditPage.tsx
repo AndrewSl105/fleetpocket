@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { useFieldArray, useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Archive, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
+import { Archive, ChevronRight, Pencil, Plug, Plus, Star, Trash2, X } from 'lucide-react'
 import {
   errorMessage,
   useAddRepository,
@@ -227,6 +227,17 @@ function ProjectForm({ project }: { project?: Project }) {
             />
           ))}
         </Section>
+
+        {project && (
+          <Link to={`/projects/${project.id}/integrations`} className="flex min-h-11 items-center gap-3 fm-group px-3 py-2 hover:bg-muted">
+            <Plug className="size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{t.integrations.open}</span>
+              <span className="block text-xs text-muted-foreground">{t.integrations.openHint}</span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        )}
 
         <Section title={f.env}>
           <p className="-mt-2 text-xs text-muted-foreground">{f.envHint}</p>

@@ -150,3 +150,19 @@ describe('CI auto-fix', () => {
     expect(items[2]).toMatchObject({ phase: 'green', fixes: 1 })
   })
 })
+
+describe('integrations events', () => {
+  it('maps gateway calls, blocked hosts and the run summary', () => {
+    const items = buildTimeline([
+      ev('integrations', { servers: ['db', 'linear'], egress: 'allowlist' }, { runner: false }),
+      ev('mcp_call', { server: 'linear', tool: 'list_issues', ok: true, duration_ms: 412, args_bytes: 1, result_bytes: 2 }, { runner: false }),
+      ev('mcp_call', { server: 'linear', tool: 'delete_issue', ok: false, denied: 'denied' }, { runner: false }),
+      ev('egress_blocked', { host: 'status.linear.app' }, { runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['divider', 'mcp', 'mcp', 'egress'])
+    expect(items[0]).toMatchObject({ text: 'integrations:db, linear|allowlist' })
+    expect(items[1]).toMatchObject({ server: 'linear', tool: 'list_issues', ok: true, ms: 412 })
+    expect(items[2]).toMatchObject({ ok: false, denied: 'denied' })
+    expect(items[3]).toMatchObject({ host: 'status.linear.app' })
+  })
+})

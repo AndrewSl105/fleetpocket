@@ -106,6 +106,16 @@ test.describe('screens', () => {
     await shot(page, 'task-ci-green')
   })
 
+  test('integrations', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/projects/vatary/integrations')
+    await expect(page.getByRole('heading', { name: 'Vatary · Integrations' })).toBeVisible()
+    await expect(page.getByText('Tasks get: db, linear, sentry')).toBeVisible()
+    await shot(page, 'integrations')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

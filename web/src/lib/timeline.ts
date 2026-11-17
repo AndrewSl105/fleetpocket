@@ -32,6 +32,10 @@ export type TimelineItem =
   | { kind: 'ci'; key: string; status: string; name: string; url?: string; at: string }
   | { kind: 'done'; key: string; summary: string; noChanges: boolean; at: string }
   | { kind: 'error'; key: string; title: string; message: string; at: string }
+  /** One call through the MCP gateway (sizes and timing only). */
+  | { kind: 'mcp'; key: string; server: string; tool: string; ok: boolean; ms: number; denied?: 'denied' | 'limit'; error?: string; at: string }
+  /** The egress proxy refused a host (allowlist mode). */
+  | { kind: 'egress'; key: string; host: string; at: string }
   /** One CI auto-fix step (docs/API.md "CI auto-fix"). */
   | {
       kind: 'autofix'
@@ -222,6 +226,19 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
           fixes: a.fixes ?? 0,
           at,
         })
+        break
+      }
+      case 'mcp_call': {
+        const m = e.payload
+        items.push({ kind: 'mcp', key, server: m.server, tool: m.tool, ok: m.ok, ms: m.duration_ms ?? 0, denied: m.denied, error: m.error, at })
+        break
+      }
+      case 'egress_blocked':
+        items.push({ kind: 'egress', key, host: e.payload.host, at })
+        break
+      case 'integrations': {
+        const p = e.payload
+        items.push({ kind: 'divider', key, text: `integrations:${p.servers.join(', ')}|${p.egress}`, tone: p.warning ? 'warn' : 'muted', at })
         break
       }
       case 'diff_rejected':

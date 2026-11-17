@@ -1,5 +1,7 @@
 import { memo, useState } from 'react'
+import { toast } from 'sonner'
 import {
+  Ban,
   ChevronRight,
   CircleCheck,
   CircleX,
@@ -9,6 +11,7 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   OctagonAlert,
+  Plug,
   Sparkles,
   Wrench,
 } from 'lucide-react'
@@ -18,6 +21,8 @@ import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/Markdown'
 import { AttachmentGrid } from '@/components/attachments/AttachmentGrid'
 import { CopyButton } from '@/components/CopyButton'
+import { Button } from '@/components/ui/button'
+import { useAllowEgress, useTask } from '@/api/hooks'
 import { t } from '@/i18n/en'
 
 const tl = t.task.timeline
@@ -27,6 +32,10 @@ export function dividerText(text: string): string {
   if (text.startsWith('run_finished:')) {
     const code = text.slice('run_finished:'.length)
     return tl.runFinished(code === '' ? null : Number(code))
+  }
+  if (text.startsWith('integrations:')) {
+    const [servers, egress] = text.slice('integrations:'.length).split('|')
+    return tl.integrations(servers, egress)
   }
   if (text === 'interrupt') return tl.interrupt
   if (text === 'paused') return tl.paused
@@ -75,6 +84,49 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
           {item.summary}
           {item.error && <div className="mt-1 text-danger">{item.error}</div>}
         </div>
+      )}
+    </div>
+  )
+}
+
+/** A gateway call: like a tool row, with the server and the time it took. */
+function MCPRow({ item }: { item: Extract<TimelineItem, { kind: 'mcp' }> }) {
+  const failed = !item.ok
+  const label = item.tool ? tl.mcpCall(item.server, item.tool) : tl.mcpConnect(item.server)
+  const note = item.denied === 'denied' ? tl.mcpDenied : item.denied === 'limit' ? tl.mcpLimit : item.error
+  return (
+    <div className={cn('flex min-h-9 items-center gap-2 px-2 text-xs text-muted-foreground', failed && 'text-danger')}>
+      <Plug className="size-3.5 shrink-0" aria-hidden="true" />
+      <span className="shrink-0 fm-label">mcp</span>
+      <span className="truncate font-mono">{label}</span>
+      {note && <span className="truncate">· {note}</span>}
+      {item.ok && item.ms > 0 && <span className="ml-auto shrink-0 font-mono">{item.ms} ms</span>}
+      {failed && <CircleX className="ml-auto size-3.5 shrink-0" aria-label="failed" />}
+    </div>
+  )
+}
+
+/** A host the egress proxy refused, with "Allow for this project" (next run). */
+function EgressRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'egress' }>; taskId: number }) {
+  const task = useTask(taskId)
+  const allow = useAllowEgress(task.data?.project_id ?? '')
+  const [done, setDone] = useState(false)
+  return (
+    <div className="flex flex-wrap items-center gap-2 fm-ask px-3 py-2 text-sm">
+      <Ban className="size-4 shrink-0 text-danger" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-xs font-semibold break-all">{tl.blocked(item.host)}</div>
+        <div className="text-xs text-muted-foreground">{done ? tl.allowed(item.host) : tl.blockedHint}</div>
+      </div>
+      {!done && (
+        <Button
+          variant="outline"
+          className="h-11"
+          disabled={!task.data || allow.isPending}
+          onClick={() => allow.mutate(item.host, { onSuccess: () => { setDone(true); toast.success(tl.allowed(item.host)) } })}
+        >
+          {tl.allow}
+        </Button>
       )}
     </div>
   )
@@ -289,6 +341,10 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       )
     case 'autofix':
       return <AutoFixRow item={item} taskId={taskId} />
+    case 'mcp':
+      return <MCPRow item={item} />
+    case 'egress':
+      return <EgressRow item={item} taskId={taskId} />
     case 'question':
       return null
   }
