@@ -56,10 +56,10 @@ export function seedCosts() {
 
   // Vatary has a monthly budget it has used up: a new task waits.
   const vatary = db.projects.find((p) => p.id === 'vatary')
-  if (vatary) vatary.budget = { monthly_usd: 5 }
+  if (vatary) vatary.budget = { monthly_usd: 3.5 }
   const w = makeTask({ project_id: 'vatary', title: 'Archive old webhook logs', status: 'queued', created_at: ago(8), updated_at: ago(8) })
   addEvent(w.id, 'status', { status: 'queued' }, false, ago(8))
-  addEvent(w.id, 'budget', { phase: 'waiting', scope: 'project', project_id: 'vatary', spent_usd: 5.06, limit_usd: 5 }, false, ago(7))
+  addEvent(w.id, 'budget', { phase: 'waiting', scope: 'project', project_id: 'vatary', spent_usd: 3.9, limit_usd: 3.5 }, false, ago(7))
   Object.assign(w, { budget_wait: 'project', status_reason: 'waiting: budget', last_activity: 'waiting: budget', last_activity_at: ago(7) })
 }
 

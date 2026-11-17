@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 
 // Costs and budgets in mock mode (src/mocks/costs.ts seedCosts): Vatary has a
-// $5 monthly budget it has used up, so "Archive old webhook logs" waits; the
+// $3.50 monthly budget it has used up, so "Archive old webhook logs" waits; the
 // Bioma Codex task's cost is an estimate.
 
 test.beforeEach(async ({ page }) => {
@@ -24,7 +24,7 @@ test('the Costs screen: totals, projects, agents, days and CSV', async ({ page }
   await expect(page.getByText('Total', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'By project' })).toBeVisible()
   await expect(page.getByRole('link', { name: /Vatary/ })).toBeVisible()
-  await expect(page.getByText(/Budget: \$.* of \$5\.00/)).toBeVisible()
+  await expect(page.getByText(/Budget: \$.* of \$3\.50/)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'By agent' })).toBeVisible()
   await expect(page.getByText('≈$1.29').first()).toBeVisible()
   const download = page.waitForEvent('download')
@@ -52,7 +52,7 @@ test('project cards show the month against the budget; tasks show estimates', as
   await page.goto('/projects')
   const vatary = page.getByRole('link', { name: /Vatary/ })
   await expect(vatary.getByRole('meter', { name: 'Budget' })).toBeVisible()
-  await expect(vatary.getByText(/Budget: \$.* of \$5\.00/)).toBeVisible()
+  await expect(vatary.getByText(/Budget: \$.* of \$3\.50/)).toBeVisible()
   await page.goto('/')
   await page.getByRole('tab', { name: /Done/ }).click().catch(() => {})
   await page.goto('/tasks/' + (await taskId(page, 'Add a dark mode toggle')))

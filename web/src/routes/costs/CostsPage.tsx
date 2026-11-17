@@ -85,8 +85,8 @@ function Totals({ report }: { report: CostReport }) {
       )}
       {tot.api_equivalent_usd > 0 && <p className="mt-2 text-xs text-muted-foreground">{c.apiEquivalentHint}</p>}
       <div className="mt-3 fm-rule pt-3">
-        <div className="flex items-baseline justify-between gap-3 text-xs">
-          <span className="fm-label">{c.budget} · {c.thisMonth}</span>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
+          <span className="fm-label">{c.budget}</span>
           <span className="font-mono tabular-nums">
             {cap ? c.ofBudget(report.budget.month_cost_usd, cap) : `${usd(report.budget.month_cost_usd)} · ${c.noBudget}`}
           </span>
@@ -120,7 +120,7 @@ export default function CostsPage() {
               role="radio"
               aria-checked={range === r}
               onClick={() => setRange(r)}
-              className={cn('fm-btn flex h-11 items-center justify-center px-1 text-sm', range === r && 'fm-pressed bg-muted font-bold')}
+              className={cn('fm-btn flex h-11 items-center justify-center px-1 text-sm', range === r && 'fm-pressed font-bold')}
             >
               {c.range[r]}
             </button>
