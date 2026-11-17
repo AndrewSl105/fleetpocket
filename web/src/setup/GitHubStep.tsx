@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { t } from '@/i18n/en'
+import { st } from '@/i18n/setup'
 
 /** Message for the callback's ?github_error=<reason> redirect. */
 export function githubErrorMessage(reason: string | null): string | null {
   if (!reason) return null
-  return t.setup.githubErrors[reason as keyof typeof t.setup.githubErrors] ?? t.common.somethingWrong
+  return st.githubErrors[reason as keyof typeof st.githubErrors] ?? t.common.somethingWrong
 }
 
 /** GitHub's manifest flow is a top-level form POST; fetch cannot follow it. */
@@ -49,7 +50,7 @@ export function GitHubStep({ onNext }: { onNext: () => void }) {
       )
       postManifest(r.action_url, r.manifest)
     } catch (err) {
-      setError(isApiError(err) && err.status === 400 ? t.setup.badOrg : t.common.somethingWrong)
+      setError(isApiError(err) && err.status === 400 ? st.badOrg : t.common.somethingWrong)
       setBusy(false)
     }
   }
@@ -57,10 +58,10 @@ export function GitHubStep({ onNext }: { onNext: () => void }) {
   if (status.data?.github_configured) {
     return (
       <div className="space-y-3">
-        <p className="text-sm">{t.setup.githubReady}</p>
+        <p className="text-sm">{st.githubReady}</p>
         <div className="flex justify-end">
           <Button className="h-10 min-w-28" onClick={onNext}>
-            {t.setup.next}
+            {st.next}
           </Button>
         </div>
       </div>
@@ -69,21 +70,21 @@ export function GitHubStep({ onNext }: { onNext: () => void }) {
 
   return (
     <form onSubmit={submit} className="space-y-3" noValidate>
-      <p className="text-sm">{t.setup.githubIntro}</p>
+      <p className="text-sm">{st.githubIntro}</p>
       <fieldset className="space-y-2 text-sm">
-        <legend className="sr-only">{t.setup.githubOwner}</legend>
+        <legend className="sr-only">{st.githubOwner}</legend>
         <label className="flex min-h-10 items-center gap-2">
           <input type="radio" name="owner" checked={owner === 'user'} onChange={() => setOwner('user')} />
-          {t.setup.githubPersonal}
+          {st.githubPersonal}
         </label>
         <label className="flex min-h-10 items-center gap-2">
           <input type="radio" name="owner" checked={owner === 'org'} onChange={() => setOwner('org')} />
-          {t.setup.githubOrg}
+          {st.githubOrg}
         </label>
       </fieldset>
       {owner === 'org' && (
         <div className="space-y-1">
-          <Label htmlFor="setup-org">{t.setup.orgName}</Label>
+          <Label htmlFor="setup-org">{st.orgName}</Label>
           <Input id="setup-org" value={org} onChange={(e) => setOrg(e.target.value)} autoComplete="off" className="h-10" />
         </div>
       )}
@@ -94,10 +95,10 @@ export function GitHubStep({ onNext }: { onNext: () => void }) {
       )}
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="outline" className="h-10" onClick={onNext}>
-          {t.setup.skip}
+          {st.skip}
         </Button>
         <Button type="submit" className="h-10 min-w-28" disabled={busy || (owner === 'org' && !org.trim())}>
-          {t.setup.createApp}
+          {st.createApp}
         </Button>
       </div>
     </form>

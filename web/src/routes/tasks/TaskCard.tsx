@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Task } from '@/api/types'
 import { StatusBadge } from '@/components/StatusBadge'
 import { HostChip } from '@/components/HostChip'
+import { UserBadge } from '@/components/UserBadge'
 import { relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
@@ -45,6 +46,7 @@ export function TaskCard({ task, projectName, selected }: { task: Task; projectN
       )}
       {line && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{line}</p>}
       <div className="mt-1 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+        <UserBadge user={task.created_by} className="shrink-0" />
         <span className="truncate">{projectName ?? task.project_id}</span>
         {task.node && (
           <>

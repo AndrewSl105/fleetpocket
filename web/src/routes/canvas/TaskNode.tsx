@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
+import { UserBadge } from '@/components/UserBadge'
 import { Maximize2, Minus, X } from 'lucide-react'
 import type { ApiEvent, Task, TaskStatus, TaskView } from '@/api/types'
 import { useAnswer, useTask, useTaskEvents } from '@/api/hooks'
@@ -83,6 +84,7 @@ export const TaskNode = memo(function TaskNode({ task, win, host, focused, z, le
             <h3 id={`node-${task.id}-title`} className="min-w-0 flex-1 truncate text-[13px] font-bold" title={task.title}>
               #{task.id} · {task.title}
             </h3>
+            <UserBadge user={task.created_by} className="shrink-0" />
             <span className="shrink-0 text-[11px]">{t.agents[task.agent]}</span>
             <div className="flex shrink-0">
               <BarButton label={tc.open} asLink={`/tasks/${task.id}`}>
@@ -189,7 +191,8 @@ function NodeBody({ task: listed, level, host, onPointerDown }: { task: Task; le
           <span className="flex min-w-0 items-center gap-2">
             <Light status={task.status} />
             <span className="truncate">
-              #{task.id} · {derived.now.verb}
+              #{task.id}
+              {task.created_by && ` · ${task.created_by.initials}`} · {derived.now.verb}
             </span>
           </span>
         )}
@@ -197,6 +200,7 @@ function NodeBody({ task: listed, level, host, onPointerDown }: { task: Task; le
           <span className="flex w-full min-w-0 items-center gap-2">
             <Light status={task.status} />
             <span className="shrink-0">#{task.id}</span>
+            <UserBadge user={task.created_by} className="shrink-0" />
             <span className="shrink-0 font-semibold">{derived.now.verb}</span>
             <span className="min-w-0 flex-1 truncate fp-node-muted">{derived.now.target}</span>
             <span className="shrink-0 tabular-nums">{usd(cost, task.cost_estimated, task.cost_unknown)}</span>

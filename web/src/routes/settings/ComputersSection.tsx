@@ -22,6 +22,11 @@ const c = t.computers
 const AGENT_IMAGE = 'ghcr.io/andrewsl105/fleetpocket-agent:latest'
 
 /** Settings → Computers: register machines that run tasks (fleetpocket-node). */
+import { UserBadge } from '@/components/UserBadge'
+import { Switch } from '@/components/ui/switch'
+import { useRole, useShareNode } from '@/api/team'
+import { tm } from '@/i18n/team'
+
 export function ComputersSection() {
   const nodes = useNodes()
   // Node online/offline changes arrive with the task list's WebSocket scope.
@@ -85,6 +90,10 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
   const update = useUpdateNode(node.id)
   const rotate = useRotateNodeToken(node.id)
   const remove = useDeleteNode(node.id)
+  const role = useRole()
+  const share = useShareNode()
+  // Team mode: owners and admins manage a computer; admins share it with the team.
+  const manage = !role.team || role.isAdmin || node.created_by?.id === role.userId
 
   return (
     <li className="fm-group p-3.5">
@@ -94,6 +103,8 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">{node.name}</span>
             <span className="font-mono text-xs text-muted-foreground">{node.id}</span>
+            <UserBadge user={node.created_by} withName className="text-muted-foreground" />
+            {role.team && node.shared && <span className="fm-label text-[10px]">{tm.shared}</span>}
           </div>
           <StatusDot node={node} />
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
@@ -111,6 +122,18 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
           </div>
         </div>
       </div>
+      {role.team && role.isAdmin && (
+        <label className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-rule pt-2 text-sm">
+          <span>{tm.shareNode}</span>
+          <Switch
+            checked={!!node.shared}
+            disabled={share.isPending}
+            onCheckedChange={(shared) => share.mutate({ id: node.id, shared }, { onError: (e) => toast.error(errorMessage(e)) })}
+            aria-label={tm.shareNode}
+          />
+        </label>
+      )}
+      {manage && (
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Label htmlFor={`cap-${node.id}`} className="text-xs text-muted-foreground">
           {c.capacity}
@@ -155,6 +178,7 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
           </Button>
         </div>
       </div>
+      )}
     </li>
   )
 }

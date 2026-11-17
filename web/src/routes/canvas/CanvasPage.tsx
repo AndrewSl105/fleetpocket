@@ -4,6 +4,8 @@ import { Eye, LayoutGrid, Laptop, Maximize, Minus, Plus, Server } from 'lucide-r
 import type { Task } from '@/api/types'
 import { useNodes, useTasks } from '@/api/hooks'
 import { useTasksSubscription } from '@/realtime/RealtimeProvider'
+import { usePeopleScope } from '@/lib/people'
+import { PeopleFilter } from '@/components/PeopleFilter'
 import { hostInfo, hostOrder } from '@/lib/hosts'
 import { storage } from '@/lib/storage'
 import { cn } from '@/lib/utils'
@@ -79,10 +81,13 @@ function Canvas() {
   const [saved] = useState(load)
   const [filter, setFilter] = useState<Filter>(saved?.filter ?? 'live')
   const [mode, setMode] = useState<Mode>(saved?.mode ?? 'node')
-  const active = useTasks({ group: 'active' })
-  const prOpen = useTasks({ group: 'pr_open' })
-  const done = useTasks({ group: 'done' })
-  const failed = useTasks({ group: 'failed' })
+  // Team mode: Mine | Everyone and the person filter.
+  const people = usePeopleScope()
+  const createdBy = people.createdBy
+  const active = useTasks({ group: 'active', createdBy })
+  const prOpen = useTasks({ group: 'pr_open', createdBy })
+  const done = useTasks({ group: 'done', createdBy })
+  const failed = useTasks({ group: 'failed', createdBy })
   const nodes = useNodes()
 
   const [hidden, setHidden] = useState<number[]>(saved?.hidden ?? [])
@@ -261,6 +266,12 @@ function Canvas() {
             </button>
           ))}
         </div>
+        {people.team && (
+          <>
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+            <PeopleFilter people={people} className="max-w-72" />
+          </>
+        )}
         <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
         <div role="radiogroup" aria-label={tc.viewMode} className="flex">
           {(['terminal', 'node'] as const).map((m) => (

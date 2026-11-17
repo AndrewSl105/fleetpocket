@@ -3,7 +3,11 @@
 import { usd } from '@/lib/format'
 
 const scopeName = (scope: string | undefined, project?: string) =>
-  scope === 'project' ? `${project ?? 'This project'}'s monthly budget` : 'The global monthly budget'
+  scope === 'project'
+    ? `${project ?? 'This project'}'s monthly budget`
+    : scope === 'user'
+      ? "The creator's monthly budget"
+      : 'The global monthly budget'
 
 export const c = {
   title: 'Costs',
@@ -23,6 +27,8 @@ export const c = {
   tokens: (input: number, output: number) => `${compact(input)} in · ${compact(output)} out`,
   byProject: 'By project',
   byAgent: 'By agent',
+  byPerson: 'By person',
+  personBudget: (usdValue: number) => `budget ${usd(usdValue)} a month`,
   byDay: 'By day',
   byWeek: 'By week',
   byMonth: 'By month',
@@ -61,7 +67,11 @@ export const c = {
   // Task header and timeline
   autofixShare: (v: number) => `incl. ${usd(v)} auto-fix`,
   waitingBudget: (scope: string | null) =>
-    scope === 'project' ? "Waiting: budget. This project's monthly budget is used up." : 'Waiting: budget. The monthly budget is used up.',
+    scope === 'project'
+      ? "Waiting: budget. This project's monthly budget is used up."
+      : scope === 'user'
+        ? "Waiting: budget. The creator's monthly budget is used up."
+        : 'Waiting: budget. The monthly budget is used up.',
   startAnyway: 'Start anyway',
   started: 'Starting despite the budget',
   runCost: (cost: string) => `cost ${cost}`,

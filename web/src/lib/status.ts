@@ -7,7 +7,6 @@ import {
   CircleX,
   GitBranch,
   GitPullRequest,
-  KeyRound,
   Loader,
   Upload,
   Wrench,
@@ -33,7 +32,7 @@ export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: Lucid
   failed: { label: t.status.failed, tone: 'danger', icon: CircleX },
   cancelled: { label: t.status.cancelled, tone: 'paused', icon: CircleSlash },
   // Team mode: the creator has no key for the agent; no runner started.
-  needs_key: { label: t.status.needs_key, tone: 'ask', icon: KeyRound },
+  needs_key: { label: t.status.needs_key, tone: 'ask', icon: CircleHelp },
 }
 
 export const ALL_STATUSES = Object.keys(STATUS) as TaskStatus[]

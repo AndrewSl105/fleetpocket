@@ -87,6 +87,7 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
         <h3 className="min-w-0 flex-1 truncate text-[13px] font-bold" title={task.title}>
           {task.title}
         </h3>
+        {task.created_by && <span className="shrink-0 font-mono text-[11px] font-bold" title={task.created_by.name}>{task.created_by.initials}</span>}
         <span className="shrink-0 text-[11px] opacity-80">
           {t.agents[task.agent]} · #{task.id}
         </span>

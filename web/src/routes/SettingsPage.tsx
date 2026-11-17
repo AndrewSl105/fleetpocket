@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { useHealth, useMode, useStats } from '@/api/hooks'
 import { useSession } from '@/auth/AuthGate'
@@ -16,7 +16,14 @@ import { IdeasSection } from './settings/IdeasSection'
 import { GlobalServersSection } from './integrations/GlobalServersSection'
 import { CostSettingsSection } from './settings/CostSettingsSection'
 import { GitHubSection } from './settings/GitHubSection'
-import { Link } from 'react-router'
+import { TeamSection } from './settings/TeamSection'
+import { MyKeysSection } from './settings/MyKeysSection'
+import { TelegramLinkSection } from './settings/TelegramLinkSection'
+import { ProfileSection } from './settings/ProfileSection'
+import { UserBadge } from '@/components/UserBadge'
+import { useRole, useCurrentUser } from '@/api/team'
+import { tm } from '@/i18n/team'
+import { Link, useLocation } from 'react-router'
 import { ChevronRight } from 'lucide-react'
 import { c } from '@/i18n/costs'
 import { sk } from '@/i18n/skills'
@@ -47,11 +54,28 @@ export default function SettingsPage() {
   const health = useHealth()
   const theme = useTheme()
   const mode = useMode()
+  const role = useRole()
+  const user = useCurrentUser()
+  // Admin-only sections (the server refuses the rest); everyone has My keys, Telegram, Profile.
+  const admin = role.isAdmin
+  // /settings#keys (the needs_key link), #profile, #team…: scroll there once rendered.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (!hash) return
+    const id = window.setTimeout(() => document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' }), 150)
+    return () => window.clearTimeout(id)
+  }, [hash, role.team])
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl space-y-8 px-4 pt-4 pb-8">
         <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{s.title}</h1>
+        {user && (
+          <p className="flex items-center gap-2 text-sm" data-testid="signed-in-as">
+            <UserBadge user={{ id: user.id, name: user.initials ? user.name : user.email, initials: user.initials }} />
+            {tm.signedInAs(user.name)} · {tm.roles[user.role]}
+          </p>
+        )}
 
         <section>
           <h2 className="mb-3 text-sm font-bold">{s.stats}</h2>
@@ -119,14 +143,26 @@ export default function SettingsPage() {
 
         {mode === 'local' && <GitHubSection />}
 
+        <TeamSection teamEnabled={role.team} isAdmin={admin} local={mode !== 'server'} />
+        {role.team && (
+          <>
+            <MyKeysSection />
+            <TelegramLinkSection />
+            <ProfileSection key={user?.id} />
+          </>
+        )}
+
         <ComputersSection />
 
-        <AutoFixSection />
-
-        <CheckpointsSection />
-        <IdeasSection />
-        <CostSettingsSection />
-        <GlobalServersSection />
+        {admin && (
+          <>
+            <AutoFixSection />
+            <CheckpointsSection />
+            <IdeasSection />
+            <CostSettingsSection />
+            <GlobalServersSection />
+          </>
+        )}
 
         <section>
           <h2 className="mb-3 text-sm font-bold">{s.about}</h2>

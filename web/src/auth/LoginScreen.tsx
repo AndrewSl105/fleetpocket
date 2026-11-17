@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { api, call, CSRF } from '@/api/client'
 import { isApiError } from '@/api/errors'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,18 @@ export function loginErrorMessage(e: unknown): string {
 
 export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'telegram') => void }) {
   const [password, setPassword] = useState('')
+  // Team mode: members sign in with their email; the owner may leave it empty (break-glass).
+  const [team, setTeam] = useState(false)
+  const [email, setEmail] = useState('')
+  useEffect(() => {
+    let live = true
+    call(api.GET('/api/v1/setup/status'))
+      .then((s) => live && setTeam(!!s.team_enabled))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
   const [totp, setTotp] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -31,7 +43,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'teleg
     setBusy(true)
     setError(null)
     try {
-      const s = await call(api.POST('/api/v1/auth/login', { params: { header: CSRF }, body: { password, totp: code } }))
+      const s = await call(api.POST('/api/v1/auth/login', { params: { header: CSRF }, body: { password, totp: code, ...(email.trim() ? { email: email.trim() } : {}) } }))
       onSuccess(s.kind)
     } catch (e) {
       setError(loginErrorMessage(e))
@@ -64,6 +76,13 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'teleg
               <h1 className="text-[18px] font-bold">{t.auth.title}</h1>
             </div>
           </div>
+          {team && (
+            <div className="space-y-1">
+              <Label htmlFor="email">{t.auth.email}</Label>
+              <Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10" />
+              <p className="text-xs text-muted-foreground">{t.auth.emailHint}</p>
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="password">{t.auth.password}</Label>
             <Input

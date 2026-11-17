@@ -1,6 +1,7 @@
 import type { TaskGroup } from '@/lib/status'
 
-export type TaskFilter = { group: TaskGroup; project?: string }
+/** `createdBy` (team mode): keep one person's tasks (Mine, or the person filter). */
+export type TaskFilter = { group: TaskGroup; project?: string; createdBy?: number }
 
 export const keys = {
   tasks: {

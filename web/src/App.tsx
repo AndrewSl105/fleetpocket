@@ -37,6 +37,8 @@ const IdeasArchivePage = lazy(() => import('@/routes/ideas/screens').then((m) =>
 // Local mode only (npx jungle-monkey): Docker, agent, a folder, GitHub, the first task.
 const OnboardingPage = lazy(() => import('@/local/OnboardingPage'))
 const SetupPage = lazy(() => import('@/setup/SetupPage').then((m) => ({ default: m.SetupPage })))
+// Team mode: an invite link opens the signup page before any session exists.
+const SignupPage = lazy(() => import('@/auth/SignupPage'))
 
 function lazyPage(Page: React.ComponentType) {
   return (
@@ -100,6 +102,7 @@ export function createQueryClient() {
 export function App({ runtime }: { runtime: Runtime }) {
   const [queryClient] = useState(createQueryClient)
   const [router] = useState(createAppRouter)
+  const [signingUp, setSigningUp] = useState(() => runtime.mode === 'browser' && window.location.pathname === '/signup')
   return (
     <ErrorBoundary>
       <RuntimeProvider runtime={runtime}>
@@ -110,6 +113,10 @@ export function App({ runtime }: { runtime: Runtime }) {
               {runtime.mode === 'browser' && window.location.pathname === '/setup' ? (
                 <Suspense fallback={<PageSpinner />}>
                   <SetupPage />
+                </Suspense>
+              ) : signingUp ? (
+                <Suspense fallback={<PageSpinner />}>
+                  <SignupPage onDone={() => setSigningUp(false)} />
                 </Suspense>
               ) : (
                 <AuthGate>
