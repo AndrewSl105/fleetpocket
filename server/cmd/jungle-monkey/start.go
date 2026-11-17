@@ -173,7 +173,7 @@ func runStart(args []string) error {
 			}
 		}
 	}
-	defer os.Remove(p.PIDFile())
+	defer func() { _ = os.Remove(p.PIDFile()) }()
 	return app.Serve(ctx, cancel, cfg, opts)
 }
 

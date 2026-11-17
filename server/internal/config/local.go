@@ -216,6 +216,6 @@ func PickPort(preferred int) int {
 	if err != nil {
 		return preferred
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port
 }

@@ -170,7 +170,7 @@ func (s *Server) Handler() http.Handler {
 	} else {
 		root.Handle("/", api)
 	}
-	var h http.Handler = s.setupGate(root)
+	h := http.Handler(s.setupGate(root))
 	if s.Local != nil {
 		h = s.localHostCheck(h)
 	}
