@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkBash, checkTool } from "../src/policy.ts";
+import { checkBash, checkTool, matchGlob } from "../src/policy.ts";
 
 const WS = "/workspace";
 
@@ -145,4 +145,29 @@ test("attachments are readable but read-only", () => {
 test("other agents' key names are not Claude credentials", () => {
   assert.equal(checkBash("grep -rn OPENAI_API_KEY src").allow, true);
   assert.equal(checkBash("CURSOR_API_KEY=test npm test").allow, true);
+});
+
+test("file tools may not write outside the workspace (except /tmp)", () => {
+  assert.equal(checkTool("Write", { file_path: "/etc/hosts" }, "/workspace").allow, false);
+  assert.equal(checkTool("Edit", { file_path: "../other/x" }, "/workspace").allow, false);
+  assert.equal(checkTool("Write", { file_path: "/tmp/scratch.txt" }, "/workspace").allow, true);
+  assert.equal(checkTool("Read", { file_path: "/etc/hosts" }, "/workspace").allow, true);
+});
+
+test("ownership allow-list denies writes outside the subtask's globs", () => {
+  const opts = { ownedPaths: ["server/internal/foo/**", "docs/*.md"] };
+  assert.equal(checkTool("Write", { file_path: "/workspace/server/internal/foo/a/b.go" }, WS, opts).allow, true);
+  assert.equal(checkTool("Edit", { file_path: "docs/API.md" }, WS, opts).allow, true);
+  assert.equal(checkTool("Write", { file_path: "/tmp/x" }, WS, opts).allow, true);
+  const d = checkTool("Write", { file_path: "/workspace/web/src/a.ts" }, WS, opts);
+  assert.equal(d.allow, false);
+  assert.match((d as { reason: string }).reason, /owns only/);
+  assert.equal(checkTool("Edit", { file_path: "docs/sub/x.md" }, WS, opts).allow, false);
+  assert.equal(checkTool("Read", { file_path: "/workspace/web/src/a.ts" }, WS, opts).allow, true);
+  assert.equal(checkTool("Write", { file_path: "/workspace/web/src/a.ts" }, WS, {}).allow, true);
+});
+
+test("matchGlob escapes regex characters", () => {
+  assert.equal(matchGlob("a.b/(x)+.ts", "a.b/(x)+.ts"), true);
+  assert.equal(matchGlob("a.b/*.ts", "aXb/c.ts"), false);
 });

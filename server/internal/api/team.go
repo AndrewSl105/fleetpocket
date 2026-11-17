@@ -55,6 +55,8 @@ const (
 	// PolicyOwnSchedule / PolicyOwnIdea: the same for schedules and ideas.
 	PolicyOwnSchedule
 	PolicyOwnIdea
+	// PolicyOwnPipeline: plan approval and other pipeline actions.
+	PolicyOwnPipeline
 	// PolicyAdmin: admins only.
 	PolicyAdmin
 )
@@ -113,7 +115,7 @@ func (s *Server) policy(p Policy, next http.HandlerFunc) http.HandlerFunc {
 				forbid(w, "admins only")
 				return
 			}
-		case PolicyOwnTask, PolicyOwnSchedule, PolicyOwnIdea:
+		case PolicyOwnTask, PolicyOwnSchedule, PolicyOwnIdea, PolicyOwnPipeline:
 			if !s.ownerCheck(w, r, p, a) {
 				return
 			}
@@ -152,6 +154,9 @@ func (s *Server) ownerCheck(w http.ResponseWriter, r *http.Request, p Policy, a 
 	case PolicyOwnIdea:
 		kind = "idea"
 		owner, err = s.Store.AuthorOf(r.Context(), "ideas", id)
+	case PolicyOwnPipeline:
+		kind = "pipeline"
+		owner, err = s.Store.AuthorOf(r.Context(), "pipelines", id)
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		return true

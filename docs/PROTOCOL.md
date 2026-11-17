@@ -15,7 +15,7 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 | type | fields | meaning |
 |---|---|---|
-| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email, allow_empty?}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}`, `checkpoints?{run_id}`, `resume_session_ref?`, `check?{command, timeout_sec}` (`timeout_sec` default 600, max 3600) | first line, starts the session |
+| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email, allow_empty?}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}`, `checkpoints?{run_id}`, `resume_session_ref?`, `check?{command, timeout_sec}` (`timeout_sec` default 600, max 3600), `subagents?` (`[{name, description, prompt, model?, tools}]`, ≤ 5, name `^[a-z][a-z0-9-]{1,31}$`), `owned_paths?` (≤ 50 repository-relative globs) | first line, starts the session |
 | `answer` | `question_id`, `text` | reply to a pending question. An answer that arrives before its question is kept and used when the question is asked. |
 | `message` | `text` | extra user message injected into the running session. A run handles one prompt: input closes after the first turn's result, so a message that arrives after that is dropped. Codex and Cursor cannot take input mid-turn: a message that arrives during the turn runs as one more turn after it. **Fleetpocket does not send it**: it queues messages and starts them as the next run (API.md). |
 | `interrupt` | — | stop the current turn, keep the session. The run then ends as `done` (summary "Interrupted by the user.") with whatever was committed; send a follow-up as a new run with `resume_session_id`. |
@@ -25,6 +25,14 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 - Before the session starts the runner writes each skill folder where the agent discovers project skills: Claude `/workspace/.claude/skills/<slug>/<path>` (`settingSources: ["project"]`), Cursor `/workspace/.cursor/skills/<slug>/<path>` (`local.settingSources: ["project"]`). Each written folder is added to `.git/info/exclude`, so skills never reach a commit. When the repository already has that folder, the repository's copy wins: the runner skips the skill and emits `assistant_text` noting the skip. Codex has no skills input in `@openai/codex-sdk`: the runner appends each skill's name, description and body to its `developer_instructions`.
 - `output: "artifacts"`: the Claude policy denies `Write`/`Edit`/`MultiEdit`/`NotebookEdit` outside `.fleetpocket/out/`, and the runner skips its final commit (`done.no_changes` is `true`). Codex and Cursor have no hook; the server is to discard repository changes after the run (not live yet, so the API refuses outputs other than `pr`; DECISIONS.md).
+
+### Subagents
+
+`subagents` (Claude only; Codex and Cursor ignore it) lets the lead agent delegate to named subagents. When it is non-empty the runner adds the SDK's subagent tool (`Agent` in `@anthropic-ai/claude-agent-sdk` 0.3.299) to `tools` and `allowedTools` and passes the SDK's `agents` option: per entry `{description, prompt, model?, tools, disallowedTools: ["AskUserQuestion", "Agent"]}`. `tools` is filtered to the runner's pre-approved tools (`Read Write Edit Glob Grep Bash WebSearch WebFetch TodoWrite`) and the run's MCP servers (`mcp__<name>…`); only the lead agent asks the owner and subagents cannot start subagents. `model` is an SDK model alias or id; absent inherits the lead agent's model. The `PreToolUse` policy hook runs for subagent tool calls too (they carry `agent_id`), so every rule above, artifacts mode included, applies to them. Absent or empty: the run is unchanged.
+
+### Ownership
+
+`owned_paths` is set for a pipeline build subtask (SPEC-server "Pipelines"). Claude's policy then denies `Write`/`Edit`/`MultiEdit`/`NotebookEdit` on any path that matches none of the globs (`/tmp` stays writable), with a reason naming the owned globs; reads are unaffected. Globs are relative to `/workspace`; a segment matches like Go's `path.Match` (`*`, `?`) and `**` spans any number of segments, the same rules as `server/internal/pipelines/glob.go`. Codex and Cursor have no hook, so for every provider the server checks the diff after the run. Absent or empty: no restriction.
 
 ### Checkpoints
 
@@ -55,9 +63,9 @@ Every event has `type`, `ts` (RFC 3339, UTC, milliseconds) and `seq` (monotonic 
 |---|---|
 | `ready` | `runner_version` |
 | `started` | `session_id`, `model`, `auth?` (`api_key` \| `subscription`) |
-| `assistant_text` | `text` |
-| `tool_use` | `tool`, `summary` (short, human-readable, e.g. "Edit src/tables/export.ts") |
-| `tool_result` | `tool`, `ok`, `summary?` |
+| `assistant_text` | `text`, `subagent?` |
+| `tool_use` | `tool`, `summary` (short, human-readable, e.g. "Edit src/tables/export.ts"), `subagent?` |
+| `tool_result` | `tool`, `ok`, `summary?`, `subagent?` |
 | `question` | `question_id`, `text`, `options?` (string array) |
 | `usage` | `cost_usd_total`, `input_tokens`, `output_tokens`, `turns`, `cache_read_tokens?`, `cache_write_tokens?` |
 | `committed` | `sha`, `files_changed`, `insertions`, `deletions` |
@@ -67,6 +75,8 @@ Every event has `type`, `ts` (RFC 3339, UTC, milliseconds) and `seq` (monotonic 
 | `paused` | `session_id`, `reason` (`question_timeout`), `question_id` |
 | `error` | `code`, `message`, `session_id?` |
 | `heartbeat` | — (every 15 s) |
+
+`subagent` names the subagent behind a `tool_use`/`tool_result` (SDK frames with `parent_tool_use_id`, mapped through the lead agent's `Agent` call's `subagent_type`); absent for the lead agent. The SDK forwards only subagent tool calls by default (`forwardSubagentText` is not set), so subagent text is not streamed; the subagent's report reaches the lead agent as the `Agent` tool result. `usage` already covers subagents: the SDK's result `modelUsage` and `total_cost_usd` include every model call of the query, subagents included.
 
 Error codes: `no_auth`, `bad_command`, `commit_failed`, `limit_exceeded`, `sdk_error`, `internal`.
 

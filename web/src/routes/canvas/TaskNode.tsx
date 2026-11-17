@@ -202,7 +202,10 @@ function NodeBody({ task: listed, level, host, onPointerDown }: { task: Task; le
             <span className="shrink-0">#{task.id}</span>
             <UserBadge user={task.created_by} className="shrink-0" />
             <span className="shrink-0 font-semibold">{derived.now.verb}</span>
-            <span className="min-w-0 flex-1 truncate fp-node-muted">{derived.now.target}</span>
+            <span className="min-w-0 flex-1 truncate fp-node-muted">
+              {derived.now.via ? `${tn.via(derived.now.via)} · ` : ''}
+              {derived.now.target}
+            </span>
             <span className="shrink-0 tabular-nums">{usd(cost, task.cost_estimated, task.cost_unknown)}</span>
           </span>
         )}
@@ -270,7 +273,10 @@ function NowPanel({ now, taskId, question }: { now: Activity; taskId: number; qu
     <div className="fp-node-now flex shrink-0 gap-3" data-kind={now.kind}>
       <Glyph kind={now.kind} />
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[12px] font-semibold tracking-[1px] uppercase">{now.verb}</p>
+        <p className="font-mono text-[12px] font-semibold tracking-[1px] uppercase">
+          {now.verb}
+          {now.via && <span className="fp-node-muted ml-2 normal-case tracking-normal">{tn.via(now.via)}</span>}
+        </p>
         {question ? <InlineQuestion item={question} taskId={taskId} /> : <p className="fp-node-muted truncate font-mono text-[12px]" title={now.target}>{now.target}</p>}
       </div>
     </div>

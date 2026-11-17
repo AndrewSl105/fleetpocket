@@ -23,6 +23,14 @@ const tool = (name: string, summary: string, ok: boolean | null = true): Timelin
   at: '2026-11-17T10:00:00Z',
 })
 
+describe('subagents', () => {
+  it('carries the subagent as via', () => {
+    const item: TimelineItem = { kind: 'tool', key: 'x', tool: 'Grep', summary: 'Grep router', ok: null, subagent: 'explorer', at: '2026-11-17T10:00:00Z' }
+    expect(classify(item)).toMatchObject({ kind: 'read', via: 'explorer' })
+    expect(classify(tool('Grep', 'Grep router'))).not.toHaveProperty('via')
+  })
+})
+
 describe('classifyTool', () => {
   it.each(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead'])('%s is read', (name) => {
     expect(classifyTool(name, `${name} src/a.ts`).kind).toBe('read')

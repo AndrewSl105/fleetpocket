@@ -15,6 +15,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/ideas"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
+	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
@@ -43,10 +44,12 @@ type GitHub interface {
 type DiffFunc func(ctx context.Context, t *store.Task, repo *store.Repository, limit int) (diff string, truncated bool, err error)
 
 type Server struct {
-	Cfg      *config.Config
-	Store    *store.Store
-	Tasks    *tasks.Service
-	Projects *projects.Service
+	// Pipelines drives pipelines; nil disables the pipeline endpoints.
+	Pipelines *pipelinerun.Driver
+	Cfg       *config.Config
+	Store     *store.Store
+	Tasks     *tasks.Service
+	Projects  *projects.Service
 	// SkillScanner is the secrets scan for skill files; nil skips it (SECRETS_SCAN=off).
 	SkillScanner skills.SecretsScanner
 	Auth         *auth.Manager
@@ -187,6 +190,12 @@ func (s *Server) Handler() http.Handler {
 	route("GET /api/v1/tasks/{id}/events", PolicyRead, s.taskEvents)
 	route("GET /api/v1/tasks/{id}/runs", PolicyRead, s.taskRuns)
 	route("GET /api/v1/tasks/{id}/diff", PolicyRead, s.taskDiff)
+	route("GET /api/v1/tasks/{id}/artifacts", PolicyRead, s.listArtifacts)
+	route("GET /api/v1/pipeline-templates", PolicyRead, s.listPipelineTemplates)
+	route("GET /api/v1/pipelines", PolicyRead, s.listPipelines)
+	route("POST /api/v1/pipelines", PolicyWrite, s.createPipeline)
+	route("GET /api/v1/pipelines/{id}", PolicyRead, s.getPipeline)
+	route("POST /api/v1/pipelines/{id}/{action}", PolicyOwnPipeline, s.pipelineAction)
 	route("GET /api/v1/tasks/{id}/attachments/{attachmentId}", PolicyRead, s.attachment)
 	route("POST /api/v1/tasks/{id}/answer", PolicyOwnTask, s.answer)
 	route("POST /api/v1/tasks/{id}/message", PolicyOwnTask, s.message)

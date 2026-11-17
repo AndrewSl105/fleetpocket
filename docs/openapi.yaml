@@ -2757,6 +2757,75 @@ paths:
         '200': { description: Metrics, content: { text/plain: { schema: { type: string } } } }
         '403': { $ref: '#/components/responses/Error' }
 
+  /tasks/{id}/artifacts:
+    get:
+      summary: Latest version of each artifact the task produced (.fleetpocket/out)
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      responses:
+        '200': { description: Artifacts, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/TaskArtifact' } } } } } } }
+        '404': { description: Unknown task }
+  /pipeline-templates:
+    get:
+      summary: Pipeline templates and the plan.json JSON Schema
+      responses:
+        '200': { description: Templates, content: { application/json: { schema: { type: object, required: [items, plan_schema], properties: { items: { type: array, items: { $ref: '#/components/schemas/PipelineTemplate' } }, plan_schema: { type: object } } } } } }
+  /pipelines:
+    get:
+      summary: Pipelines, newest first (without stages)
+      parameters: [{ name: project, in: query, schema: { type: string } }]
+      responses:
+        '200': { description: Pipelines, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Pipeline' } } } } } } }
+    post:
+      summary: Start a pipeline from a template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template, project_id, prompt]
+              properties:
+                template: { type: string }
+                project_id: { type: string }
+                repository_id: { type: integer, format: int64, description: Defaults to the project's default repository }
+                title: { type: string }
+                prompt: { type: string }
+                budget_usd: { type: number, description: Sum of the pipeline's task costs at which no new stage starts }
+                max_parallel: { type: integer, minimum: 1, maximum: 10, description: Default 3 }
+                stages:
+                  type: object
+                  description: Per-stage overrides by stage key
+                  additionalProperties: { type: object, properties: { provider: { type: string, enum: [claude, codex, cursor] }, model: { type: string }, node: { type: string } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Pipeline' } } } }
+        '400': { description: Invalid input }
+  /pipelines/{id}:
+    get:
+      summary: A pipeline with its stages
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      responses:
+        '200': { description: Pipeline, content: { application/json: { schema: { $ref: '#/components/schemas/Pipeline' } } } }
+        '404': { description: Unknown pipeline }
+  /pipelines/{id}/{action}:
+    post:
+      summary: Owner actions (approve, plan, redesign, retry, skip, cancel, budget)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [approve, plan, redesign, retry, skip, cancel, budget] } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stage_id: { type: integer, format: int64, description: retry and skip }
+                note: { type: string, description: retry and redesign }
+                budget_usd: { type: number, description: budget }
+                plan: { type: object, description: 'plan: the edited plan.json (re-validated)' }
+      responses:
+        '200': { description: The pipeline after the action, content: { application/json: { schema: { $ref: '#/components/schemas/Pipeline' } } } }
+        '400': { description: Invalid input or plan (code invalid_plan with errors) }
+        '409': { description: Not allowed in the pipeline's or stage's state }
 components:
   securitySchemes:
     session:
@@ -2810,6 +2879,93 @@ components:
               checks: { type: object, additionalProperties: { type: string } }
 
   schemas:
+    TaskArtifact:
+      type: object
+      required: [id, task_id, path, kind, title, summary, confidence, sources, content, sha256, version, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        task_id: { type: integer, format: int64 }
+        run_id: { type: [integer, 'null'], format: int64 }
+        path: { type: string, description: Relative to .fleetpocket/out }
+        kind: { type: string, enum: [mermaid, dbml, d2, plantuml, svg, markdown, sql, json] }
+        title: { type: string }
+        summary: { type: string }
+        confidence: { type: string, enum: [exact, derived] }
+        sources: { type: array, items: { type: string } }
+        content: { type: string }
+        sha256: { type: string }
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+    PipelineTemplate:
+      type: object
+      required: [key, version, title, description, stages, approval, fan_out]
+      properties:
+        key: { type: string }
+        version: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        approval: { type: boolean }
+        fan_out: { type: boolean }
+        stages:
+          type: array
+          items:
+            type: object
+            required: [key, kind, title, depends_on, tier, output]
+            properties:
+              key: { type: string }
+              kind: { $ref: '#/components/schemas/PipelineStageKind' }
+              title: { type: string }
+              depends_on: { type: [array, 'null'], items: { type: string } }
+              tier: { type: string, enum: [cheap, strong] }
+              output: { type: string, enum: [pr, artifacts, branch] }
+              skills: { type: array, items: { type: string } }
+              inputs: { type: array, items: { type: string } }
+    PipelineStageKind: { type: string, enum: [scout, design, build, integrate, review, report] }
+    Pipeline:
+      type: object
+      required: [id, project_id, repository_id, template, title, prompt, status, max_parallel, base_branch, plan_attempts, created_at, cost_usd]
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: string }
+        repository_id: { type: integer, format: int64 }
+        template: { type: string }
+        title: { type: string }
+        prompt: { type: string }
+        status: { type: string, enum: [running, awaiting_approval, needs_you, completed, failed, cancelled] }
+        status_reason: { type: [string, 'null'] }
+        budget_usd: { type: [number, 'null'] }
+        max_parallel: { type: integer }
+        base_branch: { type: string }
+        pipeline_branch: { type: [string, 'null'] }
+        plan: { description: The validated plan.json (null until the design stage produced a valid one) }
+        plan_attempts: { type: integer }
+        created_by: { type: [integer, 'null'], format: int64 }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+        cost_usd: { type: number, description: Sum of the pipeline's task costs }
+        stages: { type: array, items: { $ref: '#/components/schemas/PipelineStage' }, description: 'Only on GET /pipelines/{id} and actions' }
+    PipelineStage:
+      type: object
+      required: [id, pipeline_id, key, kind, title, depends_on, provider, output, skills, files, prompt, done_when, status, position]
+      properties:
+        id: { type: integer, format: int64 }
+        pipeline_id: { type: integer, format: int64 }
+        key: { type: string }
+        kind: { $ref: '#/components/schemas/PipelineStageKind' }
+        title: { type: string }
+        depends_on: { type: array, items: { type: string } }
+        provider: { type: string }
+        model: { type: [string, 'null'] }
+        output: { type: string, enum: [pr, artifacts, pr_and_artifacts, branch] }
+        skills: { type: array, items: { type: string } }
+        files: { type: array, items: { type: string }, description: Owned globs of a build stage }
+        prompt: { type: string }
+        done_when: { type: string }
+        node: { type: [string, 'null'] }
+        task_id: { type: [integer, 'null'], format: int64 }
+        status: { type: string, enum: [waiting, ready, running, done, failed, skipped, cancelled] }
+        status_reason: { type: [string, 'null'] }
+        position: { type: integer }
     Error:
       type: object
       required: [error]
@@ -3001,6 +3157,7 @@ components:
           type: [string, 'null']
           enum: [pr, artifacts, pr_and_artifacts, '', null]
           description: Output new tasks get; empty or null is `pr`. Values other than `pr` are refused with 400 until diagram collection ships
+        subagents: { type: boolean, description: Claude runs get the default subagents (explorer, test-runner, reviewer) }
         skills: { type: array, items: { type: string }, description: Replaces the project's enabled skills (slugs; unknown slugs are ignored) }
 
     CIAutoFixSettings:
@@ -3153,6 +3310,7 @@ components:
         month_cost_usd: { type: number, description: Cost of the project's runs started this calendar month }
         month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
         default_output: { type: [string, 'null'], enum: [pr, artifacts, pr_and_artifacts, null], description: null is `pr` }
+        subagents: { type: boolean, description: Claude runs get the default subagents (explorer, test-runner, reviewer); default true }
         skills: { type: array, items: { type: string }, description: Slugs of the skills enabled for the project's tasks }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -3753,6 +3911,7 @@ components:
           properties:
             type: { type: string, enum: [assistant_text] }
             text: { type: string }
+            subagent: { type: string, description: The subagent that produced the event (Claude); absent for the lead agent }
 
     ToolUseEvent:
       allOf:
@@ -3774,6 +3933,7 @@ components:
             type: { type: string, enum: [tool_use] }
             tool: { type: string }
             summary: { type: string, description: 'Short, human-readable, e.g. "Edit src/tables/export.ts"' }
+            subagent: { type: string, description: The subagent that produced the event (Claude); absent for the lead agent }
 
     ToolResultEvent:
       allOf:
@@ -3796,6 +3956,7 @@ components:
             tool: { type: string }
             ok: { type: boolean }
             summary: { type: string, description: Only when ok is false; first line of the error }
+            subagent: { type: string, description: The subagent that produced the event (Claude); absent for the lead agent }
 
     QuestionEvent:
       allOf:

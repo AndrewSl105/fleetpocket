@@ -438,6 +438,8 @@ A **skill** is a `SKILL.md` folder (Claude Agent Skills format) the runner write
 
 Projects: `PATCH /projects/{id}` takes `skills` (slugs; replaces the list, unknown slugs ignored) and `default_output`; `Project` returns both.
 
+`subagents` (boolean, default `true`) on `Project` and in `POST`/`PATCH /projects`: Claude runs of the project get the default subagents (`explorer`, `test-runner`, `reviewer`; SPEC-server "Subagents"). It has no effect on Codex or Cursor. Runner events from a subagent (`assistant_text`, `tool_use`, `tool_result`) carry `subagent: "<name>"` in their payload.
+
 Seeded once on first start (deletable, off by default): `db-schema`, `system-design-c4`, `sequence-flow`, `infra-map`.
 
 ## Teams
@@ -469,6 +471,12 @@ Off by default (SPEC-server "Teams"). In local mode every endpoint below answers
 | `PUT /nodes/{id}/shared` `{shared}` | admin: members' tasks may run on it |
 
 `GET /tasks?created_by=me|<user id>` filters by creator. `GET /costs` adds `people` (cost by person) in team mode. `budget_wait` can be `user` (the creator's monthly budget).
+
+## Artifacts and pipelines
+
+`GET /tasks/{id}/artifacts` → `{items: TaskArtifact[]}`: the latest version of each file the task's runs left in `.fleetpocket/out/` (listed in `manifest.json`, or any `.md .mmd .json .sql .dbml .d2 .puml .svg`; ≤ 50 files, ≤ 1 MiB each). Output `artifacts` tasks never push: they end `completed` with reason "n artifacts". The timeline gets an `artifacts_collected` event `{count, added, warnings}`.
+
+Pipelines (SPEC-server "Pipelines"): `GET /pipeline-templates` → `{items, plan_schema}`; `POST /pipelines {template, project_id, repository_id?, title?, prompt, budget_usd?, max_parallel?, stages?: {<key>: {provider?, model?, node?}}}` → `201 Pipeline`; `GET /pipelines?project=` (without stages); `GET /pipelines/{id}` (with stages and `cost_usd`); `POST /pipelines/{id}/{action}` with `approve`, `plan {plan}` (edit while `awaiting_approval`; `400 invalid_plan` with `errors[]`), `redesign {note}`, `retry {stage_id, note?}`, `skip {stage_id}`, `cancel`, `budget {budget_usd}`; `409` when the pipeline or stage is not in a state that allows it. A stage's task has `pipeline_id`, `stage_id`, `base_ref`, `push_branch` and `model`; output `branch` (stage tasks only) pushes without a PR and ends `branch_ready`.
 
 ## WebSocket
 

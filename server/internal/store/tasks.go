@@ -91,6 +91,15 @@ type Task struct {
 	// or "working_tree").
 	LocalBranch *string `json:"local_branch"`
 	StartFrom   string  `json:"start_from"`
+	// Pipelines: the pipeline and stage the task runs (nil outside one), the
+	// branch it starts from (nil: the repository's base branch) and, for
+	// output "branch", where it pushes without a PR.
+	PipelineID *int64  `json:"pipeline_id"`
+	StageID    *int64  `json:"stage_id"`
+	BaseRef    *string `json:"base_ref"`
+	PushBranch *string `json:"push_branch"`
+	// Model overrides the project's model (a pipeline stage's).
+	Model *string `json:"model"`
 
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
@@ -108,7 +117,7 @@ const taskCols = `id, project_id, repository_id, title, prompt, status, status_r
 	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at, cost_unknown,
 	output, skills, skills_add, skills_remove,
 	schedule_id, mcp_servers, run_budget_usd::float8, pr_always, loop, loop_state, loop_iteration, loop_idle,
-	local_branch, start_from, created_by, (SELECT u.name FROM users u WHERE u.id = tasks.created_by)`
+	local_branch, start_from, pipeline_id, stage_id, base_ref, push_branch, model, created_by, (SELECT u.name FROM users u WHERE u.id = tasks.created_by)`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
@@ -125,7 +134,7 @@ func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt, &unknown,
 		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove,
 		&t.ScheduleID, &t.MCPServers, &t.RunBudgetUSD, &prAlways, &loop, &t.LoopState, &loopIter, &loopIdle,
-		&t.LocalBranch, &t.StartFrom, &t.CreatedByID, &creator)
+		&t.LocalBranch, &t.StartFrom, &t.PipelineID, &t.StageID, &t.BaseRef, &t.PushBranch, &t.Model, &t.CreatedByID, &creator)
 	if err != nil {
 		return nil, err
 	}
@@ -153,14 +162,16 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 		var err error
 		out, err = scanTask(tx.QueryRow(ctx, `INSERT INTO tasks (project_id, repository_id, title, prompt, status, source,
 				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove,
-				schedule_id, mcp_servers, run_budget_usd, pr_always, loop, loop_state, loop_iteration, loop_idle, start_from, created_by)
+				schedule_id, mcp_servers, run_budget_usd, pr_always, loop, loop_state, loop_iteration, loop_idle, start_from,
+				pipeline_id, stage_id, base_ref, push_branch, model, created_by)
 			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7,
 				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}'),
 				$11, $12, $13, nullif($14, false), $15, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 'running' END,
 				CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 1 END, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 0 END,
-				coalesce(nullif($16, ''), 'last_commit'), $17) RETURNING `+taskCols,
+				coalesce(nullif($16, ''), 'last_commit'), $17, $18, $19, $20, $21, $22) RETURNING `+taskCols,
 			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove,
-			t.ScheduleID, t.MCPServers, t.RunBudgetUSD, t.PRAlways, loopJSON(t.Loop), t.StartFrom, t.CreatedByID))
+			t.ScheduleID, t.MCPServers, t.RunBudgetUSD, t.PRAlways, loopJSON(t.Loop), t.StartFrom,
+			t.PipelineID, t.StageID, t.BaseRef, t.PushBranch, t.Model, t.CreatedByID))
 		if err != nil {
 			return err
 		}

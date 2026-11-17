@@ -91,6 +91,7 @@ ALTER TABLE runs ADD COLUMN user_id bigint REFERENCES users(id) ON DELETE SET NU
 ALTER TABLE questions ADD COLUMN escalated_at timestamptz;
 
 -- +goose Down
+UPDATE pipelines SET created_by = NULL WHERE created_by IN (SELECT id FROM users);
 ALTER TABLE questions DROP COLUMN escalated_at;
 ALTER TABLE runs DROP COLUMN user_id;
 ALTER TABLE nodes DROP COLUMN shared;

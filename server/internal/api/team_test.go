@@ -293,6 +293,12 @@ func TestRoleMatrix(t *testing.T) {
 	}
 	_, me := admin.do("GET", "/api/v1/me", nil)
 	_ = e.st.SetAuthor(ctx, "ideas", idea.ID, int64(me["user"].(map[string]any)["id"].(float64)))
+	adminID := int64(me["user"].(map[string]any)["id"].(float64))
+	var pipeID int64
+	if err := e.st.Pool.QueryRow(ctx, `INSERT INTO pipelines (project_id, repository_id, template, title, prompt, base_branch, created_by)
+		SELECT 'demo', id, 'scout', 't', 'p', 'main', $1 FROM repositories WHERE project_id = 'demo' LIMIT 1 RETURNING id`, adminID).Scan(&pipeID); err != nil {
+		t.Fatal(err)
+	}
 	member := e.join(admin, "member", "mia@example.com")
 	viewer := e.join(admin, "viewer", "vic@example.com")
 
@@ -305,8 +311,10 @@ func TestRoleMatrix(t *testing.T) {
 			id = fmt.Sprint(schedID)
 		case api.PolicyOwnIdea:
 			id = fmt.Sprint(idea.ID)
+		case api.PolicyOwnPipeline:
+			id = fmt.Sprint(pipeID)
 		}
-		r := strings.NewReplacer("{id}", id, "{repoId}", "1", "{attachmentId}", "1", "{checkpointId}", "1", "{provider}", "claude", "{code}", "123456")
+		r := strings.NewReplacer("{action}", "approve", "{id}", id, "{repoId}", "1", "{attachmentId}", "1", "{checkpointId}", "1", "{provider}", "claude", "{code}", "123456")
 		return r.Replace(p)
 	}
 	routes := e.srv.Routes()
@@ -324,7 +332,7 @@ func TestRoleMatrix(t *testing.T) {
 		vs, _ := viewer.do(method, u, map[string]any{})
 		ms, _ := member.do(method, u, map[string]any{})
 		viewerOK := rt.Policy == api.PolicyRead || rt.Policy == api.PolicySelf
-		memberOK := rt.Policy != api.PolicyAdmin && rt.Policy != api.PolicyOwnTask && rt.Policy != api.PolicyOwnSchedule && rt.Policy != api.PolicyOwnIdea
+		memberOK := rt.Policy != api.PolicyAdmin && rt.Policy != api.PolicyOwnTask && rt.Policy != api.PolicyOwnSchedule && rt.Policy != api.PolicyOwnIdea && rt.Policy != api.PolicyOwnPipeline
 		if (vs == 403) == viewerOK {
 			t.Errorf("viewer %s: %d (policy %d)", rt.Pattern, vs, rt.Policy)
 		}
@@ -336,7 +344,7 @@ func TestRoleMatrix(t *testing.T) {
 		}
 	}
 	t.Logf("checked %v route groups", groups)
-	for _, p := range []api.Policy{api.PolicyRead, api.PolicySelf, api.PolicyWrite, api.PolicyOwnTask, api.PolicyOwnSchedule, api.PolicyOwnIdea, api.PolicyAdmin} {
+	for _, p := range []api.Policy{api.PolicyRead, api.PolicySelf, api.PolicyWrite, api.PolicyOwnTask, api.PolicyOwnSchedule, api.PolicyOwnIdea, api.PolicyOwnPipeline, api.PolicyAdmin} {
 		if groups[p] == 0 {
 			t.Errorf("no route with policy %d", p)
 		}

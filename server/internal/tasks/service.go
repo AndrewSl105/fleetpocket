@@ -143,6 +143,12 @@ type CreateInput struct {
 	PRAlways     bool     `json:"-"`
 	// Images are validated uploads (attachments.Process).
 	Images []*attachments.Image `json:"-"`
+	// Pipeline stages (internal/pipelinerun): output "branch" needs PushBranch.
+	PipelineID *int64 `json:"-"`
+	StageID    *int64 `json:"-"`
+	BaseRef    string `json:"-"`
+	PushBranch string `json:"-"`
+	Model      string `json:"-"`
 }
 
 // Outputs are the valid task outputs; "pr" is today's behaviour.
@@ -150,7 +156,7 @@ var Outputs = []string{"pr", "artifacts", "pr_and_artifacts"}
 
 // ArtifactsEnabled gates the "artifacts" outputs until the server collects
 // .fleetpocket/out/ and enforces "never push" for them (docs/DECISIONS.md).
-var ArtifactsEnabled = false
+var ArtifactsEnabled = true
 
 // ValidOutput reports whether o is a task output.
 func ValidOutput(o string) bool { return slices.Contains(Outputs, o) }
@@ -207,7 +213,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if output == "" {
 		output = "pr"
 	}
-	if !ValidOutput(output) {
+	if output == "branch" && in.PushBranch == "" {
+		return nil, fmt.Errorf("%w: output branch is only for pipeline stages", ErrInvalid)
+	}
+	if !ValidOutput(output) && output != "branch" {
 		return nil, fmt.Errorf("%w: output must be one of %s", ErrInvalid, strings.Join(Outputs, ", "))
 	}
 	if in.StartFrom != "" && in.StartFrom != workspace.StartLastCommit && in.StartFrom != workspace.StartWorkingTree {
@@ -239,7 +248,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
 		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove, Loop: loop, StartFrom: in.StartFrom,
 		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways,
-		CreatedByID: in.CreatedBy}, up)
+		PipelineID: in.PipelineID, StageID: in.StageID, BaseRef: nilIfEmpty(in.BaseRef), PushBranch: nilIfEmpty(in.PushBranch),
+		Model: nilIfEmpty(in.Model), CreatedByID: in.CreatedBy}, up)
 	release()
 	if err != nil {
 		return nil, err
@@ -701,4 +711,11 @@ func RunnerQuestionID(id string) string {
 // timed out: the original tool call is gone, so the answer is restated.
 func ResumeInput(question, answer string) string {
 	return fmt.Sprintf("Answer to your earlier question %q: %s", question, answer)
+}
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

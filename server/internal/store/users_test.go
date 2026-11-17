@@ -9,7 +9,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/testutil"
 )
 
-// 00020 goes down and up again on its own, with users and authorship.
+// 00022 goes down and up again on its own, with users and authorship.
 func TestTeamsMigrationDownUp(t *testing.T) {
 	st := testutil.DB(t)
 	ctx := context.Background()
@@ -20,7 +20,7 @@ func TestTeamsMigrationDownUp(t *testing.T) {
 	if ts, _ := st.TeamSettings(ctx); !ts.Enabled || u.Role != "admin" || !u.IsOwner {
 		t.Fatalf("enable: %+v %+v", ts, u)
 	}
-	if err := st.MigrateDownTo(ctx, 19); err != nil {
+	if err := st.MigrateDownTo(ctx, 21); err != nil {
 		t.Fatalf("down: %v", err)
 	}
 	if ts, _ := st.Settings(ctx); ts["team"] != "" {

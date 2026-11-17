@@ -10,6 +10,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/artifacts"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -107,6 +108,10 @@ func (l *Local) EventLog(_ context.Context, taskID int64, afterSeq int64) ([][]b
 	}
 	defer f.Close()
 	return FilterEventLog(f, afterSeq)
+}
+
+func (l *Local) CollectOutputs(_ context.Context, taskID int64) ([]artifacts.File, error) {
+	return ReadOutputs(l.Workspace.Path(taskID))
 }
 
 func (l *Local) PrepareAttachments(_ context.Context, taskID int64, files []AttachmentFile) error {

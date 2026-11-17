@@ -31,6 +31,19 @@ describe('buildTimeline', () => {
     expect(items[2]).toMatchObject({ kind: 'tool', summary: 'Edit src/a.ts', ok: true })
   })
 
+  it('tags subagent tools and pairs their results separately', () => {
+    const items = buildTimeline([
+      ev('tool_use', { tool: 'Agent', summary: 'Agent explorer: find the router' }),
+      ev('tool_use', { tool: 'Grep', summary: 'Grep router', subagent: 'explorer' }),
+      ev('tool_use', { tool: 'Grep', summary: 'Grep api' }),
+      ev('tool_result', { tool: 'Grep', ok: false, summary: 'boom', subagent: 'explorer' }),
+      ev('tool_result', { tool: 'Grep', ok: true }),
+    ])
+    expect(items[1]).toMatchObject({ kind: 'tool', subagent: 'explorer', ok: false, error: 'boom' })
+    expect(items[2]).toMatchObject({ kind: 'tool', ok: true })
+    expect(items[2]).not.toHaveProperty('subagent')
+  })
+
   it('marks a failed tool with its error summary', () => {
     const items = buildTimeline([
       ev('tool_use', { tool: 'Bash', summary: 'Bash npm test' }),

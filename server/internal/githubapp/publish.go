@@ -53,6 +53,9 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 	} else if err := h.Push(ctx, t.ID, wsRepo, in.Branch); err != nil {
 		return nil, fmt.Errorf("push: %w", err)
 	}
+	if in.NoPR {
+		return &scheduler.PublishResult{ForcedFrom: forcedFrom}, nil
+	}
 	stat, _ := h.DiffStat(ctx, t.ID, repo.BaseBranch)
 
 	number := 0

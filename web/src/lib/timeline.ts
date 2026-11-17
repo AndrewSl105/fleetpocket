@@ -18,7 +18,7 @@ export type TimelineItem =
     }
   /** Images attached when the task was created (the prompt itself is on the Info tab). */
   | { kind: 'attachments'; key: string; attachments: Attachment[]; at: string }
-  | { kind: 'tool'; key: string; tool: string; summary: string; ok: boolean | null; error?: string; at: string }
+  | { kind: 'tool'; key: string; tool: string; summary: string; ok: boolean | null; error?: string; subagent?: string; at: string }
   | {
       kind: 'question'
       key: string
@@ -112,19 +112,21 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
         break
       }
       case 'tool_use': {
-        const { tool, summary } = e.payload
+        const { tool, summary, subagent } = e.payload
         const item: Extract<TimelineItem, { kind: 'tool' }> = { kind: 'tool', key, tool, summary: summary || tool, ok: null, at }
+        if (subagent) item.subagent = subagent
         items.push(item)
-        openTools.set(tool, item)
+        openTools.set(`${subagent ?? ''}:${tool}`, item)
         break
       }
       case 'tool_result': {
-        const { tool, ok, summary } = e.payload
-        const item = openTools.get(tool)
+        const { tool, ok, summary, subagent } = e.payload
+        const openKey = `${subagent ?? ''}:${tool}`
+        const item = openTools.get(openKey)
         if (item) {
           item.ok = ok
           if (!ok && summary) item.error = summary
-          openTools.delete(tool)
+          openTools.delete(openKey)
         }
         break
       }

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
+	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
@@ -43,8 +44,10 @@ func writeErr(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", err.Error())
-	case errors.Is(err, store.ErrConflict):
+	case errors.Is(err, store.ErrConflict), errors.Is(err, pipelinerun.ErrConflict):
 		writeError(w, http.StatusConflict, "conflict", err.Error())
+	case errors.Is(err, pipelinerun.ErrInvalid):
+		writeError(w, http.StatusBadRequest, "invalid", err.Error())
 	case errors.Is(err, tasks.ErrInvalid), errors.Is(err, projects.ErrInvalid), errors.Is(err, nodes.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "invalid", err.Error())
 	case errors.Is(err, tasks.ErrForbidden):

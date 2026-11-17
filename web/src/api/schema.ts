@@ -2196,10 +2196,404 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tasks/{id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest version of each artifact the task produced (.fleetpocket/out) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Artifacts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["TaskArtifact"][];
+                        };
+                    };
+                };
+                /** @description Unknown task */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipeline-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipeline templates and the plan.json JSON Schema */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Templates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["PipelineTemplate"][];
+                            plan_schema: Record<string, never>;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipelines, newest first (without stages) */
+        get: {
+            parameters: {
+                query?: {
+                    project?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Pipelines */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Pipeline"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Start a pipeline from a template */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        template: string;
+                        project_id: string;
+                        /**
+                         * Format: int64
+                         * @description Defaults to the project's default repository
+                         */
+                        repository_id?: number;
+                        title?: string;
+                        prompt: string;
+                        /** @description Sum of the pipeline's task costs at which no new stage starts */
+                        budget_usd?: number;
+                        /** @description Default 3 */
+                        max_parallel?: number;
+                        /** @description Per-stage overrides by stage key */
+                        stages?: {
+                            [key: string]: {
+                                /** @enum {string} */
+                                provider?: "claude" | "codex" | "cursor";
+                                model?: string;
+                                node?: string;
+                            };
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pipeline"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pipeline with its stages */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Pipeline */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pipeline"];
+                    };
+                };
+                /** @description Unknown pipeline */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines/{id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner actions (approve, plan, redesign, retry, skip, cancel, budget) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    action: "approve" | "plan" | "redesign" | "retry" | "skip" | "cancel" | "budget";
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: int64
+                         * @description retry and skip
+                         */
+                        stage_id?: number;
+                        /** @description retry and redesign */
+                        note?: string;
+                        /** @description budget */
+                        budget_usd?: number;
+                        /** @description plan: the edited plan.json (re-validated) */
+                        plan?: Record<string, never>;
+                    };
+                };
+            };
+            responses: {
+                /** @description The pipeline after the action */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pipeline"];
+                    };
+                };
+                /** @description Invalid input or plan (code invalid_plan with errors) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not allowed in the pipeline's or stage's state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TaskArtifact: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            task_id: number;
+            /** Format: int64 */
+            run_id?: number | null;
+            /** @description Relative to .fleetpocket/out */
+            path: string;
+            /** @enum {string} */
+            kind: "mermaid" | "dbml" | "d2" | "plantuml" | "svg" | "markdown" | "sql" | "json";
+            title: string;
+            summary: string;
+            /** @enum {string} */
+            confidence: "exact" | "derived";
+            sources: string[];
+            content: string;
+            sha256: string;
+            version: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        PipelineTemplate: {
+            key: string;
+            version: number;
+            title: string;
+            description: string;
+            approval: boolean;
+            fan_out: boolean;
+            stages: {
+                key: string;
+                kind: components["schemas"]["PipelineStageKind"];
+                title: string;
+                depends_on: string[] | null;
+                /** @enum {string} */
+                tier: "cheap" | "strong";
+                /** @enum {string} */
+                output: "pr" | "artifacts" | "branch";
+                skills?: string[];
+                inputs?: string[];
+            }[];
+        };
+        /** @enum {string} */
+        PipelineStageKind: "scout" | "design" | "build" | "integrate" | "review" | "report";
+        Pipeline: {
+            /** Format: int64 */
+            id: number;
+            project_id: string;
+            /** Format: int64 */
+            repository_id: number;
+            template: string;
+            title: string;
+            prompt: string;
+            /** @enum {string} */
+            status: "running" | "awaiting_approval" | "needs_you" | "completed" | "failed" | "cancelled";
+            status_reason?: string | null;
+            budget_usd?: number | null;
+            max_parallel: number;
+            base_branch: string;
+            pipeline_branch?: string | null;
+            /** @description The validated plan.json (null until the design stage produced a valid one) */
+            plan?: unknown;
+            plan_attempts: number;
+            /** Format: int64 */
+            created_by?: number | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description Sum of the pipeline's task costs */
+            cost_usd: number;
+            /** @description Only on GET /pipelines/{id} and actions */
+            stages?: components["schemas"]["PipelineStage"][];
+        };
+        PipelineStage: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            pipeline_id: number;
+            key: string;
+            kind: components["schemas"]["PipelineStageKind"];
+            title: string;
+            depends_on: string[];
+            provider: string;
+            model?: string | null;
+            /** @enum {string} */
+            output: "pr" | "artifacts" | "pr_and_artifacts" | "branch";
+            skills: string[];
+            /** @description Owned globs of a build stage */
+            files: string[];
+            prompt: string;
+            done_when: string;
+            node?: string | null;
+            /** Format: int64 */
+            task_id?: number | null;
+            /** @enum {string} */
+            status: "waiting" | "ready" | "running" | "done" | "failed" | "skipped" | "cancelled";
+            status_reason?: string | null;
+            position: number;
+        };
         Error: {
             error: {
                 code: string;
@@ -2389,6 +2783,8 @@ export interface components {
              * @enum {string|null}
              */
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | "" | null;
+            /** @description Claude runs get the default subagents (explorer */
+            subagents?: boolean;
             /** @description Replaces the project's enabled skills (slugs; unknown slugs are ignored) */
             skills?: string[];
         };
@@ -2528,6 +2924,8 @@ export interface components {
              * @enum {string|null}
              */
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | null;
+            /** @description Claude runs get the default subagents (explorer */
+            subagents?: boolean;
             /** @description Slugs of the skills enabled for the project's tasks */
             skills?: string[];
             /** Format: date-time */
@@ -3143,6 +3541,8 @@ export interface components {
             /** @enum {string} */
             type: "assistant_text";
             text: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         ToolUseEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -3165,6 +3565,8 @@ export interface components {
             tool: string;
             /** @description Short, human-readable, e.g. "Edit src/tables/export.ts" */
             summary: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         ToolResultEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -3188,6 +3590,8 @@ export interface components {
             ok: boolean;
             /** @description Only when ok is false; first line of the error */
             summary?: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         QuestionEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */

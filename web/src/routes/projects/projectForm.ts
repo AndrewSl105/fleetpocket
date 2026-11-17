@@ -13,6 +13,7 @@ export const projectSchema = z.object({
   instructions: z.string(),
   postgres: z.boolean(),
   redis: z.boolean(),
+  subagents: z.boolean(),
   env: z.array(z.object({ key: z.string().trim().regex(ENV_KEY, 'A–Z, 0–9, _'), value: z.string() })),
   agent: z.enum(['', 'claude', 'codex', 'cursor']),
   // '' runs on the server, else a node id.
@@ -48,6 +49,7 @@ export function toFormValues(p?: Project): ProjectFormValues {
     instructions: p?.instructions ?? '',
     postgres: p?.services.includes('postgres') ?? false,
     redis: p?.services.includes('redis') ?? false,
+    subagents: p?.subagents ?? true,
     env: Object.entries(p?.env ?? {}).map(([key, value]) => ({ key, value })),
     agent: p?.agent ?? '',
     node: p?.node ?? '',
@@ -93,6 +95,7 @@ export function autoFixSettings(v: AutoFixForm): CIAutoFixSettings {
 
 type Full = Required<Pick<ProjectFields, 'name' | 'instructions' | 'services' | 'env'>> & {
   agent: '' | Agent
+  subagents: boolean
   node: string
   model: string
   max_turns: number
@@ -113,6 +116,7 @@ function normalize(v: ProjectFormValues): Full {
     services: [...(v.postgres ? ['postgres' as const] : []), ...(v.redis ? ['redis' as const] : [])],
     env: Object.fromEntries(v.env.filter((e) => e.key.trim()).map((e) => [e.key.trim(), e.value])),
     agent: v.agent,
+    subagents: v.subagents,
     node: v.node,
     model: v.model.trim(),
     max_turns: Number(v.max_turns || 0),
@@ -136,6 +140,7 @@ export function createBody(v: ProjectFormValues): ProjectFields & { id: string }
   for (const k of OVERRIDES) if (n[k]) Object.assign(body, { [k]: n[k] })
   if (Object.values(n.ci_autofix).some((x) => x !== null)) body.ci_autofix = n.ci_autofix
   if (n.budget.monthly_usd) body.budget = n.budget
+  if (!n.subagents) body.subagents = false
   return body
 }
 

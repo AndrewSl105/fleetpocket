@@ -449,6 +449,7 @@ func (s *Store) EnableTeam(ctx context.Context, n NewUser, seal func(id int64) (
 			`UPDATE ideas SET created_by = $1 WHERE created_by IS NULL`,
 			`UPDATE mcp_servers SET created_by = $1 WHERE created_by IS NULL`,
 			`UPDATE skills SET owner_user_id = $1 WHERE owner_user_id IS NULL`,
+			`UPDATE pipelines SET created_by = $1 WHERE created_by IS NULL`,
 			`UPDATE nodes SET owner_user_id = $1 WHERE owner_user_id IS NULL`,
 		} {
 			if _, err := tx.Exec(ctx, stmt, id); err != nil {
@@ -745,7 +746,7 @@ func (s *Store) RedeemLinkCode(ctx context.Context, code string, tgID int64) (*U
 }
 
 // authorCols are the tables with a created_by column (AuthorOf, SetAuthor).
-var authorCols = map[string]string{"schedules": "created_by", "ideas": "created_by", "mcp_servers": "created_by", "skills": "owner_user_id"}
+var authorCols = map[string]string{"pipelines": "created_by", "schedules": "created_by", "ideas": "created_by", "mcp_servers": "created_by", "skills": "owner_user_id"}
 
 // AuthorOf returns who created a row (nil: nobody, e.g. single-owner mode).
 func (s *Store) AuthorOf(ctx context.Context, table string, id int64) (*int64, error) {
