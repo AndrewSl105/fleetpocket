@@ -1498,8 +1498,11 @@ export interface components {
             cost_usd_total: number;
             /** @description Agent turns across all runs */
             turns: number;
-            /** @enum {string} */
-            source: "web" | "telegram" | "api";
+            /**
+             * @description `schedule`: fired by the schedule `schedule_id`
+             * @enum {string}
+             */
+            source: "web" | "telegram" | "api" | "schedule";
             /** @description Fixed when the task is created: the request's agent, else the project's, else the server default */
             agent: components["schemas"]["Agent"];
             /** @description Node the task runs on, fixed when it is created; null is the server */
@@ -1540,13 +1543,43 @@ export interface components {
              * @description Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.
              * @enum {string|null}
              */
-            budget_wait: "global" | "project" | null;
+            budget_wait: "global" | "project" | "schedule" | null;
             /**
              * Format: date-time
              * @description When the owner let it start despite the monthly caps (good for that calendar month)
              */
             budget_override_at: string | null;
+            /**
+             * Format: int64
+             * @description The schedule that fired the task (null once the schedule is deleted
+             */
+            schedule_id: number | null;
+            /** @description MCP server names the task may use (a subset of its project's, set by its schedule); null: all of the project's */
+            mcp_servers: string[] | null;
+            /** @description Budget of each run (set by its schedule); null: the project's */
+            run_budget_usd: number | null;
+            loop: components["schemas"]["LoopConfigOrNull"];
+            loop_state: components["schemas"]["LoopState"];
+            /** @description The current loop iteration (1-based; 0 without a loop) */
+            loop_iteration: number;
         };
+        /** @description Loop until a check passes (SPEC-server, "Loops"): after each agent run the runner runs `check_command` in the task container; a non-zero exit starts the next iteration with the trimmed output. The PR is opened only when the loop ends. */
+        LoopConfig: {
+            /** @description e.g. `npm test`, `go test ./...`, `make lint`, or a script that exits 0 when done */
+            check_command: string;
+            /** @default 3 */
+            max_iterations: number;
+            /** @description Cap on the cost of all iterations; null: only the per-run budget */
+            budget_usd: number | null;
+            /** @description Check command timeout; absent means 600 */
+            timeout_sec?: number;
+        };
+        LoopConfigOrNull: components["schemas"]["LoopConfig"] | null;
+        /**
+         * @description `running`, or why the loop ended: the check passed, max_iterations reached, the loop budget used up, two iterations in a row without file changes, or `stopped` (a run limit, a missing check result). null: no loop.
+         * @enum {string|null}
+         */
+        LoopState: "running" | "passed" | "max_iterations" | "budget" | "no_changes" | "stopped" | null;
         /**
          * @description CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
          *     owner's answer to the open question), `approved` (pushing it anyway), `waiting` (pushed, waiting for CI), `green`
@@ -1565,8 +1598,11 @@ export interface components {
             id: number;
             /** Format: int64 */
             task_id: number;
-            /** @enum {string} */
-            kind: "initial" | "resume" | "followup" | "retry" | "restore";
+            /**
+             * @description `loop`: a loop iteration after a failed check
+             * @enum {string}
+             */
+            kind: "initial" | "resume" | "followup" | "retry" | "restore" | "loop";
             input: string;
             container_id?: string | null;
             exit_code?: number | null;
@@ -1578,6 +1614,8 @@ export interface components {
             turns: number;
             /** @description Set on runs CI auto-fix started (the attempt number) */
             autofix_attempt?: number | null;
+            /** @description The loop iteration the run belongs to (null without a loop) */
+            loop_iteration?: number | null;
             /** @description Agent of the run; null for runs from before it was recorded */
             agent: string | null;
             /** @description Model the run reported in `started` */

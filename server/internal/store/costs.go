@@ -164,7 +164,7 @@ type BudgetGate struct {
 }
 
 // budgetCTE defines spent (month-to-date cost per project),
-// blocked_projects and global_blocked; m and g are the parameter numbers of
+// blocked_projects, blocked_schedules and global_blocked; m and g are the parameter numbers of
 // the month start and the global cap.
 func budgetCTE(m, g int) string {
 	return fmt.Sprintf(`spent AS (
@@ -173,6 +173,10 @@ func budgetCTE(m, g int) string {
 	), blocked_projects AS (
 		SELECT p.id FROM projects p JOIN spent s ON s.project_id = p.id
 		WHERE (p.budget->>'monthly_usd')::numeric > 0 AND s.usd >= (p.budget->>'monthly_usd')::numeric
+	), blocked_schedules AS (
+		SELECT sc.id FROM schedules sc
+		WHERE sc.monthly_budget_usd > 0 AND sc.monthly_budget_usd <= (SELECT coalesce(sum(r.cost_usd), 0) FROM runs r
+			JOIN tasks t ON t.id = r.task_id WHERE t.schedule_id = sc.id AND r.started_at >= $%[1]d)
 	), global_blocked AS (
 		SELECT $%[2]d::numeric > 0 AND coalesce((SELECT sum(usd) FROM spent), 0) >= $%[2]d::numeric AS b
 	)`, m, g)
@@ -196,6 +200,7 @@ func (s *Store) MarkBudgetWaits(ctx context.Context, gate BudgetGate, spentFor f
 				SELECT t.id, CASE
 					WHEN t.status <> 'queued' OR t.budget_override_at >= $1 THEN NULL
 					WHEN t.project_id IN (SELECT id FROM blocked_projects) THEN 'project'
+					WHEN t.schedule_id IN (SELECT id FROM blocked_schedules) THEN 'schedule'
 					WHEN (SELECT b FROM global_blocked) THEN 'global'
 				END AS scope
 				FROM tasks t WHERE t.status = 'queued' OR t.budget_wait IS NOT NULL
@@ -224,6 +229,9 @@ func (s *Store) MarkBudgetWaits(ctx context.Context, gate BudgetGate, spentFor f
 				}
 				if *t.BudgetWait == costs.ScopeProject {
 					payload["project_id"] = t.ProjectID
+				}
+				if *t.BudgetWait == costs.ScopeSchedule && t.ScheduleID != nil {
+					payload["schedule_id"] = *t.ScheduleID
 				}
 				if c.Event, err = insertBackendEvent(ctx, tx, t.ID, nil, "budget", payload); err != nil {
 					return err

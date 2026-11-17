@@ -99,14 +99,18 @@ A **project** groups repositories and holds run settings. All override fields ar
   "last_activity": "Edit src/tables/export.ts", "last_activity_at": "…",
   "queued_message": null,
   "autofix_cost_usd": 0, "cost_estimated": false, "cost_api_equivalent": true, "cost_unknown": false,
-  "budget_wait": null, "budget_override_at": null
+  "budget_wait": null, "budget_override_at": null,
+  "schedule_id": null, "mcp_servers": null, "run_budget_usd": null,
+  "loop": null, "loop_state": null, "loop_iteration": 0
 }
 ```
 
 - `agent`: the coding agent, fixed when the task is created (the request's `agent`, else the project's, else the server default), so follow-ups and resumes continue the same session.
 - `node`: the computer the task runs on (`null`: the server), fixed when the task is created: its workspace, agent session and containers live there. While that node is offline the task waits (`queued` tasks stay queued; a live task keeps its status and its stream resumes when the node reconnects; actions that need the workspace answer `503 host_offline`).
 - `cost_usd_total`: the sum of the runs' `cost_usd`: reported by Claude, estimated from the price table for Codex and Cursor (see [Costs and budgets](#costs-and-budgets)). `cost_estimated` is true when some run's cost is an estimate (show `≈$0.84`); `cost_api_equivalent` when some Claude run used a subscription (OAuth) login, so the cost is what the API would charge, not a bill. `autofix_cost_usd` is the part spent by CI auto-fix runs. `cost_unknown` is true when some run reported tokens but its model has no price (`cost_source: unknown`, counted as 0): the total is a lower bound. Clients show one format everywhere: `$0.84`, `≈$0.84` (estimate included), `$?` (nothing known), `$0.84+?` / `≈$0.84+?` (part unknown).
-- `budget_wait`: `global` or `project` while a queued task waits because that monthly cap is used up (`status_reason` is `waiting: budget`), else `null`. `budget_override_at`: when the owner let it start anyway.
+- `source`: `web`, `telegram`, `api`, or `schedule` (fired by the schedule `schedule_id`, which is `null` again once that schedule is deleted). A scheduled task carries what its schedule gives it: `mcp_servers` (names; `null`: all of the project's servers) and `run_budget_usd` (each run's budget; `null`: the project's).
+- `loop`: `{check_command, max_iterations, budget_usd, timeout_sec?}` when the task loops until a check passes (see [Loops](#loops)), else `null`. `loop_state`: `running`, or why the loop ended (`passed`, `max_iterations`, `budget`, `no_changes`, `stopped`); `loop_iteration`: the current iteration (0 without a loop).
+- `budget_wait`: `global`, `project` or `schedule` while a queued task waits because that monthly cap is used up (`status_reason` is `waiting: budget`), else `null`. `budget_override_at`: when the owner let it start anyway.
 - `turns`: agent turns across all runs of the task (sum of each run's last reported `usage.turns`).
 - `last_activity`: one line (max 120 characters) describing the latest thing that happened: the latest `tool_use` summary, or the latest status change as `<status>` / `<status>: <reason>`, whichever came last. `last_activity_at` is when it was set. Both are `null` only for tasks that predate the field and have no surviving events.
 - `queued_message`: text sent with `POST …/message` while a run was active (several messages are joined by a blank line), or `null`. It becomes the input of the next run as soon as the current run ends.
@@ -137,7 +141,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /tasks/{id}` | task view (see above) |
 | `GET /tasks/{id}/events?after_id=` | timeline, oldest first; `after_id` (or `cursor`) is the last event id you have. Heartbeats are not returned |
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
-| `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, autofix_attempt, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup`, `retry` or `restore` (a run from a checkpoint); `cost_usd` and the token counts are the run's own (not the session's); `cost_source` is `reported`, `estimated`, `unknown` (tokens but no price, cost 0) or `null` (no usage yet, or a run from before it was recorded); `auth` is `subscription` (Claude OAuth: API-equivalent cost), `api_key` or `null`. Paginated with `limit`/`cursor` |
+| `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, autofix_attempt, loop_iteration, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup`, `retry`, `restore` (a run from a checkpoint) or `loop` (the next loop iteration after a failed check); `loop_iteration` is the iteration a run belongs to (`null` without a loop); `cost_usd` and the token counts are the run's own (not the session's); `cost_source` is `reported`, `estimated`, `unknown` (tokens but no price, cost 0) or `null` (no usage yet, or a run from before it was recorded); `auth` is `subscription` (Claude OAuth: API-equivalent cost), `api_key` or `null`. Paginated with `limit`/`cursor` |
 | `GET /tasks/{id}/diff` | `{"diff", "truncated", "base", "branch"}`: `git diff base...branch` from the workspace, capped at 1 MB. `409 no_workspace` before cloning or after cleanup; `503 host_offline` while the task's node is offline |
 | `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix_guard`): `Push anyway` pushes the held fix, anything else discards it |
 | `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`completed`: starts a new run right away. Otherwise `409` |
@@ -182,7 +186,7 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `message` | `{text, delivery: "queued"\|"new_run", attachments?}` (`"injected"` only in timelines recorded before messages were queued; `attachments` only when files were sent) |
   | `message_dropped` | `{text, reason: "failed"\|"cancelled"}`: a queued message that never started a run |
   | `interrupt` | `{}` |
-  | `run_started` | `{run_id, kind}` (`initial`, `resume`, `followup`, `retry`, `restore`) |
+  | `run_started` | `{run_id, kind}` (`initial`, `resume`, `followup`, `retry`, `restore`, `loop`) |
   | `run_finished` | `{run_id, exit_code, cost_usd?, cost_source?, auth?}` (the cost fields once the run reported usage) |
   | `pr_opened` | `{number, url}` |
   | `pr_updated` | `{number, url}` (a later run pushed to the same PR) |

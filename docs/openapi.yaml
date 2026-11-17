@@ -1927,7 +1927,7 @@ components:
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove, schedule_id, mcp_servers, run_budget_usd, loop, loop_state, loop_iteration]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1943,7 +1943,7 @@ components:
         ci_status: { type: [string, 'null'], enum: [pending, success, failure, null] }
         cost_usd_total: { type: number, description: 'Sum of the runs'' cost: reported by Claude, estimated from the price table for Codex and Cursor (0 when their model has no price)' }
         turns: { type: integer, description: Agent turns across all runs }
-        source: { type: string, enum: [web, telegram, api] }
+        source: { type: string, enum: [web, telegram, api, schedule], description: '`schedule`: fired by the schedule `schedule_id`' }
         agent: { $ref: '#/components/schemas/Agent', description: 'Fixed when the task is created: the request''s agent, else the project''s, else the server default' }
         node: { type: [string, 'null'], description: 'Node the task runs on, fixed when it is created; null is the server' }
         created_at: { type: string, format: date-time }
@@ -1972,9 +1972,35 @@ components:
         cost_unknown: { type: boolean, description: 'Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?`' }
         budget_wait:
           type: [string, 'null']
-          enum: [global, project, null]
+          enum: [global, project, schedule, null]
           description: 'Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
         budget_override_at: { type: [string, 'null'], format: date-time, description: When the owner let it start despite the monthly caps (good for that calendar month) }
+        schedule_id: { type: [integer, 'null'], format: int64, description: The schedule that fired the task (null once the schedule is deleted, or for other tasks) }
+        mcp_servers: { type: [array, 'null'], items: { type: string }, description: 'MCP server names the task may use (a subset of its project''s, set by its schedule); null: all of the project''s' }
+        run_budget_usd: { type: [number, 'null'], description: 'Budget of each run (set by its schedule); null: the project''s' }
+        loop: { $ref: '#/components/schemas/LoopConfigOrNull' }
+        loop_state: { $ref: '#/components/schemas/LoopState' }
+        loop_iteration: { type: integer, description: The current loop iteration (1-based; 0 without a loop) }
+
+    LoopConfig:
+      type: object
+      description: 'Loop until a check passes (SPEC-server, "Loops"): after each agent run the runner runs `check_command` in the task container; a non-zero exit starts the next iteration with the trimmed output. The PR is opened only when the loop ends.'
+      required: [check_command, max_iterations, budget_usd]
+      properties:
+        check_command: { type: string, minLength: 1, maxLength: 2000, description: 'e.g. `npm test`, `go test ./...`, `make lint`, or a script that exits 0 when done' }
+        max_iterations: { type: integer, minimum: 1, maximum: 10, default: 3 }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: 'Cap on the cost of all iterations; null: only the per-run budget' }
+        timeout_sec: { type: integer, minimum: 1, maximum: 3600, description: Check command timeout; absent means 600 }
+
+    LoopConfigOrNull:
+      oneOf:
+        - $ref: '#/components/schemas/LoopConfig'
+        - type: 'null'
+
+    LoopState:
+      type: [string, 'null']
+      enum: [running, passed, max_iterations, budget, no_changes, stopped, null]
+      description: '`running`, or why the loop ended: the check passed, max_iterations reached, the loop budget used up, two iterations in a row without file changes, or `stopped` (a run limit, a missing check result). null: no loop.'
 
     AutoFixState:
       type: [string, 'null']
@@ -2000,7 +2026,7 @@ components:
       properties:
         id: { type: integer, format: int64 }
         task_id: { type: integer, format: int64 }
-        kind: { type: string, enum: [initial, resume, followup, retry, restore] }
+        kind: { type: string, enum: [initial, resume, followup, retry, restore, loop], description: '`loop`: a loop iteration after a failed check' }
         input: { type: string }
         container_id: { type: [string, 'null'] }
         exit_code: { type: [integer, 'null'] }
@@ -2008,6 +2034,7 @@ components:
         cost_usd: { type: number, description: This run's own cost (not the session total) }
         turns: { type: integer, description: Last usage.turns the runner reported for this run }
         autofix_attempt: { type: [integer, 'null'], description: Set on runs CI auto-fix started (the attempt number) }
+        loop_iteration: { type: [integer, 'null'], description: The loop iteration the run belongs to (null without a loop) }
         agent: { type: [string, 'null'], description: Agent of the run; null for runs from before it was recorded }
         model: { type: [string, 'null'], description: 'Model the run reported in `started`' }
         input_tokens: { type: integer, format: int64, description: All input, cache reads and writes included }
