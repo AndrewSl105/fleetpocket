@@ -1574,6 +1574,16 @@ export interface components {
             /** @description Check command timeout; absent means 600 */
             timeout_sec?: number;
         };
+        /** @description Loop until `check_command` passes. 400 with output `artifacts`. */
+        LoopInput: {
+            check_command: string;
+            /** @description Default 3 */
+            max_iterations?: number;
+            /** @description Cap on all iterations together; null or 0: none */
+            budget_usd?: number | null;
+            /** @description Default 600 */
+            timeout_sec?: number;
+        };
         LoopConfigOrNull: components["schemas"]["LoopConfig"] | null;
         /**
          * @description `running`, or why the loop ended: the check passed, max_iterations reached, the loop budget used up, two iterations in a row without file changes, or `stopped` (a run limit, a missing check result). null: no loop.
@@ -1669,9 +1679,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["LoopEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "check" | "checkpoint_restored" | "branch_force_pushed";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "check" | "loop" | "checkpoint_restored" | "branch_force_pushed";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -2584,8 +2594,15 @@ export interface components {
                 /** @enum {string} */
                 phase: "warning" | "reached" | "waiting" | "override";
                 /** @enum {string} */
-                scope?: "global" | "project";
+                scope?: "global" | "project" | "schedule";
                 project_id?: string;
+                /**
+                 * Format: int64
+                 * @description scope schedule: the schedule whose monthly cap it is
+                 */
+                schedule_id?: number;
+                /** @description scope schedule: its name (warning, reached) */
+                schedule?: string;
                 /** @enum {integer} */
                 level?: 80 | 100;
                 spent_usd?: number;
@@ -2599,6 +2616,37 @@ export interface components {
              * @enum {string}
              */
             type: "budget";
+        };
+        /** @description A loop (SPEC-server, "Loops"): `iteration` when an iteration is queued (1 when the task is created or retried; the next one after a failed check, with the check's `exit_code` and the reason), `stopped` when the loop ended (`state` says why). The PR is opened after `stopped`. */
+        LoopEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "loop";
+            seq: null;
+            payload: {
+                /** @enum {string} */
+                phase: "iteration" | "stopped";
+                iteration: number;
+                max_iterations?: number;
+                check_command?: string;
+                /**
+                 * Format: int64
+                 * @description iteration: the run of the iteration
+                 */
+                run_id?: number;
+                /** @description iteration > 1: the failed check of the previous one */
+                exit_code?: number;
+                timed_out?: boolean;
+                state?: components["schemas"]["LoopState"];
+                reason?: string;
+                /** @description What the loop's runs cost so far */
+                spent_usd?: number;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "loop";
         };
         IntegrationsEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -3454,6 +3502,7 @@ export interface operations {
                     skills_add?: string[];
                     /** @description Skill slugs removed from the project's skills for this task */
                     skills_remove?: string[];
+                    loop?: components["schemas"]["LoopInput"];
                 };
                 "multipart/form-data": {
                     project_id: string;
@@ -3474,6 +3523,8 @@ export interface operations {
                     skills_add?: string;
                     /** @description Comma-separated skill slugs */
                     skills_remove?: string;
+                    /** @description LoopInput as JSON */
+                    loop?: string;
                     /** @description PNG, JPEG, WebP or GIF (not animated), at most 40 MB each, 100 MB together; type detected from the content */
                     "files[]"?: string[];
                 };

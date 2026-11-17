@@ -18,6 +18,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
+	"github.com/andrewsl105/fleetpocket/server/internal/loops"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
@@ -241,6 +242,7 @@ func (s *Scheduler) fail(ctx context.Context, t *store.Task, reason string) {
 	if t.AutoFixState != nil {
 		s.stopAutoFix(ctx, t, "the fix run failed: "+reason)
 	}
+	s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "the task failed: " + reason})
 	_ = s.host(t).RemoveAll(ctx, t.ID)
 	_ = s.Store.CloseOpenQuestions(ctx, t.ID, "")
 	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Failed, reason); err != nil && !errors.Is(err, store.ErrConflict) {
@@ -348,13 +350,17 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		s.failOrRequeue(ctx, t, run, "attachments", err)
 		return
 	}
-	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup {
+	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup || run.Kind == tasks.RunLoop {
 		if t.SessionID != nil {
 			cmd.ResumeSessionID = *t.SessionID
 		}
 	}
 	if err := s.applyCheckpoints(ctx, h, t, run, &cmd); err != nil {
 		s.failOrRequeue(ctx, t, run, "restore checkpoint", err)
+		return
+	}
+	if err := s.applyLoop(ctx, t, run, &cmd); err != nil {
+		s.failOrRequeue(ctx, t, run, "loop", err)
 		return
 	}
 	_ = s.Store.CloseOpenQuestions(ctx, t.ID, "")
@@ -451,8 +457,14 @@ func (s *Scheduler) unregister(taskID int64) {
 func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, repo *store.Repository, branch string) runnermgr.RunCommand {
 	maxTurns := deref(p.MaxTurns, s.Cfg.DefaultMaxTurns)
 	budget := deref(p.MaxBudgetUSD, s.Cfg.DefaultMaxBudgetUSD)
+	if t.RunBudgetUSD != nil {
+		budget = *t.RunBudgetUSD // its schedule's per-run budget
+	}
+	if t.Loop != nil && t.Loop.BudgetUSD != nil && *t.Loop.BudgetUSD < budget {
+		budget = *t.Loop.BudgetUSD // a run never spends more than the whole loop may
+	}
 	if run.MaxBudgetUSD != nil {
-		budget = *run.MaxBudgetUSD // a CI auto-fix attempt's own budget
+		budget = *run.MaxBudgetUSD // a CI auto-fix attempt's or a loop iteration's own budget
 	}
 	dur := s.Cfg.DefaultMaxDuration
 	if p.MaxDurationSec != nil {
@@ -464,6 +476,9 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 	}
 	if run.Kind == tasks.RunRestore {
 		msg = "Continue from a restored checkpoint"
+	}
+	if run.Kind == tasks.RunLoop {
+		msg = fmt.Sprintf("Loop iteration %d: fix the failing check", max(t.LoopIteration, 1))
 	}
 	return runnermgr.NewRun(runnermgr.RunCommand{
 		TaskID:             strconv.FormatInt(t.ID, 10),
@@ -482,6 +497,9 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 			Message:     fmt.Sprintf("%s\n\nFleetpocket task #%d", msg, t.ID),
 			AuthorName:  commitAuthor,
 			AuthorEmail: commitEmail,
+			// An empty commit when nothing changed, so a PR opens anyway
+			// (only the task's own prompt; the runner ignores it for loops).
+			AllowEmpty: t.PRAlways && (run.Kind == tasks.RunInitial || run.Kind == tasks.RunRetry),
 		},
 	})
 }
@@ -623,6 +641,9 @@ func SystemPrompt(t *store.Task, repo *store.Repository, branch, projectInstruct
 	if t.Output == runnermgr.OutputArtifacts || t.Output == runnermgr.OutputPRAndArtifacts {
 		b.WriteString(OutputContract(t.Output))
 	}
+	if t.Loop != nil {
+		b.WriteString(loops.SystemPrompt(t.Loop))
+	}
 	if strings.TrimSpace(projectInstructions) != "" {
 		b.WriteString("\nProject instructions:\n")
 		b.WriteString(projectInstructions)
@@ -650,6 +671,7 @@ type runOutcome struct {
 	paused    *runnermgr.Event
 	lastError *runnermgr.Event
 	usage     *runnermgr.Event
+	check     *runnermgr.Event
 	committed bool
 }
 
@@ -716,6 +738,9 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 		out.usage = &ev
 	case runnermgr.EvCommitted:
 		out.committed = true
+	case runnermgr.EvCheck:
+		out.check = &ev
+		ev.Raw = checkRaw(t, ev)
 	}
 	if ev.Type == runnermgr.EvHeartbeat {
 		return
@@ -844,8 +869,12 @@ func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, r
 		if out.usage != nil {
 			turns = out.usage.Turns
 		}
+		if s.loopStep(ctx, t, run, code, limit, out) {
+			return // the next iteration is queued; nothing is pushed yet
+		}
 		s.afterRun(ctx, t, summary, turns, limit)
 	case runnermgr.ExitCancelled:
+		s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "cancelled"})
 		_ = h.RemoveAll(ctx, taskID)
 		nt, err := s.Store.SetStatus(ctx, taskID, []string{tasks.Running, tasks.WaitingInput}, tasks.Cancelled, "runner cancelled", true)
 		if err != nil && !errors.Is(err, store.ErrConflict) {

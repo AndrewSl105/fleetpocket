@@ -137,7 +137,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | | |
 |---|---|
 | `GET /tasks?project=&status=` | newest first. `status` takes a comma-separated list |
-| `POST /tasks` `{project_id, prompt, repository_id?, title?, agent?, node?, output?, skills_add?, skills_remove?}` | `output` (`pr`, `artifacts`, `pr_and_artifacts`) defaults to the project's `default_output`, else `pr`; values other than `pr` are refused with `400` until diagram collection ships. `skills_add`/`skills_remove` (slugs; comma-separated in multipart) change the project's skills for this task. `repository_id` defaults to the project's default repo; `title` to the first line of the prompt (80 chars); `agent` to the project's agent; `node` (`"server"` or a node id) to the project's host. `400 invalid` when the agent has no credentials on that host (for a node: the agents it reported when it last connected) or the node is unknown. As multipart, add images in `files[]` |
+| `POST /tasks` `{project_id, prompt, repository_id?, title?, agent?, node?, output?, skills_add?, skills_remove?, loop?}` | `loop` (`{check_command, max_iterations?, budget_usd?, timeout_sec?}`; in multipart a JSON string) loops the task until the check passes ([Loops](#loops)). `output` (`pr`, `artifacts`, `pr_and_artifacts`) defaults to the project's `default_output`, else `pr`; values other than `pr` are refused with `400` until diagram collection ships. `skills_add`/`skills_remove` (slugs; comma-separated in multipart) change the project's skills for this task. `repository_id` defaults to the project's default repo; `title` to the first line of the prompt (80 chars); `agent` to the project's agent; `node` (`"server"` or a node id) to the project's host. `400 invalid` when the agent has no credentials on that host (for a node: the agents it reported when it last connected) or the node is unknown. As multipart, add images in `files[]` |
 | `GET /tasks/{id}` | task view (see above) |
 | `GET /tasks/{id}/events?after_id=` | timeline, oldest first; `after_id` (or `cursor`) is the last event id you have. Heartbeats are not returned |
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
@@ -175,7 +175,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 
 Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` discriminated by the envelope's `type` (`ToolUseEvent`, `StatusEvent`, …), each with its own `payload` schema (`ToolUsePayload`, `StatusPayload`, …). Generate client types from it; `switch (event.type)` narrows the payload.
 
-- **Runner events** have `seq` (and `run_id`) set and `payload` is the runner event exactly as described in [PROTOCOL.md](PROTOCOL.md), including its own `type`, `ts` and `seq`: `ready`, `started`, `assistant_text`, `tool_use`, `tool_result`, `question`, `usage`, `committed`, `checkpoint`, `done`, `paused`, `error`. In a `question` payload, `question_id` is the runner-local id (`q1`); the API question id (for `/answer`) is `<run_id>-<question_id>`, as in `open_question.id`.
+- **Runner events** have `seq` (and `run_id`) set and `payload` is the runner event exactly as described in [PROTOCOL.md](PROTOCOL.md), including its own `type`, `ts` and `seq`: `ready`, `started`, `assistant_text`, `tool_use`, `tool_result`, `question`, `usage`, `committed`, `checkpoint`, `check`, `done`, `paused`, `error`. A `check` payload's `output` is trimmed by the server (like CI logs) and carries `iteration` and `max_iterations`. In a `question` payload, `question_id` is the runner-local id (`q1`); the API question id (for `/answer`) is `<run_id>-<question_id>`, as in `open_question.id`.
 - **Backend events** have `seq: null`; their payload has no `type`, `ts` or `seq` (use the envelope's `type` and `created_at`):
 
   | type | payload |
@@ -198,7 +198,8 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `integrations` | `{servers, egress, warning?}`: the MCP servers and egress mode a run got (only when it has servers or an allowlist) |
   | `mcp_call` | `{server, tool, ok, duration_ms, args_bytes, result_bytes, denied?, error?}`: one call through the MCP gateway (`denied`: `denied` = tool not allowed, `limit` = `max_calls` reached; `tool: ""` = connection failed). Never arguments, results or credentials |
   | `egress_blocked` | `{host}`: the egress proxy refused a host (once per host and run); also sent to Telegram with an "Allow for this project" button |
-  | `budget` | `{phase, scope?, project_id?, level?, spent_usd?, limit_usd?, via?}`: a monthly budget step, see [Costs and budgets](#costs-and-budgets) |
+  | `loop` | `{phase: "iteration"\|"stopped", iteration, max_iterations?, check_command?, run_id?, exit_code?, timed_out?, state?, reason?, spent_usd?}`: see [Loops](#loops) |
+  | `budget` | `{phase, scope?, project_id?, schedule_id?, schedule?, level?, spent_usd?, limit_usd?, via?}`: a monthly budget step, see [Costs and budgets](#costs-and-budgets) |
   | `checkpoint_restored` | `{checkpoint_id, checkpoint_event_id?, n, run_id, restore_run_id, ref_sha, mode: "fork"\|"summary", instruction, via}`: the owner rolled back; the events between `checkpoint_event_id` and this one are the abandoned branch |
   | `branch_force_pushed` | `{branch, from, reason: "restore", number}`: the push after a restore rewrote the task branch with `--force-with-lease` (also a PR comment and a Telegram message) |
 
@@ -228,6 +229,10 @@ Budgets, all off by default: the per-run `max_budget_usd` (as before), a monthly
 ```
 
 Every sum has the fields of `total`. `by_period` lists every day, week (from Monday) or month of the range, empty ones included; `rows` is one row per day, project and agent (the web client's CSV export).
+
+### Loops
+
+A task created with `loop` runs in iterations (SPEC-server, "Loops"). Each iteration is an agent run; when it ends `done`, the runner commits, takes an `iteration` checkpoint (when checkpoints are on) and runs `check_command` in the same container (`check` event: `exit_code`, the trimmed `output`, `iteration`, `max_iterations`). Exit code 0 passes. Otherwise the next iteration is queued as a `loop` run that continues the session with the check output as its prompt (`loop` event, phase `iteration`). The loop stops (`loop` event, phase `stopped`, and `loop_state`) when the check passes (`passed`), after `max_iterations` (default 3, max 10: `max_iterations`), when the loop's runs cost `budget_usd` (`budget`; each iteration's run budget is what is left), after two iterations in a row without file changes (`no_changes`), or on a run limit, a missing check result, a failure or a cancel (`stopped`). Nothing is pushed between iterations: the PR is opened (or updated) once, when the loop stops. A retry starts the loop over; follow-ups after it ended are ordinary runs without a check.
 
 ### Checkpoints
 

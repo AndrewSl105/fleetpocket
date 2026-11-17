@@ -12,6 +12,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
+	"github.com/andrewsl105/fleetpocket/server/internal/loops"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 )
 
@@ -104,7 +105,15 @@ type CreateInput struct {
 	// SkillsAdd/SkillsRemove change the project's skills for this task (slugs).
 	SkillsAdd    []string `json:"skills_add"`
 	SkillsRemove []string `json:"skills_remove"`
-	Source       string   `json:"-"`
+	// Loop runs the task until its check command passes (nil: no loop).
+	Loop   *store.LoopConfig `json:"loop"`
+	Source string            `json:"-"`
+	// Set by schedules: the schedule, its MCP server names (nil: the
+	// project's), its per-run budget and "PR even without changes".
+	ScheduleID   *int64   `json:"-"`
+	MCPServers   []string `json:"-"`
+	RunBudgetUSD *float64 `json:"-"`
+	PRAlways     bool     `json:"-"`
 	// Images are validated uploads (attachments.Process).
 	Images []*attachments.Image `json:"-"`
 }
@@ -172,12 +181,20 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if output != "pr" && !ArtifactsEnabled {
 		return nil, fmt.Errorf("%w: output %q is not available yet (diagram collection is not implemented)", ErrInvalid, output)
 	}
+	loop, err := loops.Normalize(in.Loop)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, err.Error())
+	}
+	if loop != nil && output == "artifacts" {
+		return nil, fmt.Errorf("%w: a loop needs repository changes; output %q makes none", ErrInvalid, output)
+	}
 	up, release, err := s.upload(in.Images)
 	if err != nil {
 		return nil, err
 	}
 	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
-		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove}, up)
+		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove, Loop: loop,
+		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways}, up)
 	release()
 	if err != nil {
 		return nil, err

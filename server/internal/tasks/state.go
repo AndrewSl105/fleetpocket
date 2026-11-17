@@ -70,6 +70,9 @@ const (
 	RunResume   = "resume"
 	RunFollowup = "followup"
 	RunRetry    = "retry"
+	// RunLoop is the next iteration of a loop after a failed check; it
+	// continues the session like a follow-up.
+	RunLoop = "loop"
 )
 
 // MessageAction decides what POST /message does in a state (section 7).

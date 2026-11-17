@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/costs"
@@ -23,7 +24,7 @@ type usageBase struct {
 
 func (s *Scheduler) usageBase(ctx context.Context, t *store.Task, run *store.Run) *usageBase {
 	b := &usageBase{runID: run.ID, model: deref(run.Model, "")}
-	if (run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup) && costs.ReportsCost(t.Agent) {
+	if (run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup || run.Kind == tasks.RunLoop) && costs.ReportsCost(t.Agent) {
 		b.cost, b.tokens, _ = s.Store.SessionBaseline(ctx, t.ID, run.ID)
 	}
 	return b
@@ -129,6 +130,11 @@ func (s *Scheduler) markBudgetWaits(ctx context.Context, gate store.BudgetGate) 
 		if scope == costs.ScopeGlobal {
 			return total, gate.GlobalUSD
 		}
+		if scope == costs.ScopeSchedule && t.ScheduleID != nil {
+			if sc, err := s.Store.GetSchedule(ctx, *t.ScheduleID, gate.MonthStart); err == nil {
+				return sc.MonthSpendUSD, deref(sc.MonthlyBudgetUSD, 0)
+			}
+		}
 		p, err := s.Store.GetProject(ctx, t.ProjectID)
 		if err != nil {
 			return spent[t.ProjectID], 0
@@ -167,10 +173,16 @@ func (s *Scheduler) checkBudgetAlerts(ctx context.Context, t *store.Task) {
 	if err != nil {
 		return
 	}
-	if cs.GlobalCap() <= 0 && p.Budget.Cap() <= 0 {
+	month := costs.MonthStart(s.now())
+	var sched *store.Schedule
+	if t.ScheduleID != nil {
+		if sc, err := s.Store.GetSchedule(ctx, *t.ScheduleID, month); err == nil && deref(sc.MonthlyBudgetUSD, 0) > 0 {
+			sched = sc
+		}
+	}
+	if cs.GlobalCap() <= 0 && p.Budget.Cap() <= 0 && sched == nil {
 		return
 	}
-	month := costs.MonthStart(s.now())
 	total, by, err := s.Store.MonthSpend(ctx, month)
 	if err != nil {
 		return
@@ -179,10 +191,14 @@ func (s *Scheduler) checkBudgetAlerts(ctx context.Context, t *store.Task) {
 		kind, id     string
 		spent, limit float64
 	}
-	for _, sc := range []scope{
+	scopes := []scope{
 		{costs.ScopeGlobal, "", total, cs.GlobalCap()},
 		{costs.ScopeProject, t.ProjectID, by[t.ProjectID], p.Budget.Cap()},
-	} {
+	}
+	if sched != nil {
+		scopes = append(scopes, scope{costs.ScopeSchedule, strconv.FormatInt(sched.ID, 10), sched.MonthSpendUSD, *sched.MonthlyBudgetUSD})
+	}
+	for _, sc := range scopes {
 		level := costs.Level(sc.spent, sc.limit)
 		if level == 0 {
 			continue
@@ -208,6 +224,9 @@ func (s *Scheduler) checkBudgetAlerts(ctx context.Context, t *store.Task) {
 			"spent_usd": round2(sc.spent), "limit_usd": sc.limit}
 		if sc.kind == costs.ScopeProject {
 			payload["project_id"] = sc.id
+		}
+		if sc.kind == costs.ScopeSchedule {
+			payload["schedule_id"], payload["schedule"] = sched.ID, sched.Name
 		}
 		s.addEvent(ctx, t.ID, nil, "budget", payload)
 		if s.Hooks.BudgetAlert != nil {

@@ -152,17 +152,22 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 		if err != nil {
 			return err
 		}
-		if out.Loop != nil {
-			if _, err := tx.Exec(ctx, `UPDATE runs SET loop_iteration = 1 WHERE id = $1`, runID); err != nil {
-				return err
-			}
-		}
 		created, err := insertEventWithUploadTx(ctx, tx, out.ID, &runID, "created", map[string]any{}, up, true)
 		if err != nil {
 			return err
 		}
 		ev, err := insertBackendEvent(ctx, tx, out.ID, nil, "status", map[string]any{"status": "queued"})
 		out.StatusEvents = []*Event{created, ev}
+		if err != nil || out.Loop == nil {
+			return err
+		}
+		// A loop's first iteration (docs/SPEC-server.md "Loops").
+		if _, err := tx.Exec(ctx, `UPDATE runs SET loop_iteration = 1 WHERE id = $1`, runID); err != nil {
+			return err
+		}
+		lev, err := insertBackendEvent(ctx, tx, out.ID, &runID, "loop", map[string]any{"phase": "iteration", "iteration": 1,
+			"max_iterations": out.Loop.MaxIterations, "check_command": out.Loop.CheckCommand, "run_id": runID})
+		out.StatusEvents = append(out.StatusEvents, lev)
 		return err
 	})
 	if isFKViolation(err) {
