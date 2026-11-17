@@ -67,6 +67,20 @@ test("a step that changed files is checkpointed to a hidden ref; HEAD, index and
   assert.equal(git("rev-list", "--count", "HEAD"), "2");
 });
 
+test("Codex and Cursor file changes reach the checkpointer (tool_result), and usage catches the rest", async () => {
+  const { CodexMapper } = await import("../src/codex-mapper.ts");
+  const m = new CodexMapper("default");
+  const evs = m.map({ type: "item.completed", item: { id: "1", type: "file_change", status: "completed", changes: [{ path: "a.txt", kind: "add" }] } } as never);
+  assert.ok(evs.some((e) => e.type === "tool_result"), JSON.stringify(evs));
+  const { dir } = repo();
+  const { cp, events } = checkpointer(dir);
+  writeFileSync(join(dir, "z.txt"), "z\n");
+  cp.observe({ type: "usage", cost_usd_total: 0, input_tokens: 1, output_tokens: 1, turns: 1 });
+  assert.equal(events.length, 1);
+  cp.observe({ type: "usage", cost_usd_total: 0, input_tokens: 1, output_tokens: 1, turns: 1 });
+  assert.equal(events.length, 1, "unchanged tree: no second checkpoint");
+});
+
 test("excluded paths (.fleetpocket/) never enter a checkpoint", () => {
   const { dir, git } = repo();
   execFileSync("mkdir", ["-p", join(dir, ".fleetpocket")]);

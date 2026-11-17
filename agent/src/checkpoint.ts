@@ -50,11 +50,15 @@ export class Checkpointer {
     }).trim();
   }
 
-  // observe is called after every emitted event: a finished tool step may
-  // have changed files. A question is checkpointed before it is emitted (see before()).
+  // observe is called after every emitted event: a finished tool step (or
+  // model turn) may have changed files. A question is checkpointed before it is emitted (see before()).
   observe(ev: EventBody): void {
     if (ev.type === "tool_result") {
       this.turn++;
+      this.snapshot("turn", false);
+    } else if (ev.type === "usage") {
+      // End of a model turn: catches changes no tool_result reported
+      // (deduplicated by tree, so free when nothing changed).
       this.snapshot("turn", false);
     }
   }

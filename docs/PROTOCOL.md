@@ -30,7 +30,7 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 `checkpoints` is present only when the owner turned checkpoints on (`PUT /settings/checkpoints`); without it the runner takes none, exactly as before. With it (and `output` other than `artifacts`) the runner takes a checkpoint:
 
-- after every step (`tool_result`) when the working tree differs from the previous checkpoint of the run (or from `HEAD` for the first one), reason `turn`;
+- after every step (`tool_result`) and every `usage` when the working tree differs from the previous checkpoint of the run (or from `HEAD` for the first one), reason `turn`;
 - right before every `question` (so also before a pause), even when nothing changed, reason `question`.
 
 A checkpoint is a commit of the whole working tree (`.gitignore` and `.git/info/exclude` apply, so `.fleetpocket/` and skill folders stay out) whose parent is `HEAD`, at the hidden ref `refs/jm/checkpoints/<run_id>/<n>`. The runner builds it with plumbing only (a temporary `GIT_INDEX_FILE`, `write-tree`, `commit-tree`, `update-ref`): `HEAD`, the branch and the real index never move, so checkpoint commits are never part of the task branch's history. The runner never pushes; the server pushes only `HEAD:refs/heads/<branch>`, so the refs never leave the workspace and disappear with it (`WORKSPACE_RETENTION`). A failure to take a checkpoint is logged on stderr and the run goes on.
