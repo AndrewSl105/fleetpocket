@@ -223,3 +223,113 @@ func Instruction(n, maxAttempts int, checks []string, signature, logName string)
 		"Do not skip, delete or weaken tests, and do not edit CI configuration.",
 		n, maxAttempts, strings.Join(checks, ", "), signature, logName)
 }
+
+// ParseDiff splits a unified `git diff` into per-file changes for GuardDiff.
+func ParseDiff(diff string) []FileChange {
+	var out []FileChange
+	var cur *FileChange
+	var patch strings.Builder
+	flush := func() {
+		if cur != nil {
+			cur.Patch = patch.String()
+			out = append(out, *cur)
+		}
+		cur = nil
+		patch.Reset()
+	}
+	for _, l := range strings.Split(diff, "\n") {
+		switch {
+		case strings.HasPrefix(l, "diff --git "):
+			flush()
+			cur = &FileChange{}
+			// "diff --git a/x b/x": the b/ path, refined by +++ / --- below.
+			if i := strings.LastIndex(l, " b/"); i >= 0 {
+				cur.Path = l[i+3:]
+			}
+		case cur == nil:
+		case strings.HasPrefix(l, "deleted file mode"):
+			cur.Deleted = true
+		case strings.HasPrefix(l, "+++ b/"):
+			cur.Path = strings.TrimPrefix(l, "+++ b/")
+		case strings.HasPrefix(l, "--- a/") && cur.Deleted:
+			cur.Path = strings.TrimPrefix(l, "--- a/")
+		case strings.HasPrefix(l, "+++ ") || strings.HasPrefix(l, "--- "):
+		default:
+			patch.WriteString(l)
+			patch.WriteByte('\n')
+		}
+	}
+	flush()
+	return out
+}
+
+// Check is one check run of a commit, as the GitHub App reports it.
+type Check struct {
+	ID         int64
+	Name       string
+	Status     string // queued | in_progress | completed
+	Conclusion string
+	URL        string
+	App        string // slug of the app that ran it ("github-actions")
+	Output     string // title, summary and text of a non-Actions check
+}
+
+// Failed reports whether a completed check failed.
+func (c Check) Failed() bool {
+	switch c.Conclusion {
+	case "failure", "timed_out", "cancelled", "action_required", "startup_failure", "stale":
+		return true
+	}
+	return false
+}
+
+// Summarize splits a commit's checks: those still running, and the failed
+// ones in scope of s. Green means every check completed without failing.
+func Summarize(s Settings, checks []Check) (pending bool, failed []Check, green bool) {
+	green = len(checks) > 0
+	for _, c := range checks {
+		if c.Status != "completed" {
+			pending = true
+			green = false
+			continue
+		}
+		if c.Failed() {
+			green = false
+			if s.Covers(c.Name) {
+				failed = append(failed, c)
+			}
+		}
+	}
+	return pending, failed, green
+}
+
+// FailureLog is one failed check's trimmed log.
+type FailureLog struct {
+	Check       Check
+	FailedSteps []string
+	Log         string // trimmed
+}
+
+// Combine builds the attachment text and the loop's signature from the
+// failed checks' logs (signature of the first failing check).
+func Combine(logs []FailureLog) (text, signature string) {
+	var b strings.Builder
+	for i, l := range logs {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		fmt.Fprintf(&b, "===== %s (%s) =====\n", l.Check.Name, l.Check.Conclusion)
+		if l.Check.URL != "" {
+			fmt.Fprintf(&b, "Details: %s\n", l.Check.URL)
+		}
+		if len(l.FailedSteps) > 0 {
+			fmt.Fprintf(&b, "Failed steps: %s\n", strings.Join(l.FailedSteps, ", "))
+		}
+		b.WriteString(l.Log)
+		b.WriteString("\n")
+	}
+	if len(logs) > 0 {
+		signature = Signature(logs[0].Check.Name, logs[0].Log)
+	}
+	return b.String(), signature
+}

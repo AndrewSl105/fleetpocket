@@ -22,10 +22,11 @@ var transitions = map[string][]string{
 	WaitingInput: {Running, Paused, Pushing, PROpen, Completed, Failed, Cancelled},
 	Paused:       {Queued, Cancelled, Failed},
 	Pushing:      {PROpen, Completed, Failed, Cancelled},
-	PROpen:       {Queued, Completed, Failed, Cancelled},
-	Completed:    {Queued},
-	Failed:       {Queued},
-	Cancelled:    {Queued},
+	// pr_open -> pushing: the owner approves a held CI auto-fix.
+	PROpen:    {Queued, Pushing, Completed, Failed, Cancelled},
+	Completed: {Queued},
+	Failed:    {Queued},
+	Cancelled: {Queued},
 }
 
 // CanTransition reports whether the state machine allows from → to.

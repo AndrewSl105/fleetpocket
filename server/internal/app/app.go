@@ -17,6 +17,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/api"
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
+	"github.com/andrewsl105/fleetpocket/server/internal/cifix"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/githubapp"
@@ -94,7 +95,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	taskSvc := &tasks.Service{Store: st, Hub: hub, Files: files, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled}
 	sched := scheduler.New(&scheduler.Scheduler{
 		Cfg: cfg, Store: st, Hub: hub, Tasks: taskSvc, Hosts: registry, Files: files,
-		Hooks: scheduler.Hooks{RunFinished: met.RunFinished},
+		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome},
 	})
 	taskSvc.Executor = sched
 	nodeSvc := &nodes.Service{Store: st, Hub: hub, Registry: registry, RunnerImage: cfg.RunnerImage}
@@ -127,6 +128,12 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		ws.Auth = gh.Token
 		registry.Auth = gh.Token
 		sched.Publisher = &githubapp.Publisher{App: gh, RequireScanner: cfg.SecretsScan == "gitleaks", TaskURL: taskURL(cfg)}
+		// CI auto-fix (off unless enabled in Settings or a project).
+		fixer := &cifix.Service{
+			Store: st, Hub: hub, GitHub: gh, Files: files, Wake: sched.Wake, Holder: sched,
+			DefaultBudgetUSD: cfg.DefaultMaxBudgetUSD, Attempt: met.AutoFixAttempt, Outcome: met.AutoFixOutcome,
+		}
+		taskSvc.AutoFix = fixer
 		webhook = &githubapp.Webhook{
 			Secret: []byte(cfg.GitHubWebhookSecret), Store: st, Hub: hub, Tasks: taskSvc,
 			Cleanup: func(ctx context.Context, id int64) {
@@ -136,10 +143,9 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 					}
 				}
 			},
-			OnCIFailed: func(ctx context.Context, f githubapp.CIFailure) {
-				// Hook point for automatic CI fixing (not in v1).
-				slog.Info("CI failed", "task_id", f.Task.ID, "check", f.Name)
-			},
+			OnCIFailed: fixer.Failed,
+			OnCI:       fixer.Changed,
+			OnPRClosed: fixer.PRClosed,
 		}
 	} else if !cfg.Local() {
 		slog.Warn("GitHub App not configured: commits stay in local workspaces")

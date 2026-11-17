@@ -121,6 +121,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/tasks/{id}/retry", a(s.control(s.Tasks.Retry)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/merge", a(s.control(s.Tasks.Merge)))
 	mux.HandleFunc("GET /api/v1/stats", a(s.stats))
+	mux.HandleFunc("GET /api/v1/settings/ci-autofix", a(s.getAutoFixDefaults))
+	mux.HandleFunc("PUT /api/v1/settings/ci-autofix", a(s.putAutoFixDefaults))
 	if s.Nodes != nil {
 		mux.HandleFunc("GET /api/v1/nodes", a(s.listNodes))
 		mux.HandleFunc("POST /api/v1/nodes", a(s.createNode))

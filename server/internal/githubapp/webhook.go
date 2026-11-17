@@ -19,6 +19,16 @@ type CIFailure struct {
 	Task *store.Task
 	Name string
 	URL  string
+	// HeadSHA is the commit the checks ran on.
+	HeadSHA string
+}
+
+// CIUpdate is a CI status change that is not a failure (pending, success),
+// for the OnCI hook.
+type CIUpdate struct {
+	Task    *store.Task
+	Status  string // pending | success
+	HeadSHA string
 }
 
 // Webhook receives GitHub events at POST /webhooks/github.
@@ -30,10 +40,15 @@ type Webhook struct {
 	// Cleanup removes a task's containers once its PR is merged or closed.
 	Cleanup func(ctx context.Context, taskID int64)
 
-	// OnCIFailed is the hook point for future automatic CI fixing (not in v1):
-	// it is called once per failed check suite or workflow run of a task's
-	// branch. v1 only records the result and notifies.
+	// OnCIFailed is called once per failed check suite or workflow run of a
+	// task's branch (CI auto-fix, internal/cifix), after the result is
+	// recorded. It must not block: the delivery times out after 10 s.
 	OnCIFailed func(ctx context.Context, f CIFailure)
+	// OnCI is called for the other CI status changes (new checks started,
+	// a suite passed).
+	OnCI func(ctx context.Context, u CIUpdate)
+	// OnPRClosed is called when a task's PR is closed or merged.
+	OnPRClosed func(ctx context.Context, taskID int64)
 }
 
 func (h *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,11 +70,11 @@ func (h *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err = h.pullRequest(ctx, e)
 	case *github.CheckSuiteEvent:
 		cs := e.GetCheckSuite()
-		err = h.ci(ctx, e.GetRepo().GetFullName(), cs.GetHeadBranch(), e.GetAction(), cs.GetStatus(), cs.GetConclusion(),
+		err = h.ci(ctx, e.GetRepo().GetFullName(), cs.GetHeadBranch(), cs.GetHeadSHA(), e.GetAction(), cs.GetStatus(), cs.GetConclusion(),
 			cs.GetApp().GetName(), "")
 	case *github.WorkflowRunEvent:
 		wr := e.GetWorkflowRun()
-		err = h.ci(ctx, e.GetRepo().GetFullName(), wr.GetHeadBranch(), e.GetAction(), wr.GetStatus(), wr.GetConclusion(),
+		err = h.ci(ctx, e.GetRepo().GetFullName(), wr.GetHeadBranch(), wr.GetHeadSHA(), e.GetAction(), wr.GetStatus(), wr.GetConclusion(),
 			wr.GetName(), wr.GetHTMLURL())
 	}
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -83,6 +98,9 @@ func (h *Webhook) pullRequest(ctx context.Context, e *github.PullRequestEvent) e
 	// A merge from Fleetpocket (tasks.Service.Merge) has already recorded it.
 	if !h.closedRecorded(ctx, t.ID, pr.GetNumber()) {
 		h.event(ctx, t.ID, "pr_closed", map[string]any{"number": pr.GetNumber(), "merged": merged})
+	}
+	if h.OnPRClosed != nil {
+		h.OnPRClosed(ctx, t.ID)
 	}
 	if tasks.IsTerminal(t.Status) {
 		return nil
@@ -135,7 +153,7 @@ func CIStatus(action, status, conclusion string) string {
 	return ""
 }
 
-func (h *Webhook) ci(ctx context.Context, repo, branch, action, status, conclusion, name, url string) error {
+func (h *Webhook) ci(ctx context.Context, repo, branch, sha, action, status, conclusion, name, url string) error {
 	ci := CIStatus(action, status, conclusion)
 	if ci == "" || branch == "" {
 		return nil
@@ -156,8 +174,11 @@ func (h *Webhook) ci(ctx context.Context, repo, branch, action, status, conclusi
 	if nt, err := h.Store.GetTask(ctx, t.ID); err == nil {
 		h.Hub.PublishTask(nt)
 	}
-	if CIStatus(action, status, conclusion) == "failure" && h.OnCIFailed != nil {
-		h.OnCIFailed(ctx, CIFailure{Task: t, Name: name, URL: url})
+	switch raw := CIStatus(action, status, conclusion); {
+	case raw == "failure" && h.OnCIFailed != nil:
+		h.OnCIFailed(ctx, CIFailure{Task: t, Name: name, URL: url, HeadSHA: sha})
+	case raw != "failure" && h.OnCI != nil:
+		h.OnCI(ctx, CIUpdate{Task: t, Status: raw, HeadSHA: sha})
 	}
 	return nil
 }

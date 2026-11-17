@@ -21,6 +21,7 @@ tags:
   - name: tasks
   - name: nodes
   - name: system
+  - name: settings
 
 paths:
   /api/v1/setup/status:
@@ -735,6 +736,36 @@ paths:
                   cost_usd_today: { type: number }
                   cost_usd_month: { type: number }
 
+  /api/v1/settings/ci-autofix:
+    get:
+      operationId: getCIAutoFixDefaults
+      tags: [settings]
+      summary: Global CI auto-fix default
+      description: What projects inherit for the fields their `ci_autofix` leaves null. Missing fields use the built-in defaults (off, 2 attempts, all checks, half the task budget, no CI changes).
+      responses:
+        '200':
+          description: The global default
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+    put:
+      operationId: putCIAutoFixDefaults
+      tags: [settings]
+      summary: Replace the global CI auto-fix default
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+
   /api/v1/nodes:
     get:
       operationId: listNodes
@@ -1126,10 +1157,24 @@ components:
         runner_cpus: { type: [number, 'null'] }
         telegram_thread_id: { type: [integer, 'null'], format: int64 }
         archived: { type: boolean }
+        ci_autofix:
+          $ref: '#/components/schemas/CIAutoFixSettings'
+          description: Replaces the project's CI auto-fix overrides as a whole; null fields inherit the global default
+
+    CIAutoFixSettings:
+      type: object
+      additionalProperties: false
+      description: CI auto-fix settings (docs/SPEC-server.md "CI auto-fix"). A null field inherits the level below (project → global default → built-in default).
+      properties:
+        enabled: { type: [boolean, 'null'], description: 'Fix failing CI on PRs Jungle Monkey opened; built-in default false' }
+        max_attempts: { type: [integer, 'null'], minimum: 1, maximum: 5, description: Fix attempts per loop; built-in default 2 }
+        checks: { type: [array, 'null'], items: { type: string }, description: Check names auto-fix handles; null or empty is all }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: Budget of one attempt; null or 0 is half the project's task budget }
+        allow_ci_changes: { type: [boolean, 'null'], description: 'Push fixes that touch CI configuration, delete or skip tests, or change coverage thresholds without asking; built-in default false' }
 
     Project:
       type: object
-      required: [id, name, instructions, services, env, archived, created_at, updated_at, repositories]
+      required: [id, name, instructions, services, env, archived, ci_autofix, created_at, updated_at, repositories]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1147,6 +1192,7 @@ components:
         runner_cpus: { type: [number, 'null'] }
         telegram_thread_id: { type: [integer, 'null'], format: int64 }
         archived: { type: boolean }
+        ci_autofix: { $ref: '#/components/schemas/CIAutoFixSettings' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         repositories: { type: array, items: { $ref: '#/components/schemas/Repository' } }
@@ -1213,7 +1259,7 @@ components:
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1244,6 +1290,19 @@ components:
         queued_message:
           type: [string, 'null']
           description: Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued.
+        autofix_state:
+          $ref: '#/components/schemas/AutoFixState'
+        autofix_attempts: { type: integer, description: CI auto-fix attempts made in the current loop }
+        autofix_max_attempts: { type: [integer, 'null'], description: Attempt cap of the current loop }
+
+    AutoFixState:
+      type: [string, 'null']
+      enum: [fixing, held, approved, waiting, green, needs_you, cancelled, null]
+      description: |
+        CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
+        owner's answer to the open question), `approved` (pushing it anyway), `waiting` (pushed, waiting for CI), `green`
+        (CI passed after a fix), `needs_you` (stopped: attempts used up, same failure twice, budget, a guarded fix discarded),
+        `cancelled` (human push, manual follow-up, PR closed). null: no loop.
 
     TaskView:
       allOf:
@@ -1267,6 +1326,7 @@ components:
         last_seq: { type: integer, format: int64 }
         cost_usd: { type: number, description: This run's own cost (not the session total) }
         turns: { type: integer, description: Last usage.turns the runner reported for this run }
+        autofix_attempt: { type: [integer, 'null'], description: Set on runs CI auto-fix started (the attempt number) }
         started_at: { type: [string, 'null'], format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }
 
@@ -1314,6 +1374,7 @@ components:
         - $ref: '#/components/schemas/PrClosedEvent'
         - $ref: '#/components/schemas/CiEvent'
         - $ref: '#/components/schemas/DiffRejectedEvent'
+        - $ref: '#/components/schemas/AutoFixEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -1341,10 +1402,11 @@ components:
           pr_closed: '#/components/schemas/PrClosedEvent'
           ci: '#/components/schemas/CiEvent'
           diff_rejected: '#/components/schemas/DiffRejectedEvent'
+          autofix: '#/components/schemas/AutoFixEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix]
 
     EventBase:
       type: object
@@ -1476,14 +1538,17 @@ components:
           properties:
             type: { type: string, enum: [question] }
             run_id: { type: integer, format: int64 }
-            seq: { type: integer, format: int64 }
+            seq: { type: [integer, 'null'], format: int64, description: 'null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix-guard`)' }
             payload: { $ref: '#/components/schemas/QuestionPayload' }
 
     QuestionPayload:
       allOf:
-        - $ref: '#/components/schemas/RunnerPayloadBase'
         - type: object
-          required: [type, question_id, text]
+          properties:
+            ts: { type: string, format: date-time }
+            seq: { type: integer, format: int64 }
+        - type: object
+          required: [question_id, text]
           properties:
             type: { type: string, enum: [question] }
             question_id: { type: string, description: 'Runner-local id (q1, q2, …); the API question id is "<run_id>-<question_id>"' }
@@ -1839,3 +1904,42 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+
+    AutoFixEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [autofix] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/AutoFixPayload' }
+
+    AutoFixCheck:
+      type: object
+      required: [name, url, conclusion]
+      properties:
+        name: { type: string }
+        url: { type: string, description: The check run on GitHub (its logs) }
+        conclusion: { type: string }
+
+    AutoFixPayload:
+      type: object
+      required: [phase]
+      description: |
+        One automatic CI auto-fix step. `started`: attempt `attempt`/`max_attempts` was queued as run `run_id` with the failing
+        `checks`, the failure `signature` and the trimmed logs in `attachments`. `pushed`: the fix was pushed. `held`: the fix
+        changes CI or tests (`reasons`); the open question asks the owner. `discarded`: the owner discarded it. `green`: CI passed
+        after `fixes` fixes. `needs_you`: the loop stopped (`reason`). `cancelled`: a human push, follow-up or closed PR (`reason`).
+      properties:
+        phase: { type: string, enum: [started, pushed, held, discarded, green, needs_you, cancelled] }
+        attempt: { type: integer }
+        max_attempts: { type: integer }
+        run_id: { type: integer, format: int64 }
+        head_sha: { type: string }
+        signature: { type: string }
+        checks: { type: array, items: { $ref: '#/components/schemas/AutoFixCheck' } }
+        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' } }
+        reasons: { type: array, items: { type: string } }
+        reason: { type: string }
+        fixes: { type: integer }

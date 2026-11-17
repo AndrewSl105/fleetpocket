@@ -53,6 +53,7 @@ A **project** groups repositories and holds run settings. All override fields ar
   "runner_image": null, "agent": null, "node": null, "model": null, "max_turns": null, "max_budget_usd": null,
   "max_duration_sec": null, "runner_memory": null, "runner_cpus": null,
   "telegram_thread_id": null, "archived": false,
+  "ci_autofix": {"enabled": null, "max_attempts": null, "checks": null, "budget_usd": null, "allow_ci_changes": null},
   "created_at": "…", "updated_at": "…",
   "repositories": [{"id": 1, "project_id": "vatary", "full_name": "andrewsl105/vatary-server",
                     "base_branch": "dev", "installation_id": 123, "is_default": true}]
@@ -76,6 +77,8 @@ A **project** groups repositories and holds run settings. All override fields ar
 `agent` is `claude`, `codex` or `cursor` (`null`: the server's `default_agent`); it may name an agent without credentials, but creating a task with it fails. `model` is a model of the project's agent and applies only to tasks that run with that agent; a task that overrides the agent uses that agent's default model (Claude: the server's `DEFAULT_MODEL`).
 
 `node` is the computer the project's tasks run on (a node id, see [Computers](#computers-nodes)); `null`, `""` or `"server"` is the server. An unknown id is `400 invalid`; removing the node resets it to `null`.
+
+`ci_autofix` holds the project's CI auto-fix overrides (see [CI auto-fix](#ci-auto-fix)); a `PATCH` replaces the object as a whole and `null` fields inherit the global default.
 
 `services` accepts `postgres` and `redis`. `env` keys must match `[A-Z_][A-Z0-9_]*`; auth and service variables (`DATABASE_URL`, `REDIS_URL`, Claude, OpenAI and Cursor keys, `CODEX_HOME`, …) are reserved.
 
@@ -114,7 +117,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `waiting_input` | Claude asked a question (`open_question`) | answer, message (queued), interrupt, cancel |
 | `paused` | question not answered in time; containers removed | answer (resumes), message (resumes), cancel |
 | `pushing` | validating diff, pushing, opening the PR | message (queued), cancel |
-| `pr_open` | PR exists; `ci_status` follows CI | merge, message (new run on the same branch), cancel |
+| `pr_open` | PR exists; `ci_status` follows CI. With CI auto-fix, a held fix leaves an `open_question` here | merge, message (new run on the same branch), answer (the auto-fix question), cancel |
 | `completed` | PR merged/closed, or finished with no changes | message (new run) |
 | `failed` | see `status_reason` | retry |
 | `cancelled` | | retry |
@@ -130,7 +133,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
 | `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup` or `retry`; `cost_usd` is the run's own cost. Paginated with `limit`/`cursor` |
 | `GET /tasks/{id}/diff` | `{"diff", "truncated", "base", "branch"}`: `git diff base...branch` from the workspace, capped at 1 MB. `409 no_workspace` before cloning or after cleanup; `503 host_offline` while the task's node is offline |
-| `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it |
+| `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix-guard`): `Push anyway` pushes the held fix, anything else discards it |
 | `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`completed`: starts a new run right away. Otherwise `409` |
 | `POST /tasks/{id}/interrupt` | `running`/`waiting_input`: stops Claude and **ends the run** ("Interrupted by the user."); what it committed is pushed as for any finished run, and the session is kept. A queued message then starts the next run; otherwise send a follow-up message |
 | `POST /tasks/{id}/cancel` | ends the task (`cancelled`), stops the runner |
@@ -138,6 +141,8 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `POST /tasks/{id}/merge` | `pr_open` only: squash-merges the PR (commit title `<task title> (#<number>)`), deletes its branch, records `pr_closed {merged: true}` and completes the task ("PR merged"). `409 not_mergeable` with GitHub's reason when GitHub refuses (conflicts, required checks or reviews); `503 github_disabled` without the GitHub App |
 | `GET /tasks/{id}/attachments/{attachmentId}` | the image or file (`?thumb=1`: JPEG, longest side ≤ 480 px, images only); `410 gone` once removed |
 | `GET /stats` | `{running, queued, waiting_input, cost_usd_today, cost_usd_month}` (server-local days) |
+| `GET /settings/ci-autofix` | the global CI auto-fix default `{enabled, max_attempts, checks, budget_usd, allow_ci_changes}` (null fields: built-in default) |
+| `PUT /settings/ci-autofix` | replaces it; `400 invalid` for `max_attempts` outside 1–5 or a negative budget |
 
 ### Timeline events
 
@@ -169,6 +174,14 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `pr_closed` | `{number, merged}` |
   | `ci` | `{status: "pending"\|"success"\|"failure", name, url}` |
   | `diff_rejected` | `{reason}` |
+  | `autofix` | `{phase, …}`: one CI auto-fix step, see below |
+  | `question` | only for the CI auto-fix question: `{question_id: "autofix-guard", text, options}` with the attempt's `run_id` |
+
+### CI auto-fix
+
+Off by default. When it is on (globally via `PUT /settings/ci-autofix` or per project via `ci_autofix`) and a check fails on the commit Jungle Monkey last pushed to a task's PR, the server fetches the failed checks' logs, attaches them (trimmed) to the task and queues a follow-up run that fixes the cause (`latest_run.autofix_attempt` is set). Task fields: `autofix_state` (`fixing`, `held`, `approved`, `waiting`, `green`, `needs_you`, `cancelled`, or `null`), `autofix_attempts`, `autofix_max_attempts`.
+
+`autofix` event phases: `started` `{attempt, max_attempts, run_id, checks: [{name, url, conclusion}], signature, head_sha, attachments}`; `pushed` `{attempt, max_attempts}`; `held` `{attempt, max_attempts, reasons}` (the fix changes CI or tests; an open question asks "Push anyway?"); `discarded`; `green` `{fixes}`; `needs_you` `{reason, attempt, max_attempts, checks?, signature?}`; `cancelled` `{reason}` (a human push, a follow-up message, the PR closed).
 
 ### Attachments
 

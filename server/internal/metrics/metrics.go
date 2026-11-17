@@ -21,6 +21,8 @@ type Metrics struct {
 	runnerExits  *prometheus.CounterVec
 	telegramErrs *prometheus.CounterVec
 	githubErrs   *prometheus.CounterVec
+	autofixRuns  *prometheus.CounterVec
+	autofixEnds  *prometheus.CounterVec
 }
 
 func New(st *store.Store) *Metrics {
@@ -40,8 +42,14 @@ func New(st *store.Store) *Metrics {
 		githubErrs: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "fleetpocket_github_api_errors_total", Help: "Failed GitHub API calls.",
 		}, []string{"op"}),
+		autofixRuns: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_autofix_attempts_total", Help: "CI auto-fix attempts started.",
+		}, []string{"project"}),
+		autofixEnds: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_autofix_outcomes_total", Help: "CI auto-fix loops that ended, by outcome (green, needs_you, cancelled).",
+		}, []string{"project", "outcome"}),
 	}
-	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs,
+	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs, m.autofixRuns, m.autofixEnds,
 		&dbCollector{st: st},
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	return m
@@ -58,6 +66,12 @@ func (m *Metrics) RunFinished(project string, exitCode int, d time.Duration) {
 
 func (m *Metrics) TelegramError(op string) { m.telegramErrs.WithLabelValues(op).Inc() }
 func (m *Metrics) GitHubError(op string)   { m.githubErrs.WithLabelValues(op).Inc() }
+
+// AutoFixAttempt and AutoFixOutcome count the CI auto-fix loop.
+func (m *Metrics) AutoFixAttempt(project string) { m.autofixRuns.WithLabelValues(project).Inc() }
+func (m *Metrics) AutoFixOutcome(project, outcome string) {
+	m.autofixEnds.WithLabelValues(project, outcome).Inc()
+}
 
 // dbCollector reads task counts and costs at scrape time.
 type dbCollector struct{ st *store.Store }

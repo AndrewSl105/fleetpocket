@@ -415,6 +415,14 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 				return fmt.Sprintf("❌ <b>#%d · CI failed</b>\n%s", t.ID, name)
 			})
 		}
+	case "autofix":
+		t, err := b.Store.GetTask(ctx, ev.TaskID)
+		if err != nil {
+			return
+		}
+		if text := renderAutoFix(t, ev.Payload); text != "" {
+			_, _ = b.sendTask(ctx, t, "autofix", text, b.taskButtons(ctx, t, b.targetPrivate(ctx, t)), true)
+		}
 	case "error":
 		if p.Code == "limit_exceeded" || strings.Contains(strings.ToLower(p.Code), "limit") {
 			t, err := b.Store.GetTask(ctx, ev.TaskID)

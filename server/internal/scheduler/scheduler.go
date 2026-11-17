@@ -63,6 +63,8 @@ type Publisher interface {
 // Hooks lets other parts (metrics) observe runs without coupling.
 type Hooks struct {
 	RunFinished func(project string, exitCode int, dur time.Duration)
+	// AutoFixOutcome counts CI auto-fix loops handed back to the owner.
+	AutoFixOutcome func(project, outcome string)
 }
 
 type Scheduler struct {
@@ -215,6 +217,9 @@ func (s *Scheduler) log(t *store.Task, runID int64) *slog.Logger {
 // fail marks the task failed and removes its containers (workspace kept).
 func (s *Scheduler) fail(ctx context.Context, t *store.Task, reason string) {
 	s.log(t, 0).Warn("task failed", "reason", reason)
+	if t.AutoFixState != nil {
+		s.stopAutoFix(ctx, t, "the fix run failed: "+reason)
+	}
 	_ = s.host(t).RemoveAll(ctx, t.ID)
 	_ = s.Store.CloseOpenQuestions(ctx, t.ID, "")
 	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Failed, reason); err != nil && !errors.Is(err, store.ErrConflict) {
@@ -406,6 +411,9 @@ func (s *Scheduler) unregister(taskID int64) {
 func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, repo *store.Repository, branch string) runnermgr.RunCommand {
 	maxTurns := deref(p.MaxTurns, s.Cfg.DefaultMaxTurns)
 	budget := deref(p.MaxBudgetUSD, s.Cfg.DefaultMaxBudgetUSD)
+	if run.MaxBudgetUSD != nil {
+		budget = *run.MaxBudgetUSD // a CI auto-fix attempt's own budget
+	}
 	dur := s.Cfg.DefaultMaxDuration
 	if p.MaxDurationSec != nil {
 		dur = time.Duration(*p.MaxDurationSec) * time.Second
@@ -795,6 +803,18 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		s.fail(ctx, t, "inspect workspace: "+err.Error())
 		return
 	}
+	// fix is the run of a CI auto-fix attempt; guard tells whether its diff
+	// is checked before the push.
+	fix := s.autoFixRun(ctx, t)
+	guard := fix != nil
+	if fix != nil && unpushed == 0 {
+		s.stopAutoFix(ctx, t, "the fix run made no changes")
+	}
+	if fix != nil && limit != "" {
+		// What it committed is pushed as for any run; the loop ends.
+		s.stopAutoFix(ctx, t, "auto-fix budget or limit reached: "+limit)
+		guard = false
+	}
 	if unpushed == 0 {
 		switch {
 		case limit != "" && t.PRNumber == nil:
@@ -810,6 +830,33 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 			}
 		}
 		return
+	}
+
+	if guard && s.Publisher != nil {
+		project, err := s.Store.GetProject(ctx, t.ProjectID)
+		if err != nil {
+			s.fail(ctx, t, err.Error())
+			return
+		}
+		settings, err := s.Store.AutoFixSettings(ctx, project)
+		if err != nil {
+			s.fail(ctx, t, err.Error())
+			return
+		}
+		if !settings.AllowCIChanges {
+			reasons, err := s.guardFix(ctx, h, t, branch)
+			if err != nil {
+				if hosts.IsOffline(err) {
+					s.log(t, 0).Warn("node offline after the run; push resumes when it reconnects")
+					return
+				}
+				reasons = []string{"the fix diff could not be inspected: " + err.Error()}
+			}
+			if len(reasons) > 0 {
+				s.holdFix(ctx, t, fix, reasons)
+				return
+			}
+		}
 	}
 
 	if t.Status != tasks.Pushing {
@@ -834,6 +881,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	if latest != nil {
 		t = latest
 	}
+	s.recordPush(ctx, t)
 	res, err := s.Publisher.Publish(ctx, PublishInput{
 		Host: h, Task: t, Repo: repo, Project: project, Branch: branch,
 		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit,
@@ -857,6 +905,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		typ = "pr_opened"
 	}
 	s.addEvent(ctx, t.ID, nil, typ, map[string]any{"number": res.PRNumber, "url": res.PRURL})
+	s.afterPush(ctx, t, fix)
 	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.PROpen, limit); err != nil {
 		s.log(t, 0).Error("set pr_open", "err", err)
 	}

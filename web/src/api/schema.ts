@@ -508,6 +508,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/ci-autofix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global CI auto-fix default
+         * @description What projects inherit for the fields their `ci_autofix` leaves null. Missing fields use the built-in defaults (off, 2 attempts, all checks, half the task budget, no CI changes).
+         */
+        get: operations["getCIAutoFixDefaults"];
+        /** Replace the global CI auto-fix default */
+        put: operations["putCIAutoFixDefaults"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nodes": {
         parameters: {
             query?: never;
@@ -822,6 +843,21 @@ export interface components {
             /** Format: int64 */
             telegram_thread_id?: number | null;
             archived?: boolean;
+            /** @description Replaces the project's CI auto-fix overrides as a whole; null fields inherit the global default */
+            ci_autofix?: components["schemas"]["CIAutoFixSettings"];
+        };
+        /** @description CI auto-fix settings (docs/SPEC-server.md "CI auto-fix"). A null field inherits the level below (project → global default → built-in default). */
+        CIAutoFixSettings: {
+            /** @description Fix failing CI on PRs Jungle Monkey opened; built-in default false */
+            enabled?: boolean | null;
+            /** @description Fix attempts per loop; built-in default 2 */
+            max_attempts?: number | null;
+            /** @description Check names auto-fix handles; null or empty is all */
+            checks?: string[] | null;
+            /** @description Budget of one attempt; null or 0 is half the project's task budget */
+            budget_usd?: number | null;
+            /** @description Push fixes that touch CI configuration, delete or skip tests, or change coverage thresholds without asking; built-in default false */
+            allow_ci_changes?: boolean | null;
         };
         Project: {
             id: string;
@@ -848,6 +884,7 @@ export interface components {
             /** Format: int64 */
             telegram_thread_id?: number | null;
             archived: boolean;
+            ci_autofix: components["schemas"]["CIAutoFixSettings"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -945,7 +982,20 @@ export interface components {
             last_activity_at: string | null;
             /** @description Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued. */
             queued_message: string | null;
+            autofix_state: components["schemas"]["AutoFixState"];
+            /** @description CI auto-fix attempts made in the current loop */
+            autofix_attempts: number;
+            /** @description Attempt cap of the current loop */
+            autofix_max_attempts: number | null;
         };
+        /**
+         * @description CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
+         *     owner's answer to the open question), `approved` (pushing it anyway), `waiting` (pushed, waiting for CI), `green`
+         *     (CI passed after a fix), `needs_you` (stopped: attempts used up, same failure twice, budget, a guarded fix discarded),
+         *     `cancelled` (human push, manual follow-up, PR closed). null: no loop.
+         * @enum {string|null}
+         */
+        AutoFixState: "fixing" | "held" | "approved" | "waiting" | "green" | "needs_you" | "cancelled" | null;
         TaskView: components["schemas"]["Task"] & {
             repository?: components["schemas"]["Repository"] | null;
             latest_run?: components["schemas"]["Run"] | null;
@@ -967,6 +1017,8 @@ export interface components {
             cost_usd: number;
             /** @description Last usage.turns the runner reported for this run */
             turns: number;
+            /** @description Set on runs CI auto-fix started (the attempt number) */
+            autofix_attempt?: number | null;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */
@@ -994,9 +1046,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -1124,8 +1176,11 @@ export interface components {
             type: "question";
             /** Format: int64 */
             run_id: number;
-            /** Format: int64 */
-            seq: number;
+            /**
+             * Format: int64
+             * @description null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix-guard`)
+             */
+            seq: number | null;
             payload: components["schemas"]["QuestionPayload"];
         } & {
             /**
@@ -1134,9 +1189,14 @@ export interface components {
              */
             type: "question";
         };
-        QuestionPayload: components["schemas"]["RunnerPayloadBase"] & {
+        QuestionPayload: {
+            /** Format: date-time */
+            ts?: string;
+            /** Format: int64 */
+            seq?: number;
+        } & {
             /** @enum {string} */
-            type: "question";
+            type?: "question";
             /** @description Runner-local id (q1, q2, …); the API question id is "<run_id>-<question_id>" */
             question_id: string;
             text: string;
@@ -1500,6 +1560,45 @@ export interface components {
         };
         DiffRejectedPayload: {
             reason: string;
+        };
+        AutoFixEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "autofix";
+            seq: null;
+            payload: components["schemas"]["AutoFixPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "autofix";
+        };
+        AutoFixCheck: {
+            name: string;
+            /** @description The check run on GitHub (its logs) */
+            url: string;
+            conclusion: string;
+        };
+        /**
+         * @description One automatic CI auto-fix step. `started`: attempt `attempt`/`max_attempts` was queued as run `run_id` with the failing
+         *     `checks`, the failure `signature` and the trimmed logs in `attachments`. `pushed`: the fix was pushed. `held`: the fix
+         *     changes CI or tests (`reasons`); the open question asks the owner. `discarded`: the owner discarded it. `green`: CI passed
+         *     after `fixes` fixes. `needs_you`: the loop stopped (`reason`). `cancelled`: a human push, follow-up or closed PR (`reason`).
+         */
+        AutoFixPayload: {
+            /** @enum {string} */
+            phase: "started" | "pushed" | "held" | "discarded" | "green" | "needs_you" | "cancelled";
+            attempt?: number;
+            max_attempts?: number;
+            /** Format: int64 */
+            run_id?: number;
+            head_sha?: string;
+            signature?: string;
+            checks?: components["schemas"]["AutoFixCheck"][];
+            attachments?: components["schemas"]["Attachment"][];
+            reasons?: string[];
+            reason?: string;
+            fixes?: number;
         };
     };
     responses: {
@@ -2517,6 +2616,53 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    getCIAutoFixDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The global default */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CIAutoFixSettings"];
+                };
+            };
+        };
+    };
+    putCIAutoFixDefaults: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CIAutoFixSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CIAutoFixSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
         };
     };
     listNodes: {

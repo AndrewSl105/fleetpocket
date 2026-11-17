@@ -43,6 +43,18 @@ type Executor interface {
 	Cancel(ctx context.Context, taskID int64) error
 }
 
+// GuardQuestionID is the runner-question id of the CI auto-fix diff-guard
+// question (the scheduler asks it; the answer goes to AutoFixer.Resolve).
+const GuardQuestionID = "autofix-guard"
+
+// AutoFixer is the CI auto-fix loop (internal/cifix).
+type AutoFixer interface {
+	// Cancel ends an active loop and says why.
+	Cancel(ctx context.Context, taskID int64, reason string)
+	// Resolve pushes or discards a fix that waits for the owner.
+	Resolve(ctx context.Context, taskID int64, push bool) error
+}
+
 type Service struct {
 	Store    *store.Store
 	Hub      *events.Hub
@@ -55,6 +67,8 @@ type Service struct {
 	DefaultAgent string
 	// AgentEnabled reports whether an agent has credentials; nil allows every agent.
 	AgentEnabled func(agent string) bool
+	// AutoFix is the CI auto-fix loop; nil when GitHub is not configured.
+	AutoFix AutoFixer
 }
 
 // ServerNode is the placement value for the server itself.
@@ -294,6 +308,16 @@ func (s *Service) Answer(ctx context.Context, taskID int64, questionID, text, vi
 	})
 	s.publishEvent(ev)
 
+	if RunnerQuestionID(qn.ID) == GuardQuestionID {
+		if s.AutoFix == nil {
+			return nil, fmt.Errorf("%w: CI auto-fix is not configured", ErrConflict)
+		}
+		if err := s.AutoFix.Resolve(ctx, taskID, GuardPushes(text)); err != nil {
+			return nil, err
+		}
+		return s.Get(ctx, taskID)
+	}
+
 	switch t.Status {
 	case Running, WaitingInput:
 		// If the runner is already gone, the runner manager sees the stored
@@ -335,6 +359,9 @@ func (s *Service) Message(ctx context.Context, taskID int64, text string, imgs [
 		}
 		if err != nil {
 			return nil, err
+		}
+		if s.AutoFix != nil {
+			s.AutoFix.Cancel(ctx, taskID, "the owner sent a follow-up")
 		}
 		return s.Get(ctx, taskID)
 	}
@@ -497,6 +524,13 @@ func (s *Service) publishEvent(ev *store.Event) {
 	if s.Hub != nil && ev != nil {
 		s.Hub.PublishEvent(ev)
 	}
+}
+
+// GuardPushes reads an answer to the diff-guard question: "Push anyway" (or
+// a typed yes/push) pushes, anything else discards.
+func GuardPushes(answer string) bool {
+	a := strings.ToLower(strings.TrimSpace(answer))
+	return a == "push anyway" || a == "push" || a == "yes" || a == "y"
 }
 
 // QuestionID is the stored id of a runner question: "<run_id>-<question_id>".
