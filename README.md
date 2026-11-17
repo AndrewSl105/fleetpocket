@@ -16,6 +16,7 @@ Describe a change from your phone. The agent you pick works in a sealed containe
 4. **Get a pull request.** Read the summary, the PR and the CI result, and send a follow-up if something needs changing.
 5. **Get it back green** (optional). Turn on CI auto-fix and a failing check starts a minimal fix from the trimmed CI logs, up to a few attempts. A fix that touches CI config or tests waits for your OK.
 6. **Give it your tools, not your keys** (optional). Add MCP servers (Linear, Sentry, a database, any npm/pip package or image) per project: the agent reaches them through Jungle Monkey's gateway, which holds the credentials, enforces tool lists and call limits and logs every call. Lock a project's network to an allowlist and blocked hosts show up with a one-tap "Allow".
+7. **Know what it costs** (optional caps). Every run records its tokens and cost: reported by Claude (marked API-equivalent on a subscription), estimated from an editable price table for Codex and Cursor (`≈$0.84`). The Costs screen totals them by project, agent and day with a CSV export; monthly caps per project or overall hold new runs at 100% (running ones finish) with a notice at 80% and a one-tap "Start anyway".
 
 ## Steer from anywhere
 

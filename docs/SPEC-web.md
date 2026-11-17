@@ -92,7 +92,7 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 
 **3. Task detail**
 
-- Header: title, status badge, CI stamp (`CI ✓`, `CI ✕`, `CI …`, and with CI auto-fix `CI ✕ · fixing 1/2` or `CI ✕ · needs you`), project/repo, branch, cost and turns, PR link button when it exists, overflow menu (Cancel, Interrupt, Retry, Copy branch, Open on GitHub).
+- Header: title, status badge, CI stamp (`CI ✓`, `CI ✕`, `CI …`, and with CI auto-fix `CI ✕ · fixing 1/2` or `CI ✕ · needs you`), project/repo, branch, cost (`$0.84`, `≈$0.84` when part of it is estimated, an `API-EQUIVALENT` label for Claude subscription runs, the auto-fix share in brackets) and turns, a dashed "Waiting: budget" notice with **Start anyway** for a queued task a monthly cap holds, PR link button when it exists, overflow menu (Cancel, Interrupt, Retry, Copy branch, Open on GitHub).
 - Tabs: **Activity** (default), **Diff**, **Info**.
 - Activity is a chat-like timeline built from events: Claude's text as message bubbles (markdown), tool use collapsed into compact rows ("Edit · src/tables/export.ts", expandable to show the summary), status changes as small dividers, commits and PR events as cards, errors in red. Auto-scroll to the newest event unless the user scrolled up; then show a "New activity" pill.
 - **CI auto-fix** steps (`autofix` events): an "Auto-fix attempt n/m" card with the failing checks (links to their logs), the failure signature and the trimmed-log attachment; "pushed", "discarded" and "cancelled" as dividers; a dashed card when the loop needs the owner (with the reason or the guarded changes); "✓ CI green after N fixes" as an olive card. A held fix's question ("The fix changes CI or tests. Push anyway?") is answerable on a `pr_open` task.
@@ -100,12 +100,13 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 - Composer at the bottom: sends `POST …/message`. Its placeholder depends on state: "Message Claude…" while running, "Follow-up for a new run…" in `paused`/`pr_open`/`completed`, hidden in states where the backend returns `409`.
 - Running indicator: a subtle animated "Claude is working" line with the latest tool summary.
 - Diff tab: file list with +/- counts, then per-file unified diff (split view on desktop). Lazy-loaded.
-- Info tab: prompt, timestamps, runs list (kind, duration, cost, exit), CI status, the MCP servers and network mode the latest run got (its `integrations` event; the project's current settings when none is loaded).
+- Each run's end divider in the timeline carries its cost (`cost $0.12`, `cost ≈$0.12`, `cost ?` without a price); `budget` events (80%, used up, waiting, started anyway) are dividers.
+- Info tab: prompt, timestamps, runs list (kind, duration, cost with `≈`, exit), CI status, the MCP servers and network mode the latest run got (its `integrations` event; the project's current settings when none is loaded).
 - **MCP and egress** in the timeline: an `integrations` divider ("MCP: db, linear · network: allowlist"), each `mcp_call` as a compact row (server · tool, time, "not allowed" / "call limit" in red), and `egress_blocked` as a dashed card "Blocked: host" with **Allow for this project** (`POST /projects/{id}/egress/allow`, next run).
 
 **4. Projects**
 
-- List with repo count and active task count. Detail/edit form: name, instructions (multi-line, appended to Claude's system prompt), services (Postgres, Redis toggles), env (key/value editor, non-secret only), model, limits (turns, budget USD, duration, memory, CPUs), CI auto-fix overrides (fix failing CI default/on/off, attempts, checks, budget per attempt, push CI and test changes without asking; empty inherits the global default), repos (add from `GET /api/v1/github/repositories` picker, base branch, default flag, remove).
+- List with repo count, active task count and this month's cost; with a monthly budget a thin ruled bar of month-to-date against it (signal from 80%, danger at 100%) and "Budget: $x of $y". Detail/edit form: monthly budget (USD), name, instructions (multi-line, appended to Claude's system prompt), services (Postgres, Redis toggles), env (key/value editor, non-secret only), model, limits (turns, budget USD, duration, memory, CPUs), CI auto-fix overrides (fix failing CI default/on/off, attempts, checks, budget per attempt, push CI and test changes without asking; empty inherits the global default), repos (add from `GET /api/v1/github/repositories` picker, base branch, default flag, remove).
 
 - **Integrations** (`/projects/:id/integrations`, lazy, linked from the project form): a summary of what the next task gets (server names, ALLOWLIST stamp, how each agent receives MCP), the project's MCP servers as a ruled list (kind, OK/ERROR/OFF stamps, tools, last use, last error) with **Test connection** (lists tools; hidden ones struck through), edit and delete; an add/edit dialog (name, kind, URL and transport or runtime/package/args, write-only secrets that show only `…abcd` once stored, tools all/only these/all except these, read-only, max calls, enabled; **Test connection** for a saved server inside the dialog, and a new server is tested right after it is saved); toggles for shared (global) servers; **Network access**: Open / Allowlist, preset checkboxes with their hosts, an extra-hosts editor, a warning that tools ignoring proxy variables fail and, for a project on a node, that allowlist tasks would not start. Without `SECRETS_KEY` a dashed notice explains MCP is disabled.
 - The new-task composer shows "MCP: …" and the ALLOWLIST stamp for the chosen project (linking to Integrations).
@@ -113,6 +114,13 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 **5. Settings**
 
 - Stats from `GET /api/v1/stats` (running, queued, cost today and this month), the CI auto-fix default for all projects (`GET/PUT /api/v1/settings/ci-autofix`), shared MCP servers (`/api/v1/mcp-servers` without a project; same list and dialog as Integrations), theme override in browser mode (system/light/dark), logout (browser mode only), app version and backend health.
+- **Budgets and prices**: the global monthly budget and the price table (agent, model, input / cached / output USD per million tokens, add/remove rows, restore the built-in table, "prices last checked" date), `GET/PUT /api/v1/settings/costs`. A link opens the Costs screen.
+
+**Costs** (`/costs`, lazy; in the desktop rail, and on phones from Settings and Projects)
+
+- Range: this month, last 30 days (by day), last 90 days (by week). A total panel (`≈` when it includes estimates; estimated, CI auto-fix and API-equivalent parts; runs and tokens; this month against the global budget), then ruled bar lists by project (linking to the project; its budget line), by agent (runs, tokens, runs without a price) and by day or week. No chart library: each row is a label, a thin ruled bar against the largest row and the amount.
+- **Export CSV** writes the report's `rows` (day × project × agent with all sums) in the browser from the API response; no extra endpoint.
+
 
 **6. System screens**
 
