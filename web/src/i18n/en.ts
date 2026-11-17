@@ -157,6 +157,7 @@ export const en = {
     paused: 'Paused',
     pushing: 'Pushing',
     pr_open: 'PR open',
+    branch_ready: 'Branch ready',
     completed: 'Completed',
     failed: 'Failed',
     cancelled: 'Cancelled',

@@ -507,7 +507,7 @@ export interface paths {
          * Follow-up message (queued while a run is active)
          * @description `queued`/`preparing`/`running`/`waiting_input`/`pushing`: the text is queued
          *     (`queued_message` on the task, event `message` with `delivery: queued`) and
-         *     starts the next run when the current one ends. `paused`/`pr_open`/`completed`:
+         *     starts the next run when the current one ends. `paused`/`pr_open`/`branch_ready`/`completed`:
          *     starts a new run now (`delivery: new_run`). Otherwise `409`.
          *     JSON, or `multipart/form-data` with `text` plus files in `files[]`;
          *     the attachments are listed in the `message` event and reach the run that
@@ -1431,12 +1431,26 @@ export interface components {
             /** Format: int64 */
             id: number;
             project_id: string;
+            /** @description "owner/name" on GitHub; the folder name for a local repository */
             full_name: string;
             base_branch: string;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 0 for local repositories
+             */
             installation_id: number;
             is_default: boolean;
+            source: components["schemas"]["RepositorySource"];
+            /** @description Absolute work tree of a local repository ("" for GitHub) */
+            path: string;
+            /** @description Origin remote of a local repository, if any (informational; "" otherwise) */
+            remote_url: string;
         };
+        /**
+         * @description `local` (a folder on the owner's disk) exists only in local mode (`npx jungle-monkey`)
+         * @enum {string}
+         */
+        RepositorySource: "github" | "local";
         /** @description Plain git branch name; no "..", "//", trailing "/", "." or ".lock" */
         BranchName: string;
         GitHubRepo: {
@@ -1476,8 +1490,11 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
-        /** @enum {string} */
-        TaskStatus: "queued" | "preparing" | "running" | "waiting_input" | "paused" | "pushing" | "pr_open" | "completed" | "failed" | "cancelled";
+        /**
+         * @description `branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`
+         * @enum {string}
+         */
+        TaskStatus: "queued" | "preparing" | "running" | "waiting_input" | "paused" | "pushing" | "pr_open" | "branch_ready" | "completed" | "failed" | "cancelled";
         Task: {
             /** Format: int64 */
             id: number;
@@ -1521,6 +1538,9 @@ export interface components {
             skills: string[];
             skills_add: string[];
             skills_remove: string[];
+            /** @description Branch delivered into a local repository (`jm/<id>-<slug>`, `-2`… on a name collision); null before delivery and after Discard */
+            local_branch: string | null;
+            start_from: components["schemas"]["StartFrom"];
             /** @description Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued. */
             queued_message: string | null;
             autofix_state: components["schemas"]["AutoFixState"];
@@ -1547,6 +1567,11 @@ export interface components {
              */
             budget_override_at: string | null;
         };
+        /**
+         * @description Local repositories: start from the last commit (base branch), or from the checked-out commit plus the uncommitted changes and untracked files (committed as "WIP: working tree at start")
+         * @enum {string}
+         */
+        StartFrom: "last_commit" | "working_tree";
         /**
          * @description CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
          *     owner's answer to the open question), `approved` (pushing it anyway), `waiting` (pushed, waiting for CI), `green`
@@ -1631,9 +1656,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"] | components["schemas"]["BranchReadyEvent"] | components["schemas"]["BranchActionEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "checkpoint_restored" | "branch_force_pushed";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "checkpoint_restored" | "branch_force_pushed" | "branch_ready" | "branch_action";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -2110,6 +2135,51 @@ export interface components {
             cost_source?: "reported" | "estimated" | "unknown";
             /** @enum {string} */
             auth?: "api_key" | "subscription";
+        };
+        BranchReadyEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "branch_ready";
+            seq: null;
+            payload: components["schemas"]["BranchReadyPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "branch_ready";
+        };
+        BranchReadyPayload: {
+            /** @description Branch in the owner's repository, e.g. jm/42-fix-login */
+            branch: string;
+            /** @description Commits on the branch that are not on the base branch */
+            commits: number;
+            /** @description `git diff --stat` summary line against the base branch */
+            diffstat: string;
+            /** @description A follow-up fast-forwarded a branch delivered before */
+            updated: boolean;
+            /** @description Set when the update went to a new branch because the old one was checked out or had moved */
+            previous?: string;
+        };
+        BranchActionEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "branch_action";
+            seq: null;
+            payload: components["schemas"]["BranchActionPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "branch_action";
+        };
+        BranchActionPayload: {
+            /** @enum {string} */
+            action: "merged" | "checked_out" | "discarded" | "pushed";
+            branch: string;
+            /** @description merged: the owner's branch it was merged into */
+            into?: string;
+            /** @description merged: true when no merge commit was needed */
+            fast_forward?: boolean;
         };
         PrOpenedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */

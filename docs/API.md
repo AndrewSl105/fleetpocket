@@ -57,7 +57,8 @@ A **project** groups repositories and holds run settings. All override fields ar
   "budget": null, "month_cost_usd": 12.34,
   "created_at": "…", "updated_at": "…",
   "repositories": [{"id": 1, "project_id": "vatary", "full_name": "andrewsl105/vatary-server",
-                    "base_branch": "dev", "installation_id": 123, "is_default": true}]
+                    "base_branch": "dev", "installation_id": 123, "is_default": true,
+                    "source": "github", "path": "", "remote_url": ""}]
 }
 ```
 
@@ -99,10 +100,12 @@ A **project** groups repositories and holds run settings. All override fields ar
   "last_activity": "Edit src/tables/export.ts", "last_activity_at": "…",
   "queued_message": null,
   "autofix_cost_usd": 0, "cost_estimated": false, "cost_api_equivalent": true, "cost_unknown": false,
-  "budget_wait": null, "budget_override_at": null
+  "budget_wait": null, "budget_override_at": null,
+  "local_branch": null, "start_from": "last_commit"
 }
 ```
 
+- `local_branch`, `start_from`: local repositories only (see [Local repositories](#local-repositories)). `local_branch` is the branch delivered into the owner's repository (`null` before delivery and after Discard); `start_from` is `last_commit` (default) or `working_tree`.
 - `agent`: the coding agent, fixed when the task is created (the request's `agent`, else the project's, else the server default), so follow-ups and resumes continue the same session.
 - `node`: the computer the task runs on (`null`: the server), fixed when the task is created: its workspace, agent session and containers live there. While that node is offline the task waits (`queued` tasks stay queued; a live task keeps its status and its stream resumes when the node reconnects; actions that need the workspace answer `503 host_offline`).
 - `cost_usd_total`: the sum of the runs' `cost_usd`: reported by Claude, estimated from the price table for Codex and Cursor (see [Costs and budgets](#costs-and-budgets)). `cost_estimated` is true when some run's cost is an estimate (show `≈$0.84`); `cost_api_equivalent` when some Claude run used a subscription (OAuth) login, so the cost is what the API would charge, not a bill. `autofix_cost_usd` is the part spent by CI auto-fix runs. `cost_unknown` is true when some run reported tokens but its model has no price (`cost_source: unknown`, counted as 0): the total is a lower bound. Clients show one format everywhere: `$0.84`, `≈$0.84` (estimate included), `$?` (nothing known), `$0.84+?` / `≈$0.84+?` (part unknown).
@@ -124,7 +127,8 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `paused` | question not answered in time; containers removed | answer (resumes), message (resumes), cancel |
 | `pushing` | validating diff, pushing, opening the PR | message (queued), cancel |
 | `pr_open` | PR exists; `ci_status` follows CI. With CI auto-fix, a held fix leaves an `open_question` here | merge, message (new run on the same branch), answer (the auto-fix question), cancel |
-| `completed` | PR merged/closed, or finished with no changes | message (new run) |
+| `branch_ready` | local repositories (local mode): the task branch was delivered into the owner's repository as `local_branch` (`jm/<id>-<slug>`); mirrors `pr_open` | merge into current branch, check out, discard, push & open PR (GitHub remote + GitHub connected), message (new run on the same branch, re-delivered), cancel |
+| `completed` | PR merged/closed, branch merged or discarded, or finished with no changes | message (new run) |
 | `failed` | see `status_reason` | retry |
 | `cancelled` | | retry |
 
@@ -140,7 +144,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, autofix_attempt, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup`, `retry` or `restore` (a run from a checkpoint); `cost_usd` and the token counts are the run's own (not the session's); `cost_source` is `reported`, `estimated`, `unknown` (tokens but no price, cost 0) or `null` (no usage yet, or a run from before it was recorded); `auth` is `subscription` (Claude OAuth: API-equivalent cost), `api_key` or `null`. Paginated with `limit`/`cursor` |
 | `GET /tasks/{id}/diff` | `{"diff", "truncated", "base", "branch"}`: `git diff base...branch` from the workspace, capped at 1 MB. `409 no_workspace` before cloning or after cleanup; `503 host_offline` while the task's node is offline |
 | `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix_guard`): `Push anyway` pushes the held fix, anything else discards it |
-| `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`completed`: starts a new run right away. Otherwise `409` |
+| `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`branch_ready`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`branch_ready`/`completed`: starts a new run right away. Otherwise `409` |
 | `POST /tasks/{id}/interrupt` | `running`/`waiting_input`: stops Claude and **ends the run** ("Interrupted by the user."); what it committed is pushed as for any finished run, and the session is kept. A queued message then starts the next run; otherwise send a follow-up message |
 | `POST /tasks/{id}/cancel` | ends the task (`cancelled`), stops the runner |
 | `POST /tasks/{id}/retry` | `failed`/`cancelled` only: queues the original prompt again on the same branch |
@@ -196,6 +200,8 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `egress_blocked` | `{host}`: the egress proxy refused a host (once per host and run); also sent to Telegram with an "Allow for this project" button |
   | `budget` | `{phase, scope?, project_id?, level?, spent_usd?, limit_usd?, via?}`: a monthly budget step, see [Costs and budgets](#costs-and-budgets) |
   | `checkpoint_restored` | `{checkpoint_id, checkpoint_event_id?, n, run_id, restore_run_id, ref_sha, mode: "fork"\|"summary", instruction, via}`: the owner rolled back; the events between `checkpoint_event_id` and this one are the abandoned branch |
+  | `branch_ready` | `{branch, commits, diffstat, updated, previous?}`: the task branch reached the owner's local repository (`updated`: a follow-up fast-forwarded it; `previous`: the update went to a new branch because the old one was checked out or had moved) |
+  | `branch_action` | `{action: "merged"\|"checked_out"\|"discarded"\|"pushed", branch, into?, fast_forward?}`: what the owner did with a local task branch |
   | `branch_force_pushed` | `{branch, from, reason: "restore", number}`: the push after a restore rewrote the task branch with `--force-with-lease` (also a PR comment and a Telegram message) |
 
 ### CI auto-fix
@@ -248,6 +254,21 @@ Images and other files go with a task's prompt or with a message. Send the reque
 - Each attachment is `{id, name, mime, size, width, height}`. Task attachments are listed in the task's `created` event, message attachments in its `message` event.
 - Download with `GET /tasks/{id}/attachments/{attachmentId}` (session required like every endpoint; `?thumb=1` for an image's thumbnail). Files that are not images are served as `application/octet-stream` with `Content-Disposition: attachment`. Telegram Web clients send the bearer token, so fetch the image and show it from a blob URL rather than an `<img src>`.
 - The agent sees the files of the input it is working on (the prompt, or the messages a run starts with) at `/attachments/<id>.<ext>`, plus the task's earlier files. A file's `<ext>` is its name's extension (lowercase alphanumeric, at most 10 characters) or `bin`. They are removed (`410 gone`, files deleted) when the task becomes `completed`, and with the workspace for `failed` and `cancelled` tasks (`WORKSPACE_RETENTION`), so Retry and follow-ups still have them until then. Files of a queued message that is dropped (`message_dropped`) are removed with it.
+
+## Local repositories
+
+Local mode only (`npx jungle-monkey`, `MODE=local`). A repository with
+`source: "local"` is a folder on the owner's disk: `path` is its absolute work
+tree, `base_branch` the branch detected when it was added, `remote_url` its
+`origin` remote (informational) and `installation_id` 0. In server mode the API
+refuses local repositories (`400 local_mode_only`).
+
+A task on a local repository works in a copy (`git clone --no-hardlinks
+--local`); the original folder is never mounted into the runner. When a run
+ends with commits, the branch is fetched into the original repository as
+`jm/<id>-<slug>` (`-2`, `-3`… when the name is taken) and the task becomes
+`branch_ready` (event `branch_ready`). The owner's checked-out branch, index and
+working tree are never touched by delivery.
 
 ## Integrations (MCP servers and egress)
 

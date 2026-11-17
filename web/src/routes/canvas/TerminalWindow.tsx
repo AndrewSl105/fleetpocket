@@ -24,6 +24,7 @@ const LED: Record<TaskStatus, string> = {
   paused: '#8390a5',
   pushing: '#7aa2f7',
   pr_open: '#c4a7ff',
+  branch_ready: '#c4a7ff',
   completed: '#7fd1a4',
   failed: '#f28b82',
   cancelled: '#8390a5',

@@ -750,7 +750,7 @@ paths:
       description: |
         `queued`/`preparing`/`running`/`waiting_input`/`pushing`: the text is queued
         (`queued_message` on the task, event `message` with `delivery: queued`) and
-        starts the next run when the current one ends. `paused`/`pr_open`/`completed`:
+        starts the next run when the current one ends. `paused`/`pr_open`/`branch_ready`/`completed`:
         starts a new run now (`delivery: new_run`). Otherwise `409`.
         JSON, or `multipart/form-data` with `text` plus files in `files[]`;
         the attachments are listed in the `message` event and reach the run that
@@ -1867,14 +1867,22 @@ components:
 
     Repository:
       type: object
-      required: [id, project_id, full_name, base_branch, installation_id, is_default]
+      required: [id, project_id, full_name, base_branch, installation_id, is_default, source, path, remote_url]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
-        full_name: { type: string }
+        full_name: { type: string, description: '"owner/name" on GitHub; the folder name for a local repository' }
         base_branch: { type: string }
-        installation_id: { type: integer, format: int64 }
+        installation_id: { type: integer, format: int64, description: 0 for local repositories }
         is_default: { type: boolean }
+        source: { $ref: '#/components/schemas/RepositorySource' }
+        path: { type: string, description: 'Absolute work tree of a local repository ("" for GitHub)' }
+        remote_url: { type: string, description: 'Origin remote of a local repository, if any (informational; "" otherwise)' }
+
+    RepositorySource:
+      type: string
+      enum: [github, local]
+      description: '`local` (a folder on the owner''s disk) exists only in local mode (`npx jungle-monkey`)'
 
     BranchName:
       type: string
@@ -1923,11 +1931,12 @@ components:
 
     TaskStatus:
       type: string
-      enum: [queued, preparing, running, waiting_input, paused, pushing, pr_open, completed, failed, cancelled]
+      enum: [queued, preparing, running, waiting_input, paused, pushing, pr_open, branch_ready, completed, failed, cancelled]
+      description: '`branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`'
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove, local_branch, start_from]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1959,6 +1968,8 @@ components:
         skills: { type: array, items: { type: string }, description: Skills (slugs) the last run used }
         skills_add: { type: array, items: { type: string } }
         skills_remove: { type: array, items: { type: string } }
+        local_branch: { type: [string, 'null'], description: 'Branch delivered into a local repository (`jm/<id>-<slug>`, `-2`… on a name collision); null before delivery and after Discard' }
+        start_from: { $ref: '#/components/schemas/StartFrom' }
         queued_message:
           type: [string, 'null']
           description: Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued.
@@ -1975,6 +1986,11 @@ components:
           enum: [global, project, null]
           description: 'Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
         budget_override_at: { type: [string, 'null'], format: date-time, description: When the owner let it start despite the monthly caps (good for that calendar month) }
+
+    StartFrom:
+      type: string
+      enum: [last_commit, working_tree]
+      description: 'Local repositories: start from the last commit (base branch), or from the checked-out commit plus the uncommitted changes and untracked files (committed as "WIP: working tree at start")'
 
     AutoFixState:
       type: [string, 'null']
@@ -2076,6 +2092,8 @@ components:
         - $ref: '#/components/schemas/CheckpointEvent'
         - $ref: '#/components/schemas/CheckpointRestoredEvent'
         - $ref: '#/components/schemas/BranchForcePushedEvent'
+        - $ref: '#/components/schemas/BranchReadyEvent'
+        - $ref: '#/components/schemas/BranchActionEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -2111,10 +2129,12 @@ components:
           checkpoint: '#/components/schemas/CheckpointEvent'
           checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
           branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
+          branch_ready: '#/components/schemas/BranchReadyEvent'
+          branch_action: '#/components/schemas/BranchActionEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, checkpoint_restored, branch_force_pushed]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, checkpoint_restored, branch_force_pushed, branch_ready, branch_action]
 
     EventBase:
       type: object
@@ -2559,6 +2579,45 @@ components:
         cost_usd: { type: number, description: "The run's cost (absent before costs were recorded)" }
         cost_source: { type: string, enum: [reported, estimated, unknown] }
         auth: { type: string, enum: [api_key, subscription] }
+
+    BranchReadyEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [branch_ready] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/BranchReadyPayload' }
+
+    BranchReadyPayload:
+      type: object
+      required: [branch, commits, diffstat, updated]
+      properties:
+        branch: { type: string, description: 'Branch in the owner''s repository, e.g. jm/42-fix-login' }
+        commits: { type: integer, description: Commits on the branch that are not on the base branch }
+        diffstat: { type: string, description: '`git diff --stat` summary line against the base branch' }
+        updated: { type: boolean, description: 'A follow-up fast-forwarded a branch delivered before' }
+        previous: { type: string, description: 'Set when the update went to a new branch because the old one was checked out or had moved' }
+
+    BranchActionEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [branch_action] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/BranchActionPayload' }
+
+    BranchActionPayload:
+      type: object
+      required: [action, branch]
+      properties:
+        action: { type: string, enum: [merged, checked_out, discarded, pushed] }
+        branch: { type: string }
+        into: { type: string, description: 'merged: the owner''s branch it was merged into' }
+        fast_forward: { type: boolean, description: 'merged: true when no merge commit was needed' }
 
     PrOpenedEvent:
       allOf:

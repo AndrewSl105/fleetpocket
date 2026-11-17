@@ -53,6 +53,26 @@ type Repository struct {
 	BaseBranch     string `json:"base_branch"`
 	InstallationID int64  `json:"installation_id"`
 	IsDefault      bool   `json:"is_default"`
+	// Source is "github" or "local" (MODE=local only): Path is then the
+	// absolute work tree and RemoteURL its origin remote, if any.
+	Source    string `json:"source"`
+	Path      string `json:"path"`
+	RemoteURL string `json:"remote_url"`
+}
+
+// Repository sources.
+const (
+	SourceGitHub = "github"
+	SourceLocal  = "local"
+)
+
+// Local reports whether the repository is a folder on the owner's disk.
+func (r *Repository) Local() bool { return r.Source == SourceLocal }
+
+const repoCols = `id, project_id, full_name, base_branch, installation_id, is_default, source, path, remote_url`
+
+func scanRepo(row interface{ Scan(...any) error }, r *Repository) error {
+	return row.Scan(&r.ID, &r.ProjectID, &r.FullName, &r.BaseBranch, &r.InstallationID, &r.IsDefault, &r.Source, &r.Path, &r.RemoteURL)
 }
 
 const projectCols = `id, name, instructions, services, env, runner_image, model, max_turns,
@@ -280,7 +300,7 @@ func (s *Store) ListProjects(ctx context.Context, includeArchived bool, cursor s
 }
 
 func (s *Store) ListRepositories(ctx context.Context, projectID string) ([]Repository, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT id, project_id, full_name, base_branch, installation_id, is_default
+	rows, err := s.Pool.Query(ctx, `SELECT `+repoCols+`
 		FROM repositories WHERE project_id = $1 ORDER BY is_default DESC, id`, projectID)
 	if err != nil {
 		return nil, err
@@ -289,7 +309,7 @@ func (s *Store) ListRepositories(ctx context.Context, projectID string) ([]Repos
 	out := []Repository{}
 	for rows.Next() {
 		var r Repository
-		if err := rows.Scan(&r.ID, &r.ProjectID, &r.FullName, &r.BaseBranch, &r.InstallationID, &r.IsDefault); err != nil {
+		if err := scanRepo(rows, &r); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -299,8 +319,7 @@ func (s *Store) ListRepositories(ctx context.Context, projectID string) ([]Repos
 
 func (s *Store) GetRepository(ctx context.Context, id int64) (*Repository, error) {
 	var r Repository
-	err := s.Pool.QueryRow(ctx, `SELECT id, project_id, full_name, base_branch, installation_id, is_default
-		FROM repositories WHERE id = $1`, id).Scan(&r.ID, &r.ProjectID, &r.FullName, &r.BaseBranch, &r.InstallationID, &r.IsDefault)
+	err := scanRepo(s.Pool.QueryRow(ctx, `SELECT `+repoCols+` FROM repositories WHERE id = $1`, id), &r)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -323,8 +342,12 @@ func (s *Store) AddRepository(ctx context.Context, r Repository) (*Repository, e
 				return err
 			}
 		}
-		return tx.QueryRow(ctx, `INSERT INTO repositories (project_id, full_name, base_branch, installation_id, is_default)
-			VALUES ($1, $2, $3, $4, $5) RETURNING id`, r.ProjectID, r.FullName, r.BaseBranch, r.InstallationID, r.IsDefault).Scan(&r.ID)
+		if r.Source == "" {
+			r.Source = SourceGitHub
+		}
+		return tx.QueryRow(ctx, `INSERT INTO repositories (project_id, full_name, base_branch, installation_id, is_default, source, path, remote_url)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`, r.ProjectID, r.FullName, r.BaseBranch, r.InstallationID, r.IsDefault,
+			r.Source, r.Path, r.RemoteURL).Scan(&r.ID)
 	})
 	switch {
 	case isUniqueViolation(err):
@@ -341,6 +364,8 @@ func (s *Store) AddRepository(ctx context.Context, r Repository) (*Repository, e
 type RepoUpdate struct {
 	BaseBranch *string
 	IsDefault  *bool
+	// Path moves a local repository ("Locate…" after the folder moved).
+	Path *string
 }
 
 // UpdateRepository changes a repository's base branch and default flag.
@@ -350,9 +375,8 @@ type RepoUpdate struct {
 func (s *Store) UpdateRepository(ctx context.Context, projectID string, id int64, u RepoUpdate) (*Repository, error) {
 	var r Repository
 	err := s.Tx(ctx, func(tx pgxTx) error {
-		err := tx.QueryRow(ctx, `SELECT id, project_id, full_name, base_branch, installation_id, is_default
-			FROM repositories WHERE id = $1 AND project_id = $2 FOR UPDATE`, id, projectID).
-			Scan(&r.ID, &r.ProjectID, &r.FullName, &r.BaseBranch, &r.InstallationID, &r.IsDefault)
+		err := scanRepo(tx.QueryRow(ctx, `SELECT `+repoCols+`
+			FROM repositories WHERE id = $1 AND project_id = $2 FOR UPDATE`, id, projectID), &r)
 		if err != nil {
 			return notFound(err)
 		}
@@ -376,7 +400,17 @@ func (s *Store) UpdateRepository(ctx context.Context, projectID string, id int64
 			}
 			r.IsDefault = true
 		}
-		_, err = tx.Exec(ctx, `UPDATE repositories SET base_branch = $2, is_default = $3 WHERE id = $1`, id, r.BaseBranch, r.IsDefault)
+		if u.Path != nil {
+			if !r.Local() {
+				return fmt.Errorf("%w: only local repositories have a path", ErrConflict)
+			}
+			r.Path = *u.Path
+		}
+		_, err = tx.Exec(ctx, `UPDATE repositories SET base_branch = $2, is_default = $3, path = $4 WHERE id = $1`,
+			id, r.BaseBranch, r.IsDefault, r.Path)
+		if isUniqueViolation(err) {
+			return fmt.Errorf("%w: that folder is already a repository of this project", ErrConflict)
+		}
 		return err
 	})
 	if err != nil {
@@ -419,4 +453,34 @@ func nilIfZero[T int | int64 | float64](v T) any {
 		return nil
 	}
 	return v
+}
+
+// FindLocalRepository returns the local repository with this work tree path
+// (any project), or ErrNotFound.
+func (s *Store) FindLocalRepository(ctx context.Context, path string) (*Repository, error) {
+	var r Repository
+	err := scanRepo(s.Pool.QueryRow(ctx, `SELECT `+repoCols+` FROM repositories
+		WHERE source = 'local' AND path = $1 ORDER BY id LIMIT 1`, path), &r)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	return &r, nil
+}
+
+// ListLocalRepositories returns every local repository.
+func (s *Store) ListLocalRepositories(ctx context.Context) ([]Repository, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT `+repoCols+` FROM repositories WHERE source = 'local' ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Repository{}
+	for rows.Next() {
+		var r Repository
+		if err := scanRepo(rows, &r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

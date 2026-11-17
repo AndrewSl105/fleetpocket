@@ -72,6 +72,12 @@ type Task struct {
 	SkillsAdd    []string `json:"skills_add"`
 	SkillsRemove []string `json:"skills_remove"`
 
+	// Local repositories: the branch delivered into the owner's repository
+	// (jm/<id>-<slug>[-n]) and where the workspace started ("last_commit"
+	// or "working_tree").
+	LocalBranch *string `json:"local_branch"`
+	StartFrom   string  `json:"start_from"`
+
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
 	StatusEvents []*Event `json:"-"`
@@ -82,7 +88,7 @@ const taskCols = `id, project_id, repository_id, title, prompt, status, status_r
 	last_activity, last_activity_at, queued_message, agent, node,
 	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha,
 	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at, cost_unknown,
-	output, skills, skills_add, skills_remove`
+	output, skills, skills_add, skills_remove, local_branch, start_from`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
@@ -94,7 +100,7 @@ func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
 		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA,
 		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt, &unknown,
-		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove)
+		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove, &t.LocalBranch, &t.StartFrom)
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +117,11 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 	err := s.Tx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = scanTask(tx.QueryRow(ctx, `INSERT INTO tasks (project_id, repository_id, title, prompt, status, source,
-				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove)
+				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove, start_from)
 			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7,
-				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}')) RETURNING `+taskCols,
-			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove))
+				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}'),
+				coalesce(nullif($11, ''), 'last_commit')) RETURNING `+taskCols,
+			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove, t.StartFrom))
 		if err != nil {
 			return err
 		}
@@ -260,7 +267,7 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id int64, from []string, to, re
 func drainQueuedTx(ctx context.Context, tx pgx.Tx, t *Task) (*Task, error) {
 	text := *t.QueuedMessage
 	switch t.Status {
-	case "paused", "pr_open", "completed":
+	case "paused", "pr_open", "branch_ready", "completed":
 		kind := "followup"
 		if t.Status == "paused" {
 			kind = "resume"
@@ -733,4 +740,11 @@ func (s *Store) ResetRunStart(ctx context.Context, runID int64) error {
 func (s *Store) PreviousRun(ctx context.Context, taskID, runID int64) (*Run, error) {
 	r, err := scanRun(s.Pool.QueryRow(ctx, `SELECT `+runCols+` FROM runs WHERE task_id = $1 AND id < $2 AND started_at IS NOT NULL ORDER BY id DESC LIMIT 1`, taskID, runID))
 	return r, notFound(err)
+}
+
+// SetLocalBranch records the branch delivered into a local repository
+// (nil clears it: the owner discarded it).
+func (s *Store) SetLocalBranch(ctx context.Context, taskID int64, branch *string) error {
+	_, err := s.Pool.Exec(ctx, `UPDATE tasks SET local_branch = $2, updated_at = now() WHERE id = $1`, taskID, branch)
+	return err
 }

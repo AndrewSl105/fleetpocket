@@ -311,7 +311,7 @@ func (b *Bot) newTask(ctx context.Context, m *telego.Message, projectID string, 
 }
 
 func (b *Bot) listTasks(ctx context.Context, m *telego.Message) {
-	active := []string{tasks.Queued, tasks.Preparing, tasks.Running, tasks.WaitingInput, tasks.Paused, tasks.Pushing, tasks.PROpen}
+	active := []string{tasks.Queued, tasks.Preparing, tasks.Running, tasks.WaitingInput, tasks.Paused, tasks.Pushing, tasks.PROpen, tasks.BranchReady}
 	f := store.TaskFilter{Statuses: active, Limit: 20}
 	if p := b.topicProject(ctx, m); p != nil {
 		f.ProjectID = p.ID

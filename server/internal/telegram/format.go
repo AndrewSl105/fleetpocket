@@ -16,7 +16,7 @@ const maxMessage = 4000
 
 var statusIcon = map[string]string{
 	"queued": "⏳", "preparing": "⏳", "running": "⏳", "waiting_input": "❓", "paused": "⏸️",
-	"pushing": "⏳", "pr_open": "✅", "completed": "✅", "failed": "❌", "cancelled": "🚫",
+	"pushing": "⏳", "pr_open": "✅", "branch_ready": "⎇", "completed": "✅", "failed": "❌", "cancelled": "🚫",
 }
 
 func esc(s string) string { return html.EscapeString(s) }
@@ -84,6 +84,11 @@ func renderCard(c cardData) string {
 		}
 	case "waiting_input":
 		b.WriteString("❓ Waiting for your answer")
+	case "branch_ready":
+		b.WriteString("⎇ Branch ready")
+		if t.LocalBranch != nil {
+			fmt.Fprintf(&b, ": <code>%s</code>", esc(*t.LocalBranch))
+		}
 	case "pr_open":
 		created := t.CreatedAt
 		if created.IsZero() {
@@ -135,7 +140,7 @@ func shortDuration(d time.Duration) string {
 func activityLine(s string) string {
 	s = cut(strings.TrimSpace(strings.SplitN(s, "\n", 2)[0]), 180)
 	l := strings.ToLower(s)
-	for _, status := range []string{"queued", "preparing", "running", "waiting_input", "paused", "pushing", "pr_open", "completed", "failed", "cancelled"} {
+	for _, status := range []string{"queued", "preparing", "running", "waiting_input", "paused", "pushing", "pr_open", "branch_ready", "completed", "failed", "cancelled"} {
 		if l == status || strings.HasPrefix(l, status+":") {
 			return ""
 		}

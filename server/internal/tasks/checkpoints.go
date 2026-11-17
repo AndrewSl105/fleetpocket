@@ -195,7 +195,7 @@ func (s *Service) Restore(ctx context.Context, taskID, checkpointID int64, instr
 	}
 	// Only the idle states restoreBlock allows (From(Queued) would include
 	// preparing, whose unstarted run the scheduler may be executing).
-	nt, ev, err := s.Store.RequeueRestore(ctx, taskID, []string{Paused, PROpen, Completed, Failed, Cancelled}, c, prompt, payload)
+	nt, ev, err := s.Store.RequeueRestore(ctx, taskID, []string{Paused, PROpen, BranchReady, Completed, Failed, Cancelled}, c, prompt, payload)
 	if err != nil {
 		return nil, err
 	}

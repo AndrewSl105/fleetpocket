@@ -40,6 +40,8 @@ const task = (id: number, status: Task['status'], project = 'p'): Task => ({
   skills: [],
   skills_add: [],
   skills_remove: [],
+  local_branch: null,
+  start_from: 'last_commit',
   source: 'web',
   agent: 'claude',
   node: null,

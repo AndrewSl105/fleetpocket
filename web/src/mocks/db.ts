@@ -23,7 +23,7 @@ const now = Date.now()
 const ago = (min: number) => new Date(now - min * 60_000).toISOString()
 
 function repo(id: number, project_id: string, full_name: string, is_default: boolean, base_branch = 'dev'): Repository {
-  return { id, project_id, full_name, base_branch, installation_id: 123, is_default }
+  return { id, project_id, full_name, base_branch, installation_id: 123, is_default, source: 'github', path: '', remote_url: '' }
 }
 
 /** Agents with credentials in mock mode: Cursor has none, so the UI shows that case too. */
@@ -205,6 +205,8 @@ export function makeTask(fields: Partial<Task> & Pick<Task, 'project_id' | 'titl
     skills: [],
     skills_add: [],
     skills_remove: [],
+    local_branch: null,
+    start_from: 'last_commit',
     source: 'web',
     agent: (proj?.agent ?? MOCK_AGENTS.default_agent) as Agent,
     node: proj?.node ?? null,

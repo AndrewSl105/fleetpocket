@@ -268,7 +268,7 @@ export const handlers = [
     const body = (await request.json()) as { full_name: string; installation_id: number; base_branch?: string; is_default?: boolean }
     const isDefault = body.is_default || p.repositories.length === 0
     if (isDefault) p.repositories.forEach((r) => (r.is_default = false))
-    const r = { id: db.nextRepoId++, project_id: p.id, full_name: body.full_name, installation_id: body.installation_id, base_branch: body.base_branch ?? 'dev', is_default: isDefault }
+    const r = { id: db.nextRepoId++, project_id: p.id, full_name: body.full_name, installation_id: body.installation_id, base_branch: body.base_branch ?? 'dev', is_default: isDefault, source: 'github' as const, path: '', remote_url: '' }
     p.repositories.push(r)
     p.updated_at = new Date().toISOString()
     return HttpResponse.json(r, { status: 201 })
