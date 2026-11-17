@@ -5,8 +5,9 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 
-const MAIN = new URL("../src/main.ts", import.meta.url).pathname;
+const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
 
 function repo(): string {
   const dir = mkdtempSync(join(tmpdir(), "fleetpocket-server-"));
