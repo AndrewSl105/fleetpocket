@@ -472,7 +472,7 @@ func TestReconcile(t *testing.T) {
 	if err := e.ws.Prepare(ctx, done.ID, workspace.Repo{FullName: "o/demo", BaseBranch: "dev"}, branch); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.docker.EnsureNetwork(ctx, done.ID, "demo"); err != nil {
+	if _, err := e.docker.EnsureNetwork(ctx, done.ID, "demo", false); err != nil {
 		t.Fatal(err)
 	}
 	_, _ = e.docker.EnsureVolume(ctx, done.ID, "demo")
@@ -497,7 +497,7 @@ func TestReconcile(t *testing.T) {
 	r.Close() // nobody consumed the stream: every event is only in events.jsonl
 
 	// 4. an orphaned network of a task that no longer exists.
-	_, _ = e.docker.EnsureNetwork(ctx, 999_999_999, "gone")
+	_, _ = e.docker.EnsureNetwork(ctx, 999_999_999, "gone", false)
 
 	if err := e.sched.Reconcile(ctx); err != nil {
 		t.Fatal(err)

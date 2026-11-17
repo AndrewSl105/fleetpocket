@@ -4,6 +4,7 @@ import { extname } from "node:path";
 import { Agent, type AgentOptions, type Run, type SDKImage, type SDKUserMessage } from "@cursor/sdk";
 import { ATTACHMENTS_DIR, hasAttachments, promptImages } from "./attachments.ts";
 import { CursorMapper } from "./cursor-mapper.ts";
+import { cursorMcp } from "./mcp.ts";
 import type { Session } from "./session.ts";
 import { stateSubdir } from "./state.ts";
 
@@ -31,6 +32,7 @@ export const cursorSession: Session = async ({ cmd, workspace, emitter, control 
     ...(apiKey ? { apiKey } : {}),
     model: { id: model },
     disallowedTools: ["askQuestion"],
+    ...(cursorMcp(cmd.mcp) ? { mcpServers: cursorMcp(cmd.mcp)! } : {}),
     local: {
       cwd: workspace,
       ...(hasAttachments() ? { dirs: [ATTACHMENTS_DIR] } : {}),

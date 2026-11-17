@@ -36,7 +36,18 @@ export const RunCommand = z.object({
     author_name: z.string().min(1),
     author_email: z.string().min(1),
   }),
+  // The run's MCP servers, all behind Jungle Monkey's gateway. The token is
+  // the run's gateway token (no third-party credential): it expires when the
+  // run ends and reaches only these servers.
+  mcp: z
+    .object({
+      token: z.string().min(1),
+      servers: z.array(z.object({ name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/), url: z.string().url() })),
+    })
+    .optional(),
 });
+
+export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;
 
 export const AnswerCommand = z.object({
   type: z.literal("answer"),

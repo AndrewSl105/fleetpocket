@@ -3,6 +3,7 @@ import { query, type CanUseTool, type HookCallback, type SDKResultMessage, type 
 import { ATTACHMENTS_DIR, hasAttachments } from "./attachments.ts";
 import { QuestionTimeout } from "./control.ts";
 import { ASK_TOOL, Mapper, classifyResult, resultText } from "./mapper.ts";
+import { claudeMcp } from "./mcp.ts";
 import { checkTool } from "./policy.ts";
 import { RUNNER_VERSION } from "./protocol.ts";
 import type { Session, SessionOutcome } from "./session.ts";
@@ -78,6 +79,7 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
     return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason } };
   };
 
+  const mcp = claudeMcp(cmd.mcp);
   const q = query({
     prompt: input(),
     options: {
@@ -91,7 +93,8 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
       systemPrompt: { type: "preset", preset: "claude_code", ...(cmd.append_system_prompt ? { append: cmd.append_system_prompt } : {}) },
       settingSources: ["project"],
       tools: [...ALLOWED_TOOLS, ASK_TOOL],
-      allowedTools: ALLOWED_TOOLS,
+      allowedTools: mcp ? [...ALLOWED_TOOLS, ...mcp.allowedTools] : ALLOWED_TOOLS,
+      ...(mcp ? { mcpServers: mcp.mcpServers } : {}),
       permissionMode: "acceptEdits",
       canUseTool,
       hooks: { PreToolUse: [{ hooks: [preToolUse] }] },

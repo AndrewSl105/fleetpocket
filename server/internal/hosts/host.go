@@ -44,6 +44,9 @@ type StartSpec struct {
 	User    string            `json:"user"`
 	// Attachments mounts the task's attachment folder read-only.
 	Attachments bool `json:"attachments"`
+	// ExtraHosts are added to the runner's /etc/hosts (local mode: the
+	// gateway at host.docker.internal). Not sent to nodes.
+	ExtraHosts []string `json:"-"`
 }
 
 // Host is everything the scheduler, the publisher, maintenance and the API

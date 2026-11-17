@@ -18,6 +18,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
+	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
@@ -78,6 +79,12 @@ type Scheduler struct {
 	Hooks     Hooks
 	// Files holds task attachments, mounted read-only into runners; nil = none.
 	Files *attachments.Files
+	// Gateway gives runs their MCP servers; nil = none.
+	Gateway *mcpgateway.Gateway
+	// EgressBinary and EgressBinds override how the egress proxy sidecar
+	// runs (tests mount a freshly built binary into another image).
+	EgressBinary string
+	EgressBinds  []string
 
 	wake chan struct{}
 	mu   sync.Mutex
@@ -282,8 +289,14 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		s.failOrRequeue(ctx, t, run, "", err)
 		return
 	}
-	if err := h.EnsureNetwork(ctx, t.ID, t.ProjectID); err != nil {
-		s.failOrRequeue(ctx, t, run, "network", err)
+	integ, err := s.prepareIntegrations(ctx, h, t, run, project)
+	if errors.Is(err, errNoIsolation) {
+		s.fail(ctx, t, err.Error())
+		return
+	}
+	if err != nil {
+		s.endIntegrations(ctx, run.ID)
+		s.failOrRequeue(ctx, t, run, "", err)
 		return
 	}
 	if err := h.EnsureVolume(ctx, t.ID, t.ProjectID); err != nil {
@@ -303,11 +316,15 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 	for k, v := range svcEnv {
 		env[k] = v
 	}
+	for k, v := range integ.env {
+		env[k] = v
+	}
 	if s.Cfg.RunnerFake {
 		env["FLEETPOCKET_RUNNER_FAKE"] = "1"
 	}
 
 	cmd := s.runCommand(t, run, project, repo, branch)
+	cmd.MCP = integ.mcp
 	hasAtt, err := s.prepareAttachments(ctx, h, t.ID, run, &cmd)
 	if err != nil {
 		s.failOrRequeue(ctx, t, run, "attachments", err)
@@ -329,9 +346,10 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 	r, err := h.StartRunner(ctx, hosts.StartSpec{
 		TaskID: t.ID, RunID: run.ID, Project: t.ProjectID, Image: image, Agent: t.Agent,
 		Env: env, Attachments: hasAtt,
-		Memory: deref(project.RunnerMemory, s.Cfg.RunnerMemory),
-		CPUs:   deref(project.RunnerCPUs, s.Cfg.RunnerCPUs),
-		User:   s.Cfg.RunnerUser,
+		Memory:     deref(project.RunnerMemory, s.Cfg.RunnerMemory),
+		CPUs:       deref(project.RunnerCPUs, s.Cfg.RunnerCPUs),
+		User:       s.Cfg.RunnerUser,
+		ExtraHosts: integ.hosts,
 	})
 	if err != nil {
 		if hosts.IsOffline(err) {
@@ -687,6 +705,7 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, run *store.Run, code int, out runOutcome, started time.Time) {
 	s.unregister(taskID)
 	first, _ := s.Store.FinishRun(ctx, run.ID, code)
+	s.endIntegrations(ctx, run.ID)
 	if first {
 		s.addEvent(ctx, taskID, &run.ID, "run_finished", map[string]any{"run_id": run.ID, "exit_code": code})
 	}

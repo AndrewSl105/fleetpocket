@@ -15,7 +15,7 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 | type | fields | meaning |
 |---|---|---|
-| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}` | first line, starts the session |
+| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}`, `mcp?{token, servers[{name, url}]}` | first line, starts the session |
 | `answer` | `question_id`, `text` | reply to a pending question. An answer that arrives before its question is kept and used when the question is asked. |
 | `message` | `text` | extra user message injected into the running session. A run handles one prompt: input closes after the first turn's result, so a message that arrives after that is dropped. Codex and Cursor cannot take input mid-turn: a message that arrives during the turn runs as one more turn after it. **Fleetpocket does not send it**: it queues messages and starts them as the next run (API.md). |
 | `interrupt` | — | stop the current turn, keep the session. The run then ends as `done` (summary "Interrupted by the user.") with whatever was committed; send a follow-up as a new run with `resume_session_id`. |
@@ -60,6 +60,18 @@ Error codes: `no_auth`, `bad_command`, `commit_failed`, `limit_exceeded`, `sdk_e
 - Codex and Cursor report tokens but no cost: their `usage` and `done` carry `cost_usd_total: 0`, and `turns` counts model turns (one per input).
 - Codex and Cursor get the images listed under "Attached images" as image inputs. Commands they run see no auth variables (Codex: `shell_environment_policy`; Cursor: the key is removed from the runner's environment and passed to the SDK). The tool policy below (`PreToolUse`) exists only for Claude.
 - Both run without their own sandbox and without approvals (Codex `danger-full-access` and `approval_policy = "never"`, Cursor `sandboxOptions.enabled: false`): the container is the sandbox.
+
+## MCP servers
+
+`mcp` is present only when the project has MCP servers (absent: the agent gets none, exactly as before). Every `url` is an endpoint of Jungle Monkey's MCP gateway (`<base>/api/mcp-gateway/mcp/<name>`, Streamable HTTP); `token` is the run's gateway token, sent as `Authorization: Bearer <token>`. It is not a third-party credential: it reaches only these servers and stops working when the run ends. The real servers' credentials never reach the runner.
+
+| agent | mechanism (installed SDK) |
+|---|---|
+| `claude` | `options.mcpServers[name] = {type: "http", url, headers: {Authorization}}`; `mcp__<name>` added to `allowedTools` (no approval needed) |
+| `codex` | `--config mcp_servers.<name>.url` and `mcp_servers.<name>.bearer_token_env_var = "FLEETPOCKET_MCP_TOKEN"`; the token is in the CLI's environment, hidden from commands by `shell_environment_policy` |
+| `cursor` | `AgentOptions.mcpServers[name] = {type: "http", url, headers: {Authorization}}` |
+
+In fake mode with `mcp`, the runner lists each server's tools (`tool_use`/`tool_result` `mcp__<name>__list`, summary `tools: a,b`) and calls the tools its prompt names as `mcp-call <server> <tool> <json args>` (`mcp__<server>__<tool>`); `egress-probe <url>` in the prompt runs `curl` and reports `egress <url> <status>`.
 
 Notes for the backend:
 
@@ -114,6 +126,7 @@ Every event is also appended to `/workspace/.fleetpocket/events.jsonl`. The runn
 | `OPENAI_API_KEY` | Codex auth (`agent: "codex"`); missing → `no_auth`. |
 | `CURSOR_API_KEY` | Cursor auth (`agent: "cursor"`); missing → `no_auth`. |
 | `FLEETPOCKET_RUNNER_FAKE=1` | scripted session, no Claude: `started`, tool events, one question (`q1`, options `hello`/`hi`), waits for the answer, writes `FLEETPOCKET_FAKE.md`, commits, `done`. An `interrupt` while it waits ends the run as `done` ("Interrupted by the user.", no changes), like a real session. |
+| `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` (and lower case), `NODE_USE_ENV_PROXY=1` | set only for projects in egress allowlist mode: the task network has no route out except the egress proxy sidecar (`http://egress-proxy:3128`). Tools that ignore the proxy variables cannot reach the internet. |
 | `FLEETPOCKET_WORKSPACE` | workspace path, default `/workspace` (tests only). |
 | `FLEETPOCKET_STATE_DIR` | per-task agent state, default `~/.claude` (the volume Fleetpocket mounts; tests only). |
 | `FLEETPOCKET_ATTACHMENTS` | attachment folder, default `/attachments` (tests only). In fake mode, when it exists, the runner reads every file in it (a `tool_use` "Read /attachments/<file> (<n> bytes)" each) and tries to write `.write-probe` there (`tool_result` `ok: false`, "EROFS: … read-only" on the read-only mount) before asking its question. |

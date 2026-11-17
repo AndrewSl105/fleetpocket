@@ -59,6 +59,21 @@ type RunCommand struct {
 	Model              string     `json:"model,omitempty"`
 	Limits             Limits     `json:"limits"`
 	Commit             CommitInfo `json:"commit"`
+	// MCP is the run's MCP gateway config; nil (omitted) = no MCP servers.
+	MCP *MCPConfig `json:"mcp,omitempty"`
+}
+
+// MCPConfig gives the agent its MCP servers through the gateway. Token is
+// the run's gateway token (not a third-party credential): it expires when
+// the run ends and reaches only these servers.
+type MCPConfig struct {
+	Token   string         `json:"token"`
+	Servers []MCPServerRef `json:"servers"`
+}
+
+type MCPServerRef struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 type AnswerCommand struct {

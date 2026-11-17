@@ -2,6 +2,7 @@
 import { Codex, type Input } from "@openai/codex-sdk";
 import { ATTACHMENTS_DIR, hasAttachments, promptImages } from "./attachments.ts";
 import { CodexMapper } from "./codex-mapper.ts";
+import { codexMcp } from "./mcp.ts";
 import type { Session } from "./session.ts";
 import { AUTH_VARS, stateSubdir } from "./state.ts";
 
@@ -13,6 +14,8 @@ export const codexSession: Session = async ({ cmd, workspace, emitter, control }
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !AUTH_VARS.includes(k)) env[k] = v;
   env.CODEX_HOME = stateSubdir("codex");
+  const mcp = codexMcp(cmd.mcp);
+  if (mcp) Object.assign(env, mcp.env);
 
   const codex = new Codex({
     ...(apiKey ? { apiKey } : {}),
@@ -21,6 +24,7 @@ export const codexSession: Session = async ({ cmd, workspace, emitter, control }
       ...(cmd.append_system_prompt ? { developer_instructions: cmd.append_system_prompt } : {}),
       // Commands Codex runs must not see the key it was given.
       shell_environment_policy: { inherit: "all", exclude: ["*KEY*", "*TOKEN*", "*SECRET*"] },
+      ...(mcp ? { mcp_servers: mcp.config } : {}),
     },
   });
   // The container is the sandbox (no Docker, no host network, no GitHub token),
