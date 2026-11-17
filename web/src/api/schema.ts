@@ -260,6 +260,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List schedules
+         * @description By name, each with its month-to-date spend, whether a task of it is still running, and its latest firing.
+         */
+        get: operations["listSchedules"];
+        put?: never;
+        /**
+         * Create a schedule
+         * @description 400 for a bad cron expression, time zone, concurrency, loop, agent, or a repository of another project.
+         */
+        post: operations["createSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One schedule */
+        get: operations["getSchedule"];
+        /**
+         * Replace a schedule
+         * @description Fields left out take their defaults. The next run is computed again from now.
+         */
+        put: operations["updateSchedule"];
+        post?: never;
+        /** Delete a schedule (its tasks stay, with schedule_id null) */
+        delete: operations["deleteSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a schedule
+         * @description The next run is the first firing after now; firings while it was paused are not made up.
+         */
+        post: operations["enableSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause a schedule (next_run_at becomes null) */
+        post: operations["disableSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fire the schedule now (also when paused)
+         * @description Applies the concurrency policy like a timed firing; the result's `outcome` says whether a task started (`task_id`), the firing waits (`queued`) or was `skipped`.
+         */
+        post: operations["runSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy a schedule as "<name> (copy)", paused */
+        post: operations["duplicateSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/firings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** The schedule's history, newest first */
+        get: operations["listScheduleFirings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/skills": {
         parameters: {
             query?: never;
@@ -1409,6 +1558,142 @@ export interface components {
             /** @description On for every project's tasks */
             enabled_by_default?: boolean;
         };
+        /** @description A recurring task (SPEC-server, "Schedules"). Each firing creates an ordinary task with `source: schedule` and `schedule_id`. */
+        Schedule: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            project_id: string;
+            /**
+             * Format: int64
+             * @description null: the project's default repository
+             */
+            repository_id: number | null;
+            prompt: string;
+            /**
+             * @description null: the project's agent
+             * @enum {string|null}
+             */
+            agent: "claude" | "codex" | "cursor" | null;
+            /** @description Skill slugs added to the project's skills */
+            skills: string[];
+            /** @description MCP server names (of the project's); null: all of them */
+            mcp_servers: string[] | null;
+            /** @description Five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, @yearly; normalised */
+            cron: string;
+            /** @description IANA time zone the cron expression is read in */
+            timezone: string;
+            /** @description Each run's budget; null: the project's */
+            run_budget_usd: number | null;
+            /** @description Monthly cap of its tasks; null: none */
+            monthly_budget_usd: number | null;
+            /**
+             * @description `skip`: a firing while a task of the schedule is still running is skipped. `queue`: it waits (at most one) and starts when that task finishes
+             * @enum {string}
+             */
+            concurrency: "skip" | "queue";
+            /** @description false: a run without changes makes an empty commit so a PR is opened anyway */
+            pr_only_if_changes: boolean;
+            /**
+             * Format: date-time
+             * @description No firings after this
+             */
+            ends_at: string | null;
+            loop: components["schemas"]["LoopConfigOrNull"];
+            enabled: boolean;
+            /**
+             * Format: date-time
+             * @description null while paused or after ends_at
+             */
+            next_run_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Month-to-date cost of its tasks' runs */
+            month_spend_usd: number;
+            /** @description A task of it has not reached a PR or an end yet */
+            busy: boolean;
+            last_firing: components["schemas"]["ScheduleFiring"] | null;
+        };
+        ScheduleInput: {
+            name: string;
+            project_id: string;
+            /** Format: int64 */
+            repository_id?: number | null;
+            prompt: string;
+            /** @enum {string|null} */
+            agent?: "claude" | "codex" | "cursor" | null;
+            skills?: string[];
+            mcp_servers?: string[] | null;
+            cron: string;
+            /** @description Default UTC */
+            timezone?: string;
+            run_budget_usd?: number | null;
+            monthly_budget_usd?: number | null;
+            /**
+             * @description Default skip
+             * @enum {string}
+             */
+            concurrency?: "skip" | "queue";
+            /** @description Default true */
+            pr_only_if_changes?: boolean;
+            /** Format: date-time */
+            ends_at?: string | null;
+            loop?: components["schemas"]["LoopInput"] | null;
+            /** @description Default true */
+            enabled?: boolean;
+        };
+        ScheduleFiring: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            schedule_id: number;
+            /**
+             * Format: date-time
+             * @description The cron time (manual runs: when asked)
+             */
+            scheduled_for: string;
+            /** @enum {string} */
+            trigger: "cron" | "manual";
+            /**
+             * @description `missed`: the server was down for more than one interval at that time
+             * @enum {string}
+             */
+            outcome: "started" | "queued" | "skipped" | "missed" | "failed";
+            reason: string | null;
+            /** Format: int64 */
+            task_id: number | null;
+            /** Format: date-time */
+            created_at: string;
+            task_status: components["schemas"]["TaskStatus"] | null;
+            task_cost_usd: number | null;
+            task_pr_url: string | null;
+            loop_state: components["schemas"]["LoopState"];
+        };
+        /** @description The schedule that started this task (`trigger` cron, or manual with `via`). */
+        ScheduleEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "schedule";
+            seq: null;
+            payload: {
+                /** Format: int64 */
+                schedule_id: number;
+                name: string;
+                /** @enum {string} */
+                trigger: "cron" | "manual";
+                /** Format: date-time */
+                scheduled_for: string;
+                /** @enum {string} */
+                via?: "web" | "telegram";
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "schedule";
+        };
         Skill: {
             /** Format: int64 */
             id: number;
@@ -1679,9 +1964,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["LoopEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["LoopEvent"] | components["schemas"]["ScheduleEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "check" | "loop" | "checkpoint_restored" | "branch_force_pushed";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "check" | "loop" | "schedule" | "checkpoint_restored" | "branch_force_pushed";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -3233,6 +3518,252 @@ export interface operations {
                 };
             };
             503: components["responses"]["Error"];
+        };
+    };
+    listSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All schedules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Schedule"][];
+                    };
+                };
+            };
+        };
+    };
+    createSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+            404: components["responses"]["Error"];
+        };
+    };
+    enableSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    disableSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    runSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The firing */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleFiring"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    duplicateSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The copy */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listScheduleFirings: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Firings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ScheduleFiring"][];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     listSkills: {

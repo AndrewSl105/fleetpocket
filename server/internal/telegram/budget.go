@@ -16,6 +16,7 @@ type budgetPayload struct {
 	Phase     string  `json:"phase"`
 	Scope     string  `json:"scope"`
 	ProjectID string  `json:"project_id"`
+	Schedule  string  `json:"schedule"`
 	SpentUSD  float64 `json:"spent_usd"`
 	LimitUSD  float64 `json:"limit_usd"`
 	Via       string  `json:"via"`
@@ -24,6 +25,12 @@ type budgetPayload struct {
 func (p budgetPayload) scopeName() string {
 	if p.Scope == "project" {
 		return "Project " + esc(cut(p.ProjectID, 60)) + "'s monthly budget"
+	}
+	if p.Scope == "schedule" {
+		if p.Schedule != "" {
+			return "Schedule " + esc(cut(p.Schedule, 60)) + "'s monthly budget"
+		}
+		return "The schedule's monthly budget"
 	}
 	return "The monthly budget"
 }

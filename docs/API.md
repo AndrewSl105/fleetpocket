@@ -213,7 +213,7 @@ Off by default. When it is on (globally via `PUT /settings/ci-autofix` or per pr
 
 Every run records its agent, model, tokens (`input_tokens` includes cache reads and writes) and `cost_source`. Claude reports its cost (`reported`); Codex and Cursor report tokens only, so their cost is `estimated` from the price table (`GET/PUT /settings/costs`; matched by agent and model, `*` for any model of an agent) or `unknown` (cost 0) when no row matches. The built-in table lists OpenAI's API prices for Codex models; Codex's `default` model and Cursor's `auto` route to different models, so they need a row the owner adds. Estimates count toward budgets.
 
-Budgets, all off by default: the per-run `max_budget_usd` (as before), a monthly cap per project (`budget`) and a global monthly cap (`monthly_budget_usd`). Months are calendar months in the server's local time, by run start. When a scope reaches 80% of its cap this month, a `budget` event (`warning`) goes on the task whose run crossed it and to Telegram; at 100% (`reached`) running runs **finish** (a monthly cap never stops a run) and new runs of that scope wait: their queued tasks get `budget_wait` and a `budget` event (`waiting`), sent to Telegram with a "Start anyway" button. Each notice is sent once per scope, month and level. `POST /tasks/{id}/budget-override` (or the button) lets that task start anyway (`override`). Raising or removing a cap, or a new month, releases waiting tasks.
+Budgets, all off by default: the per-run `max_budget_usd` (as before), a monthly cap per project (`budget`), per schedule (the schedule's `monthly_budget_usd`, holding only the tasks it fired) and a global monthly cap (`monthly_budget_usd`). Months are calendar months in the server's local time, by run start. When a scope reaches 80% of its cap this month, a `budget` event (`warning`) goes on the task whose run crossed it and to Telegram; at 100% (`reached`) running runs **finish** (a monthly cap never stops a run) and new runs of that scope wait: their queued tasks get `budget_wait` and a `budget` event (`waiting`), sent to Telegram with a "Start anyway" button. Each notice is sent once per scope, month and level. `POST /tasks/{id}/budget-override` (or the button) lets that task start anyway (`override`). Raising or removing a cap, or a new month, releases waiting tasks.
 
 `GET /costs?from=YYYY-MM-DD&to=YYYY-MM-DD&period=day|week|month` (default: the first of this month to today, by day; at most 400 days) returns:
 
@@ -315,6 +315,24 @@ A **node** is a computer that runs tasks next to the server, with its own Docker
 | `POST /nodes/pair` `{code, name?}` | owner: registers the node (id from the name, `-2`… when taken) and hands its token to the computer → `201` node. Codes ignore case and the dash |
 
 `agents` and `platform`/`version` are what the node reported when it last connected. A node's tasks count only against its `max_concurrent`.
+
+## Schedules
+
+Recurring tasks (SPEC-server, "Schedules"). None exist by default, so nothing fires. Each firing creates an ordinary task (`source: "schedule"`, `schedule_id`, title = the schedule's name) with a `schedule` event naming the schedule and trigger, and a Telegram message; questions, CI auto-fix, costs, checkpoints and loops work as for any task.
+
+| | |
+|---|---|
+| `GET /schedules` | `{items}`: every schedule by name: `{id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop, enabled, next_run_at, created_at, updated_at, month_spend_usd, busy, last_firing}` |
+| `POST /schedules` `{name, project_id, prompt, cron, timezone?, repository_id?, agent?, skills?, mcp_servers?, run_budget_usd?, monthly_budget_usd?, concurrency?, pr_only_if_changes?, ends_at?, loop?, enabled?}` | `201` the schedule. `cron`: five fields or `@hourly`/`@daily`/`@weekly`/`@monthly`/`@yearly`, read in `timezone` (IANA, default `UTC`); `400` for anything else. `repository_id` `null`: the project's default; `agent` `null`: the project's; `skills`: slugs added to the project's; `mcp_servers` (names) `null`: all of the project's servers; `run_budget_usd`: each run's budget (`null`: the project's); `monthly_budget_usd`: a monthly cap for its tasks (budget scope `schedule`); `concurrency` `skip` (default) or `queue`; `pr_only_if_changes` (default `true`; `false`: a run without changes makes an empty commit so a PR is opened anyway); `ends_at`: no firings after it; `loop`: each task loops ([Loops](#loops)) |
+| `GET /schedules/{id}` | the schedule |
+| `PUT /schedules/{id}` | replaces it (same body as `POST`); the next run is computed from now |
+| `DELETE /schedules/{id}` | `{ok: true}`; its tasks stay with `schedule_id: null` |
+| `POST /schedules/{id}/enable` · `/disable` | resume (next run: the first firing after now; paused firings are not made up) or pause (`next_run_at: null`) |
+| `POST /schedules/{id}/run` | fires it now (also when paused) with its concurrency policy; `201` the firing |
+| `POST /schedules/{id}/duplicate` | `201` a paused copy named `<name> (copy)` |
+| `GET /schedules/{id}/firings?limit=` | `{items}`, newest first: `{id, schedule_id, scheduled_for, trigger: "cron"\|"manual", outcome, reason, task_id, created_at, task_status, task_cost_usd, task_pr_url, loop_state}` |
+
+Firing outcomes: `started` (a task was created), `queued` (policy `queue` while a task of the schedule is still running, i.e. `queued`, `preparing`, `running`, `waiting_input`, `paused` or `pushing`; it starts when that task leaves those states; at most one waits), `skipped` (policy `skip`, or a firing already waits), `missed` (the server was down for more than one interval at that time), `failed` (the task could not be created, e.g. the project was archived). The server checks every 20 seconds. After downtime it runs at most one late firing per schedule, and only if it is less than one interval late; then the next run is the first firing after now. Times in DST gaps fire right after the gap; repeated times fire once.
 
 ## Skills
 

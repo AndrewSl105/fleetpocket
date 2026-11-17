@@ -167,6 +167,9 @@ func (s *Scheduler) endLoop(ctx context.Context, t *store.Task, state string, pa
 	}
 	t.LoopState = nt.LoopState
 	s.log(t, 0).Info("loop ended", "state", state, "reason", payload["reason"])
+	if s.Hooks.LoopEnded != nil {
+		s.Hooks.LoopEnded(t.ProjectID, state)
+	}
 	s.Hub.PublishEvent(ev)
 	s.Hub.PublishTask(nt)
 }

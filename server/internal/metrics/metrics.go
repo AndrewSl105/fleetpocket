@@ -29,6 +29,8 @@ type Metrics struct {
 	budgetHeld   *prometheus.CounterVec
 	budgetAlerts *prometheus.CounterVec
 	budgetOvers  *prometheus.CounterVec
+	firings      *prometheus.CounterVec
+	loopEnds     *prometheus.CounterVec
 }
 
 func New(st *store.Store) *Metrics {
@@ -65,7 +67,7 @@ func New(st *store.Store) *Metrics {
 			Name: "fleetpocket_egress_blocked_total", Help: "Hosts the egress proxy refused (once per host and run), by project.",
 		}, []string{"project"}),
 		budgetHeld: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "fleetpocket_budget_held_total", Help: "Queued tasks a monthly budget held (waiting: budget), by project and scope (global, project).",
+			Name: "fleetpocket_budget_held_total", Help: "Queued tasks a monthly budget held (waiting: budget), by project and scope (global, project, schedule).",
 		}, []string{"project", "scope"}),
 		budgetAlerts: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "fleetpocket_budget_alerts_total", Help: "Monthly budget notices sent, by scope and level (80, 100).",
@@ -73,9 +75,15 @@ func New(st *store.Store) *Metrics {
 		budgetOvers: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "fleetpocket_budget_overrides_total", Help: "Tasks the owner started despite a monthly budget, by project.",
 		}, []string{"project"}),
+		firings: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_schedule_firings_total", Help: "Schedule firings, by outcome (started, queued, skipped, missed, failed).",
+		}, []string{"outcome"}),
+		loopEnds: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_loops_total", Help: "Loops that ended, by project and final state (passed, max_iterations, budget, no_changes, stopped).",
+		}, []string{"project", "state"}),
 	}
 	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs, m.autofixRuns, m.autofixEnds,
-		m.mcpCalls, m.mcpDuration, m.egressBlocks, m.budgetHeld, m.budgetAlerts, m.budgetOvers,
+		m.mcpCalls, m.mcpDuration, m.egressBlocks, m.budgetHeld, m.budgetAlerts, m.budgetOvers, m.firings, m.loopEnds,
 		&dbCollector{st: st},
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	return m
@@ -118,6 +126,10 @@ func (m *Metrics) BudgetAlert(scope string, level int) {
 	m.budgetAlerts.WithLabelValues(scope, strconv.Itoa(level)).Inc()
 }
 func (m *Metrics) BudgetOverride(project string) { m.budgetOvers.WithLabelValues(project).Inc() }
+
+// ScheduleFiring counts one schedule firing; LoopEnded one finished loop.
+func (m *Metrics) ScheduleFiring(outcome string)   { m.firings.WithLabelValues(outcome).Inc() }
+func (m *Metrics) LoopEnded(project, state string) { m.loopEnds.WithLabelValues(project, state).Inc() }
 
 // dbCollector reads task counts and costs at scrape time.
 type dbCollector struct{ st *store.Store }

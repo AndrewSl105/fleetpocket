@@ -77,6 +77,8 @@ type Hooks struct {
 	// 100% notices (scope: global or project).
 	BudgetHeld  func(project, scope string)
 	BudgetAlert func(scope string, level int)
+	// LoopEnded counts loops by their final state.
+	LoopEnded func(project, state string)
 }
 
 type Scheduler struct {

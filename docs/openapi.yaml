@@ -22,6 +22,7 @@ tags:
   - name: nodes
   - name: system
   - name: settings
+  - name: schedules
 
 paths:
   /api/v1/setup/status:
@@ -406,6 +407,152 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/GitHubRepo' } }
         '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules:
+    get:
+      operationId: listSchedules
+      tags: [schedules]
+      summary: List schedules
+      description: By name, each with its month-to-date spend, whether a task of it is still running, and its latest firing.
+      responses:
+        '200':
+          description: All schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Schedule' } }
+    post:
+      operationId: createSchedule
+      tags: [schedules]
+      summary: Create a schedule
+      description: 400 for a bad cron expression, time zone, concurrency, loop, agent, or a repository of another project.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleInput' } } }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getSchedule
+      tags: [schedules]
+      summary: One schedule
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateSchedule
+      tags: [schedules]
+      summary: Replace a schedule
+      description: Fields left out take their defaults. The next run is computed again from now.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleInput' } } }
+      responses:
+        '200':
+          description: Updated
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSchedule
+      tags: [schedules]
+      summary: Delete a schedule (its tasks stay, with schedule_id null)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/enable:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: enableSchedule
+      tags: [schedules]
+      summary: Resume a schedule
+      description: The next run is the first firing after now; firings while it was paused are not made up.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/disable:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: disableSchedule
+      tags: [schedules]
+      summary: Pause a schedule (next_run_at becomes null)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/run:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: runSchedule
+      tags: [schedules]
+      summary: Fire the schedule now (also when paused)
+      description: Applies the concurrency policy like a timed firing; the result's `outcome` says whether a task started (`task_id`), the firing waits (`queued`) or was `skipped`.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The firing
+          content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleFiring' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/duplicate:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: duplicateSchedule
+      tags: [schedules]
+      summary: Copy a schedule as "<name> (copy)", paused
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The copy
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/firings:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: listScheduleFirings
+      tags: [schedules]
+      summary: The schedule's history, newest first
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Firings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ScheduleFiring' } }
+        '404': { $ref: '#/components/responses/Error' }
 
   /api/v1/skills:
     get:
@@ -1852,6 +1999,93 @@ components:
         files: { type: array, maxItems: 49, items: { $ref: '#/components/schemas/SkillFile' }, description: 'Extra files; at most 50 files and 1 MB per skill including SKILL.md' }
         enabled_by_default: { type: boolean, description: On for every project's tasks }
 
+    Schedule:
+      type: object
+      description: 'A recurring task (SPEC-server, "Schedules"). Each firing creates an ordinary task with `source: schedule` and `schedule_id`.'
+      required: [id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop, enabled, next_run_at, created_at, updated_at, month_spend_usd, busy, last_firing]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        project_id: { type: string }
+        repository_id: { type: [integer, 'null'], format: int64, description: "null: the project's default repository" }
+        prompt: { type: string }
+        agent: { type: [string, 'null'], enum: [claude, codex, cursor, null], description: "null: the project's agent" }
+        skills: { type: array, items: { type: string }, description: "Skill slugs added to the project's skills" }
+        mcp_servers: { type: [array, 'null'], items: { type: string }, description: "MCP server names (of the project's); null: all of them" }
+        cron: { type: string, description: 'Five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, @yearly; normalised' }
+        timezone: { type: string, description: IANA time zone the cron expression is read in }
+        run_budget_usd: { type: [number, 'null'], description: "Each run's budget; null: the project's" }
+        monthly_budget_usd: { type: [number, 'null'], description: 'Monthly cap of its tasks; null: none' }
+        concurrency: { type: string, enum: [skip, queue], description: '`skip`: a firing while a task of the schedule is still running is skipped. `queue`: it waits (at most one) and starts when that task finishes' }
+        pr_only_if_changes: { type: boolean, description: 'false: a run without changes makes an empty commit so a PR is opened anyway' }
+        ends_at: { type: [string, 'null'], format: date-time, description: No firings after this }
+        loop: { $ref: '#/components/schemas/LoopConfigOrNull' }
+        enabled: { type: boolean }
+        next_run_at: { type: [string, 'null'], format: date-time, description: 'null while paused or after ends_at' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        month_spend_usd: { type: number, description: "Month-to-date cost of its tasks' runs" }
+        busy: { type: boolean, description: A task of it has not reached a PR or an end yet }
+        last_firing: { oneOf: [{ $ref: '#/components/schemas/ScheduleFiring' }, { type: 'null' }] }
+
+    ScheduleInput:
+      type: object
+      required: [name, project_id, prompt, cron]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        project_id: { type: string }
+        repository_id: { type: [integer, 'null'], format: int64 }
+        prompt: { type: string, minLength: 1 }
+        agent: { type: [string, 'null'], enum: [claude, codex, cursor, null] }
+        skills: { type: array, items: { type: string } }
+        mcp_servers: { type: [array, 'null'], items: { type: string } }
+        cron: { type: string }
+        timezone: { type: string, description: Default UTC }
+        run_budget_usd: { type: [number, 'null'], minimum: 0 }
+        monthly_budget_usd: { type: [number, 'null'], minimum: 0 }
+        concurrency: { type: string, enum: [skip, queue], description: Default skip }
+        pr_only_if_changes: { type: boolean, description: Default true }
+        ends_at: { type: [string, 'null'], format: date-time }
+        loop: { oneOf: [{ $ref: '#/components/schemas/LoopInput' }, { type: 'null' }] }
+        enabled: { type: boolean, description: Default true }
+
+    ScheduleFiring:
+      type: object
+      required: [id, schedule_id, scheduled_for, trigger, outcome, reason, task_id, created_at, task_status, task_cost_usd, task_pr_url, loop_state]
+      properties:
+        id: { type: integer, format: int64 }
+        schedule_id: { type: integer, format: int64 }
+        scheduled_for: { type: string, format: date-time, description: 'The cron time (manual runs: when asked)' }
+        trigger: { type: string, enum: [cron, manual] }
+        outcome: { type: string, enum: [started, queued, skipped, missed, failed], description: '`missed`: the server was down for more than one interval at that time' }
+        reason: { type: [string, 'null'] }
+        task_id: { type: [integer, 'null'], format: int64 }
+        created_at: { type: string, format: date-time }
+        task_status: { oneOf: [{ $ref: '#/components/schemas/TaskStatus' }, { type: 'null' }] }
+        task_cost_usd: { type: [number, 'null'] }
+        task_pr_url: { type: [string, 'null'] }
+        loop_state: { $ref: '#/components/schemas/LoopState' }
+
+    ScheduleEvent:
+      description: The schedule that started this task (`trigger` cron, or manual with `via`).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [schedule] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [schedule_id, name, trigger, scheduled_for]
+              properties:
+                schedule_id: { type: integer, format: int64 }
+                name: { type: string }
+                trigger: { type: string, enum: [cron, manual] }
+                scheduled_for: { type: string, format: date-time }
+                via: { type: string, enum: [web, telegram] }
+
     Skill:
       type: object
       required: [id, slug, name, description, body, files, enabled_by_default, created_at, updated_at, projects]
@@ -2116,6 +2350,7 @@ components:
         - $ref: '#/components/schemas/CheckpointEvent'
         - $ref: '#/components/schemas/CheckEvent'
         - $ref: '#/components/schemas/LoopEvent'
+        - $ref: '#/components/schemas/ScheduleEvent'
         - $ref: '#/components/schemas/CheckpointRestoredEvent'
         - $ref: '#/components/schemas/BranchForcePushedEvent'
       discriminator:
@@ -2153,12 +2388,13 @@ components:
           checkpoint: '#/components/schemas/CheckpointEvent'
           check: '#/components/schemas/CheckEvent'
           loop: '#/components/schemas/LoopEvent'
+          schedule: '#/components/schemas/ScheduleEvent'
           checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
           branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, check, loop, checkpoint_restored, branch_force_pushed]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, check, loop, schedule, checkpoint_restored, branch_force_pushed]
 
     EventBase:
       type: object

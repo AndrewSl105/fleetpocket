@@ -14,6 +14,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
+	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
@@ -70,7 +71,9 @@ type Server struct {
 	// Gateway is the MCP gateway (also the MCP server registry); its own
 	// endpoints under /api/mcp-gateway/ take the run token, no session.
 	Gateway *mcpgateway.Gateway
-	Now     func() time.Time
+	// Schedules fires recurring tasks.
+	Schedules *schedules.Service
+	Now       func() time.Time
 }
 
 func (s *Server) githubConfigured() bool {
@@ -122,6 +125,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/skills/{id}", a(s.deleteSkill))
 	mux.HandleFunc("POST /api/v1/skills/{id}/duplicate", a(s.duplicateSkill))
 	mux.HandleFunc("GET /api/v1/skills/{id}/export", a(s.exportSkill))
+
+	mux.HandleFunc("GET /api/v1/schedules", a(s.listSchedules))
+	mux.HandleFunc("POST /api/v1/schedules", a(s.createSchedule))
+	mux.HandleFunc("GET /api/v1/schedules/{id}", a(s.getSchedule))
+	mux.HandleFunc("PUT /api/v1/schedules/{id}", a(s.updateSchedule))
+	mux.HandleFunc("DELETE /api/v1/schedules/{id}", a(s.deleteSchedule))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/enable", a(s.setScheduleEnabled(true)))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/disable", a(s.setScheduleEnabled(false)))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/run", a(s.runSchedule))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/duplicate", a(s.duplicateSchedule))
+	mux.HandleFunc("GET /api/v1/schedules/{id}/firings", a(s.scheduleFirings))
 
 	mux.HandleFunc("GET /api/v1/tasks", a(s.listTasks))
 	mux.HandleFunc("POST /api/v1/tasks", a(s.createTask))
