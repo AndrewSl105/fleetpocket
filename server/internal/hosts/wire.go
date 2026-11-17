@@ -52,6 +52,8 @@ const (
 	MRestoreCheckpoint = "restore_checkpoint"
 	MDiverged          = "diverged"
 	MForcePush         = "force_push"
+	// Artifacts (newer nodes).
+	MOutputs = "outputs"
 )
 
 // EventLogPage is the most event_log lines one call returns.

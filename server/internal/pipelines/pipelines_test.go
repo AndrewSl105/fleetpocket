@@ -263,7 +263,7 @@ func TestFanOutAndBranches(t *testing.T) {
 	if st[1].Output != OutputBranch || PushBranch(st[1], 7) != "jm/pipe-7/api" || PushBranch(st[3], 7) != "jm/pipe-7" || PushBranch(st[4], 7) != "" {
 		t.Error("branches")
 	}
-	if BaseRef(KindBuild, 7, "main", true) != "jm/pipe-7" || BaseRef(KindScout, 7, "main", true) != "main" || BaseRef(KindBuild, 7, "main", false) != "main" {
+	if BaseRef(KindReview, 7, "main", true) != "jm/pipe-7" || BaseRef(KindBuild, 7, "main", true) != "main" || BaseRef(KindReview, 7, "main", false) != "main" {
 		t.Error("base refs")
 	}
 	if p := IntegrateInstructions(7, TopoOrder(valid()), "make test"); !strings.Contains(p, "jm/pipe-7/contracts\n- jm/pipe-7/api") || !strings.Contains(p, "make test") {

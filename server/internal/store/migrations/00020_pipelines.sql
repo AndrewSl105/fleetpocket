@@ -53,16 +53,27 @@ ALTER TABLE tasks ADD COLUMN stage_id bigint REFERENCES pipeline_stages(id) ON D
 ALTER TABLE tasks ADD COLUMN base_ref text;
 -- Output "branch": where the task pushes without opening a PR.
 ALTER TABLE tasks ADD COLUMN push_branch text;
+-- A stage's model (e.g. the cheap model of a scout); NULL = the project's.
+ALTER TABLE tasks ADD COLUMN model text;
 CREATE INDEX tasks_pipeline ON tasks (pipeline_id) WHERE pipeline_id IS NOT NULL;
 -- Widen (not change) the task outputs with 'branch'.
 ALTER TABLE tasks DROP CONSTRAINT tasks_output_check;
 ALTER TABLE tasks ADD CONSTRAINT tasks_output_check CHECK (output IN ('pr', 'artifacts', 'pr_and_artifacts', 'branch'));
+-- Pipeline handoffs include plan.json.
+ALTER TABLE task_artifacts DROP CONSTRAINT task_artifacts_kind_check;
+ALTER TABLE task_artifacts ADD CONSTRAINT task_artifacts_kind_check
+  CHECK (kind IN ('mermaid', 'dbml', 'd2', 'plantuml', 'svg', 'markdown', 'sql', 'json'));
 
 -- +goose Down
+DELETE FROM task_artifacts WHERE kind = 'json';
+ALTER TABLE task_artifacts DROP CONSTRAINT task_artifacts_kind_check;
+ALTER TABLE task_artifacts ADD CONSTRAINT task_artifacts_kind_check
+  CHECK (kind IN ('mermaid', 'dbml', 'd2', 'plantuml', 'svg', 'markdown', 'sql'));
 UPDATE tasks SET output = 'pr' WHERE output = 'branch';
 ALTER TABLE tasks DROP CONSTRAINT tasks_output_check;
 ALTER TABLE tasks ADD CONSTRAINT tasks_output_check CHECK (output IN ('pr', 'artifacts', 'pr_and_artifacts'));
 DROP INDEX tasks_pipeline;
+ALTER TABLE tasks DROP COLUMN model;
 ALTER TABLE tasks DROP COLUMN push_branch;
 ALTER TABLE tasks DROP COLUMN base_ref;
 ALTER TABLE tasks DROP COLUMN stage_id;

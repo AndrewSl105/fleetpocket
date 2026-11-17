@@ -182,13 +182,16 @@ func PipelineBranch(id int64) string { return fmt.Sprintf("jm/pipe-%d", id) }
 // StageBranch is where a build stage pushes.
 func StageBranch(id int64, key string) string { return fmt.Sprintf("jm/pipe-%d/%s", id, key) }
 
-// BaseRef is the branch a stage's task starts from and PushBranch where it
-// pushes ("" for stages that push nothing or open the final PR).
+// BaseRef is the branch a stage's task starts from. Nothing writes the
+// pipeline branch before integrate, so builds and integrate start from the
+// base branch (the pipeline branch's starting point) and integrate creates
+// jm/pipe-<id> by pushing; review starts from it. PushBranch is where a
+// stage pushes ("" for stages that push nothing or open the final PR).
 func BaseRef(kind string, id int64, baseBranch string, fanOut bool) string {
-	if !fanOut || kind == KindScout || kind == KindDesign {
-		return baseBranch
+	if fanOut && kind == KindReview {
+		return PipelineBranch(id)
 	}
-	return PipelineBranch(id)
+	return baseBranch
 }
 
 func PushBranch(st Stage, id int64) string {

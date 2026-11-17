@@ -410,6 +410,12 @@ Projects: `PATCH /projects/{id}` takes `skills` (slugs; replaces the list, unkno
 
 Seeded once on first start (deletable, off by default): `db-schema`, `system-design-c4`, `sequence-flow`, `infra-map`.
 
+## Artifacts and pipelines
+
+`GET /tasks/{id}/artifacts` → `{items: TaskArtifact[]}`: the latest version of each file the task's runs left in `.fleetpocket/out/` (listed in `manifest.json`, or any `.md .mmd .json .sql .dbml .d2 .puml .svg`; ≤ 50 files, ≤ 1 MiB each). Output `artifacts` tasks never push: they end `completed` with reason "n artifacts". The timeline gets an `artifacts_collected` event `{count, added, warnings}`.
+
+Pipelines (SPEC-server "Pipelines"): `GET /pipeline-templates` → `{items, plan_schema}`; `POST /pipelines {template, project_id, repository_id?, title?, prompt, budget_usd?, max_parallel?, stages?: {<key>: {provider?, model?, node?}}}` → `201 Pipeline`; `GET /pipelines?project=` (without stages); `GET /pipelines/{id}` (with stages and `cost_usd`); `POST /pipelines/{id}/{action}` with `approve`, `plan {plan}` (edit while `awaiting_approval`; `400 invalid_plan` with `errors[]`), `redesign {note}`, `retry {stage_id, note?}`, `skip {stage_id}`, `cancel`, `budget {budget_usd}`; `409` when the pipeline or stage is not in a state that allows it. A stage's task has `pipeline_id`, `stage_id`, `base_ref`, `push_branch` and `model`; output `branch` (stage tasks only) pushes without a PR and ends `branch_ready`.
+
 ## WebSocket
 
 `GET /api/v1/ws` (session cookie required; same origin). Without a cookie (Telegram Web), first `POST /api/v1/ws/ticket` with the bearer token → `{"ticket":"…","expires_in":30}`, then connect to `/api/v1/ws?ticket=…`. A ticket works once and only within `expires_in` seconds, so fetch a new one for every (re)connect. After connecting, send one or more subscriptions:

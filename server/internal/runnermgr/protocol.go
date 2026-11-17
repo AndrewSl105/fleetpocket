@@ -134,6 +134,9 @@ const (
 	OutputPR             = "pr"
 	OutputArtifacts      = "artifacts"
 	OutputPRAndArtifacts = "pr_and_artifacts"
+	// OutputBranch (server side only; pipeline stages): push the branch, no
+	// PR. The run command carries it as "pr".
+	OutputBranch = "branch"
 )
 
 // Skill is one skill folder the runner writes before the session starts.
