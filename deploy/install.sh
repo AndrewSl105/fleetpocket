@@ -1,7 +1,7 @@
 #!/bin/sh
 # Jungle Monkey installer: sets up /srv/fleetpocket and starts the stack.
 #
-#   curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh
 #
 # Safe to re-run for updates: it refreshes the compose file and Caddyfile,
 # adds missing .env keys (never changes existing ones), pulls and restarts.
@@ -21,7 +21,7 @@
 #   --ref REF          git ref to download deploy files from (default main)
 set -eu
 
-REPO_RAW="https://raw.githubusercontent.com/AndrewSl105/fleetpocket"
+REPO_RAW="https://raw.githubusercontent.com/AndrewSl105/jungle_monkey"
 REF="${FLEETPOCKET_REF:-main}"
 DIR="${FLEETPOCKET_DIR:-/srv/fleetpocket}"
 DOMAIN="${FLEETPOCKET_DOMAIN:-}"

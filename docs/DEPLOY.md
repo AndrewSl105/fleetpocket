@@ -4,14 +4,20 @@ How to run Jungle Monkey on one server, and how CI/CD builds and deploys it. Bac
 
 One server, one domain. `/srv/fleetpocket/docker-compose.deploy.yml` runs `caddy` (TLS, the only service with ports), `web` (nginx with the client), `server`, `postgres` and `docker-proxy`. Caddy serves `https://<domain>`: `/api/*` (including the WebSocket `/api/v1/ws`), `/webhooks/*` and `/healthz` go to `server:8080`, everything else to `web:80`; `/metrics` answers 404 from outside. Agent containers are started by the server, each in its own task network.
 
-To run it on your own computer instead (no server, no domain), use `npx jungle-monkey`: [LOCAL.md](LOCAL.md). This guide is server mode (`MODE=server`, the default).
+There are three ways to install Jungle Monkey:
+
+1. **On your computer: `npx jungle-monkey`.** No server, no domain, no `.env`; needs Docker and an agent login, stops when the computer sleeps. See [LOCAL.md](LOCAL.md).
+2. **On a server in one command**: the installer below ([Quick setup](#quick-setup)). A 24/7 server with phone/PWA/Telegram access, your own GitHub App, pull requests and CI.
+3. **Self-hosted, your way**: `deploy/docker-compose.deploy.yml`, `deploy/cloud-init.yaml` (Hetzner/DigitalOcean) or the fully [manual setup](#manual-setup), for controlling every piece.
+
+The README has a [comparison table](../README.md#three-ways-to-install). This guide covers 2 and 3: server mode (`MODE=server`, the default).
 
 Target: a fresh Ubuntu 24.04 VPS with Docker Engine and the Compose plugin, nothing else. Open ports 22, 80 and 443 (and 443/udp for HTTP/3). Below, `fleetpocket.example.com` stands for your domain.
 
 ## Quick setup
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh
 ```
 
 `deploy/install.sh` (POSIX sh, needs root; it re-runs itself with `sudo`) checks for Ubuntu/Debian and Docker (offering Docker's official `get.docker.com` script), creates the directories of step 1 with their owners, downloads the compose file, Caddyfile and `.env.example`, and writes `.env` (mode 600) with your domain, generated `PG_PASSWORD` and `SESSION_SECRET`, and the agent keys you enter (read without echo). It checks that the domain resolves to the server's public IP (via api.ipify.org) and offers `<ip-with-dashes>.sslip.io` if you have none (shared name: Let's Encrypt rate limits can delay the certificate). Then it pulls the images, starts the stack, waits for `/healthz` and prints the setup link from the server log.
@@ -24,7 +30,7 @@ The server starts in **setup mode** because `.env` has no `ADMIN_PASSWORD_HASH`/
 
 ## Manual setup
 
-The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#run-it-247-on-a-server), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
+The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#three-ways-to-install), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
 
 **DNS**: create an A record (and AAAA for IPv6) for `fleetpocket.example.com` pointing at the server, and wait until `dig +short fleetpocket.example.com` returns its address before the first start: Caddy needs it to get the certificate.
 
@@ -121,7 +127,7 @@ For a local sidecar, run the `whisper-server` binary from whisper.cpp with `--ho
 
 ## 7. GitHub secrets
 
-In **AndrewSl105/fleetpocket**: *Settings → Environments → New environment* `production`, with three secrets:
+In **AndrewSl105/jungle_monkey**: *Settings → Environments → New environment* `production`, with three secrets:
 
 | Secret | Value |
 |---|---|
