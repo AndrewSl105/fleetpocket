@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +33,9 @@ const (
 	KindSidecar  = "sidecar"
 	KindNetwork  = "network"
 	KindVolume   = "claude-state"
+	// KindMCP is a stdio MCP server sidecar (talks to the gateway over
+	// its attached stdio only).
+	KindMCP = "mcp"
 )
 
 func NetworkName(taskID int64) string { return fmt.Sprintf("fleetpocket-task-%d", taskID) }
@@ -74,20 +78,31 @@ func labels(taskID int64, project, kind string, runID int64) map[string]string {
 }
 
 // EnsureNetwork creates the task's bridge network if it does not exist.
-func (m *Manager) EnsureNetwork(ctx context.Context, taskID int64, project string) (string, error) {
+// internal (egress allowlist) creates it without a route out; a network
+// left from the other mode is recreated, with the sidecars on it removed
+// (they are restarted by EnsureSidecars), so a mode change applies to the
+// next run.
+func (m *Manager) EnsureNetwork(ctx context.Context, taskID int64, project string, internal bool) (string, error) {
 	name := NetworkName(taskID)
 	res, err := m.Docker.NetworkList(ctx, client.NetworkListOptions{Filters: client.Filters{}.Add("name", name)})
 	if err != nil {
 		return "", err
 	}
 	for _, n := range res.Items {
-		if n.Name == name {
+		if n.Name != name {
+			continue
+		}
+		if n.Internal == internal {
 			return name, nil
+		}
+		if err := m.RemoveSidecars(ctx, taskID); err != nil {
+			return "", fmt.Errorf("recreate network: %w", err)
 		}
 	}
 	_, err = m.Docker.NetworkCreate(ctx, name, client.NetworkCreateOptions{
-		Driver: "bridge",
-		Labels: labels(taskID, project, KindNetwork, 0),
+		Driver:   "bridge",
+		Internal: internal,
+		Labels:   labels(taskID, project, KindNetwork, 0),
 	})
 	return name, err
 }
@@ -246,6 +261,43 @@ type RunnerSpec struct {
 	ExtraHosts []string
 }
 
+// Spec returns the container and host configuration of the runner (what
+// StartRunner sends to Docker); tests inspect it.
+func (m *Manager) Spec(s RunnerSpec) (*container.Config, *container.HostConfig, error) {
+	memory, err := ParseMemory(s.Memory)
+	if err != nil {
+		return nil, nil, err
+	}
+	pids := int64(1024)
+	env := make([]string, 0, len(s.Env))
+	for k, v := range s.Env {
+		env = append(env, k+"="+v)
+	}
+	slices.Sort(env)
+	return &container.Config{
+		Image:        s.Image,
+		Env:          env,
+		Labels:       labels(s.TaskID, s.Project, KindRunner, s.RunID),
+		OpenStdin:    true,
+		StdinOnce:    false,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		User:         cmpOr(s.User, "1000:1000"),
+	}, &container.HostConfig{
+		NetworkMode: container.NetworkMode(NetworkName(s.TaskID)),
+		Binds:       binds(s),
+		ExtraHosts:  s.ExtraHosts,
+		Resources: container.Resources{
+			Memory:    memory,
+			NanoCPUs:  int64(s.CPUs * 1e9),
+			PidsLimit: &pids,
+		},
+		CapDrop:     []string{"ALL"},
+		SecurityOpt: []string{"no-new-privileges"},
+	}, nil
+}
+
 // Runner is an attached runner container: its parsed stdout events and its
 // stdin. The stream comes from a Docker attach (local) or a node (remote).
 type Runner struct {
@@ -340,43 +392,15 @@ func (s *Stream) End() {
 // StartRunner creates the runner container, attaches to it, then starts it,
 // so no output is lost.
 func (m *Manager) StartRunner(ctx context.Context, s RunnerSpec) (*Runner, error) {
-	memory, err := ParseMemory(s.Memory)
+	cfg, hostCfg, err := m.Spec(s)
 	if err != nil {
 		return nil, err
-	}
-	pids := int64(1024)
-	env := make([]string, 0, len(s.Env))
-	for k, v := range s.Env {
-		env = append(env, k+"="+v)
 	}
 	name := RunnerName(s.TaskID)
 	// A leftover container from a crashed run would block the name.
 	_, _ = m.Docker.ContainerRemove(ctx, name, client.ContainerRemoveOptions{Force: true})
 	created, err := m.Docker.ContainerCreate(ctx, client.ContainerCreateOptions{
-		Name: name,
-		Config: &container.Config{
-			Image:        s.Image,
-			Env:          env,
-			Labels:       labels(s.TaskID, s.Project, KindRunner, s.RunID),
-			OpenStdin:    true,
-			StdinOnce:    false,
-			AttachStdin:  true,
-			AttachStdout: true,
-			AttachStderr: true,
-			User:         cmpOr(s.User, "1000:1000"),
-		},
-		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(NetworkName(s.TaskID)),
-			Binds:       binds(s),
-			ExtraHosts:  s.ExtraHosts,
-			Resources: container.Resources{
-				Memory:    memory,
-				NanoCPUs:  int64(s.CPUs * 1e9),
-				PidsLimit: &pids,
-			},
-			CapDrop:     []string{"ALL"},
-			SecurityOpt: []string{"no-new-privileges"},
-		},
+		Name: name, Config: cfg, HostConfig: hostCfg,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create runner: %w", err)
@@ -549,11 +573,14 @@ func (m *Manager) RemoveVolume(ctx context.Context, taskID int64) error {
 }
 
 func (m *Manager) removeNetwork(ctx context.Context, taskID int64) error {
-	_, err := m.Docker.NetworkRemove(ctx, NetworkName(taskID), client.NetworkRemoveOptions{})
-	if err != nil && strings.Contains(strings.ToLower(err.Error()), "not found") {
-		return nil
+	var errs []error
+	for _, name := range []string{NetworkName(taskID), EgressNetworkName(taskID)} {
+		_, err := m.Docker.NetworkRemove(ctx, name, client.NetworkRemoveOptions{})
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "not found") {
+			errs = append(errs, err)
+		}
 	}
-	return err
+	return errors.Join(errs...)
 }
 
 // TaskIDsWithResources lists task ids that own any labelled container or network.

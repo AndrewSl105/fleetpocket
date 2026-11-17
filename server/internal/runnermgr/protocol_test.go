@@ -39,11 +39,38 @@ func TestParseEvent(t *testing.T) {
 		`{"type":"ready","seq":3}`:                                               "ts",
 		`{"type":"question","ts":"2026-10-14T15:08:42.564Z","seq":2}`:            "question",
 		`{"type":"error","message":"x","ts":"2026-10-14T15:08:42.564Z","seq":2}`: "code",
+		`{"type":"checkpoint","n":1,"ts":"2026-10-14T15:08:42.564Z","seq":2}`:    "checkpoint",
 	}
 	for l, want := range bad {
 		if _, err := ParseEvent([]byte(l)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%s: got %v, want %q", l, err, want)
 		}
+	}
+}
+
+func TestParseCheckpointEvent(t *testing.T) {
+	l := `{"type":"checkpoint","n":2,"ref_sha":"abc","turn":5,"session_ref":"s/u","files_changed":3,"reason":"turn","ts":"2026-10-14T15:08:42.564Z","seq":9}`
+	ev, err := ParseEvent([]byte(l))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.N != 2 || ev.RefSHA != "abc" || ev.Turn != 5 || ev.SessionRef != "s/u" || ev.FilesChanged != 3 || ev.Reason != "turn" {
+		t.Fatalf("%+v", ev)
+	}
+	if got := CheckpointRef(12, 2); got != "refs/jm/checkpoints/12/2" {
+		t.Fatal(got)
+	}
+}
+
+func TestRunCommandCheckpointFields(t *testing.T) {
+	b, _ := EncodeCommand(NewRun(RunCommand{TaskID: "1", Prompt: "p", Checkpoints: &CheckpointsConfig{RunID: "4"}, ResumeSessionRef: "s/u"}))
+	if !strings.Contains(string(b), `"checkpoints":{"run_id":"4"}`) || !strings.Contains(string(b), `"resume_session_ref":"s/u"`) {
+		t.Fatalf("%s", b)
+	}
+	// Off: neither field on the wire.
+	b, _ = EncodeCommand(NewRun(RunCommand{TaskID: "1", Prompt: "p"}))
+	if strings.Contains(string(b), "checkpoints") || strings.Contains(string(b), "resume_session_ref") {
+		t.Fatalf("%s", b)
 	}
 }
 
@@ -92,5 +119,23 @@ func TestOpenAPIHasEveryRunnerEvent(t *testing.T) {
 		if !strings.Contains(string(spec), "\n          "+typ+": '#/components/schemas/") {
 			t.Errorf("docs/openapi.yaml: Event discriminator has no mapping for %q", typ)
 		}
+	}
+}
+
+func TestParseCheckEventAndCommand(t *testing.T) {
+	ev, err := ParseEvent([]byte(`{"type":"check","command":"npm test","exit_code":0,"output":"ok","duration_ms":12,"timed_out":false,"ts":"2026-11-17T10:00:00.000Z","seq":9}`))
+	if err != nil || ev.ExitCode == nil || *ev.ExitCode != 0 || ev.Command != "npm test" || ev.DurationMS != 12 {
+		t.Fatalf("check: %+v %v", ev, err)
+	}
+	if _, err := ParseEvent([]byte(`{"type":"check","command":"x","ts":"2026-11-17T10:00:00.000Z","seq":9}`)); err == nil {
+		t.Fatal("check without exit_code accepted")
+	}
+	b, _ := json.Marshal(NewRun(RunCommand{Check: &CheckConfig{Command: "go test ./...", TimeoutSec: 300}, Commit: CommitInfo{AllowEmpty: true}}))
+	if !strings.Contains(string(b), `"check":{"command":"go test ./...","timeout_sec":300}`) || !strings.Contains(string(b), `"allow_empty":true`) {
+		t.Fatalf("%s", b)
+	}
+	b, _ = json.Marshal(NewRun(RunCommand{}))
+	if strings.Contains(string(b), "check") || strings.Contains(string(b), "allow_empty") {
+		t.Fatalf("today's command changed: %s", b)
 	}
 }

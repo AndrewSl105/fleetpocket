@@ -19,6 +19,10 @@ import (
 // ErrOffline is returned by every call to a node that is not connected.
 var ErrOffline = errors.New("node is offline")
 
+// ErrLocalRepoOnNode: local repositories live on the server's own disk
+// (local mode), so their tasks cannot run on a node.
+var ErrLocalRepoOnNode = errors.New("local repositories are not supported for nodes; run the task on this computer")
+
 // ServerID is the placement value clients use for the server itself; tasks
 // and projects store it as NULL.
 const ServerID = "server"
@@ -44,6 +48,22 @@ type StartSpec struct {
 	User    string            `json:"user"`
 	// Attachments mounts the task's attachment folder read-only.
 	Attachments bool `json:"attachments"`
+	// ExtraHosts are added to the runner's /etc/hosts (local mode: the
+	// gateway at host.docker.internal). Not sent to nodes.
+	ExtraHosts []string `json:"-"`
+}
+
+// LocalDelivery is what DeliverLocal needs: the owner's repository, the
+// workspace's task branch and base, the wanted jm/... name, the branch an
+// earlier delivery used ("" for the first) and whether a restore rewrote
+// the task branch.
+type LocalDelivery struct {
+	Path    string
+	Base    string
+	Branch  string
+	Want    string
+	Current string
+	Force   bool
 }
 
 // Host is everything the scheduler, the publisher, maintenance and the API
@@ -60,6 +80,16 @@ type Host interface {
 	// host's secrets scanner); rejections wrap workspace.ErrInvalidDiff.
 	Validate(ctx context.Context, taskID int64, base string, requireScanner bool) error
 	Push(ctx context.Context, taskID int64, repo workspace.Repo, branch string) error
+	// Checkpoints (SPEC-server, "Checkpoints"): ref is
+	// refs/jm/checkpoints/<run>/<n>, sha the commit it must point at; a
+	// missing or moved ref wraps workspace.ErrCheckpointGone.
+	CheckpointDiff(ctx context.Context, taskID int64, ref, sha string, limit int) (string, bool, error)
+	RestoreCheckpoint(ctx context.Context, taskID int64, ref, sha string) error
+	// Diverged: origin/<branch> is not an ancestor of HEAD (a restore rewrote it).
+	Diverged(ctx context.Context, taskID int64, branch string) (bool, error)
+	// ForcePush pushes with --force-with-lease, only to branches Jungle
+	// Monkey created; it returns the replaced remote commit.
+	ForcePush(ctx context.Context, taskID int64, repo workspace.Repo, branch string) (string, error)
 	RemoveWorkspace(ctx context.Context, taskID int64) error
 	// EventLog returns the lines of <workspace>/.fleetpocket/events.jsonl
 	// whose seq is greater than afterSeq (nil when there is no log).
@@ -83,6 +113,14 @@ type Host interface {
 	RemoveSidecars(ctx context.Context, taskID int64) error
 	RemoveVolume(ctx context.Context, taskID int64) error
 	ListRunners(ctx context.Context) ([]runnermgr.ContainerInfo, error)
+
+	// Local repositories (local mode, docs/SPEC-server.md "Repository
+	// sources"). The original folder is only touched by these calls; nodes
+	// return ErrLocalRepoOnNode.
+	DeliverLocal(ctx context.Context, taskID int64, d LocalDelivery) (*workspace.Delivery, error)
+	MergeLocal(ctx context.Context, path, branch string) (*workspace.MergeResult, error)
+	CheckoutLocal(ctx context.Context, path, branch string) error
+	DiscardLocal(ctx context.Context, path, branch string) error
 	TaskIDsWithResources(ctx context.Context) (map[int64]bool, error)
 	Ping(ctx context.Context) error
 }

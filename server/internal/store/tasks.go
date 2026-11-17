@@ -44,6 +44,26 @@ type Task struct {
 	// input of the next run when the current one ends.
 	QueuedMessage *string `json:"queued_message"`
 
+	// CI auto-fix (docs/SPEC-server.md "CI auto-fix"). LastPushedSHA is the
+	// last commit Jungle Monkey pushed to the branch.
+	LastPushedSHA      *string `json:"-"`
+	AutoFixState       *string `json:"autofix_state"`
+	AutoFixAttempts    int     `json:"autofix_attempts"`
+	AutoFixMaxAttempts *int    `json:"autofix_max_attempts"`
+	AutoFixSignature   *string `json:"-"`
+	AutoFixHandledSHA  *string `json:"-"`
+
+	// Costs (docs/SPEC-server.md "Costs and budgets"): the auto-fix runs'
+	// share of CostUSDTotal, whether any run's cost is an estimate or
+	// API-equivalent (Claude subscription), the budget scope a queued task
+	// waits for, and when the owner let it start anyway.
+	AutoFixCostUSD    float64    `json:"autofix_cost_usd"`
+	CostEstimated     bool       `json:"cost_estimated"`
+	CostAPIEquivalent bool       `json:"cost_api_equivalent"`
+	CostUnknown       bool       `json:"cost_unknown"`
+	BudgetWait        *string    `json:"budget_wait"`
+	BudgetOverrideAt  *time.Time `json:"budget_override_at"`
+
 	// Output is "pr" (default), "artifacts" or "pr_and_artifacts".
 	Output string `json:"output"`
 	// Skills is the resolved list the last run used; SkillsAdd/SkillsRemove
@@ -52,6 +72,26 @@ type Task struct {
 	SkillsAdd    []string `json:"skills_add"`
 	SkillsRemove []string `json:"skills_remove"`
 
+	// Schedules (docs/SPEC-server.md "Schedules"): the schedule that fired
+	// the task, the MCP server names it gives the task (nil: the project's),
+	// its per-run budget (nil: the project's) and PRAlways (an empty commit
+	// when nothing changed, so a PR is opened anyway).
+	ScheduleID   *int64   `json:"schedule_id"`
+	MCPServers   []string `json:"mcp_servers"`
+	RunBudgetUSD *float64 `json:"run_budget_usd"`
+	PRAlways     bool     `json:"-"`
+
+	// Loops (docs/SPEC-server.md "Loops"): nil Loop is today's behaviour.
+	Loop          *LoopConfig `json:"loop"`
+	LoopState     *string     `json:"loop_state"`
+	LoopIteration int         `json:"loop_iteration"`
+	LoopIdle      int         `json:"-"`
+	// Local repositories: the branch delivered into the owner's repository
+	// (jm/<id>-<slug>[-n]) and where the workspace started ("last_commit"
+	// or "working_tree").
+	LocalBranch *string `json:"local_branch"`
+	StartFrom   string  `json:"start_from"`
+
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
 	StatusEvents []*Event `json:"-"`
@@ -59,17 +99,41 @@ type Task struct {
 
 const taskCols = `id, project_id, repository_id, title, prompt, status, status_reason, branch, session_id,
 	pr_number, pr_url, ci_status, cost_usd_total::float8, turns, source, created_at, updated_at, finished_at, paused_at, cleaned_at,
-	last_activity, last_activity_at, queued_message, agent, node, output, skills, skills_add, skills_remove`
+	last_activity, last_activity_at, queued_message, agent, node,
+	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha,
+	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at, cost_unknown,
+	output, skills, skills_add, skills_remove,
+	schedule_id, mcp_servers, run_budget_usd::float8, pr_always, loop, loop_state, loop_iteration, loop_idle,
+	local_branch, start_from`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
+	var attempts *int
+	var fixCost *float64
+	var estimated, apiEq, unknown, prAlways *bool
+	var loop []byte
+	var loopIter, loopIdle *int
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
 		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
-		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove)
+		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA,
+		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt, &unknown,
+		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove,
+		&t.ScheduleID, &t.MCPServers, &t.RunBudgetUSD, &prAlways, &loop, &t.LoopState, &loopIter, &loopIdle,
+		&t.LocalBranch, &t.StartFrom)
 	if err != nil {
 		return nil, err
 	}
+	t.PRAlways = deref(prAlways, false)
+	t.LoopIteration, t.LoopIdle = deref(loopIter, 0), deref(loopIdle, 0)
+	if len(loop) > 0 {
+		if err := json.Unmarshal(loop, &t.Loop); err != nil {
+			return nil, err
+		}
+	}
+	t.AutoFixAttempts = deref(attempts, 0)
+	t.AutoFixCostUSD, t.CostEstimated, t.CostAPIEquivalent = deref(fixCost, 0), deref(estimated, false), deref(apiEq, false)
+	t.CostUnknown = deref(unknown, false)
 	return &t, nil
 }
 
@@ -80,10 +144,15 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 	err := s.Tx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = scanTask(tx.QueryRow(ctx, `INSERT INTO tasks (project_id, repository_id, title, prompt, status, source,
-				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove)
+				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove,
+				schedule_id, mcp_servers, run_budget_usd, pr_always, loop, loop_state, loop_iteration, loop_idle, start_from)
 			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7,
-				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}')) RETURNING `+taskCols,
-			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove))
+				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}'),
+				$11, $12, $13, nullif($14, false), $15, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 'running' END,
+				CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 1 END, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 0 END,
+				coalesce(nullif($16, ''), 'last_commit')) RETURNING `+taskCols,
+			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove,
+			t.ScheduleID, t.MCPServers, t.RunBudgetUSD, t.PRAlways, loopJSON(t.Loop), t.StartFrom))
 		if err != nil {
 			return err
 		}
@@ -97,6 +166,16 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 		}
 		ev, err := insertBackendEvent(ctx, tx, out.ID, nil, "status", map[string]any{"status": "queued"})
 		out.StatusEvents = []*Event{created, ev}
+		if err != nil || out.Loop == nil {
+			return err
+		}
+		// A loop's first iteration (docs/SPEC-server.md "Loops").
+		if _, err := tx.Exec(ctx, `UPDATE runs SET loop_iteration = 1 WHERE id = $1`, runID); err != nil {
+			return err
+		}
+		lev, err := insertBackendEvent(ctx, tx, out.ID, &runID, "loop", map[string]any{"phase": "iteration", "iteration": 1,
+			"max_iterations": out.Loop.MaxIterations, "check_command": out.Loop.CheckCommand, "run_id": runID})
+		out.StatusEvents = append(out.StatusEvents, lev)
 		return err
 	})
 	if isFKViolation(err) {
@@ -183,6 +262,7 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id int64, from []string, to, re
 	t, err := scanTask(tx.QueryRow(ctx, `UPDATE tasks SET status = $2, status_reason = NULLIF($3, ''), updated_at = now(),
 			finished_at = CASE WHEN $4 THEN now() ELSE NULL END,
 			paused_at = CASE WHEN $2 = 'paused' THEN now() ELSE NULL END,
+			budget_wait = CASE WHEN $2 = 'queued' THEN budget_wait ELSE NULL END,
 			last_activity = $6, last_activity_at = now()
 		WHERE id = $1 AND (coalesce(cardinality($5::text[]), 0) = 0 OR status = ANY($5)) RETURNING `+taskCols,
 		id, to, reason, terminal, from, ActivityLine(activity)))
@@ -228,7 +308,7 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id int64, from []string, to, re
 func drainQueuedTx(ctx context.Context, tx pgx.Tx, t *Task) (*Task, error) {
 	text := *t.QueuedMessage
 	switch t.Status {
-	case "paused", "pr_open", "completed":
+	case "paused", "pr_open", "branch_ready", "completed":
 		kind := "followup"
 		if t.Status == "paused" {
 			kind = "resume"
@@ -385,8 +465,9 @@ func (s *Store) MarkCleaned(ctx context.Context, id int64) error {
 // ClaimNext moves the oldest queued task whose host has room to preparing:
 // server tasks (node NULL) count against max, a node's tasks against that
 // node's max_concurrent, and tasks of nodes not in online wait. Returns nil
-// when nothing was claimed.
-func (s *Store) ClaimNext(ctx context.Context, max int, online []string) (*Task, error) {
+// when nothing was claimed. Tasks of a scope over its monthly cap wait too,
+// unless the owner let them start anyway this month (gate).
+func (s *Store) ClaimNext(ctx context.Context, max int, online []string, gate BudgetGate) (*Task, error) {
 	var out *Task
 	if online == nil {
 		online = []string{}
@@ -398,7 +479,7 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string) (*Task,
 		}
 		var id int64
 		err := tx.QueryRow(ctx, `
-			WITH active AS (
+			WITH `+budgetCTE(3, 4)+`, active AS (
 				SELECT coalesce(node, '') AS host, count(*) AS n FROM tasks
 				WHERE status IN ('preparing', 'running', 'waiting_input', 'pushing')
 				GROUP BY 1
@@ -411,7 +492,10 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string) (*Task,
 			)
 			SELECT t.id FROM tasks t
 			WHERE t.status = 'queued' AND coalesce(t.node, '') IN (SELECT host FROM room)
-			ORDER BY t.updated_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED`, max, online).Scan(&id)
+			  AND (t.budget_override_at >= $3 OR (NOT (SELECT b FROM global_blocked)
+			       AND t.project_id NOT IN (SELECT id FROM blocked_projects)
+			       AND (t.schedule_id IS NULL OR t.schedule_id NOT IN (SELECT id FROM blocked_schedules))))
+			ORDER BY t.updated_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED`, max, online, gate.MonthStart, gate.GlobalUSD).Scan(&id)
 		if err == pgx.ErrNoRows {
 			return nil
 		}
@@ -455,13 +539,37 @@ type Run struct {
 	Turns       int        `json:"turns"`
 	StartedAt   *time.Time `json:"started_at"`
 	FinishedAt  *time.Time `json:"finished_at"`
+	// AutoFixAttempt is set on runs started by CI auto-fix; MaxBudgetUSD
+	// then overrides the project's budget for the run.
+	AutoFixAttempt *int     `json:"autofix_attempt"`
+	MaxBudgetUSD   *float64 `json:"-"`
+	// Usage (docs/SPEC-server.md "Costs and budgets"): the agent and model,
+	// tokens (input includes the cache reads and writes), where CostUSD
+	// came from and how the agent was authenticated. Nil for runs from
+	// before they were recorded.
+	Agent            *string `json:"agent"`
+	Model            *string `json:"model"`
+	InputTokens      int64   `json:"input_tokens"`
+	OutputTokens     int64   `json:"output_tokens"`
+	CacheReadTokens  int64   `json:"cache_read_tokens"`
+	CacheWriteTokens int64   `json:"cache_write_tokens"`
+	CostSource       *string `json:"cost_source"`
+	Auth             *string `json:"auth"`
+	// RestoreCheckpointID is the checkpoint a `restore` run starts from.
+	RestoreCheckpointID *int64 `json:"-"`
+	// LoopIteration is the loop iteration the run belongs to (nil: no loop).
+	LoopIteration *int `json:"loop_iteration"`
 }
 
-const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at`
+const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at,
+	autofix_attempt, max_budget_usd::float8, agent, model, coalesce(input_tokens, 0), coalesce(output_tokens, 0),
+	coalesce(cache_read_tokens, 0), coalesce(cache_write_tokens, 0), cost_source, auth, restore_checkpoint_id, loop_iteration`
 
 func scanRun(row interface{ Scan(...any) error }) (*Run, error) {
 	var r Run
-	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt,
+		&r.AutoFixAttempt, &r.MaxBudgetUSD, &r.Agent, &r.Model, &r.InputTokens, &r.OutputTokens,
+		&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostSource, &r.Auth, &r.RestoreCheckpointID, &r.LoopIteration); err != nil {
 		return nil, err
 	}
 	return &r, nil
@@ -508,17 +616,8 @@ func (s *Store) SetRunContainer(ctx context.Context, id int64, containerID strin
 
 // FinishRun records the exit code once; later calls are no-ops.
 func (s *Store) FinishRun(ctx context.Context, id int64, exitCode int) (bool, error) {
-	tag, err := s.Pool.Exec(ctx, `UPDATE runs SET exit_code = $2, finished_at = now() WHERE id = $1 AND finished_at IS NULL`, id, exitCode)
+	tag, err := s.Pool.Exec(ctx, `UPDATE runs SET exit_code = $2, finished_at = now(), gateway_token_hash = NULL WHERE id = $1 AND finished_at IS NULL`, id, exitCode)
 	return err == nil && tag.RowsAffected() == 1, err
-}
-
-// SetRunCost records a run's cumulative cost and recomputes the task total.
-func (s *Store) SetRunCost(ctx context.Context, runID int64, cost float64) error {
-	_, err := s.Pool.Exec(ctx, `WITH r AS (UPDATE runs SET cost_usd = $2 WHERE id = $1 RETURNING task_id)
-		UPDATE tasks SET cost_usd_total = (SELECT coalesce(sum(cost_usd), 0) FROM runs WHERE task_id = (SELECT task_id FROM r)
-			AND id <> $1) + $2, updated_at = now()
-		WHERE id = (SELECT task_id FROM r)`, runID, cost)
-	return err
 }
 
 // SetRunTurns records a run's turn count (the runner reports it per run) and
@@ -675,19 +774,6 @@ func (s *Store) LastEvents(ctx context.Context, taskID int64, types []string, n 
 	return out, rows.Err()
 }
 
-// SessionBaselineCost is the cost already reported by earlier runs of the
-// same Claude session: runs since the last fresh (initial/retry) run. The
-// runner reports cumulative session cost, so a resumed run's own cost is
-// its reported total minus this baseline.
-func (s *Store) SessionBaselineCost(ctx context.Context, taskID, runID int64) (float64, error) {
-	var c float64
-	err := s.Pool.QueryRow(ctx, `SELECT coalesce(sum(cost_usd), 0)::float8 FROM runs
-		WHERE task_id = $1 AND id < $2 AND started_at IS NOT NULL
-		AND id >= coalesce((SELECT max(id) FROM runs WHERE task_id = $1 AND id < $2 AND kind IN ('initial', 'retry')), 0)`,
-		taskID, runID).Scan(&c)
-	return c, err
-}
-
 // ResetRunStart makes a run pending again (it never got a container).
 func (s *Store) ResetRunStart(ctx context.Context, runID int64) error {
 	_, err := s.Pool.Exec(ctx, `UPDATE runs SET started_at = NULL, container_id = NULL WHERE id = $1 AND finished_at IS NULL`, runID)
@@ -698,4 +784,11 @@ func (s *Store) ResetRunStart(ctx context.Context, runID int64) error {
 func (s *Store) PreviousRun(ctx context.Context, taskID, runID int64) (*Run, error) {
 	r, err := scanRun(s.Pool.QueryRow(ctx, `SELECT `+runCols+` FROM runs WHERE task_id = $1 AND id < $2 AND started_at IS NOT NULL ORDER BY id DESC LIMIT 1`, taskID, runID))
 	return r, notFound(err)
+}
+
+// SetLocalBranch records the branch delivered into a local repository
+// (nil clears it: the owner discarded it).
+func (s *Store) SetLocalBranch(ctx context.Context, taskID int64, branch *string) error {
+	_, err := s.Pool.Exec(ctx, `UPDATE tasks SET local_branch = $2, updated_at = now() WHERE id = $1`, taskID, branch)
+	return err
 }

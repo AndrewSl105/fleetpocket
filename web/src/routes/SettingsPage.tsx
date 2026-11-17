@@ -1,15 +1,25 @@
 import type { ReactNode } from 'react'
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
-import { useHealth, useStats } from '@/api/hooks'
+import { useHealth, useMode, useStats } from '@/api/hooks'
 import { useSession } from '@/auth/AuthGate'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTheme, type ThemeChoice } from '@/lib/theme'
-import { usd } from '@/lib/format'
+import { Cost } from '@/components/Cost'
 import { cn } from '@/lib/utils'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { ComputersSection } from './settings/ComputersSection'
+import { AutoFixSection } from './settings/AutoFixSection'
+import { CheckpointsSection } from './settings/CheckpointsSection'
+import { GlobalServersSection } from './integrations/GlobalServersSection'
+import { CostSettingsSection } from './settings/CostSettingsSection'
+import { GitHubSection } from './settings/GitHubSection'
+import { Link } from 'react-router'
+import { ChevronRight } from 'lucide-react'
+import { c } from '@/i18n/costs'
+import { sk } from '@/i18n/skills'
+import { sc } from '@/i18n/schedules'
 
 const s = t.settings
 const version = import.meta.env.VITE_APP_VERSION || 'dev'
@@ -35,6 +45,7 @@ export default function SettingsPage() {
   const stats = useStats()
   const health = useHealth()
   const theme = useTheme()
+  const mode = useMode()
 
   return (
     <div className="h-full overflow-y-auto">
@@ -49,8 +60,8 @@ export default function SettingsPage() {
               <Stat className="col-span-2" label={s.running} value={stats.data.running} />
               <Stat className="col-span-2" label={s.queued} value={stats.data.queued} />
               <Stat className="col-span-2" label={s.waiting} value={stats.data.waiting_input} />
-              <Stat className="col-span-3" label={s.costToday} value={usd(stats.data.cost_usd_today)} />
-              <Stat className="col-span-3" label={s.costMonth} value={usd(stats.data.cost_usd_month)} />
+              <Stat className="col-span-3" label={s.costToday} value={<Cost value={stats.data.cost_usd_today} unknown={stats.data.cost_unknown_today} />} />
+              <Stat className="col-span-3" label={s.costMonth} value={<Cost value={stats.data.cost_usd_month} unknown={stats.data.cost_unknown_month} />} />
             </div>
           ) : (
             <div className="grid grid-cols-6 gap-2">
@@ -59,6 +70,27 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+          <Link to="/costs" className="mt-2 flex min-h-11 items-center gap-3 fm-group px-3.5 py-2 hover:bg-accent/60">
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{c.open}</span>
+              <span className="block text-xs text-muted-foreground">{c.openHint}</span>
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+          <Link to="/skills" className="mt-2 flex min-h-11 items-center gap-3 fm-group px-3.5 py-2 hover:bg-accent/60">
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{sk.open}</span>
+              <span className="block text-xs text-muted-foreground">{sk.openHint}</span>
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+          <Link to="/schedules" className="mt-2 flex min-h-11 items-center gap-3 fm-group px-3.5 py-2 hover:bg-accent/60">
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{sc.open}</span>
+              <span className="block text-xs text-muted-foreground">{sc.openHint}</span>
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
         </section>
 
         {runtime.mode === 'browser' && (
@@ -84,7 +116,15 @@ export default function SettingsPage() {
           </section>
         )}
 
+        {mode === 'local' && <GitHubSection />}
+
         <ComputersSection />
+
+        <AutoFixSection />
+
+        <CheckpointsSection />
+        <CostSettingsSection />
+        <GlobalServersSection />
 
         <section>
           <h2 className="mb-3 text-sm font-bold">{s.about}</h2>

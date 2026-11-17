@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/autofix"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
@@ -115,6 +116,31 @@ func validate(f store.ProjectFields) error {
 		f.MaxDurationSec != nil && *f.MaxDurationSec < 0 || f.RunnerCPUs != nil && *f.RunnerCPUs < 0 {
 		return fmt.Errorf("%w: limits must not be negative", ErrInvalid)
 	}
+	if f.CIAutoFix != nil {
+		if err := ValidateAutoFix(*f.CIAutoFix); err != nil {
+			return err
+		}
+	}
+	if f.Budget != nil && f.Budget.MonthlyUSD != nil && (*f.Budget.MonthlyUSD < 0 || *f.Budget.MonthlyUSD > MaxMonthlyBudgetUSD) {
+		return fmt.Errorf("%w: budget.monthly_usd must be 0 to %d", ErrInvalid, MaxMonthlyBudgetUSD)
+	}
+	return nil
+}
+
+// MaxMonthlyBudgetUSD bounds monthly caps (projects.budget, the global one).
+const MaxMonthlyBudgetUSD = 1_000_000
+
+// ValidateAutoFix checks CI auto-fix overrides (project or global default).
+func ValidateAutoFix(o store.AutoFixOverrides) error {
+	if o.MaxAttempts != nil && (*o.MaxAttempts < 1 || *o.MaxAttempts > autofix.MaxMaxAttempts) {
+		return fmt.Errorf("%w: ci_autofix.max_attempts must be 1 to %d", ErrInvalid, autofix.MaxMaxAttempts)
+	}
+	if o.BudgetUSD != nil && *o.BudgetUSD < 0 {
+		return fmt.Errorf("%w: ci_autofix.budget_usd must not be negative", ErrInvalid)
+	}
+	if o.Checks != nil && len(*o.Checks) > 50 {
+		return fmt.Errorf("%w: ci_autofix.checks lists at most 50 check names", ErrInvalid)
+	}
 	return nil
 }
 
@@ -123,9 +149,16 @@ type RepoInput struct {
 	BaseBranch     string `json:"base_branch"`
 	InstallationID int64  `json:"installation_id"`
 	IsDefault      bool   `json:"is_default"`
+	// Source "local" with Path adds a local repository (local mode only;
+	// the API handles it, see internal/localrepos).
+	Source string `json:"source"`
+	Path   string `json:"path"`
 }
 
 func (s *Service) AddRepository(ctx context.Context, projectID string, in RepoInput) (*store.Repository, error) {
+	if in.Source != "" && in.Source != store.SourceGitHub {
+		return nil, fmt.Errorf("%w: source must be github or local", ErrInvalid)
+	}
 	if !repoRe.MatchString(in.FullName) {
 		return nil, fmt.Errorf("%w: full_name must be owner/repo", ErrInvalid)
 	}

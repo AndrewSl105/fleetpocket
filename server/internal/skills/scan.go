@@ -23,7 +23,7 @@ func Gitleaks(binary string) SecretsScanner {
 		if err != nil {
 			return nil, err
 		}
-		defer os.RemoveAll(dir)
+		defer func() { _ = os.RemoveAll(dir) }()
 		for _, f := range files {
 			p := filepath.Join(dir, filepath.FromSlash(f.Path))
 			if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {

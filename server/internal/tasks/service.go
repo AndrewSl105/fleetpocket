@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
+	"github.com/andrewsl105/fleetpocket/server/internal/loops"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
+	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
 
 var (
@@ -43,6 +46,18 @@ type Executor interface {
 	Cancel(ctx context.Context, taskID int64) error
 }
 
+// GuardQuestionID is the runner-question id of the CI auto-fix diff-guard
+// question (the scheduler asks it; the answer goes to AutoFixer.Resolve).
+const GuardQuestionID = "autofix_guard"
+
+// AutoFixer is the CI auto-fix loop (internal/cifix).
+type AutoFixer interface {
+	// Cancel ends an active loop and says why.
+	Cancel(ctx context.Context, taskID int64, reason string)
+	// Resolve pushes or discards a fix that waits for the owner.
+	Resolve(ctx context.Context, taskID int64, push bool) error
+}
+
 type Service struct {
 	Store    *store.Store
 	Hub      *events.Hub
@@ -55,6 +70,21 @@ type Service struct {
 	DefaultAgent string
 	// AgentEnabled reports whether an agent has credentials; nil allows every agent.
 	AgentEnabled func(agent string) bool
+	// AutoFix is the CI auto-fix loop; nil when GitHub is not configured.
+	AutoFix AutoFixer
+	// OnBudgetOverride counts owner budget overrides (metrics); may be nil.
+	OnBudgetOverride func(project string)
+	// CheckpointDiff reads what a restore discards from the task's host; nil
+	// leaves the restore preview without a diff.
+	CheckpointDiff CheckpointDiffFunc
+	// WorkspaceRetention is WORKSPACE_RETENTION (shown when checkpoints are gone).
+	WorkspaceRetention time.Duration
+	// LocalHost is the host of a task on a local repository (local mode);
+	// nil refuses the branch actions.
+	LocalHost func(t *store.Task) LocalBranches
+	// PushLocal pushes a branch_ready task to GitHub and opens its PR
+	// (scheduler.PushLocal); nil when GitHub is not connected.
+	PushLocal func(ctx context.Context, taskID int64) error
 }
 
 // ServerNode is the placement value for the server itself.
@@ -82,7 +112,18 @@ type CreateInput struct {
 	// SkillsAdd/SkillsRemove change the project's skills for this task (slugs).
 	SkillsAdd    []string `json:"skills_add"`
 	SkillsRemove []string `json:"skills_remove"`
-	Source       string   `json:"-"`
+	// StartFrom (local repositories): "last_commit" (default) or
+	// "working_tree" (with the uncommitted changes).
+	StartFrom string `json:"start_from"`
+	// Loop runs the task until its check command passes (nil: no loop).
+	Loop   *store.LoopConfig `json:"loop"`
+	Source string            `json:"-"`
+	// Set by schedules: the schedule, its MCP server names (nil: the
+	// project's), its per-run budget and "PR even without changes".
+	ScheduleID   *int64   `json:"-"`
+	MCPServers   []string `json:"-"`
+	RunBudgetUSD *float64 `json:"-"`
+	PRAlways     bool     `json:"-"`
 	// Images are validated uploads (attachments.Process).
 	Images []*attachments.Image `json:"-"`
 }
@@ -147,15 +188,35 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if !ValidOutput(output) {
 		return nil, fmt.Errorf("%w: output must be one of %s", ErrInvalid, strings.Join(Outputs, ", "))
 	}
+	if in.StartFrom != "" && in.StartFrom != workspace.StartLastCommit && in.StartFrom != workspace.StartWorkingTree {
+		return nil, fmt.Errorf("%w: start_from must be last_commit or working_tree", ErrInvalid)
+	}
+	if in.StartFrom == workspace.StartWorkingTree {
+		repo := repoOf(p, repoID)
+		if repo == nil || !repo.Local() {
+			return nil, fmt.Errorf("%w: start_from working_tree is only for local repositories", ErrInvalid)
+		}
+	}
+	if repo := repoOf(p, repoID); repo != nil && repo.Local() && nodeID(node) != nil {
+		return nil, fmt.Errorf("%w: local repositories are not supported for nodes; run the task on this computer", ErrInvalid)
+	}
 	if output != "pr" && !ArtifactsEnabled {
 		return nil, fmt.Errorf("%w: output %q is not available yet (diagram collection is not implemented)", ErrInvalid, output)
+	}
+	loop, err := loops.Normalize(in.Loop)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, err.Error())
+	}
+	if loop != nil && output == "artifacts" {
+		return nil, fmt.Errorf("%w: a loop needs repository changes; output %q makes none", ErrInvalid, output)
 	}
 	up, release, err := s.upload(in.Images)
 	if err != nil {
 		return nil, err
 	}
 	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
-		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove}, up)
+		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove, Loop: loop, StartFrom: in.StartFrom,
+		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways}, up)
 	release()
 	if err != nil {
 		return nil, err
@@ -253,6 +314,15 @@ func (s *Service) upload(imgs []*attachments.Image) (*store.Upload, func(), erro
 	return up, s.Files.Hold(), nil
 }
 
+func repoOf(p *store.Project, id int64) *store.Repository {
+	for i := range p.Repositories {
+		if p.Repositories[i].ID == id {
+			return &p.Repositories[i]
+		}
+	}
+	return nil
+}
+
 func hasRepo(p *store.Project, id int64) bool {
 	for _, r := range p.Repositories {
 		if r.ID == id {
@@ -323,6 +393,16 @@ func (s *Service) Answer(ctx context.Context, taskID int64, questionID, text, vi
 	})
 	s.publishEvent(ev)
 
+	if RunnerQuestionID(qn.ID) == GuardQuestionID {
+		if s.AutoFix == nil {
+			return nil, fmt.Errorf("%w: CI auto-fix is not configured", ErrConflict)
+		}
+		if err := s.AutoFix.Resolve(ctx, taskID, GuardPushes(text)); err != nil {
+			return nil, err
+		}
+		return s.Get(ctx, taskID)
+	}
+
 	switch t.Status {
 	case Running, WaitingInput:
 		// If the runner is already gone, the runner manager sees the stored
@@ -364,6 +444,9 @@ func (s *Service) Message(ctx context.Context, taskID int64, text string, imgs [
 		}
 		if err != nil {
 			return nil, err
+		}
+		if s.AutoFix != nil {
+			s.AutoFix.Cancel(ctx, taskID, "the owner sent a follow-up")
 		}
 		return s.Get(ctx, taskID)
 	}
@@ -461,6 +544,26 @@ func (s *Service) Retry(ctx context.Context, taskID int64) (*View, error) {
 	return s.Get(ctx, taskID)
 }
 
+// OverrideBudget lets a queued task start although a monthly budget holds
+// it ("waiting: budget"); good for runs of this task until the month ends.
+// via names who did it (web, telegram) for the timeline.
+func (s *Service) OverrideBudget(ctx context.Context, taskID int64, via string) (*View, error) {
+	t, ev, err := s.Store.OverrideBudget(ctx, taskID, via)
+	if errors.Is(err, store.ErrConflict) {
+		return nil, fmt.Errorf("%w: only a queued task can start despite the budget", ErrConflict)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if s.OnBudgetOverride != nil {
+		s.OnBudgetOverride(t.ProjectID)
+	}
+	s.publishEvent(ev)
+	s.publishTask(t)
+	s.wake()
+	return s.Get(ctx, taskID)
+}
+
 // Merge squash-merges the PR of a pr_open task, deletes its branch and
 // completes the task. The pull_request webhook that follows finds the task
 // already completed and records nothing twice.
@@ -483,7 +586,7 @@ func (s *Service) Merge(ctx context.Context, taskID int64) (*View, error) {
 	if t.Branch != nil {
 		branch = *t.Branch
 	}
-	if err := s.GitHub.MergePR(ctx, repo.FullName, repo.InstallationID, *t.PRNumber, branch, t.Title); err != nil {
+	if err := s.GitHub.MergePR(ctx, repo.GitHubName(), repo.InstallationID, *t.PRNumber, branch, t.Title); err != nil {
 		return nil, err
 	}
 	ev, _ := s.Store.AddBackendEvent(ctx, taskID, nil, "pr_closed", map[string]any{"number": *t.PRNumber, "merged": true})
@@ -526,6 +629,13 @@ func (s *Service) publishEvent(ev *store.Event) {
 	if s.Hub != nil && ev != nil {
 		s.Hub.PublishEvent(ev)
 	}
+}
+
+// GuardPushes reads an answer to the diff-guard question: "Push anyway" (or
+// a typed yes/push) pushes, anything else discards.
+func GuardPushes(answer string) bool {
+	a := strings.ToLower(strings.TrimSpace(answer))
+	return a == "push anyway" || a == "push" || a == "yes" || a == "y"
 }
 
 // QuestionID is the stored id of a runner question: "<run_id>-<question_id>".

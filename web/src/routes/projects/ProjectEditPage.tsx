@@ -1,15 +1,17 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { useFieldArray, useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Archive, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
+import { Archive, ChevronRight, Pencil, Plug, Plus, Star, Trash2, X } from 'lucide-react'
 import {
   errorMessage,
   useAddRepository,
   useArchiveProject,
   useCreateProject,
   useAgents,
+  useAutoFixDefaults,
+  useMode,
   useNodes,
   useGitHubRepos,
   useProject,
@@ -33,6 +35,12 @@ import { NotFound } from '@/routes/NotFound'
 import { PrimaryAction } from '@/telegram/controls'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
+import { c } from '@/i18n/costs'
+import { LocalRepoInfo } from '@/local/LocalRepoInfo'
+import { FolderBrowser } from '@/local/FolderBrowser'
+import { useAddLocalRepo } from '@/api/local'
+import { lc } from '@/i18n/local'
+import { ProjectSkillsSection } from '@/routes/skills/ProjectSkillsSection'
 import { createBody, patchBody, projectSchema, toFormValues, type ProjectFormValues } from './projectForm'
 
 const f = t.projects.fields
@@ -75,6 +83,41 @@ function AgentSelect({ value, onChange }: { value: ProjectFormValues['agent']; o
   )
 }
 
+const af = t.autofix
+
+/** A setting that is on, off or inherits the global default. */
+function TriSelect<V extends string>({
+  id,
+  value,
+  onChange,
+  options,
+  inherit,
+}: {
+  id: string
+  value: '' | V
+  onChange: (v: '' | V) => void
+  options: Array<[V, string]>
+  inherit: string
+}) {
+  return (
+    <Select value={value || DEFAULT} onValueChange={(v) => onChange(v === DEFAULT ? '' : (v as V))}>
+      <SelectTrigger id={id} className="h-11 w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={DEFAULT} className="h-10">
+          {inherit}
+        </SelectItem>
+        {options.map(([v, label]) => (
+          <SelectItem key={v} value={v} className="h-10">
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-4">
@@ -101,6 +144,7 @@ function ProjectForm({ project }: { project?: Project }) {
   const update = useUpdateProject(project?.id ?? '')
   const archive = useArchiveProject(project?.id ?? '')
   const nodes = useNodes()
+  const defaults = useAutoFixDefaults().data
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -191,6 +235,25 @@ function ProjectForm({ project }: { project?: Project }) {
           ))}
         </Section>
 
+        {project && (
+          <Link to={`/projects/${project.id}/integrations`} className="flex min-h-11 items-center gap-3 fm-group px-3 py-2 hover:bg-muted">
+            <Plug className="size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{t.integrations.open}</span>
+              <span className="block text-xs text-muted-foreground">{t.integrations.openHint}</span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        )}
+
+        {project && (
+          <Controller
+            control={form.control}
+            name="skills"
+            render={({ field }) => <ProjectSkillsSection value={field.value} onChange={field.onChange} />}
+          />
+        )}
+
         <Section title={f.env}>
           <p className="-mt-2 text-xs text-muted-foreground">{f.envHint}</p>
           {env.fields.map((row, i) => (
@@ -226,6 +289,78 @@ function ProjectForm({ project }: { project?: Project }) {
               <Input id="runner_memory" placeholder={t.common.serverDefault} className="h-11 font-mono" {...form.register('runner_memory')} />
             </Field>
           </div>
+          <Field id="monthly_budget_usd" label={c.projectCap} hint={c.projectCapHint} error={errors.monthly_budget_usd?.message}>
+            <Input id="monthly_budget_usd" inputMode="decimal" placeholder="—" className="h-11" {...form.register('monthly_budget_usd')} />
+          </Field>
+        </Section>
+
+        <Section title={af.title}>
+          <p className="-mt-2 text-xs text-muted-foreground">{af.hint}</p>
+          <Field id="autofix" label={af.enabled}>
+            <Controller
+              control={form.control}
+              name="autofix"
+              render={({ field }) => (
+                <TriSelect
+                  id="autofix"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    ['on', af.on],
+                    ['off', af.off],
+                  ]}
+                  inherit={af.inherit(defaults?.enabled ?? false)}
+                />
+              )}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field id="autofix_max_attempts" label={af.maxAttempts} error={errors.autofix_max_attempts?.message}>
+              <Input
+                id="autofix_max_attempts"
+                inputMode="numeric"
+                placeholder={af.inheritValue(String(defaults?.max_attempts ?? 2))}
+                className="h-11"
+                {...form.register('autofix_max_attempts')}
+              />
+            </Field>
+            <Field id="autofix_budget_usd" label={af.budget} error={errors.autofix_budget_usd?.message}>
+              <Input
+                id="autofix_budget_usd"
+                inputMode="decimal"
+                placeholder={defaults?.budget_usd ? af.inheritValue(String(defaults.budget_usd)) : af.halfBudget}
+                className="h-11"
+                {...form.register('autofix_budget_usd')}
+              />
+            </Field>
+          </div>
+          <Field id="autofix_checks" label={af.checks} hint={af.checksHint}>
+            <Input
+              id="autofix_checks"
+              autoCapitalize="none"
+              placeholder={af.inheritValue(defaults?.checks?.length ? defaults.checks.join(', ') : af.all)}
+              className="h-11 font-mono"
+              {...form.register('autofix_checks')}
+            />
+          </Field>
+          <Field id="autofix_allow_ci" label={af.allowCI} hint={af.allowCIHint}>
+            <Controller
+              control={form.control}
+              name="autofix_allow_ci"
+              render={({ field }) => (
+                <TriSelect
+                  id="autofix_allow_ci"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    ['yes', af.yes],
+                    ['no', af.no],
+                  ]}
+                  inherit={af.inheritValue(defaults?.allow_ci_changes ? af.yes : af.no)}
+                />
+              )}
+            />
+          </Field>
         </Section>
 
         <PrimaryAction label={creating ? t.projects.new : t.common.save} onClick={() => void submit()} loading={busy} />
@@ -246,6 +381,7 @@ function Repositories({ project }: { project: Project }) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<number | null>(null)
   const remove = useRemoveRepository(project.id)
+  const local = useMode() === 'local'
   return (
     <Section title={f.repositories}>
       <ul className="divide-y fm-field">
@@ -260,10 +396,16 @@ function Repositories({ project }: { project: Project }) {
                 <div className="flex items-center gap-1.5 truncate font-mono text-sm">
                   {r.full_name}
                   {r.is_default && <Star className="size-3.5 shrink-0 fill-signal text-signal-text" aria-label={f.isDefault} />}
+                  {r.source === 'local' && (
+                    <span className="fm-stamp" data-tone="branch">
+                      {lc.repo.local}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {f.baseBranch}: <span className="font-mono">{r.base_branch}</span>
                 </div>
+                {r.source === 'local' && <LocalRepoInfo repo={r} />}
               </div>
               <Button
                 type="button"
@@ -291,13 +433,44 @@ function Repositories({ project }: { project: Project }) {
         )}
       </ul>
       {adding ? (
-        <AddRepository project={project} onDone={() => setAdding(false)} />
+        local ? (
+          <AddLocalFolder project={project} onDone={() => setAdding(false)} />
+        ) : (
+          <AddRepository project={project} onDone={() => setAdding(false)} />
+        )
       ) : (
         <Button type="button" variant="outline" className="h-10" onClick={() => setAdding(true)}>
-          <Plus /> {t.projects.addRepo}
+          <Plus /> {local ? lc.repo.addFolder : t.projects.addRepo}
         </Button>
       )}
     </Section>
+  )
+}
+
+/** Local mode: another folder on this computer into this project (POST /local/repos with project_id). */
+function AddLocalFolder({ project, onDone }: { project: Project; onDone: () => void }) {
+  const add = useAddLocalRepo()
+  return (
+    <div className="space-y-2">
+      <FolderBrowser
+        busy={add.isPending}
+        onPick={(path) =>
+          add.mutate(
+            { path, project_id: project.id },
+            {
+              onSuccess: () => {
+                toast.success(t.projects.repoAdded)
+                onDone()
+              },
+              onError: (e) => toast.error(errorMessage(e)),
+            },
+          )
+        }
+      />
+      <Button type="button" variant="ghost" className="h-11" onClick={onDone}>
+        {t.common.cancel}
+      </Button>
+    </div>
   )
 }
 

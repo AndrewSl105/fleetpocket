@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
@@ -74,6 +75,22 @@ func (l *Local) Validate(ctx context.Context, taskID int64, base string, require
 
 func (l *Local) Push(ctx context.Context, taskID int64, repo workspace.Repo, branch string) error {
 	return l.Workspace.Push(ctx, taskID, repo, branch)
+}
+
+func (l *Local) CheckpointDiff(ctx context.Context, taskID int64, ref, sha string, limit int) (string, bool, error) {
+	return l.Workspace.CheckpointDiff(ctx, taskID, ref, sha, limit)
+}
+
+func (l *Local) RestoreCheckpoint(ctx context.Context, taskID int64, ref, sha string) error {
+	return l.Workspace.RestoreCheckpoint(ctx, taskID, ref, sha)
+}
+
+func (l *Local) Diverged(ctx context.Context, taskID int64, branch string) (bool, error) {
+	return l.Workspace.Diverged(ctx, taskID, branch)
+}
+
+func (l *Local) ForcePush(ctx context.Context, taskID int64, repo workspace.Repo, branch string) (string, error) {
+	return l.Workspace.ForcePush(ctx, taskID, repo, branch)
 }
 
 func (l *Local) RemoveWorkspace(_ context.Context, taskID int64) error {
@@ -145,8 +162,27 @@ func (l *Local) HasImage(ctx context.Context, image string) error {
 }
 
 func (l *Local) EnsureNetwork(ctx context.Context, taskID int64, project string) error {
-	_, err := l.Docker.EnsureNetwork(ctx, taskID, project)
+	_, err := l.Docker.EnsureNetwork(ctx, taskID, project, false)
 	return err
+}
+
+// Isolator is a host that can lock a task's network down to an egress
+// allowlist. Only the server's own Docker is one; tasks on nodes in
+// allowlist mode do not start (docs/DECISIONS.md).
+type Isolator interface {
+	EnsureInternalNetwork(ctx context.Context, taskID int64, project string) error
+	EnsureEgressProxy(ctx context.Context, spec runnermgr.EgressSpec) (string, error)
+}
+
+var _ Isolator = (*Local)(nil)
+
+func (l *Local) EnsureInternalNetwork(ctx context.Context, taskID int64, project string) error {
+	_, err := l.Docker.EnsureNetwork(ctx, taskID, project, true)
+	return err
+}
+
+func (l *Local) EnsureEgressProxy(ctx context.Context, spec runnermgr.EgressSpec) (string, error) {
+	return l.Docker.EnsureEgressProxy(ctx, spec)
 }
 
 func (l *Local) EnsureVolume(ctx context.Context, taskID int64, project string) error {
@@ -176,7 +212,7 @@ func (l *Local) StartRunner(ctx context.Context, s StartSpec) (*runnermgr.Runner
 	return l.Docker.StartRunner(ctx, runnermgr.RunnerSpec{
 		TaskID: s.TaskID, RunID: s.RunID, Project: s.Project, Image: l.image(s.Image),
 		Workspace: l.Workspace.Path(s.TaskID), Attachments: att, Env: env,
-		Memory: s.Memory, CPUs: s.CPUs, User: s.User, ExtraHosts: l.ExtraHosts,
+		Memory: s.Memory, CPUs: s.CPUs, User: s.User, ExtraHosts: append(slices.Clone(l.ExtraHosts), s.ExtraHosts...),
 	})
 }
 
@@ -226,4 +262,20 @@ func readAll(path string) ([]byte, error) {
 	}
 	defer f.Close()
 	return io.ReadAll(io.LimitReader(f, 64<<20))
+}
+
+func (l *Local) DeliverLocal(ctx context.Context, taskID int64, d LocalDelivery) (*workspace.Delivery, error) {
+	return l.Workspace.Deliver(ctx, taskID, d.Path, d.Base, d.Branch, d.Want, d.Current, d.Force)
+}
+
+func (l *Local) MergeLocal(ctx context.Context, path, branch string) (*workspace.MergeResult, error) {
+	return workspace.MergeLocal(ctx, path, branch)
+}
+
+func (l *Local) CheckoutLocal(ctx context.Context, path, branch string) error {
+	return workspace.CheckoutLocal(ctx, path, branch)
+}
+
+func (l *Local) DiscardLocal(ctx context.Context, path, branch string) error {
+	return workspace.DiscardLocal(ctx, path, branch)
 }

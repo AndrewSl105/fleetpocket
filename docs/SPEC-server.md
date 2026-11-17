@@ -4,7 +4,7 @@
 
 ## 0. Modes
 
-`MODE=server` (default) is everything below. `MODE=local` is the `jungle-monkey` CLI on one user's computer ([LOCAL.md](LOCAL.md)): the same service and scheduler with `hosts.Local`, plus an embedded Postgres and web UI, loopback-only binding, a one-time login link instead of password + TOTP, and computed settings in the data directory. The agent-container properties of sections 3 and 5 are identical in both modes. Details and what is not built yet: DECISIONS.md, Server.
+`MODE=server` (default) is everything below. `MODE=local` is the `jungle-monkey` CLI on one user's computer ([LOCAL.md](LOCAL.md)): the same service and scheduler with `hosts.Local`, plus an embedded Postgres and web UI, loopback-only binding, a one-time login link instead of password + TOTP, and computed settings in the data directory. The agent-container properties of sections 3 and 5 are identical in both modes. Local mode adds local repositories as its default (section 3, "Repository sources") and an optional GitHub connection with the owner's own token. Details: DECISIONS.md, Server.
 
 ## 1. Context and goal
 
@@ -37,7 +37,9 @@ One repo, `fleetpocket-server`, holds the Go backend and the TypeScript runner, 
 
 **Not in v1** (keep the design open for them, do not build them)
 
-- Automatic CI fixing. Store CI results and notify only; the hook point must exist. (In progress: the decision core lives in `internal/autofix`, not yet wired; see DECISIONS.)
+- Automatic CI fixing is opt-in (off by default): see "CI auto-fix" in section 5.
+- MCP servers and the egress allowlist are opt-in (none / `open` by default): see "MCP gateway and egress allowlist" in section 5.
+- Monthly budgets are opt-in (no caps by default): see "Costs and budgets" in section 5.
 - Any web UI or HTML in this repo.
 - Multiple users, roles, organisations.
 - Docker access from inside the runner, Docker-in-Docker.
@@ -106,13 +108,15 @@ Clients reach only Fleetpocket; Fleetpocket alone holds credentials and starts c
 | `docker-proxy` | permanent | `internal` | read-only `docker.sock`, filtered API |
 | `fleetpocket-agent-<task>` | one run | `fleetpocket-task-<task>` | Claude auth only |
 | `fleetpocket-svc-<task>-<name>` | one task | `fleetpocket-task-<task>` | throwaway Postgres/Redis |
+| `fleetpocket-svc-<task>-egress` | one run (allowlist projects only) | `fleetpocket-task-<task>` (alias `egress-proxy`) + `fleetpocket-egress-<task>` | the egress allowlist and the run's gateway token |
+| `fleetpocket-mcp-<task>-<name>` | one run (stdio MCP servers only) | `fleetpocket-mcp-<task>`, on the server's Docker; the runner is never on it | that MCP server's own secrets (env) |
 
 **Key rules**
 
 - Fleetpocket talks to Docker only through `docker-socket-proxy` (`DOCKER_HOST=tcp://docker-proxy:2375`).
-- Each task gets its own bridge network. Runner and its sidecars share it; nothing else is on it. It has internet egress (Anthropic API, npm, Go proxy, PyPI).
+- Each task gets its own bridge network. Runner and its sidecars share it; nothing else is on it. It has internet egress (Anthropic API, npm, Go proxy, PyPI) unless the project is in egress `allowlist` mode: then the network is `internal` and the egress proxy sidecar is the only way out.
 - Runners never join `internal` or `proxy`.
-- Communication with the runner is only via its attached stdin/stdout. No ports.
+- Communication with the runner is only via its attached stdin/stdout. No ports. The runner itself may call out to the server's MCP gateway (`/api/mcp-gateway/`, through the public URL) with its run's token; MCP servers' credentials never reach it.
 - Workspaces live on the host at `WORKSPACES_DIR` (default `/srv/fleetpocket/workspaces`), bind-mounted into Fleetpocket at the **same path**, so the path Fleetpocket uses is also valid for Docker bind mounts.
 
 **Task lifecycle**
@@ -124,9 +128,23 @@ Clients reach only Fleetpocket; Fleetpocket alone holds credentials and starts c
 5. `paused`: no answer within the question timeout, runner exited with code 3. Containers removed, workspace and Claude state volume kept. An answer or a follow-up message resumes it as a new run with `resume_session_id`.
 6. `pushing`: runner finished with commits. Validate the diff (section 5), push with a fresh token, open or update the PR.
 7. `pr_open`: PR exists. Webhooks update its CI status. A follow-up message starts a new run on the same branch.
-8. Terminal: `completed` (PR merged or closed, or finished with no changes), `failed` (with reason), `cancelled`.
+7b. `branch_ready` (local repositories only, instead of 6–7): the task branch was delivered into the owner's repository as `jm/<task_id>-<slug>`. It mirrors `pr_open`: a follow-up starts a new run on the same branch and re-delivers; Merge or Discard completes the task; "Push & open PR" goes through `pushing` to `pr_open`.
+8. Terminal: `completed` (PR merged or closed, branch merged or discarded, or finished with no changes), `failed` (with reason), `cancelled`.
 
 After every run, remove the runner container. The task network and sidecars live until the task is terminal or paused for longer than `SIDECAR_IDLE_TTL` (default 30 min).
+
+**Repository sources**
+
+A repository has `source` `github` (everything above) or `local` (local mode only; the API refuses it in server mode with `400 local_mode_only`). A local repository is a folder on the owner's disk: `path` (absolute work tree), `base_branch` (the branch checked out when it was added) and `remote_url` (its `origin`, informational).
+
+- **Add**: `POST /local/repos {path}` checks a top-level, non-bare work tree with a commit, outside the data directory, and creates the repository and a project for it (idempotent). The CLI adds the repository it is started in and `jungle-monkey add [path]`. Suggestions scan the usual code folders (max depth 3, 200 results, 2 s, cached 60 s); the folder browser is confined to the home directory by real path.
+- **Prepare** (`hosts.Local`): `git clone --local --no-hardlinks <path>` into `WORKSPACES_DIR/<task_id>`; the task branch `agent/<task_id>-<slug>` starts from `origin/<base>` or, with `start_from: working_tree`, from the checked-out commit plus `git diff HEAD` and the untracked files that `.gitignore` does not exclude, committed as `WIP: working tree at start`. The original folder is only read and is never mounted into a runner; the runner sees the copy exactly as it sees a GitHub clone.
+- **Local publisher** (in `afterRun`, instead of the GitHub publisher while the task has no PR): the same diff validation and secrets scan (`SECRETS_SCAN`), then `git fetch <workspace> <task branch>:jm/<task_id>-<slug>` inside the owner's repository (`-2`, `-3`… when the name exists). It never touches the owner's checked-out branch, index or working tree. The task becomes `branch_ready` with a `branch_ready` event `{branch, commits, diffstat}`. A follow-up re-delivers by fast-forwarding the branch, or delivers to a new name when it is checked out or has the owner's commits.
+- **Actions** on `branch_ready`: merge into the current branch (refused on a dirty tree or a detached HEAD; fast-forward or a merge commit; a conflict is aborted and listed), check out (refused on a dirty tree), discard, and "Push & open PR" (GitHub `origin` and GitHub connected): the server process pushes with the owner's token and opens the PR, and the task joins the PR/CI flow.
+- A missing folder keeps the delivery waiting in `pushing` ("repository folder not found"); `POST /local/repos/{id}/locate` resumes it.
+- Nodes (`hosts.Remote`) refuse local repositories.
+
+**GitHub in local mode** is optional. `githubapp.Client` has two implementations: the GitHub App (server mode, unchanged) and the owner's token (OAuth device flow with scope `repo`, `gh auth token` after asking, or a fine-grained PAT), stored in the OS keychain (0600 file fallback) and used only by the server process. Webhooks are replaced by polling the PRs of `pr_open` tasks (60 s, ETags, backoff), feeding the same code paths as `POST /webhooks/github`, including CI auto-fix.
 
 ## 4. Runner (`runner/`)
 
@@ -235,6 +253,9 @@ A single Go binary: REST + WebSocket API, Telegram bot, scheduler, Docker orches
 | `DEFAULT_MAX_TURNS` / `DEFAULT_MAX_BUDGET_USD` / `DEFAULT_MAX_DURATION` | `150` / `5` / `2h` |  |
 | `QUESTION_TIMEOUT` | `20m` |  |
 | `EVENT_RETENTION` | `720h` (30 days) |  |
+| `SECRETS_KEY` | — | 32 bytes (64 hex chars or base64); AES-256-GCM key for owner-entered secrets (MCP credentials) in Postgres. `install.sh` generates it, also on upgrade; local mode keeps one in the keychain. Empty: MCP servers are disabled, nothing else changes |
+| `MCP_GATEWAY_URL` | `PUBLIC_BASE_URL` (local mode: `http://host.docker.internal:<port>`) | the server's base URL as runners and the egress proxy reach it |
+| `EGRESS_PROXY_IMAGE` | `ghcr.io/andrewsl105/fleetpocket-server:latest` (compose: the server's own tag) | image of the egress proxy sidecar (`fleetpocket egress-proxy`) |
 
 Project-level settings override defaults (section 6).
 
@@ -258,7 +279,59 @@ Project-level settings override defaults (section 6).
 - Clone with `--filter=blob:none`, base branch from the repository record, branch `agent/<id>-<slug>` (slug from the title, ASCII, max 40 chars). Commits are authored as `fleetpocket[bot]`.
 - Before push, validate the diff against the base: reject changes under `.github/`; reject files over 5 MB; reject total diff over 20 000 changed lines; run a secrets scan (e.g. `gitleaks` binary in the Fleetpocket image) and reject on findings. A rejection sets the task to `failed` with the reason and keeps the workspace for inspection.
 - PR: title from the task, body with the task prompt, Claude's summary, files changed, cost, turns, and a link to the task. Create it once; later runs push to the same branch and add a PR comment with the new summary.
-- Webhooks at `POST /webhooks/github`: verify `X-Hub-Signature-256`, store CI conclusions on the task, notify via Telegram, mark the task `completed` when its PR is merged or closed. Leave a clearly marked hook (`OnCIFailed`) for future auto-fixing.
+- Webhooks at `POST /webhooks/github`: verify `X-Hub-Signature-256`, store CI conclusions on the task, notify via Telegram, mark the task `completed` when its PR is merged or closed. `OnCIFailed` (and `OnCI`, `OnPRClosed`) drive CI auto-fix.
+
+**CI auto-fix** (`internal/autofix` decides, `internal/cifix` acts; off unless enabled)
+
+- Settings, per project (`projects.ci_autofix`, null fields inherit) over a global default (settings key `ci_autofix`, `GET/PUT /api/v1/settings/ci-autofix`): `enabled` (default false), `max_attempts` (2, at most 5), `checks` (check names; empty = all), `budget_usd` per attempt (default: the project's task budget ÷ 2), `allow_ci_changes` (false).
+- Jungle Monkey records the commit it pushes (`tasks.last_pushed_sha`, the runner's last `committed` sha, written before the push). A failed `check_suite`/`workflow_run` on that commit, for a PR Jungle Monkey opened, while the task is `pr_open` and the loop is not stopped, makes the server list the commit's check runs with the installation token. It acts only when no check is still running; each head commit is handled once (`autofix_handled_sha`).
+- For each failed check in scope it downloads the GitHub Actions job log (pre-signed URL, fetched without the token; other apps' checks give their output text), strips ANSI, keeps the last 400 lines plus error-pattern lines and names the failed steps. The failure signature is a hash of the first failing check's name and its first normalised error lines.
+- Guards in a fixed order: off, not our PR, loop stopped, check not listed, failing commit ≠ last system push (a human push), run active → skip; attempts used up, same signature as the previous attempt, budget → "needs you" with a notification that says why and links the checks' logs.
+- An attempt saves the trimmed logs as a task attachment and queues a `followup` run on the same branch (`runs.autofix_attempt`, `runs.max_budget_usd`) whose prompt names the failing checks, the signature and the attachment and says: fix the cause, keep the change minimal, do not skip, delete or weaken tests, do not edit CI configuration. The runner gets no token.
+- Before an attempt's commits are pushed, the scheduler inspects `git diff origin/<branch>...HEAD`: changes under `.github/workflows/` or other CI config, deleted test files, added skip markers, coverage threshold changes (or a diff too large to read). Unless `allow_ci_changes`, it does not push: the loop is `held`, the task stays `pr_open` with an open question "The fix changes CI or tests. Push anyway?" (`Push anyway` / `Discard`; changes under `.github/` can only be discarded). Discard removes the workspace (the next run re-clones the branch).
+- After the push the loop waits for CI. All checks passing ends it as `green` ("✓ CI green after N fixes"). A fix run with no changes, a run that hits a limit, or a failed run ends it as `needs_you`. New checks on a commit Jungle Monkey did not push, a follow-up message from the owner, or the PR closing cancel it. Every step is an `autofix` timeline event and a Telegram notification.
+
+**MCP gateway and egress allowlist** (`internal/mcpgateway`, `internal/egress`; nothing changes for a project with no MCP servers and egress `open`)
+
+- *Registry.* `mcp_servers` rows belong to a project or are global (`project_id` NULL); a project turns global ones on (`project_id`'s rows in `project_mcp_globals`). Kinds: `remote` (Streamable HTTP or SSE URL; secrets are header values or a bearer token), `stdio` (an npm or pip package run in the agent image, or any Docker image; secrets are its environment), `postgres` (the bundled server: tools `query` and `list_tables`; secret `DATABASE_URL`). Per server: tool list (`all`, `allow` or `deny` with names or `*` patterns), `read_only` (default on for `postgres`), `max_calls` per run, enabled flag, last use and status.
+- *Secrets.* One JSON object per server, sealed with AES-256-GCM under `SECRETS_KEY` (`internal/secretbox`, random nonce, the row id as additional data). Never logged, never returned: the API shows `secret_hints` (last characters). They are opened only by the gateway in memory, or put into a stdio sidecar's environment.
+- *Gateway.* Mounted on the main listener at `/api/mcp-gateway/` (outside `/api/v1`: no session, no CSRF), so the existing reverse-proxy route serves it and runners on nodes reach it through the public URL. Each run that has MCP servers (or an allowlist) gets a random token; its SHA-256, expiry (the run's maximum duration + 15 min) and server ids are stored on `runs`; `FinishRun` clears it. A request with a missing, expired, finished or foreign token is `401`; a server outside the run's scope is `404`. The gateway connects to the upstream with the decrypted credentials (Go MCP SDK client), exposes only the allowed tools to the runner (stateless Streamable HTTP), counts calls against `max_calls`, and writes an `mcp_call` event per call (server, tool, duration, ok/error, argument and result sizes; never arguments, results or secrets). A denied tool or the limit is an `mcp_call` with `denied`.
+- *Read-only Postgres.* Each call opens its own connection with `default_transaction_read_only=on`, runs one statement through the extended protocol (no multi-statement strings) inside `BEGIN READ ONLY`, and always rolls back; a read-only database role is still recommended.
+- *Stdio servers* run as sidecars on the server's own Docker (also for tasks on nodes), on a per-task network the runner is never on, with `CapDrop ALL`, `no-new-privileges` and the sidecar memory limit. The gateway talks to them only over their attached stdin/stdout; they start on first use in a run and are removed when it ends.
+- *Agents.* The `run` command's `mcp` block (PROTOCOL.md) carries the gateway URLs and the token: Claude gets `mcpServers` (HTTP) and `mcp__<name>` in `allowedTools`; Codex gets `mcp_servers.<name>.url` with `bearer_token_env_var`; Cursor gets `mcpServers`.
+- *Egress* (`projects.egress`, NULL = `open`): in `allowlist` mode the task network is created `internal` (an existing network of the other mode is recreated with its sidecars), and an egress proxy sidecar — the server image's `fleetpocket egress-proxy` — joins it as `egress-proxy` plus its own bridge network. The runner gets `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` (and `NODE_USE_ENV_PROXY=1`). The proxy allows `CONNECT` and plain HTTP only to the project's hosts (presets: the task's agent API, npm, PyPI, Go proxy, crates, Docker Hub, GitHub; plus listed `host`, `*.domain` = subdomains only, `host:port`; no port = 80/443) and the gateway, refuses names that resolve to private addresses (except the gateway), and reports each refused host once per run: an `egress_blocked` event, a Telegram message with "Allow for this project" and `POST /projects/{id}/egress/allow`, which takes effect on the next run. The proxy is recreated every run. Tools that ignore the proxy variables cannot reach the network. A task on a node in allowlist mode fails with an explanation instead of running open.
+
+**Costs and budgets** (`internal/costs`; with no monthly caps nothing changes except that more is recorded and shown)
+
+- *Per run* (`runs`): agent, model (from `started`), tokens (`input_tokens` includes cache reads and writes; `cache_read_tokens`, `cache_write_tokens`), turns, `cost_usd`, `cost_source` and `auth`. Claude reports its cost (`reported`; its session-cumulative cost and tokens minus what earlier runs of the session recorded). Codex and Cursor report tokens only: the server prices them from the price table (`estimated`), or records `unknown` with cost 0 when no row matches. `auth` comes from the runner's `started.auth` (Claude SDK `apiKeySource`: `none` = claude.ai OAuth = `subscription`); a subscription run's cost is labelled "API-equivalent".
+- *Price table* (settings key `costs`, `GET/PUT /api/v1/settings/costs`): rows `{agent, model, input_usd, cached_input_usd, cache_write_usd, output_usd}` per million tokens, matched by agent and model (`*` = any model of the agent), with an "updated" date. The built-in table holds OpenAI's API prices for the Codex models (checked 2026-11-17); Codex's `default` and Cursor's `auto` route to different models and have no row. Used only when a run reports tokens but no cost; estimates are always shown with `≈`.
+- *Task totals* kept with `cost_usd_total`: `autofix_cost_usd` (runs with `autofix_attempt`), `cost_estimated`, `cost_api_equivalent`, `cost_unknown` (some run has no price). Projects carry `month_cost_unknown`, `/stats` `cost_unknown_today`/`_month`, the report's budgets `month_cost_unknown` and its sums `unknown_runs`. Every place shows one format (`costs.Format`, web `usd()`): `$0.84`, `≈$0.84`, `$?` (nothing known), `$0.84+?` (part unknown); the PR body and the Telegram card too.
+- *Budgets*: the per-run `max_budget_usd` (unchanged), a monthly cap per project (`projects.budget`), per schedule (`schedules.monthly_budget_usd`, holding only the tasks that schedule fired) and a global one (settings `costs.monthly_budget_usd`). A month is the calendar month in the server's local time, by run start; estimated costs count. At 80% of a cap a `budget` event (`warning`) goes on the task whose run crossed it, at 100% one more (`reached`), each once per scope and month (`budget_alerts`), each also a Telegram message. From 100% the scheduler's claim query skips queued tasks of that scope (a running run is never stopped for a monthly cap); they stay `queued` with `budget_wait` (`project`, `schedule` or `global`), status reason `waiting: budget` and a `budget` event (`waiting`), sent to Telegram with **Start anyway**. The owner's override (`POST /api/v1/tasks/{id}/budget-override` or the button; `budget_override_at`) lets that task start runs until the month ends. Raising or removing a cap, or a new month, releases the waiting tasks on the next claim.
+- *Report*: `GET /api/v1/costs` sums runs by total, project, agent, day/week/month and day × project × agent, with this month's spend against each cap. Metrics: `fleetpocket_budget_held_total{project,scope}`, `fleetpocket_budget_alerts_total{scope,level}`, `fleetpocket_budget_overrides_total{project}`.
+
+**Checkpoints** (off by default: settings key `checkpoints`, `GET/PUT /api/v1/settings/checkpoints {enabled}`; off, the run command and every push are exactly as before)
+
+- *Taking them.* With the setting on, the scheduler adds `checkpoints: {run_id}` to the run command. After every step that changed files and right before every question the runner commits the whole working tree to `refs/jm/checkpoints/<run>/<n>` with plumbing only (temporary index, `commit-tree` on `HEAD`, `update-ref`; HEAD, the branch and the index never move) and emits `checkpoint {n, ref_sha, turn, session_ref, files_changed, reason}` (PROTOCOL.md). The server stores each in `checkpoints` (with its timeline event). The refs are never pushed (the push refspec is `HEAD:refs/heads/<branch>` only), so they live as long as the workspace: `WORKSPACE_RETENTION`, after which restore is disabled with that reason.
+- *Restoring.* `POST /api/v1/tasks/{id}/checkpoints/{cid}/restore {instruction?}` (task not busy, PR not closed, workspace not cleaned) records `checkpoint_restored` and queues a `restore` run (`runs.restore_checkpoint_id`). Before the runner starts, the scheduler resets the workspace on the task's host (`hosts.Host.RestoreCheckpoint`, also over the node wire): `reset --hard <checkpoint>^` (the branch commit the checkpoint was taken on), `clean -fd` (ignored files such as `.fleetpocket/` stay), `read-tree -u --reset <checkpoint>`; the checkpoint's files are uncommitted on the task branch, so the run's commit records them and checkpoint commits never join the branch. Claude with a `session_ref` gets `resume_session_ref` (resume + `resumeSessionAt` + `forkSession`); Codex, Cursor or a checkpoint without one get a new session whose prompt summarises the task and the timeline up to the checkpoint (owner messages and answers, the agent's text, tool summaries; the last 80 lines) plus the instruction. Later events stay in the timeline; clients show the events between the checkpoint and `checkpoint_restored` as an abandoned branch.
+- *Pushing after a restore.* When the task has run a restore and `origin/<branch>` is no longer an ancestor of HEAD (`hosts.Host.Diverged`), `afterRun` pushes even without new commits, with `--force-with-lease=refs/heads/<branch>:<what this workspace last pushed>` (`hosts.Host.ForcePush`), only to branches Jungle Monkey created (`agent/<id>` or `agent/<id>-<slug>`); any other branch fails the task with a clear reason and nothing is pushed. A remote that moved meanwhile makes the lease fail (the task fails, nothing is overwritten). A forced push adds a note to the PR comment, a `branch_force_pushed` event and a Telegram message.
+- *Preview.* `GET /api/v1/tasks/{id}/checkpoints/{cid}` counts the later runs, steps, messages and commits and returns `git diff <checkpoint> HEAD` from the host (capped at 512 KB); a checkpoint whose commit is gone comes back unavailable.
+
+**Schedules** (`internal/schedules`, `internal/cron`; no schedules exist by default, so nothing fires)
+
+- *What a schedule is* (`schedules`): name, project, repository (NULL: the project's default at firing time), a free-text prompt, agent (NULL: the project's), skill slugs added to the project's, MCP server names (NULL: all of the project's), a cron expression and an IANA time zone, a per-run budget, a monthly cap, a concurrency policy (`skip` default | `queue`), `pr_only_if_changes` (default true), an optional end date, optional loop settings, and enabled. API: `GET/POST /api/v1/schedules`, `GET/PUT/DELETE /schedules/{id}`, `POST /schedules/{id}/enable|disable|run|duplicate`, `GET /schedules/{id}/firings`.
+- *Cron.* Five fields (minute hour day-of-month month day-of-week; values, ranges, lists, steps, month and day names, 7 = Sunday) or `@hourly`/`@daily`/`@weekly`/`@monthly`/`@yearly`, the classic rule that a restricted day-of-month and day-of-week match either. Times are wall-clock times in the schedule's zone (zone data embedded with `time/tzdata`): a time in a spring-forward gap fires at the first instant after the gap, a repeated autumn time fires once (its first occurrence). The web offers presets (daily, weekdays, weekly at a time) that are plain cron expressions.
+- *Firing.* A ticker every 20 s takes enabled schedules whose `next_run_at` passed and moves `next_run_at` with a compare-and-set, so a firing fires once. A firing creates an ordinary task through the task service (`source: schedule`, `schedule_id`, title = the schedule's name, `skills_add`, `mcp_servers`, `run_budget_usd`, the loop), so questions, CI auto-fix, costs, checkpoints and loops work as for any task; the task gets a `schedule` event and Telegram a message with the task's buttons. Every firing is a `schedule_firings` row: `started`, `queued`, `skipped`, `missed` or `failed` (skips, misses and failures also go to Telegram).
+- *Concurrency.* "Still running" means a task of the schedule is `queued`, `preparing`, `running`, `waiting_input`, `paused` or `pushing` (a PR waiting for review does not count). `skip` records the firing as skipped; `queue` keeps one waiting firing that starts when that task leaves those states (a further one is skipped).
+- *Missed firings.* If the server was down, a due firing runs only if it is less than one interval late (now is before the firing after it), at most one per schedule; otherwise it is recorded as `missed`. Either way the next run is the first firing after now. Pausing clears `next_run_at`; resuming computes it from now (no catch-up). After `ends_at` there is no next run.
+- *Budgets and PRs.* `run_budget_usd` replaces the project's per-run `max_budget_usd` for the schedule's tasks; `monthly_budget_usd` is the `schedule` scope of the monthly budget gate (see Costs and budgets). With `pr_only_if_changes` false the runner makes an empty commit when the task's own run changed nothing (`commit.allow_empty`, PROTOCOL.md), so a PR still opens (GitHub refuses a PR without commits).
+- *Telegram.* `/schedules` lists them (next run in the schedule's zone, last result) with **Run** and **Pause**/**Resume** buttons per schedule.
+
+**Loops** (`internal/loops`; a task without `loop` runs exactly as before)
+
+- *Option.* `POST /api/v1/tasks` (and a schedule) takes `loop {check_command, max_iterations (default 3, max 10), budget_usd?, timeout_sec? (default 600)}`. The task keeps `loop`, `loop_state` (`running`, or why it ended), `loop_iteration` and the count of iterations in a row without file changes; each run records its `loop_iteration`.
+- *An iteration* is an agent run. While the loop runs, the run command carries `check` (PROTOCOL.md): after a `done` session the runner commits, takes an `iteration` checkpoint when checkpoints are on (off: iterations get none), then runs the check command in `/workspace` as itself, in the same container, sandbox and network, without the agent's credentials, and emits `check`. The server stores it with the output trimmed like CI logs (`autofix.TrimLog`: ANSI removed, the last 400 lines plus earlier error lines, at most 48 KiB) and the iteration number.
+- *Next iteration.* A failed check (non-zero exit or timeout) queues a `loop` run that continues the agent's session (like a follow-up) with the check command, exit code and trimmed output as its prompt, a `loop` event (phase `iteration`) and a Telegram message; its run budget is what is left of the loop budget (at most the per-run budget). Nothing is pushed between iterations.
+- *Stop* (a `loop` event, phase `stopped`, `loop_state`, a Telegram message): the check passes (`passed`); `max_iterations` reached; the loop's runs cost `budget_usd` (`budget`); two iterations in a row commit no file changes (`no_changes`); a run limit, a missing check result, a failure or a cancel (`stopped`). Then the task is pushed once and its PR opened or updated as after any run (no other PR policy exists). A retry starts the loop over; follow-ups after it ended are ordinary runs. Metric: `fleetpocket_loops_total{project,state}`.
 
 **Workspace cleanup.** Delete the workspace and the Claude state volume 7 days after the task becomes terminal.
 
@@ -293,8 +366,13 @@ CREATE TABLE repositories (
   base_branch     text NOT NULL DEFAULT 'dev',
   installation_id bigint NOT NULL,
   is_default      boolean NOT NULL DEFAULT false,
+  source          text NOT NULL DEFAULT 'github', -- 'github' | 'local' (00018, local mode)
+  path            text NOT NULL DEFAULT '',        -- local: absolute work tree
+  remote_url      text NOT NULL DEFAULT '',        -- local: origin, informational
   UNIQUE (project_id, full_name)
 );
+-- tasks (00018): local_branch text (the delivered jm/... branch),
+-- start_from text NOT NULL DEFAULT 'last_commit' ('last_commit' | 'working_tree').
 
 CREATE TABLE tasks (
   id              bigserial PRIMARY KEY,       -- short numbers read well in Telegram
@@ -364,7 +442,11 @@ CREATE TABLE auth_sessions (
 );
 ```
 
-Skill library and diagram outputs (migration `00011_skills_artifacts.sql`): `skills (id, slug unique, name, description, body, files jsonb, enabled_by_default, created_at, updated_at)`, `project_skills (project_id, skill_id)`, `tasks.skills` (slugs the last run used) with the per-task overrides `tasks.skills_add`/`tasks.skills_remove`, `tasks.output` (`pr` default | `artifacts` | `pr_and_artifacts`), `projects.default_output` (nullable → `pr`) and `task_artifacts (id, task_id, run_id, path, kind, title, summary, confidence, sources jsonb, content, sha256, version, created_at)`, unique per `(task_id, path, version)`. The scheduler resolves a run's skills as project skills + `enabled_by_default` skills + task additions − task removals and sends them in the run command (PROTOCOL.md). Diagram collection is not live yet (DECISIONS.md, Server).
+Skill library and diagram outputs (migration `00015_skills_artifacts.sql`): `skills (id, slug unique, name, description, body, files jsonb, enabled_by_default, created_at, updated_at)`, `project_skills (project_id, skill_id)`, `tasks.skills` (slugs the last run used) with the per-task overrides `tasks.skills_add`/`tasks.skills_remove`, `tasks.output` (`pr` default | `artifacts` | `pr_and_artifacts`), `projects.default_output` (nullable → `pr`) and `task_artifacts (id, task_id, run_id, path, kind, title, summary, confidence, sources jsonb, content, sha256, version, created_at)`, unique per `(task_id, path, version)`. The scheduler resolves a run's skills as project skills + `enabled_by_default` skills + task additions − task removals and sends them in the run command (PROTOCOL.md). Diagram collection is not live yet (DECISIONS.md, Server).
+
+Checkpoints (migration `00016_checkpoints.sql`): `checkpoints (id, task_id, run_id, event_id → events ON DELETE SET NULL, n, ref_sha, turn, session_ref, files_changed, reason, created_at)`, unique per `(run_id, n)`, and `runs.restore_checkpoint_id` (nullable; the checkpoint a `restore` run starts from). The setting is the `settings` row `checkpoints` (`{enabled}`; missing = off).
+
+Schedules and loops (migration `00017_schedules_loops.sql`): `schedules (id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop jsonb, enabled, next_run_at, created_at, updated_at)`, `schedule_firings (id, schedule_id, scheduled_for, trigger, outcome, reason, task_id, created_at)`, and on `tasks` the nullable `schedule_id` (ON DELETE SET NULL), `mcp_servers`, `run_budget_usd`, `pr_always`, `loop`, `loop_state`, `loop_iteration`, `loop_idle`, plus `runs.loop_iteration`.
 
 Backend-generated events (status changes, PR opened, CI result) go into `events` with `seq` NULL, so the web client reads one timeline per task. A first answer wins: answering an already answered question returns `409`.
 
@@ -396,7 +478,7 @@ The web client is built later from `docs/API.md` and `docs/openapi.yaml` alone, 
 | `POST /webhooks/github` | GitHub (signature auth, no session) |
 | `GET /healthz` · `GET /metrics` | unauthenticated, `/metrics` only from the internal network |
 
-`message` decides by state: while `running` it is injected into the session; in `paused`, `pr_open` or `completed` it starts a new run on the same branch with the saved session; otherwise `409`.
+`message` decides by state: while `running` it is injected into the session; in `paused`, `pr_open`, `branch_ready` or `completed` it starts a new run on the same branch with the saved session; otherwise `409`.
 
 **WebSocket.** After connect, the client sends `{"op":"subscribe","task_id":123}` or `{"op":"subscribe","scope":"tasks"}` (status changes of all tasks, for the list view). Server pushes `{"op":"event","task_id","event":{…}}` and `{"op":"task","task":{…}}`. On reconnect the client reloads missed events through `GET …/events?after_id=`. Ping every 30 s.
 
@@ -429,12 +511,13 @@ The bot runs as a goroutine in the same process, uses long polling (no public we
 | `/msg <id> <text>` | follow-up or mid-session message |
 | `/cancel <id>` · `/retry <id>` | control |
 | `/projects` | list projects |
+| `/schedules` | schedules with their next run and last result; **Run** and **Pause**/**Resume** buttons |
 | `/app` | button that opens the Mini App (`WEB_APP_URL`) |
 
 **Messages**
 
 - One status message per task, edited in place as it moves through states, with the latest one-line activity ("Editing src/tables/export.ts"). Throttle edits to one per 3 s per message and coalesce.
-- Separate messages, which notify, only for: a question, PR opened, task failed, CI failed, budget or time limit hit.
+- Separate messages, which notify, only for: a question, PR opened, task failed, CI failed, budget or time limit hit. Silent messages for automatic steps: a schedule firing (started, skipped, missed, failed), a loop's next iteration and its end, CI auto-fix steps.
 - A question shows its text plus inline buttons for `options` and a "Reply with text" hint; a reply to the question message is taken as the answer. After answering, edit the message to show the answer and who answered (web or Telegram).
 - Every task message has buttons: Open in app (Mini App deep link to the task), Cancel, and PR (when it exists).
 - Never send diffs or long logs to Telegram; link to the app instead. Respect Telegram's 4096-character limit and escape text for the chosen parse mode.

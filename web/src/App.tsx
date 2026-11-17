@@ -14,14 +14,25 @@ import { TasksLayout } from '@/routes/tasks/TasksLayout'
 import { NoTaskSelected } from '@/routes/tasks/NoTaskSelected'
 import { NotFound } from '@/routes/NotFound'
 import { PageSpinner } from '@/components/PageSpinner'
-import { SetupPage } from '@/setup/SetupPage'
 
 const TaskDetailPage = lazy(() => import('@/routes/tasks/TaskDetailPage'))
 const NewTaskPage = lazy(() => import('@/routes/NewTaskPage'))
 const ProjectsPage = lazy(() => import('@/routes/projects/ProjectsPage'))
 const ProjectEditPage = lazy(() => import('@/routes/projects/ProjectEditPage'))
 const SettingsPage = lazy(() => import('@/routes/SettingsPage'))
+const IntegrationsPage = lazy(() => import('@/routes/integrations/IntegrationsPage'))
 const CanvasPage = lazy(() => import('@/routes/canvas/CanvasPage'))
+const CostsPage = lazy(() => import('@/routes/costs/CostsPage'))
+const SkillsPage = lazy(() => import('@/routes/skills/SkillsPage'))
+const SkillEditPage = lazy(() => import('@/routes/skills/SkillEditPage'))
+// One chunk for the three Schedules screens.
+const SchedulesPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.SchedulesPage })))
+const ScheduleDetailPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.ScheduleDetailPage })))
+const ScheduleEditPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.ScheduleEditPage })))
+// Only the first-run wizard needs it (and its QR code library); keep it out of the initial bundle.
+// Local mode only (npx jungle-monkey): Docker, agent, a folder, GitHub, the first task.
+const OnboardingPage = lazy(() => import('@/local/OnboardingPage'))
+const SetupPage = lazy(() => import('@/setup/SetupPage').then((m) => ({ default: m.SetupPage })))
 
 function lazyPage(Page: React.ComponentType) {
   return (
@@ -33,6 +44,7 @@ function lazyPage(Page: React.ComponentType) {
 
 export function createAppRouter() {
   return createBrowserRouter([
+    { path: '/welcome', element: lazyPage(OnboardingPage), errorElement: <CrashScreen /> },
     {
       path: '/',
       element: <AppShell />,
@@ -50,7 +62,16 @@ export function createAppRouter() {
         { path: 'projects', element: lazyPage(ProjectsPage) },
         { path: 'projects/new', element: lazyPage(ProjectEditPage) },
         { path: 'projects/:id', element: lazyPage(ProjectEditPage) },
+        { path: 'projects/:id/integrations', element: lazyPage(IntegrationsPage) },
         { path: 'settings', element: lazyPage(SettingsPage) },
+        { path: 'costs', element: lazyPage(CostsPage) },
+        { path: 'skills', element: lazyPage(SkillsPage) },
+        { path: 'skills/new', element: lazyPage(SkillEditPage) },
+        { path: 'skills/:id', element: lazyPage(SkillEditPage) },
+        { path: 'schedules', element: lazyPage(SchedulesPage) },
+        { path: 'schedules/new', element: lazyPage(ScheduleEditPage) },
+        { path: 'schedules/:id', element: lazyPage(ScheduleDetailPage) },
+        { path: 'schedules/:id/edit', element: lazyPage(ScheduleEditPage) },
         { path: '*', element: <NotFound /> },
       ],
     },
@@ -80,7 +101,9 @@ export function App({ runtime }: { runtime: Runtime }) {
             <ConfirmProvider>
               {/* The first-run wizard runs before an owner (and so a session) exists. */}
               {runtime.mode === 'browser' && window.location.pathname === '/setup' ? (
-                <SetupPage />
+                <Suspense fallback={<PageSpinner />}>
+                  <SetupPage />
+                </Suspense>
               ) : (
                 <AuthGate>
                   <RealtimeProvider>

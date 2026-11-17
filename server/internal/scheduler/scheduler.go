@@ -18,6 +18,8 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
+	"github.com/andrewsl105/fleetpocket/server/internal/loops"
+	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
@@ -48,12 +50,17 @@ type PublishInput struct {
 	CostUSD float64
 	Turns   int
 	Limit   string // non-empty when the run stopped at a limit
+	// Force rewrites the branch with --force-with-lease (a restore
+	// discarded commits that were already pushed).
+	Force bool
 }
 
 type PublishResult struct {
 	PRNumber int
 	PRURL    string
 	Created  bool
+	// ForcedFrom is the remote commit a forced push replaced.
+	ForcedFrom string
 }
 
 // Publisher validates the diff, pushes the branch and opens or updates the PR.
@@ -61,9 +68,32 @@ type Publisher interface {
 	Publish(ctx context.Context, in PublishInput) (*PublishResult, error)
 }
 
+// Enabler is a Publisher that can be off at runtime (local mode while
+// GitHub is not connected); it then counts as no publisher.
+type Enabler interface{ Enabled() bool }
+
+// publisher is s.Publisher, or nil when there is none or it is off.
+func (s *Scheduler) publisher() Publisher {
+	if s.Publisher == nil {
+		return nil
+	}
+	if e, ok := s.Publisher.(Enabler); ok && !e.Enabled() {
+		return nil
+	}
+	return s.Publisher
+}
+
 // Hooks lets other parts (metrics) observe runs without coupling.
 type Hooks struct {
 	RunFinished func(project string, exitCode int, dur time.Duration)
+	// AutoFixOutcome counts CI auto-fix loops handed back to the owner.
+	AutoFixOutcome func(project, outcome string)
+	// BudgetHeld counts tasks a monthly cap holds; BudgetAlert the 80% and
+	// 100% notices (scope: global or project).
+	BudgetHeld  func(project, scope string)
+	BudgetAlert func(scope string, level int)
+	// LoopEnded counts loops by their final state.
+	LoopEnded func(project, state string)
 }
 
 type Scheduler struct {
@@ -77,6 +107,14 @@ type Scheduler struct {
 	Hooks     Hooks
 	// Files holds task attachments, mounted read-only into runners; nil = none.
 	Files *attachments.Files
+	// Gateway gives runs their MCP servers; nil = none.
+	Gateway *mcpgateway.Gateway
+	// EgressBinary and EgressBinds override how the egress proxy sidecar
+	// runs (tests mount a freshly built binary into another image).
+	EgressBinary string
+	EgressBinds  []string
+	// Now is the clock of the monthly budgets; nil: time.Now (tests set it).
+	Now func() time.Time
 
 	wake chan struct{}
 	mu   sync.Mutex
@@ -150,6 +188,10 @@ func (s *Scheduler) Cancel(ctx context.Context, taskID int64) error {
 		if err != nil {
 			return err
 		}
+		// Cancelled between two loop iterations: the loop ends here.
+		if tasks.IsTerminal(t.Status) {
+			s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "cancelled"})
+		}
 		if err := s.host(t).RemoveAll(ctx, taskID); err != nil && !hosts.IsOffline(err) {
 			return err
 		}
@@ -189,8 +231,9 @@ func (s *Scheduler) Run(ctx context.Context) error {
 }
 
 func (s *Scheduler) claim(ctx context.Context) {
+	gate := s.budgetGate(ctx)
 	for {
-		t, err := s.Store.ClaimNext(ctx, s.Cfg.MaxConcurrentTasks, s.Hosts.Online())
+		t, err := s.Store.ClaimNext(ctx, s.Cfg.MaxConcurrentTasks, s.Hosts.Online(), gate)
 		if err != nil {
 			if ctx.Err() == nil {
 				slog.Error("claim", "err", err)
@@ -198,6 +241,7 @@ func (s *Scheduler) claim(ctx context.Context) {
 			return
 		}
 		if t == nil {
+			s.markBudgetWaits(ctx, gate)
 			return
 		}
 		s.Hub.PublishTask(t)
@@ -216,6 +260,10 @@ func (s *Scheduler) log(t *store.Task, runID int64) *slog.Logger {
 // fail marks the task failed and removes its containers (workspace kept).
 func (s *Scheduler) fail(ctx context.Context, t *store.Task, reason string) {
 	s.log(t, 0).Warn("task failed", "reason", reason)
+	if t.AutoFixState != nil {
+		s.stopAutoFix(ctx, t, "the fix run failed: "+reason)
+	}
+	s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "the task failed: " + reason})
 	_ = s.host(t).RemoveAll(ctx, t.ID)
 	_ = s.Store.CloseOpenQuestions(ctx, t.ID, "")
 	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Failed, reason); err != nil && !errors.Is(err, store.ErrConflict) {
@@ -268,8 +316,7 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		return
 	}
 	h := s.host(t)
-	wsRepo := workspace.Repo{FullName: repo.FullName, InstallationID: repo.InstallationID, BaseBranch: repo.BaseBranch}
-	if err := h.PrepareWorkspace(ctx, t.ID, wsRepo, branch); err != nil {
+	if err := h.PrepareWorkspace(ctx, t.ID, WorkspaceRepo(repo, t), branch); err != nil {
 		s.failOrRequeue(ctx, t, run, "prepare workspace", err)
 		return
 	}
@@ -278,8 +325,14 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		s.failOrRequeue(ctx, t, run, "", err)
 		return
 	}
-	if err := h.EnsureNetwork(ctx, t.ID, t.ProjectID); err != nil {
-		s.failOrRequeue(ctx, t, run, "network", err)
+	integ, err := s.prepareIntegrations(ctx, h, t, run, project)
+	if errors.Is(err, errNoIsolation) {
+		s.fail(ctx, t, err.Error())
+		return
+	}
+	if err != nil {
+		s.endIntegrations(ctx, run.ID)
+		s.failOrRequeue(ctx, t, run, "", err)
 		return
 	}
 	if err := h.EnsureVolume(ctx, t.ID, t.ProjectID); err != nil {
@@ -299,11 +352,15 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 	for k, v := range svcEnv {
 		env[k] = v
 	}
+	for k, v := range integ.env {
+		env[k] = v
+	}
 	if s.Cfg.RunnerFake {
 		env["FLEETPOCKET_RUNNER_FAKE"] = "1"
 	}
 
 	cmd := s.runCommand(t, run, project, repo, branch)
+	cmd.MCP = integ.mcp
 	if err := s.attachSkills(ctx, t, &cmd); err != nil {
 		s.failOrRequeue(ctx, t, run, "skills", err)
 		return
@@ -313,10 +370,18 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		s.failOrRequeue(ctx, t, run, "attachments", err)
 		return
 	}
-	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup {
+	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup || run.Kind == tasks.RunLoop {
 		if t.SessionID != nil {
 			cmd.ResumeSessionID = *t.SessionID
 		}
+	}
+	if err := s.applyCheckpoints(ctx, h, t, run, &cmd); err != nil {
+		s.failOrRequeue(ctx, t, run, "restore checkpoint", err)
+		return
+	}
+	if err := s.applyLoop(ctx, t, run, &cmd); err != nil {
+		s.failOrRequeue(ctx, t, run, "loop", err)
+		return
 	}
 	_ = s.Store.CloseOpenQuestions(ctx, t.ID, "")
 
@@ -329,9 +394,10 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 	r, err := h.StartRunner(ctx, hosts.StartSpec{
 		TaskID: t.ID, RunID: run.ID, Project: t.ProjectID, Image: image, Agent: t.Agent,
 		Env: env, Attachments: hasAtt,
-		Memory: deref(project.RunnerMemory, s.Cfg.RunnerMemory),
-		CPUs:   deref(project.RunnerCPUs, s.Cfg.RunnerCPUs),
-		User:   s.Cfg.RunnerUser,
+		Memory:     deref(project.RunnerMemory, s.Cfg.RunnerMemory),
+		CPUs:       deref(project.RunnerCPUs, s.Cfg.RunnerCPUs),
+		User:       s.Cfg.RunnerUser,
+		ExtraHosts: integ.hosts,
 	})
 	if err != nil {
 		if hosts.IsOffline(err) {
@@ -411,6 +477,15 @@ func (s *Scheduler) unregister(taskID int64) {
 func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, repo *store.Repository, branch string) runnermgr.RunCommand {
 	maxTurns := deref(p.MaxTurns, s.Cfg.DefaultMaxTurns)
 	budget := deref(p.MaxBudgetUSD, s.Cfg.DefaultMaxBudgetUSD)
+	if t.RunBudgetUSD != nil {
+		budget = *t.RunBudgetUSD // its schedule's per-run budget
+	}
+	if t.Loop != nil && t.Loop.BudgetUSD != nil && *t.Loop.BudgetUSD < budget {
+		budget = *t.Loop.BudgetUSD // a run never spends more than the whole loop may
+	}
+	if run.MaxBudgetUSD != nil {
+		budget = *run.MaxBudgetUSD // a CI auto-fix attempt's or a loop iteration's own budget
+	}
 	dur := s.Cfg.DefaultMaxDuration
 	if p.MaxDurationSec != nil {
 		dur = time.Duration(*p.MaxDurationSec) * time.Second
@@ -418,6 +493,12 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 	msg := t.Title
 	if run.Kind == tasks.RunFollowup || run.Kind == tasks.RunResume {
 		msg = "Follow-up: " + tasks.TitleFromPrompt(run.Input)
+	}
+	if run.Kind == tasks.RunRestore {
+		msg = "Continue from a restored checkpoint"
+	}
+	if run.Kind == tasks.RunLoop {
+		msg = fmt.Sprintf("Loop iteration %d: fix the failing check", max(t.LoopIteration, 1))
 	}
 	return runnermgr.NewRun(runnermgr.RunCommand{
 		TaskID:             strconv.FormatInt(t.ID, 10),
@@ -436,6 +517,9 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 			Message:     fmt.Sprintf("%s\n\nFleetpocket task #%d", msg, t.ID),
 			AuthorName:  commitAuthor,
 			AuthorEmail: commitEmail,
+			// An empty commit when nothing changed, so a PR opens anyway
+			// (only the task's own prompt; the runner ignores it for loops).
+			AllowEmpty: t.PRAlways && (run.Kind == tasks.RunInitial || run.Kind == tasks.RunRetry),
 		},
 	})
 }
@@ -577,6 +661,9 @@ func SystemPrompt(t *store.Task, repo *store.Repository, branch, projectInstruct
 	if t.Output == runnermgr.OutputArtifacts || t.Output == runnermgr.OutputPRAndArtifacts {
 		b.WriteString(OutputContract(t.Output))
 	}
+	if t.Loop != nil {
+		b.WriteString(loops.SystemPrompt(t.Loop))
+	}
 	if strings.TrimSpace(projectInstructions) != "" {
 		b.WriteString("\nProject instructions:\n")
 		b.WriteString(projectInstructions)
@@ -604,6 +691,7 @@ type runOutcome struct {
 	paused    *runnermgr.Event
 	lastError *runnermgr.Event
 	usage     *runnermgr.Event
+	check     *runnermgr.Event
 	committed bool
 }
 
@@ -615,10 +703,7 @@ const maxReattach = 50
 // code and applies it. A stream that ends while the container still runs is
 // re-attached; events.jsonl fills any gap.
 func (s *Scheduler) supervise(ctx context.Context, h hosts.Host, t *store.Task, run *store.Run, r *runnermgr.Runner, started time.Time) {
-	var baseline float64
-	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup {
-		baseline, _ = s.Store.SessionBaselineCost(ctx, t.ID, run.ID)
-	}
+	base := s.usageBase(ctx, t, run)
 	var out runOutcome
 	reattached := 0
 	for {
@@ -642,7 +727,7 @@ func (s *Scheduler) supervise(ctx context.Context, h hosts.Host, t *store.Task, 
 				s.replayFile(ctx, h, t, run.ID, &out)
 				continue
 			}
-			s.handleEvent(ctx, t, run.ID, baseline, ev, &out)
+			s.handleEvent(ctx, t, run.ID, base, ev, &out)
 		case line, ok := <-r.BadLines:
 			if ok {
 				s.log(t, run.ID).Warn("invalid runner output", "line", line)
@@ -661,7 +746,7 @@ exited:
 }
 
 // handleEvent persists one runner event, publishes it and applies its side effects.
-func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64, baseline float64, ev runnermgr.Event, out *runOutcome) {
+func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64, base *usageBase, ev runnermgr.Event, out *runOutcome) {
 	switch ev.Type {
 	case runnermgr.EvDone:
 		out.done = &ev
@@ -673,6 +758,9 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 		out.usage = &ev
 	case runnermgr.EvCommitted:
 		out.committed = true
+	case runnermgr.EvCheck:
+		out.check = &ev
+		ev.Raw = checkRaw(t, ev)
 	}
 	if ev.Type == runnermgr.EvHeartbeat {
 		return
@@ -681,6 +769,9 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 	if err != nil {
 		s.log(t, runID).Error("persist event", "err", err, "type", ev.Type)
 		return
+	}
+	if ev.Type == runnermgr.EvCheckpoint {
+		s.recordCheckpoint(ctx, t, runID, ev, stored)
 	}
 	if stored == nil {
 		return // already persisted (replay)
@@ -712,21 +803,13 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 		if nt, err := s.Store.SetStatus(ctx, t.ID, []string{tasks.Running}, tasks.WaitingInput, "", false); err == nil {
 			s.Hub.PublishTask(nt)
 		}
+	case runnermgr.EvStarted:
+		base.model = ev.Model
+		if err := s.Store.SetRunAgent(ctx, runID, t.Agent, ev.Model, ev.Auth); err != nil {
+			s.log(t, runID).Error("set run agent", "err", err)
+		}
 	case runnermgr.EvUsage, runnermgr.EvDone:
-		cost := ev.CostUSDTotal - baseline
-		if cost < 0 {
-			cost = 0
-		}
-		if err := s.Store.SetRunCost(ctx, runID, cost); err != nil {
-			s.log(t, runID).Error("set cost", "err", err)
-		}
-		if ev.Type == runnermgr.EvUsage {
-			if nt, err := s.Store.SetRunTurns(ctx, runID, ev.Turns); err != nil {
-				s.log(t, runID).Error("set turns", "err", err)
-			} else {
-				s.Hub.PublishTask(nt)
-			}
-		}
+		s.recordUsage(ctx, t, runID, ev, base)
 	}
 }
 
@@ -734,8 +817,17 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, run *store.Run, code int, out runOutcome, started time.Time) {
 	s.unregister(taskID)
 	first, _ := s.Store.FinishRun(ctx, run.ID, code)
+	s.endIntegrations(ctx, run.ID)
 	if first {
-		s.addEvent(ctx, taskID, &run.ID, "run_finished", map[string]any{"run_id": run.ID, "exit_code": code})
+		payload := map[string]any{"run_id": run.ID, "exit_code": code}
+		// The run's cost for the timeline (docs/API.md, event types).
+		if r, err := s.Store.GetRun(ctx, run.ID); err == nil && r.CostSource != nil {
+			payload["cost_usd"], payload["cost_source"] = r.CostUSD, *r.CostSource
+			if r.Auth != nil {
+				payload["auth"] = *r.Auth
+			}
+		}
+		s.addEvent(ctx, taskID, &run.ID, "run_finished", payload)
 	}
 	if run.ContainerID != nil {
 		_ = h.Remove(ctx, *run.ContainerID)
@@ -755,6 +847,7 @@ func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, r
 	defer s.Wake()
 
 	if t.Status == tasks.Cancelled {
+		s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "cancelled"})
 		_ = h.RemoveAll(ctx, taskID)
 		return
 	}
@@ -797,8 +890,12 @@ func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, r
 		if out.usage != nil {
 			turns = out.usage.Turns
 		}
+		if s.loopStep(ctx, t, run, code, limit, out) {
+			return // the next iteration is queued; nothing is pushed yet
+		}
 		s.afterRun(ctx, t, summary, turns, limit)
 	case runnermgr.ExitCancelled:
+		s.endLoop(ctx, t, store.LoopStopped, map[string]any{"iteration": t.LoopIteration, "reason": "cancelled"})
 		_ = h.RemoveAll(ctx, taskID)
 		nt, err := s.Store.SetStatus(ctx, taskID, []string{tasks.Running, tasks.WaitingInput}, tasks.Cancelled, "runner cancelled", true)
 		if err != nil && !errors.Is(err, store.ErrConflict) {
@@ -838,6 +935,10 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	branch := deref(t.Branch, "")
 	h := s.host(t)
 	unpushed, err := h.UnpushedCommits(ctx, t.ID, repo.BaseBranch, branch)
+	force := false
+	if err == nil {
+		force, err = s.needsForce(ctx, h, t, branch)
+	}
 	if err != nil {
 		if hosts.IsOffline(err) {
 			// Stays pushing; the node's reconnect resumes it.
@@ -850,8 +951,25 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		s.fail(ctx, t, "inspect workspace: "+err.Error())
 		return
 	}
-	if unpushed == 0 {
+	// fix is the run of a CI auto-fix attempt; guard tells whether its diff
+	// is checked before the push.
+	fix := s.autoFixRun(ctx, t)
+	guard := fix != nil
+	if fix != nil && unpushed == 0 {
+		s.stopAutoFix(ctx, t, "the fix run made no changes")
+	}
+	if fix != nil && limit != "" {
+		// What it committed is pushed as for any run; the loop ends.
+		s.stopAutoFix(ctx, t, "auto-fix budget or limit reached: "+limit)
+		guard = false
+	}
+	if unpushed == 0 && !force {
 		switch {
+		case t.PRNumber == nil && t.LocalBranch != nil:
+			// A follow-up on a delivered local branch that changed nothing.
+			if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.BranchReady, limit); err != nil {
+				s.log(t, 0).Error("set branch_ready", "err", err)
+			}
 		case limit != "" && t.PRNumber == nil:
 			s.fail(ctx, t, limit)
 		case t.PRNumber != nil:
@@ -867,13 +985,45 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		return
 	}
 
+	if repo.Local() && t.PRNumber == nil {
+		s.deliverLocal(ctx, h, t, repo, branch, force, limit)
+		return
+	}
+
+	if guard && s.publisher() != nil {
+		project, err := s.Store.GetProject(ctx, t.ProjectID)
+		if err != nil {
+			s.fail(ctx, t, err.Error())
+			return
+		}
+		settings, err := s.Store.AutoFixSettings(ctx, project)
+		if err != nil {
+			s.fail(ctx, t, err.Error())
+			return
+		}
+		if !settings.AllowCIChanges {
+			reasons, err := s.guardFix(ctx, h, t, branch)
+			if err != nil {
+				if hosts.IsOffline(err) {
+					s.log(t, 0).Warn("node offline after the run; push resumes when it reconnects")
+					return
+				}
+				reasons = []string{"the fix diff could not be inspected: " + err.Error()}
+			}
+			if len(reasons) > 0 {
+				s.holdFix(ctx, t, fix, reasons)
+				return
+			}
+		}
+	}
+
 	if t.Status != tasks.Pushing {
 		if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Pushing, ""); err != nil {
 			s.log(t, 0).Error("set pushing", "err", err)
 			return
 		}
 	}
-	if s.Publisher == nil {
+	if s.publisher() == nil {
 		_ = h.RemoveAll(ctx, t.ID)
 		if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Completed, "committed locally (GitHub App not configured)"); err != nil {
 			s.log(t, 0).Error("set completed", "err", err)
@@ -889,9 +1039,10 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	if latest != nil {
 		t = latest
 	}
-	res, err := s.Publisher.Publish(ctx, PublishInput{
-		Host: h, Task: t, Repo: repo, Project: project, Branch: branch,
-		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit,
+	s.recordPush(ctx, t)
+	res, err := s.publisher().Publish(ctx, PublishInput{
+		Host: h, Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
+		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit, Force: force,
 	})
 	if err != nil {
 		if hosts.IsOffline(err) {
@@ -911,7 +1062,13 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	if res.Created {
 		typ = "pr_opened"
 	}
+	if res.ForcedFrom != "" {
+		s.addEvent(ctx, t.ID, nil, "branch_force_pushed", map[string]any{
+			"branch": branch, "from": res.ForcedFrom, "reason": "restore", "number": res.PRNumber,
+		})
+	}
 	s.addEvent(ctx, t.ID, nil, typ, map[string]any{"number": res.PRNumber, "url": res.PRURL})
+	s.afterPush(ctx, t, fix)
 	if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.PROpen, limit); err != nil {
 		s.log(t, 0).Error("set pr_open", "err", err)
 	}

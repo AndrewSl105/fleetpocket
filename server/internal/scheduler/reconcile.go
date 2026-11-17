@@ -203,17 +203,14 @@ func (s *Scheduler) replayFile(ctx context.Context, h hosts.Host, t *store.Task,
 	if err != nil {
 		return
 	}
-	var baseline float64
-	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup {
-		baseline, _ = s.Store.SessionBaselineCost(ctx, t.ID, runID)
-	}
+	base := s.usageBase(ctx, t, run)
 	n := 0
 	for _, line := range lines {
 		ev, err := runnermgr.ParseEvent(line)
 		if err != nil || ev.Seq <= maxSeq {
 			continue
 		}
-		s.handleEvent(ctx, t, runID, baseline, ev, out)
+		s.handleEvent(ctx, t, runID, base, ev, out)
 		n++
 	}
 	if n > 0 {

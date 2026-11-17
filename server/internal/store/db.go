@@ -58,6 +58,23 @@ func (s *Store) Migrate(ctx context.Context) error {
 	return err
 }
 
+// MigrateDownTo rolls migrations back to version (tests check that every
+// Down section works).
+func (s *Store) MigrateDownTo(ctx context.Context, version int64) error {
+	db := stdlib.OpenDBFromPool(s.Pool)
+	defer db.Close()
+	sub, err := fsSub()
+	if err != nil {
+		return err
+	}
+	p, err := goose.NewProvider(goose.DialectPostgres, db, sub)
+	if err != nil {
+		return err
+	}
+	_, err = p.DownTo(ctx, version)
+	return err
+}
+
 func (s *Store) Ping(ctx context.Context) error { return s.Pool.Ping(ctx) }
 
 // Tx runs fn in a transaction.

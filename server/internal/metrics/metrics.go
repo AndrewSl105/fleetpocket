@@ -21,6 +21,16 @@ type Metrics struct {
 	runnerExits  *prometheus.CounterVec
 	telegramErrs *prometheus.CounterVec
 	githubErrs   *prometheus.CounterVec
+	autofixRuns  *prometheus.CounterVec
+	autofixEnds  *prometheus.CounterVec
+	mcpCalls     *prometheus.CounterVec
+	mcpDuration  *prometheus.HistogramVec
+	egressBlocks *prometheus.CounterVec
+	budgetHeld   *prometheus.CounterVec
+	budgetAlerts *prometheus.CounterVec
+	budgetOvers  *prometheus.CounterVec
+	firings      *prometheus.CounterVec
+	loopEnds     *prometheus.CounterVec
 }
 
 func New(st *store.Store) *Metrics {
@@ -40,8 +50,40 @@ func New(st *store.Store) *Metrics {
 		githubErrs: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "fleetpocket_github_api_errors_total", Help: "Failed GitHub API calls.",
 		}, []string{"op"}),
+		autofixRuns: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_autofix_attempts_total", Help: "CI auto-fix attempts started.",
+		}, []string{"project"}),
+		autofixEnds: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_autofix_outcomes_total", Help: "CI auto-fix loops that ended, by outcome (green, needs_you, cancelled).",
+		}, []string{"project", "outcome"}),
+		mcpCalls: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_mcp_gateway_calls_total", Help: "MCP gateway tool calls by server and outcome (ok, error, denied, limit).",
+		}, []string{"server", "outcome"}),
+		mcpDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "fleetpocket_mcp_gateway_call_seconds", Help: "Upstream time of MCP gateway tool calls.",
+			Buckets: []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60},
+		}, []string{"server"}),
+		egressBlocks: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_egress_blocked_total", Help: "Hosts the egress proxy refused (once per host and run), by project.",
+		}, []string{"project"}),
+		budgetHeld: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_budget_held_total", Help: "Queued tasks a monthly budget held (waiting: budget), by project and scope (global, project, schedule).",
+		}, []string{"project", "scope"}),
+		budgetAlerts: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_budget_alerts_total", Help: "Monthly budget notices sent, by scope and level (80, 100).",
+		}, []string{"scope", "level"}),
+		budgetOvers: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_budget_overrides_total", Help: "Tasks the owner started despite a monthly budget, by project.",
+		}, []string{"project"}),
+		firings: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_schedule_firings_total", Help: "Schedule firings, by outcome (started, queued, skipped, missed, failed).",
+		}, []string{"outcome"}),
+		loopEnds: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_loops_total", Help: "Loops that ended, by project and final state (passed, max_iterations, budget, no_changes, stopped).",
+		}, []string{"project", "state"}),
 	}
-	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs,
+	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs, m.autofixRuns, m.autofixEnds,
+		m.mcpCalls, m.mcpDuration, m.egressBlocks, m.budgetHeld, m.budgetAlerts, m.budgetOvers, m.firings, m.loopEnds,
 		&dbCollector{st: st},
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	return m
@@ -59,13 +101,43 @@ func (m *Metrics) RunFinished(project string, exitCode int, d time.Duration) {
 func (m *Metrics) TelegramError(op string) { m.telegramErrs.WithLabelValues(op).Inc() }
 func (m *Metrics) GitHubError(op string)   { m.githubErrs.WithLabelValues(op).Inc() }
 
+// AutoFixAttempt and AutoFixOutcome count the CI auto-fix loop.
+func (m *Metrics) AutoFixAttempt(project string) { m.autofixRuns.WithLabelValues(project).Inc() }
+func (m *Metrics) AutoFixOutcome(project, outcome string) {
+	m.autofixEnds.WithLabelValues(project, outcome).Inc()
+}
+
+// MCPCall counts one gateway call.
+func (m *Metrics) MCPCall(server, outcome string, d time.Duration) {
+	m.mcpCalls.WithLabelValues(server, outcome).Inc()
+	if outcome == "ok" || outcome == "error" {
+		m.mcpDuration.WithLabelValues(server).Observe(d.Seconds())
+	}
+}
+
+// EgressBlocked counts one refused host.
+func (m *Metrics) EgressBlocked(project string) { m.egressBlocks.WithLabelValues(project).Inc() }
+
+// BudgetHeld, BudgetAlert and BudgetOverride count the monthly budget gate.
+func (m *Metrics) BudgetHeld(project, scope string) {
+	m.budgetHeld.WithLabelValues(project, scope).Inc()
+}
+func (m *Metrics) BudgetAlert(scope string, level int) {
+	m.budgetAlerts.WithLabelValues(scope, strconv.Itoa(level)).Inc()
+}
+func (m *Metrics) BudgetOverride(project string) { m.budgetOvers.WithLabelValues(project).Inc() }
+
+// ScheduleFiring counts one schedule firing; LoopEnded one finished loop.
+func (m *Metrics) ScheduleFiring(outcome string)   { m.firings.WithLabelValues(outcome).Inc() }
+func (m *Metrics) LoopEnded(project, state string) { m.loopEnds.WithLabelValues(project, state).Inc() }
+
 // dbCollector reads task counts and costs at scrape time.
 type dbCollector struct{ st *store.Store }
 
 var (
 	tasksDesc = prometheus.NewDesc("fleetpocket_tasks", "Tasks by status.", []string{"status"}, nil)
 	queueDesc = prometheus.NewDesc("fleetpocket_queue_length", "Tasks waiting for a slot.", nil, nil)
-	costDesc  = prometheus.NewDesc("fleetpocket_cost_usd_total", "Total Claude cost by project.", []string{"project"}, nil)
+	costDesc  = prometheus.NewDesc("fleetpocket_cost_usd_total", "Total agent cost by project (estimates included).", []string{"project"}, nil)
 )
 
 func (c *dbCollector) Describe(ch chan<- *prometheus.Desc) {

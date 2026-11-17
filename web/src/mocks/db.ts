@@ -1,4 +1,22 @@
-import type { Agent, ApiEvent, Attachment, HostNode, Project, Question, Repository, Run, Task, TaskStatus, TaskView } from '@/api/types'
+import { seedIntegrations } from './integrations'
+import { seedCosts } from './costs'
+import { seedCheckpoints } from './checkpoints'
+import { seedSkills } from './skills'
+import { seedSchedules } from './schedules'
+import type {
+  Agent,
+  ApiEvent,
+  Attachment,
+  CIAutoFixSettings,
+  HostNode,
+  Project,
+  Question,
+  Repository,
+  Run,
+  Task,
+  TaskStatus,
+  TaskView,
+} from '@/api/types'
 
 // In-memory backend for mock mode (VITE_MOCK=1) and tests. Shapes follow
 // docs/openapi.yaml; the OpenAPI file has no examples to generate from.
@@ -7,7 +25,7 @@ const now = Date.now()
 const ago = (min: number) => new Date(now - min * 60_000).toISOString()
 
 function repo(id: number, project_id: string, full_name: string, is_default: boolean, base_branch = 'dev'): Repository {
-  return { id, project_id, full_name, base_branch, installation_id: 123, is_default }
+  return { id, project_id, full_name, base_branch, installation_id: 123, is_default, source: 'github', path: '', remote_url: '' }
 }
 
 /** Agents with credentials in mock mode: Cursor has none, so the UI shows that case too. */
@@ -31,6 +49,12 @@ function project(id: string, name: string, repositories: Repository[], extra: Pa
     runner_cpus: null,
     telegram_thread_id: null,
     archived: false,
+    ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
+    budget: null,
+    default_output: null,
+    skills: [],
+    month_cost_usd: 0,
+    month_cost_unknown: false,
     created_at: ago(60 * 24 * 30),
     updated_at: ago(60 * 24 * 2),
     repositories,
@@ -52,6 +76,8 @@ type Db = {
   nextTaskId: number
   nextRepoId: number
   nextRunId: number
+  /** GET/PUT /settings/ci-autofix. */
+  autofixDefaults: CIAutoFixSettings
 }
 
 export const db: Db = {
@@ -67,6 +93,7 @@ export const db: Db = {
   nextTaskId: 1,
   nextRepoId: 10,
   nextRunId: 1,
+  autofixDefaults: {},
 }
 
 export type MockAttachment = { taskId: number; meta: Attachment; bytes: Uint8Array; deleted: boolean }
@@ -133,6 +160,16 @@ export function startRun(taskId: number, kind: Run['kind'], input: string, at?: 
     last_seq: 0,
     cost_usd: 0,
     turns: 0,
+    autofix_attempt: null,
+    loop_iteration: null,
+    agent: db.tasks.find((t) => t.id === taskId)?.agent ?? 'claude',
+    model: null,
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    cost_source: null,
+    auth: null,
     started_at: at ?? new Date().toISOString(),
     finished_at: null,
   }
@@ -160,10 +197,27 @@ export function makeTask(fields: Partial<Task> & Pick<Task, 'project_id' | 'titl
     last_activity: null,
     last_activity_at: null,
     queued_message: null,
+    autofix_state: null,
+    autofix_attempts: 0,
+    autofix_max_attempts: null,
+    autofix_cost_usd: 0,
+    cost_estimated: false,
+    cost_api_equivalent: false,
+    cost_unknown: false,
+    budget_wait: null,
+    budget_override_at: null,
     output: 'pr',
     skills: [],
     skills_add: [],
     skills_remove: [],
+    local_branch: null,
+    start_from: 'last_commit',
+    schedule_id: null,
+    mcp_servers: null,
+    run_budget_usd: null,
+    loop: null,
+    loop_state: null,
+    loop_iteration: 0,
     source: 'web',
     agent: (proj?.agent ?? MOCK_AGENTS.default_agent) as Agent,
     node: proj?.node ?? null,
@@ -184,7 +238,8 @@ export function taskView(task: Task): TaskView {
     ...task,
     repository: db.projects.flatMap((p) => p.repositories).find((r) => r.id === task.repository_id) ?? null,
     latest_run: runs[runs.length - 1] ?? null,
-    open_question: task.status === 'waiting_input' || task.status === 'paused' ? open : null,
+    // A held CI auto-fix asks on a pr_open task.
+    open_question: task.status === 'waiting_input' || task.status === 'paused' || (task.status === 'pr_open' && task.autofix_state === 'held') ? open : null,
   }
 }
 
@@ -351,6 +406,120 @@ export function seed() {
   addEvent(t9.id, 'tool_use', { tool: 'Edit', summary: 'Edit src/images/resize.ts' }, true, ago(5))
   Object.assign(t9, { status: 'running', updated_at: ago(5) })
   db.nodes[0].active_tasks = 1
+
+  seedAutoFix()
+  seedIntegrations()
+  seedCosts()
+  seedCheckpoints()
+  seedSkills()
+  seedSchedules()
+}
+
+/** CI auto-fix: a PR that went green after one fix, and one whose fix waits for the owner. */
+function seedAutoFix() {
+  db.autofixDefaults = { enabled: false, max_attempts: 2, checks: null, budget_usd: null, allow_ci_changes: false }
+  const vatary = db.projects.find((p) => p.id === 'vatary')!
+  vatary.ci_autofix = { ...vatary.ci_autofix, enabled: true }
+  const url = 'https://github.com/andrewsl105/vatary-server/actions/runs/9120/job/5501'
+  const log = [
+    '===== ci / test (failure) =====',
+    `Details: ${url}`,
+    'Failed steps: Run pnpm test',
+    '…',
+    ' FAIL  src/tables/export.test.ts > exportCsv > totals row',
+    'AssertionError: expected "Total,42" to equal "Total,"42""',
+    ' Tests  1 failed | 41 passed (42)',
+    'Error: Process completed with exit code 1.',
+  ].join('\n')
+
+  // Green after one fix.
+  const g = makeTask({ project_id: 'vatary', title: 'Add totals row to the CSV export', status: 'queued', created_at: ago(60 * 20) })
+  startRun(g.id, 'initial', g.prompt, ago(60 * 20))
+  addEvent(g.id, 'tool_use', { tool: 'Edit', summary: 'Edit src/tables/export.ts' }, true, ago(60 * 20 - 5))
+  addEvent(g.id, 'tool_result', { tool: 'Edit', ok: true }, true, ago(60 * 20 - 5))
+  addEvent(g.id, 'usage', { cost_usd_total: 0.92, input_tokens: 88000, output_tokens: 4100, turns: 11 }, true, ago(60 * 20 - 9))
+  addEvent(g.id, 'committed', { sha: 'c41d09a7e3', files_changed: 2, insertions: 48, deletions: 3 }, true, ago(60 * 20 - 9))
+  addEvent(g.id, 'done', { session_id: 's-g', summary: 'Added a **Totals** row to the CSV export.', no_changes: false, cost_usd_total: 0.92 }, true, ago(60 * 20 - 9))
+  addEvent(g.id, 'run_finished', { run_id: 0, exit_code: 0 }, false, ago(60 * 20 - 9))
+  const prUrl = 'https://github.com/andrewsl105/vatary-server/pull/42'
+  addEvent(g.id, 'pr_opened', { number: 42, url: prUrl }, false, ago(60 * 20 - 10))
+  addEvent(g.id, 'ci', { status: 'failure', name: 'ci', url }, false, ago(60 * 20 - 16))
+  const logFile = addAttachment(g.id, 'ci-logs-attempt-1.txt', 'text/plain', new TextEncoder().encode(log), 0, 0)
+  const fix = startRun(g.id, 'followup', 'CI auto-fix attempt 1/2. Failing checks: ci / test (signature 7f3a9c21d04be815).', ago(60 * 20 - 17))
+  fix.autofix_attempt = 1
+  addEvent(
+    g.id,
+    'autofix',
+    {
+      phase: 'started',
+      attempt: 1,
+      max_attempts: 2,
+      run_id: fix.id,
+      checks: [{ name: 'ci / test', url, conclusion: 'failure' }],
+      signature: '7f3a9c21d04be815',
+      head_sha: 'c41d09a7e3',
+      attachments: [logFile],
+    },
+    false,
+    ago(60 * 20 - 17),
+  )
+  addEvent(g.id, 'assistant_text', { text: 'The totals cell is quoted twice: `exportCsv` escapes it, then the row joiner escapes it again. Fixing the joiner.' }, true, ago(60 * 20 - 18))
+  addEvent(g.id, 'tool_use', { tool: 'Edit', summary: 'Edit src/tables/export.ts' }, true, ago(60 * 20 - 19))
+  addEvent(g.id, 'tool_result', { tool: 'Edit', ok: true }, true, ago(60 * 20 - 19))
+  addEvent(g.id, 'committed', { sha: 'e8b2f61c90', files_changed: 1, insertions: 2, deletions: 2 }, true, ago(60 * 20 - 21))
+  addEvent(g.id, 'run_finished', { run_id: fix.id, exit_code: 0 }, false, ago(60 * 20 - 21))
+  addEvent(g.id, 'autofix', { phase: 'pushed', attempt: 1, max_attempts: 2 }, false, ago(60 * 20 - 22))
+  addEvent(g.id, 'pr_updated', { number: 42, url: prUrl }, false, ago(60 * 20 - 22))
+  addEvent(g.id, 'ci', { status: 'success', name: 'ci', url }, false, ago(60 * 20 - 28))
+  addEvent(g.id, 'autofix', { phase: 'green', fixes: 1 }, false, ago(60 * 20 - 28))
+  Object.assign(db.runs.get(g.id)![0], { exit_code: 0, finished_at: ago(60 * 20 - 9), cost_usd: 0.92, turns: 11 })
+  Object.assign(fix, { exit_code: 0, finished_at: ago(60 * 20 - 21), cost_usd: 0.39, turns: 5 })
+  Object.assign(g, {
+    status: 'pr_open',
+    pr_number: 42,
+    pr_url: prUrl,
+    ci_status: 'success',
+    cost_usd_total: 1.31,
+    turns: 16,
+    autofix_state: 'green',
+    autofix_attempts: 1,
+    autofix_max_attempts: 2,
+    updated_at: ago(60 * 20 - 28),
+  })
+
+  // A fix that skips a test: it waits for the owner (needs you).
+  const h = makeTask({ project_id: 'vatary', title: 'Show dates in the user time zone', status: 'queued', created_at: ago(60 * 22) })
+  startRun(h.id, 'initial', h.prompt, ago(60 * 22))
+  const hPr = 'https://github.com/andrewsl105/vatary-server/pull/43'
+  addEvent(h.id, 'pr_opened', { number: 43, url: hPr }, false, ago(60 * 22 - 10))
+  addEvent(h.id, 'ci', { status: 'failure', name: 'ci', url }, false, ago(60 * 22 - 16))
+  const hr = startRun(h.id, 'followup', 'CI auto-fix attempt 1/2.', ago(60 * 22 - 17))
+  hr.autofix_attempt = 1
+  addEvent(
+    h.id,
+    'autofix',
+    { phase: 'started', attempt: 1, max_attempts: 2, run_id: hr.id, checks: [{ name: 'ci / test', url, conclusion: 'failure' }], signature: '0c55e1b7a9d2f304', attachments: [] },
+    false,
+    ago(60 * 22 - 17),
+  )
+  addEvent(h.id, 'autofix', { phase: 'held', attempt: 1, max_attempts: 2, reasons: ['skips a test in src/dates/format.test.ts'] }, false, ago(60 * 22 - 20))
+  const text = 'The fix changes CI or tests. Push anyway?\n\n- skips a test in src/dates/format.test.ts'
+  const options = ['Push anyway', 'Discard']
+  addEvent(h.id, 'question', { question_id: 'autofix_guard', text, options }, false, ago(60 * 22 - 20))
+  db.questions.set(h.id, [
+    { id: `${hr.id}-autofix_guard`, task_id: h.id, run_id: hr.id, text, options, answer: null, answered_via: null, created_at: ago(60 * 22 - 20), answered_at: null },
+  ])
+  Object.assign(h, {
+    status: 'pr_open',
+    pr_number: 43,
+    pr_url: hPr,
+    ci_status: 'failure',
+    cost_usd_total: 0.71,
+    autofix_state: 'held',
+    autofix_attempts: 1,
+    autofix_max_attempts: 2,
+    updated_at: ago(60 * 22 - 20),
+  })
 }
 
 seed()

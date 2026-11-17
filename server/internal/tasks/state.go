@@ -10,22 +10,29 @@ const (
 	Paused       = "paused"
 	Pushing      = "pushing"
 	PROpen       = "pr_open"
-	Completed    = "completed"
-	Failed       = "failed"
-	Cancelled    = "cancelled"
+	// BranchReady: a local repository received the task branch
+	// (jm/<id>-<slug>); it mirrors pr_open.
+	BranchReady = "branch_ready"
+	Completed   = "completed"
+	Failed      = "failed"
+	Cancelled   = "cancelled"
 )
 
 var transitions = map[string][]string{
 	Queued:       {Preparing, Cancelled, Failed},
 	Preparing:    {Running, Failed, Cancelled, Queued},
-	Running:      {WaitingInput, Paused, Pushing, PROpen, Completed, Failed, Cancelled},
-	WaitingInput: {Running, Paused, Pushing, PROpen, Completed, Failed, Cancelled},
+	Running:      {WaitingInput, Paused, Pushing, PROpen, BranchReady, Completed, Failed, Cancelled},
+	WaitingInput: {Running, Paused, Pushing, PROpen, BranchReady, Completed, Failed, Cancelled},
 	Paused:       {Queued, Cancelled, Failed},
-	Pushing:      {PROpen, Completed, Failed, Cancelled},
-	PROpen:       {Queued, Completed, Failed, Cancelled},
-	Completed:    {Queued},
-	Failed:       {Queued},
-	Cancelled:    {Queued},
+	Pushing:      {PROpen, BranchReady, Completed, Failed, Cancelled},
+	// pr_open -> pushing: the owner approves a held CI auto-fix.
+	PROpen: {Queued, Pushing, Completed, Failed, Cancelled},
+	// branch_ready -> pushing: "Push & open PR"; -> completed: merged or
+	// discarded; -> queued: a follow-up.
+	BranchReady: {Queued, Pushing, Completed, Failed, Cancelled},
+	Completed:   {Queued},
+	Failed:      {Queued},
+	Cancelled:   {Queued},
 }
 
 // CanTransition reports whether the state machine allows from → to.
@@ -69,6 +76,9 @@ const (
 	RunResume   = "resume"
 	RunFollowup = "followup"
 	RunRetry    = "retry"
+	// RunLoop is the next iteration of a loop after a failed check; it
+	// continues the session like a follow-up.
+	RunLoop = "loop"
 )
 
 // MessageAction decides what POST /message does in a state (section 7).
@@ -89,7 +99,7 @@ func MessageActionFor(status string) MessageAction {
 	switch status {
 	case Queued, Preparing, Running, WaitingInput, Pushing:
 		return MessageQueue
-	case Paused, PROpen, Completed:
+	case Paused, PROpen, BranchReady, Completed:
 		return MessageNewRun
 	}
 	return MessageReject

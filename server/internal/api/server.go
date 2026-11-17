@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
 	"net/http"
 	"time"
 
@@ -11,8 +12,10 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
+	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
+	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
@@ -66,7 +69,19 @@ type Server struct {
 	UI http.Handler
 	// Local is set in local mode only.
 	Local *Local
-	Now   func() time.Time
+	// LocalRepos serves the /local repository endpoints; nil (server mode)
+	// answers them with 400 local_mode_only.
+	LocalRepos *localrepos.Service
+	// LocalGitHub connects GitHub with the owner's token (local mode only).
+	LocalGitHub LocalGitHub
+	// ResumeDeliveries retries deliveries that waited for a moved folder.
+	ResumeDeliveries func(ctx context.Context, repoID int64)
+	// Gateway is the MCP gateway (also the MCP server registry); its own
+	// endpoints under /api/mcp-gateway/ take the run token, no session.
+	Gateway *mcpgateway.Gateway
+	// Schedules fires recurring tasks.
+	Schedules *schedules.Service
+	Now       func() time.Time
 }
 
 func (s *Server) githubConfigured() bool {
@@ -119,6 +134,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/skills/{id}/duplicate", a(s.duplicateSkill))
 	mux.HandleFunc("GET /api/v1/skills/{id}/export", a(s.exportSkill))
 
+	mux.HandleFunc("GET /api/v1/schedules", a(s.listSchedules))
+	mux.HandleFunc("POST /api/v1/schedules", a(s.createSchedule))
+	mux.HandleFunc("GET /api/v1/schedules/{id}", a(s.getSchedule))
+	mux.HandleFunc("PUT /api/v1/schedules/{id}", a(s.updateSchedule))
+	mux.HandleFunc("DELETE /api/v1/schedules/{id}", a(s.deleteSchedule))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/enable", a(s.setScheduleEnabled(true)))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/disable", a(s.setScheduleEnabled(false)))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/run", a(s.runSchedule))
+	mux.HandleFunc("POST /api/v1/schedules/{id}/duplicate", a(s.duplicateSchedule))
+	mux.HandleFunc("GET /api/v1/schedules/{id}/firings", a(s.scheduleFirings))
+
 	mux.HandleFunc("GET /api/v1/tasks", a(s.listTasks))
 	mux.HandleFunc("POST /api/v1/tasks", a(s.createTask))
 	mux.HandleFunc("GET /api/v1/tasks/{id}", a(s.getTask))
@@ -132,7 +158,42 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/tasks/{id}/cancel", a(s.control(s.Tasks.Cancel)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/retry", a(s.control(s.Tasks.Retry)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/merge", a(s.control(s.Tasks.Merge)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/merge", a(s.control(s.Tasks.MergeBranch)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/checkout", a(s.control(s.Tasks.CheckoutBranch)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/discard", a(s.control(s.Tasks.DiscardBranch)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/push", a(s.control(s.Tasks.PushBranch)))
+	mux.HandleFunc("GET /api/v1/local/repos/suggestions", a(s.localRepos(s.localSuggestions)))
+	mux.HandleFunc("GET /api/v1/local/fs", a(s.localRepos(s.localBrowse)))
+	mux.HandleFunc("POST /api/v1/local/repos", s.sessionOrControl(s.localRepos(s.addLocalRepo)))
+	mux.HandleFunc("GET /api/v1/local/repos/{id}/status", a(s.localRepos(s.localRepoStatus)))
+	mux.HandleFunc("POST /api/v1/local/repos/{id}/locate", a(s.localRepos(s.locateLocalRepo)))
+	mux.HandleFunc("GET /api/v1/local/github", a(s.localGitHub(s.githubStatus)))
+	mux.HandleFunc("DELETE /api/v1/local/github", a(s.localGitHub(s.githubDisconnect)))
+	mux.HandleFunc("POST /api/v1/local/github/device", a(s.localGitHub(s.githubDeviceStart)))
+	mux.HandleFunc("POST /api/v1/local/github/device/poll", a(s.localGitHub(s.githubDevicePoll)))
+	mux.HandleFunc("POST /api/v1/local/github/gh", a(s.localGitHub(s.githubImportGH)))
+	mux.HandleFunc("POST /api/v1/local/github/token", a(s.localGitHub(s.githubSetToken)))
 	mux.HandleFunc("GET /api/v1/stats", a(s.stats))
+	mux.HandleFunc("GET /api/v1/mcp-servers", a(s.listMCPServers))
+	mux.HandleFunc("POST /api/v1/mcp-servers", a(s.createMCPServer))
+	mux.HandleFunc("GET /api/v1/mcp-servers/{id}", a(s.getMCPServer))
+	mux.HandleFunc("PUT /api/v1/mcp-servers/{id}", a(s.updateMCPServer))
+	mux.HandleFunc("DELETE /api/v1/mcp-servers/{id}", a(s.deleteMCPServer))
+	mux.HandleFunc("POST /api/v1/mcp-servers/{id}/test", a(s.testMCPServer))
+	mux.HandleFunc("GET /api/v1/projects/{id}/integrations", a(s.getIntegrations))
+	mux.HandleFunc("PUT /api/v1/projects/{id}/integrations", a(s.putIntegrations))
+	mux.HandleFunc("POST /api/v1/projects/{id}/egress/allow", a(s.allowEgress))
+	mux.HandleFunc("GET /api/v1/settings/ci-autofix", a(s.getAutoFixDefaults))
+	mux.HandleFunc("PUT /api/v1/settings/ci-autofix", a(s.putAutoFixDefaults))
+	mux.HandleFunc("GET /api/v1/settings/costs", a(s.getCostSettings))
+	mux.HandleFunc("PUT /api/v1/settings/costs", a(s.putCostSettings))
+	mux.HandleFunc("GET /api/v1/costs", a(s.getCosts))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/budget-override", a(s.budgetOverride))
+	mux.HandleFunc("GET /api/v1/settings/checkpoints", a(s.getCheckpointSettings))
+	mux.HandleFunc("PUT /api/v1/settings/checkpoints", a(s.putCheckpointSettings))
+	mux.HandleFunc("GET /api/v1/tasks/{id}/checkpoints", a(s.listCheckpoints))
+	mux.HandleFunc("GET /api/v1/tasks/{id}/checkpoints/{checkpointId}", a(s.previewCheckpoint))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/checkpoints/{checkpointId}/restore", a(s.restoreCheckpoint))
 	if s.Nodes != nil {
 		mux.HandleFunc("GET /api/v1/nodes", a(s.listNodes))
 		mux.HandleFunc("POST /api/v1/nodes", a(s.createNode))
@@ -182,9 +243,17 @@ func (s *Server) Handler() http.Handler {
 	} else {
 		root.Handle("/", api)
 	}
-	var h http.Handler = s.setupGate(root)
+	h := http.Handler(s.setupGate(root))
 	if s.Local != nil {
 		h = s.localHostCheck(h)
+	}
+	if s.Gateway != nil {
+		// Runners and egress proxies: the run token is the credential, so no
+		// session, CSRF, setup or (local mode) Host check applies.
+		outer := http.NewServeMux()
+		outer.Handle(mcpgateway.PathPrefix, s.Gateway)
+		outer.Handle("/", h)
+		h = outer
 	}
 	return logRequests(h)
 }

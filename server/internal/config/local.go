@@ -169,6 +169,21 @@ func (c *Config) applyLocal(dataDir string, st *LocalState) {
 	}
 	// A user token, not an App: no webhooks and no App settings.
 	c.GitHubAppID, c.GitHubPrivateKeyPath, c.GitHubWebhookSecret = 0, "", ""
+	if os.Getenv("RUNNER_USER") == "" {
+		c.RunnerUser = LocalRunnerUser(runtime.GOOS, os.Getuid(), os.Getgid())
+	}
+}
+
+// LocalRunnerUser is the uid:gid runner containers run as in local mode. On
+// Linux a bind-mounted workspace keeps its owner, so the runner runs as the
+// user who owns it (the one running jungle-monkey); Docker Desktop (macOS,
+// Windows) ignores ownership on bind mounts and keeps the image's runner
+// user. The agent image's HOME is writable by any uid.
+func LocalRunnerUser(goos string, uid, gid int) string {
+	if goos != "linux" || uid < 0 || gid < 0 {
+		return "1000:1000"
+	}
+	return fmt.Sprintf("%d:%d", uid, gid)
 }
 
 // Version is the release version, set with -ldflags "-X ...config.Version=v1.2.3".
@@ -182,6 +197,16 @@ func RunnerImageFor(version string) string {
 		tag = version
 	}
 	return "ghcr.io/andrewsl105/fleetpocket-agent:" + tag
+}
+
+// ServerImageFor is the server image matching this binary; local mode runs
+// its egress proxy sidecar from it (`fleetpocket egress-proxy`).
+func ServerImageFor(version string) string {
+	tag := "latest"
+	if version != "" && version != "dev" {
+		tag = version
+	}
+	return "ghcr.io/andrewsl105/fleetpocket-server:" + tag
 }
 
 // loadLocal applies local mode on top of the environment.
@@ -203,6 +228,9 @@ func (c *Config) loadLocal() error {
 	if os.Getenv("RUNNER_IMAGE") == "" {
 		c.RunnerImage = RunnerImageFor(Version)
 	}
+	if os.Getenv("EGRESS_PROXY_IMAGE") == "" {
+		c.EgressProxyImage = ServerImageFor(Version)
+	}
 	return nil
 }
 
@@ -216,6 +244,6 @@ func PickPort(preferred int) int {
 	if err != nil {
 		return preferred
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port
 }

@@ -317,6 +317,8 @@ func (r *Remote) call(ctx context.Context, method string, params, out any) error
 			return ErrOffline
 		case m.ErrorKind == ErrKindInvalidDiff:
 			return fmt.Errorf("%w: %s", workspace.ErrInvalidDiff, m.Error)
+		case m.ErrorKind == ErrKindCheckpointGone:
+			return fmt.Errorf("%w: %s", workspace.ErrCheckpointGone, m.Error)
 		case m.Error != "":
 			return fmt.Errorf("node %s: %s", r.id, m.Error)
 		}
@@ -347,6 +349,9 @@ func (r *Remote) repo(ctx context.Context, repo workspace.Repo) (RepoParams, err
 // ---- Host ----
 
 func (r *Remote) PrepareWorkspace(ctx context.Context, taskID int64, repo workspace.Repo, branch string) error {
+	if repo.LocalPath != "" {
+		return ErrLocalRepoOnNode
+	}
 	rp, err := r.repo(ctx, repo)
 	if err != nil {
 		return err
@@ -382,6 +387,32 @@ func (r *Remote) Push(ctx context.Context, taskID int64, repo workspace.Repo, br
 		return err
 	}
 	return r.call(ctx, MPush, TaskParams{TaskID: taskID, Branch: branch, RepoParams: rp}, nil)
+}
+
+func (r *Remote) CheckpointDiff(ctx context.Context, taskID int64, ref, sha string, limit int) (string, bool, error) {
+	var res DiffResult
+	err := r.call(ctx, MCheckpointDiff, TaskParams{TaskID: taskID, Ref: ref, SHA: sha, Limit: limit}, &res)
+	return res.Diff, res.Truncated, err
+}
+
+func (r *Remote) RestoreCheckpoint(ctx context.Context, taskID int64, ref, sha string) error {
+	return r.call(ctx, MRestoreCheckpoint, TaskParams{TaskID: taskID, Ref: ref, SHA: sha}, nil)
+}
+
+func (r *Remote) Diverged(ctx context.Context, taskID int64, branch string) (bool, error) {
+	var d bool
+	err := r.call(ctx, MDiverged, TaskParams{TaskID: taskID, Branch: branch}, &d)
+	return d, err
+}
+
+func (r *Remote) ForcePush(ctx context.Context, taskID int64, repo workspace.Repo, branch string) (string, error) {
+	rp, err := r.repo(ctx, repo)
+	if err != nil {
+		return "", err
+	}
+	var old string
+	err = r.call(ctx, MForcePush, TaskParams{TaskID: taskID, Branch: branch, RepoParams: rp}, &old)
+	return old, err
 }
 
 func (r *Remote) RemoveWorkspace(ctx context.Context, taskID int64) error {
@@ -594,3 +625,15 @@ func short(id string) string {
 	}
 	return id
 }
+
+func (r *Remote) DeliverLocal(context.Context, int64, LocalDelivery) (*workspace.Delivery, error) {
+	return nil, ErrLocalRepoOnNode
+}
+
+func (r *Remote) MergeLocal(context.Context, string, string) (*workspace.MergeResult, error) {
+	return nil, ErrLocalRepoOnNode
+}
+
+func (r *Remote) CheckoutLocal(context.Context, string, string) error { return ErrLocalRepoOnNode }
+
+func (r *Remote) DiscardLocal(context.Context, string, string) error { return ErrLocalRepoOnNode }

@@ -47,6 +47,43 @@ type Repo struct {
 	FullName       string
 	InstallationID int64
 	BaseBranch     string
+
+	// LocalPath is set for a local repository (MODE=local): the workspace
+	// is a copy of that folder (local.go). StartFrom is StartLastCommit or
+	// StartWorkingTree; Resume is the branch delivered before, which a
+	// re-created workspace starts from.
+	// FullName of a local repository is its GitHub "owner/name" (from its
+	// origin remote), which Push and ForcePush use ("Push & open PR").
+	LocalPath string
+	StartFrom string
+	Resume    string
+}
+
+// pushTarget is where Push and ForcePush send the branch: origin, or the
+// GitHub repository of a local repository (its origin is the folder).
+func (m *Manager) pushTarget(r Repo) string {
+	if r.LocalPath != "" {
+		return m.remote(r.FullName)
+	}
+	return "origin"
+}
+
+// GitHubFullName returns "owner/name" for a GitHub remote URL (https, ssh or
+// scp-like), else "".
+func GitHubFullName(remote string) string {
+	r := strings.TrimSpace(remote)
+	for _, p := range []string{"https://github.com/", "http://github.com/", "ssh://git@github.com/", "git@github.com:", "git://github.com/"} {
+		if strings.HasPrefix(strings.ToLower(r), p) {
+			r = r[len(p):]
+			r = strings.TrimSuffix(strings.TrimSuffix(r, "/"), ".git")
+			owner, name, ok := strings.Cut(r, "/")
+			if !ok || owner == "" || name == "" || strings.Contains(name, "/") {
+				return ""
+			}
+			return owner + "/" + name
+		}
+	}
+	return ""
 }
 
 // Prepare makes sure the task workspace is a checkout of branch. A new branch
@@ -65,6 +102,9 @@ func (m *Manager) Prepare(ctx context.Context, taskID int64, repo Repo, branch s
 			}
 		}
 		return nil
+	}
+	if repo.LocalPath != "" {
+		return m.prepareLocal(ctx, taskID, repo, branch)
 	}
 	if err := os.MkdirAll(m.Dir, 0o755); err != nil {
 		return err
@@ -145,7 +185,7 @@ func (m *Manager) Push(ctx context.Context, taskID int64, repo Repo, branch stri
 	if err != nil {
 		return err
 	}
-	_, err = git(ctx, m.Path(taskID), auth, "push", "origin", "HEAD:refs/heads/"+branch)
+	_, err = git(ctx, m.Path(taskID), auth, "push", m.pushTarget(repo), "HEAD:refs/heads/"+branch)
 	if err != nil {
 		return err
 	}

@@ -17,8 +17,21 @@ import {
   upsertTask,
   type EventsData,
 } from './cache'
-import type { Agent, ApiEvent, Attachment, Health, HostNode, Project, ProjectFields, Run, TaskView } from './types'
+import type {
+  ApiEvent,
+  Attachment,
+  CIAutoFixSettings,
+  Egress,
+  Health,
+  HostNode,
+  MCPServerInput,
+  Project,
+  ProjectFields,
+  Run,
+  TaskView,
+} from './types'
 import { isApiError } from './errors'
+import type { paths } from './schema'
 import { GROUPS } from '@/lib/status'
 import { t } from '@/i18n/en'
 import { haptic } from '@/telegram/haptics'
@@ -169,7 +182,7 @@ function useTaskResult() {
   }
 }
 
-type CreateBody = { project_id: string; prompt: string; repository_id?: number; title?: string; agent?: Agent; node?: string }
+type CreateBody = paths['/api/v1/tasks']['post']['requestBody']['content']['application/json']
 
 /** Multipart body: the JSON fields as form fields plus files[] (API.md, "Attachments"). */
 export function toFormData(fields: Record<string, string | number | undefined>, files: File[]): FormData {
@@ -185,7 +198,15 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: ({ files = [], onProgress, ...body }: CreateBody & { files?: File[]; onProgress?: UploadProgress }) =>
       files.length
-        ? uploadForm<TaskView>('/api/v1/tasks', toFormData(body, files), onProgress)
+        ? uploadForm<TaskView>(
+            '/api/v1/tasks',
+            // Multipart takes the skill slugs comma-separated and the loop as JSON.
+            toFormData(
+              { ...body, skills_add: body.skills_add?.join(','), skills_remove: body.skills_remove?.join(','), loop: body.loop ? JSON.stringify(body.loop) : undefined },
+              files,
+            ),
+            onProgress,
+          )
         : call(api.POST('/api/v1/tasks', { params: { header: CSRF }, body })),
     onSuccess: (task) => {
       apply(task)
@@ -458,13 +479,113 @@ export function useDeleteNode(id: string) {
 
 // ---- System ----
 
+const meQuery = {
+  queryKey: keys.me,
+  queryFn: ({ signal }: { signal: AbortSignal }) => call(api.GET('/api/v1/me', { signal })),
+  staleTime: 5 * 60_000,
+}
+
 /** The agents tasks may use (those with credentials on the server) and the default. */
 export function useAgents() {
+  return useQuery({ ...meQuery, select: (s) => ({ agents: s.agents, defaultAgent: s.default_agent }) })
+}
+
+/** The session, the agents and the mode (`server`, or `local` for `npx jungle-monkey`). */
+export function useMe() {
+  return useQuery(meQuery)
+}
+
+/** `local` on `npx jungle-monkey`; undefined while /me loads. */
+export function useMode(): 'server' | 'local' | undefined {
+  return useQuery({ ...meQuery, select: (s) => s.mode }).data
+}
+
+export function useAutoFixDefaults() {
   return useQuery({
-    queryKey: keys.me,
-    queryFn: ({ signal }) => call(api.GET('/api/v1/me', { signal })),
-    staleTime: 5 * 60_000,
-    select: (s) => ({ agents: s.agents, defaultAgent: s.default_agent }),
+    queryKey: keys.autofixDefaults,
+    queryFn: ({ signal }) => call(api.GET('/api/v1/settings/ci-autofix', { signal })),
+    staleTime: 60_000,
+  })
+}
+
+export function useSaveAutoFixDefaults() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CIAutoFixSettings) => call(api.PUT('/api/v1/settings/ci-autofix', { params: { header: CSRF }, body })),
+    onSuccess: (data) => qc.setQueryData(keys.autofixDefaults, data),
+  })
+}
+
+// ---- Integrations (MCP servers, egress) ----
+
+export function useIntegrations(projectId: string | undefined) {
+  return useQuery({
+    queryKey: keys.integrations(projectId ?? ''),
+    queryFn: ({ signal }) =>
+      call(api.GET('/api/v1/projects/{id}/integrations', { params: { path: { id: projectId ?? '' } }, signal })),
+    enabled: !!projectId,
+  })
+}
+
+export function useGlobalMCPServers() {
+  return useQuery({
+    queryKey: keys.globalMCP,
+    queryFn: ({ signal }) => call(api.GET('/api/v1/mcp-servers', { signal })),
+  })
+}
+
+function useInvalidateIntegrations() {
+  const qc = useQueryClient()
+  return () => {
+    void qc.invalidateQueries({ queryKey: keys.integrationsAll })
+    void qc.invalidateQueries({ queryKey: keys.globalMCP })
+  }
+}
+
+export function useSaveIntegrations(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { egress?: Egress; global_server_ids?: number[] }) =>
+      call(api.PUT('/api/v1/projects/{id}/integrations', { params: { path: { id: projectId }, header: CSRF }, body })),
+    onSuccess: (data) => qc.setQueryData(keys.integrations(projectId), data),
+  })
+}
+
+export function useSaveMCPServer() {
+  const invalidate = useInvalidateIntegrations()
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: number; body: MCPServerInput }) =>
+      id
+        ? call(api.PUT('/api/v1/mcp-servers/{id}', { params: { path: { id }, header: CSRF }, body }))
+        : call(api.POST('/api/v1/mcp-servers', { params: { header: CSRF }, body })),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteMCPServer() {
+  const invalidate = useInvalidateIntegrations()
+  return useMutation({
+    mutationFn: (id: number) => call(api.DELETE('/api/v1/mcp-servers/{id}', { params: { path: { id }, header: CSRF } })),
+    onSuccess: invalidate,
+    onError: toastError,
+  })
+}
+
+export function useTestMCPServer() {
+  const invalidate = useInvalidateIntegrations()
+  return useMutation({
+    mutationFn: (id: number) => call(api.POST('/api/v1/mcp-servers/{id}/test', { params: { path: { id }, header: CSRF } })),
+    onSettled: invalidate,
+  })
+}
+
+export function useAllowEgress(projectId: string) {
+  const invalidate = useInvalidateIntegrations()
+  return useMutation({
+    mutationFn: (host: string) =>
+      call(api.POST('/api/v1/projects/{id}/egress/allow', { params: { path: { id: projectId }, header: CSRF }, body: { host } })),
+    onSuccess: invalidate,
+    onError: toastError,
   })
 }
 

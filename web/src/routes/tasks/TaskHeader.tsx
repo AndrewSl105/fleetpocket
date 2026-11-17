@@ -13,16 +13,24 @@ import {
 import { HostChip } from '@/components/HostChip'
 import { hostInfo } from '@/lib/hosts'
 import { StatusBadge } from '@/components/StatusBadge'
+import { CIBadge } from '@/components/CIBadge'
 import { useConfirm } from '@/components/confirm'
 import { CopyButton, copyText } from '@/components/CopyButton'
 import { can } from '@/lib/status'
-import { usd } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { Cost } from '@/components/Cost'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { taskNumber } from './TaskCard'
+import { useBudgetOverride } from '@/api/costs'
+import { c } from '@/i18n/costs'
+import { isLocalRepo, shownBranch } from '@/lib/local'
+import { BranchPanel } from './BranchPanel'
 
 export function githubUrl(task: TaskView): string | null {
   if (task.pr_url) return task.pr_url
+  // A local repository's full_name is its folder name; its branches are not on GitHub.
+  if (isLocalRepo(task.repository)) return null
   const repo = task.repository?.full_name
   if (!repo) return null
   return task.branch ? `https://github.com/${repo}/tree/${encodeURIComponent(task.branch)}` : `https://github.com/${repo}`
@@ -36,6 +44,25 @@ function HostWaiting({ task }: { task: TaskView }) {
   if (h.online || ['completed', 'failed', 'cancelled'].includes(task.status)) return null
   return (
     <p className="mt-2 bg-grid px-2.5 py-1.5 text-xs text-signal-text">{t.hosts.waitingFor(h.name)}</p>
+  )
+}
+
+/** A queued task that a monthly cap holds: say so, with the owner's override. */
+function BudgetWaiting({ task }: { task: TaskView }) {
+  const override = useBudgetOverride(task.id)
+  if (task.status !== 'queued' || !task.budget_wait) return null
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
+      <p className="min-w-0 flex-1">{c.waitingBudget(task.budget_wait)}</p>
+      <button
+        type="button"
+        onClick={() => override.mutate()}
+        disabled={override.isPending}
+        className="fm-btn inline-flex h-11 items-center px-3 font-semibold disabled:opacity-60"
+      >
+        {c.startAnyway}
+      </button>
+    </div>
   )
 }
 
@@ -57,8 +84,10 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
     if (await confirm(t.task.confirmMerge(task.pr_number), t.task.actions.merge)) action.mutate('merge')
   }
 
+  const branch = shownBranch(task)
+
   function copyBranch() {
-    if (task.branch) void copyText(task.branch)
+    if (branch) void copyText(branch)
   }
 
   return (
@@ -101,7 +130,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
                 <RotateCcw /> {t.task.actions.retry}
               </DropdownMenuItem>
             )}
-            {task.branch && (
+            {branch && (
               <DropdownMenuItem className="h-10" onSelect={copyBranch}>
                 <Copy /> {t.task.actions.copyBranch}
               </DropdownMenuItem>
@@ -127,12 +156,17 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
         <StatusBadge status={task.status} />
+        <CIBadge task={task} />
         <span className="truncate">
           {task.project_id}
           {task.repository && <span className="font-mono"> / {task.repository.full_name.split('/').pop()}</span>}
         </span>
         <HostChip node={task.node} />
-        <span className="tabular-nums">{usd(task.cost_usd_total)}</span>
+        <span className="tabular-nums" title={task.cost_api_equivalent ? c.apiEquivalentHint : undefined}>
+          <Cost value={task.cost_usd_total} estimated={task.cost_estimated} unknown={task.cost_unknown} />
+          {task.cost_api_equivalent && <span className="fm-label ml-1">{c.apiEquivalent}</span>}
+          {task.autofix_cost_usd > 0 && <span> ({c.autofixShare(task.autofix_cost_usd)})</span>}
+        </span>
         {task.turns > 0 && <span className="tabular-nums">{t.task.turns(task.turns)}</span>}
         {task.pr_url && task.pr_number && (
           <a
@@ -157,10 +191,18 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
           </button>
         )}
       </div>
-      {task.branch && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{task.branch}</p>}
+      {branch && task.status !== 'branch_ready' && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{branch}</p>}
       <HostWaiting task={task} />
-      {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused') && (
-        <div className="mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs text-danger">
+      <BudgetWaiting task={task} />
+      <BranchPanel task={task} />
+      {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused' || task.status === 'branch_ready') && (
+        // branch_ready: a failed Push & open PR is an error; a run limit noted at delivery is not.
+        <div
+          className={cn(
+            'mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs',
+            task.status !== 'branch_ready' || task.status_reason.startsWith('push failed') ? 'text-danger' : 'text-muted-foreground',
+          )}
+        >
           <p className="min-w-0 flex-1 py-1 break-words">{task.status_reason}</p>
           <CopyButton text={task.status_reason} label={t.task.copyError} className="-my-0.5" />
         </div>

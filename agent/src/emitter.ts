@@ -15,6 +15,10 @@ export class Emitter {
   private readonly logPath: string | null;
   private readonly write: (line: string) => void;
   private readonly now: () => Date;
+  // Hooks around each emit (checkpoints); events they emit are not hooked again.
+  before: ((body: EventBody) => void) | null = null;
+  after: ((body: EventBody) => void) | null = null;
+  private hooking = false;
 
   constructor(opts: EmitterOptions) {
     this.write = opts.write ?? ((line) => process.stdout.write(line));
@@ -24,6 +28,24 @@ export class Emitter {
   }
 
   emit(body: EventBody): RunnerEvent {
+    if (this.hooking) return this.write1(body);
+    this.hooking = true;
+    try {
+      this.before?.(body);
+    } finally {
+      this.hooking = false;
+    }
+    const ev = this.write1(body);
+    this.hooking = true;
+    try {
+      this.after?.(body);
+    } finally {
+      this.hooking = false;
+    }
+    return ev;
+  }
+
+  private write1(body: EventBody): RunnerEvent {
     const ev = { ...body, ts: this.now().toISOString(), seq: ++this.seq } as RunnerEvent;
     const line = JSON.stringify(ev) + "\n";
     this.write(line);

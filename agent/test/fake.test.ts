@@ -5,8 +5,9 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 
-const MAIN = new URL("../src/main.ts", import.meta.url).pathname;
+const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
 
 function repo(): string {
   const dir = mkdtempSync(join(tmpdir(), "fleetpocket-server-"));
@@ -128,4 +129,38 @@ test("invalid command emits error but keeps running", async () => {
   assert.equal(err.code, "bad_command");
   r.send({ type: "cancel" });
   assert.equal(await r.exited, 2);
+});
+
+test("fake session: a loop iteration commits, takes its final checkpoint, runs the check, then done", async () => {
+  const ws = repo();
+  const r = start(ws);
+  await r.waitFor("ready");
+  r.send({ ...run(), checkpoints: { run_id: "9" }, check: { command: "test -f FLEETPOCKET_FAKE.md && echo checked; exit 1" } });
+  await r.waitFor("question");
+  r.send({ type: "answer", question_id: "q1", text: "hello" });
+  assert.equal(await r.exited, 0);
+  const types = r.events.map((e) => e.type);
+  const tail = types.slice(types.indexOf("committed"));
+  assert.deepEqual(tail, ["committed", "checkpoint", "check", "done"]);
+  const cp = r.events.find((e) => e.type === "checkpoint" && e.reason === "iteration");
+  assert.ok(cp, "iteration checkpoint");
+  const check = r.events.find((e) => e.type === "check");
+  assert.equal(check.exit_code, 1);
+  assert.match(check.output, /checked/);
+  assert.equal(check.command, "test -f FLEETPOCKET_FAKE.md && echo checked; exit 1");
+});
+
+test("fake session: allow_empty commits a clean tree", async () => {
+  const ws = repo();
+  const r = start(ws);
+  await r.waitFor("ready");
+  const cmd = run();
+  r.send({ ...cmd, commit: { ...cmd.commit, allow_empty: true } });
+  await r.waitFor("question");
+  r.send({ type: "interrupt" });
+  assert.equal(await r.exited, 0);
+  assert.ok(r.events.some((e) => e.type === "committed"));
+  assert.equal(r.events.at(-1).no_changes, false);
+  const n = execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: ws, encoding: "utf8" }).trim();
+  assert.equal(n, "2");
 });

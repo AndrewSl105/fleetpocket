@@ -10,6 +10,7 @@ import { usd } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { withOpenQuestion } from '@/routes/tasks/Timeline'
 import { dividerText } from '@/routes/tasks/TimelineRow'
+import { branchActionText, branchReadyText } from '@/lib/local'
 import { t } from '@/i18n/en'
 import { TITLE_H, type WindowState } from './layout'
 
@@ -24,6 +25,7 @@ const LED: Record<TaskStatus, string> = {
   paused: '#8390a5',
   pushing: '#7aa2f7',
   pr_open: '#c4a7ff',
+  branch_ready: '#c4a7ff',
   completed: '#7fd1a4',
   failed: '#f28b82',
   cancelled: '#8390a5',
@@ -236,6 +238,10 @@ const Line = memo(function Line({ item, taskId, open }: { item: TimelineItem; ta
           ✗ {item.title}: {item.message}
         </p>
       )
+    case 'branch_ready':
+      return <p className="text-[var(--term-ok)]">⎇ {branchReadyText(item)}</p>
+    case 'branch_action':
+      return <p className="text-[var(--term-dim)]">⎇ {branchActionText(item)}</p>
   }
 })
 
@@ -323,7 +329,7 @@ export function Prompt({ task, stopping }: { task: TaskView; stopping: boolean }
         aria-label={label}
         className="fp-term-input min-w-0 flex-1 outline-none"
       />
-      <span className="shrink-0 text-[11px] text-[var(--term-dim)] tabular-nums">{usd(task.cost_usd_total)}</span>
+      <span className="shrink-0 text-[11px] text-[var(--term-dim)] tabular-nums">{usd(task.cost_usd_total, task.cost_estimated, task.cost_unknown)}</span>
       {can(task.status, 'interrupt') && !stopping && (
         <button
           type="button"

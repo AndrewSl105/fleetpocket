@@ -95,6 +95,67 @@ test.describe('screens', () => {
     await shot(page, 'task-pr')
   })
 
+  test('task with CI green after 1 fix', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/tasks/10')
+    await expect(page.getByRole('heading', { name: 'Add totals row to the CSV export' })).toBeVisible()
+    await expect(page.getByTestId('ci-badge')).toHaveText('CI ✓')
+    await expect(page.getByText('✓ CI green after 1 fix')).toBeVisible()
+    await shot(page, 'task-ci-green')
+  })
+
+  test('restore-checkpoint dialog', async ({ page }) => {
+    await open(page, '/')
+    await login(page)
+    await page.getByRole('tab', { name: 'PR open' }).click()
+  await page.getByText('Add an orders table').first().click()
+    await expect(page.getByRole('button', { name: /Abandoned branch/ })).toBeVisible()
+    await page.getByRole('button', { name: /Restore here/ }).last().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('db/schema.sql')).toBeVisible()
+    await dialog.getByLabel('Then (optional)').fill('…then do it with a migration instead')
+    await shot(page, 'restore-checkpoint')
+  })
+
+  test('integrations', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/projects/vatary/integrations')
+    await expect(page.getByRole('heading', { name: 'Vatary · Integrations' })).toBeVisible()
+    await expect(page.getByText('Tasks get: db, linear, sentry')).toBeVisible()
+    await shot(page, 'integrations')
+  })
+
+  test('costs', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/costs')
+    await expect(page.getByRole('heading', { name: 'By project' })).toBeVisible()
+    await shot(page, 'costs')
+  })
+
+  test('skills', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/skills')
+    await expect(page.getByText('pr-checklist')).toBeVisible()
+    await shot(page, 'skills')
+  })
+
+  test('schedules', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/schedules')
+    await expect(page.getByText('Nightly test fixer')).toBeVisible()
+    await shot(page, 'schedules')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

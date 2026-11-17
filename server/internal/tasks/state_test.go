@@ -7,6 +7,8 @@ func TestTransitions(t *testing.T) {
 		{Queued, Preparing}, {Preparing, Running}, {Running, WaitingInput}, {WaitingInput, Running},
 		{WaitingInput, Paused}, {Paused, Queued}, {Running, Pushing}, {Pushing, PROpen},
 		{PROpen, Completed}, {PROpen, Queued}, {Completed, Queued}, {Failed, Queued}, {Running, Completed},
+		{Pushing, BranchReady}, {Running, BranchReady}, {BranchReady, Queued}, {BranchReady, Completed},
+		{BranchReady, Pushing}, {BranchReady, Cancelled},
 	}
 	for _, p := range ok {
 		if !CanTransition(p[0], p[1]) {
@@ -15,6 +17,7 @@ func TestTransitions(t *testing.T) {
 	}
 	bad := [][2]string{
 		{Queued, Running}, {Completed, Running}, {Paused, Running}, {Failed, PROpen}, {Cancelled, Running}, {PROpen, Running},
+		{BranchReady, Running}, {BranchReady, PROpen}, {Queued, BranchReady}, {Completed, BranchReady},
 	}
 	for _, p := range bad {
 		if CanTransition(p[0], p[1]) {
@@ -40,7 +43,7 @@ func TestFrom(t *testing.T) {
 func TestMessageAction(t *testing.T) {
 	cases := map[string]MessageAction{
 		Queued: MessageQueue, Preparing: MessageQueue, Running: MessageQueue, WaitingInput: MessageQueue, Pushing: MessageQueue,
-		Paused: MessageNewRun, PROpen: MessageNewRun, Completed: MessageNewRun,
+		Paused: MessageNewRun, PROpen: MessageNewRun, BranchReady: MessageNewRun, Completed: MessageNewRun,
 		Failed: MessageReject, Cancelled: MessageReject,
 	}
 	for s, want := range cases {
@@ -51,7 +54,7 @@ func TestMessageAction(t *testing.T) {
 }
 
 func TestTerminalAndActive(t *testing.T) {
-	if !IsTerminal(Completed) || IsTerminal(PROpen) {
+	if !IsTerminal(Completed) || IsTerminal(PROpen) || IsTerminal(BranchReady) {
 		t.Fatal("terminal")
 	}
 	if !IsActive(Pushing) || IsActive(Paused) || IsActive(Queued) {

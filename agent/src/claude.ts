@@ -1,10 +1,12 @@
 // Real Claude Code session via @anthropic-ai/claude-agent-sdk.
 import { query, type CanUseTool, type HookCallback, type SDKResultMessage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { ATTACHMENTS_DIR, hasAttachments } from "./attachments.ts";
+import { claudeSessionRef, parseClaudeSessionRef } from "./checkpoint.ts";
 import { QuestionTimeout } from "./control.ts";
 import { ASK_TOOL, Mapper, classifyResult, resultText } from "./mapper.ts";
+import { claudeMcp } from "./mcp.ts";
 import { checkTool } from "./policy.ts";
-import { RUNNER_VERSION } from "./protocol.ts";
+import { RUNNER_VERSION, type RunCommand } from "./protocol.ts";
 import type { Session, SessionOutcome } from "./session.ts";
 
 // Pre-approved tools. AskUserQuestion is available but deliberately NOT
@@ -17,7 +19,43 @@ function userMessage(text: string): SDKUserMessage {
 
 type AskInput = { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> };
 
-export const claudeSession: Session = async ({ cmd, workspace, emitter, control }) => {
+// resumeOptions: a restore resumes the checkpoint's session up to its message
+// and forks it (installed SDK: resume + resumeSessionAt + forkSession); else
+// a plain resume of resume_session_id, or a new session.
+export function resumeOptions(cmd: Pick<RunCommand, "resume_session_id" | "resume_session_ref">): {
+  resume?: string;
+  resumeSessionAt?: string;
+  forkSession?: boolean;
+} {
+  const at = parseClaudeSessionRef(cmd.resume_session_ref);
+  if (at) return { resume: at.sessionId, resumeSessionAt: at.at, forkSession: true };
+  return cmd.resume_session_id ? { resume: cmd.resume_session_id } : {};
+}
+
+// SessionPoint tracks the last settled transcript entry: a user message
+// (tool results) or an assistant message without a tool call. Resuming there
+// never leaves a tool call without its result (e.g. a pending AskUserQuestion).
+export class SessionPoint {
+  sessionId = "";
+  settled = "";
+  track(msg: { type: string; uuid?: string; session_id?: string; message?: unknown }): void {
+    if (msg.session_id) this.sessionId = msg.session_id;
+    if (!msg.uuid) return;
+    if (msg.type === "user") this.settled = msg.uuid;
+    else if (msg.type === "assistant") {
+      const content = (msg.message as { content?: unknown } | undefined)?.content;
+      const callsTool = Array.isArray(content) && content.some((c) => (c as { type?: string })?.type === "tool_use");
+      if (!callsTool) this.settled = msg.uuid;
+    }
+  }
+  ref(): string {
+    return claudeSessionRef(this.sessionId, this.settled);
+  }
+}
+
+export const claudeSession: Session = async ({ cmd, workspace, emitter, control, checkpointer }) => {
+  const point = new SessionPoint();
+  if (checkpointer) checkpointer.sessionRef = () => point.ref();
   const policyOpts = { artifactsOnly: cmd.output === "artifacts" };
   const mapper = new Mapper(workspace);
   // queryAbort ends the SDK session: on cancel (control.abort) and on pause.
@@ -79,6 +117,7 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
     return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason } };
   };
 
+  const mcp = claudeMcp(cmd.mcp);
   const q = query({
     prompt: input(),
     options: {
@@ -86,13 +125,14 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
       // Attached images live outside the workspace; the prompt lists them.
       ...(hasAttachments() ? { additionalDirectories: [ATTACHMENTS_DIR] } : {}),
       ...(cmd.model ? { model: cmd.model } : {}),
-      ...(cmd.resume_session_id ? { resume: cmd.resume_session_id } : {}),
+      ...resumeOptions(cmd),
       maxTurns: cmd.limits.max_turns,
       maxBudgetUsd: cmd.limits.max_budget_usd,
       systemPrompt: { type: "preset", preset: "claude_code", ...(cmd.append_system_prompt ? { append: cmd.append_system_prompt } : {}) },
       settingSources: ["project"],
       tools: [...ALLOWED_TOOLS, ASK_TOOL],
-      allowedTools: ALLOWED_TOOLS,
+      allowedTools: mcp ? [...ALLOWED_TOOLS, ...mcp.allowedTools] : ALLOWED_TOOLS,
+      ...(mcp ? { mcpServers: mcp.mcpServers } : {}),
       permissionMode: "acceptEdits",
       canUseTool,
       hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
@@ -110,6 +150,7 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control 
   let failure: unknown = null;
   try {
     for await (const msg of q) {
+      point.track(msg as Parameters<SessionPoint["track"]>[0]);
       for (const ev of mapper.map(msg)) emitter.emit(ev);
       if (msg.type === "result") {
         last = msg;

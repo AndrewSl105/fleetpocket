@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/costs"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 )
 
@@ -15,7 +16,7 @@ const maxMessage = 4000
 
 var statusIcon = map[string]string{
 	"queued": "⏳", "preparing": "⏳", "running": "⏳", "waiting_input": "❓", "paused": "⏸️",
-	"pushing": "⏳", "pr_open": "✅", "completed": "✅", "failed": "❌", "cancelled": "🚫",
+	"pushing": "⏳", "pr_open": "✅", "branch_ready": "⎇", "completed": "✅", "failed": "❌", "cancelled": "🚫",
 }
 
 func esc(s string) string { return html.EscapeString(s) }
@@ -56,7 +57,11 @@ func renderCard(c cardData) string {
 	fmt.Fprintf(&b, "%s <b>#%d · %s</b>\n%s / %s\n", statusIcon[t.Status], t.ID, esc(cut(t.Title, 120)), esc(t.ProjectID), esc(repo))
 	switch t.Status {
 	case "queued":
-		b.WriteString("⏳ In queue")
+		if t.BudgetWait != nil {
+			b.WriteString("⏸ Waiting: budget")
+		} else {
+			b.WriteString("⏳ In queue")
+		}
 	case "preparing":
 		b.WriteString("⏳ Preparing…")
 	case "running", "pushing":
@@ -71,7 +76,7 @@ func renderCard(c cardData) string {
 		if t.Status == "pushing" {
 			label = "Opening PR"
 		}
-		fmt.Fprintf(&b, "⏳ %s · %s · %d turns · $%.2f", label, shortDuration(c.Now.Sub(started)), t.Turns, t.CostUSDTotal)
+		fmt.Fprintf(&b, "⏳ %s · %s · %d turns · %s", label, shortDuration(c.Now.Sub(started)), t.Turns, costs.Format(t.CostUSDTotal, t.CostEstimated, t.CostUnknown))
 		if t.LastActivity != nil && strings.TrimSpace(*t.LastActivity) != "" {
 			if activity := activityLine(*t.LastActivity); activity != "" {
 				fmt.Fprintf(&b, "\n%s", esc(activity))
@@ -79,6 +84,11 @@ func renderCard(c cardData) string {
 		}
 	case "waiting_input":
 		b.WriteString("❓ Waiting for your answer")
+	case "branch_ready":
+		b.WriteString("⎇ Branch ready")
+		if t.LocalBranch != nil {
+			fmt.Fprintf(&b, ": <code>%s</code>", esc(*t.LocalBranch))
+		}
 	case "pr_open":
 		created := t.CreatedAt
 		if created.IsZero() {
@@ -93,13 +103,13 @@ func renderCard(c cardData) string {
 				ci = "✗"
 			}
 		}
-		fmt.Fprintf(&b, "✅ PR #%d · CI %s · $%.2f · %s", deref(t.PRNumber), ci, t.CostUSDTotal, shortDuration(c.Now.Sub(created)))
+		fmt.Fprintf(&b, "✅ PR #%d · CI %s · %s · %s", deref(t.PRNumber), ci, costs.Format(t.CostUSDTotal, t.CostEstimated, t.CostUnknown), shortDuration(c.Now.Sub(created)))
 	case "failed":
 		b.WriteString("❌ " + esc(humanizeError(deref(t.StatusReason)).Summary))
 	case "cancelled":
 		b.WriteString("🚫 Cancelled")
 	case "completed":
-		fmt.Fprintf(&b, "✅ Completed · $%.2f · %s", t.CostUSDTotal, shortDuration(c.Now.Sub(t.CreatedAt)))
+		fmt.Fprintf(&b, "✅ Completed · %s · %s", costs.Format(t.CostUSDTotal, t.CostEstimated, t.CostUnknown), shortDuration(c.Now.Sub(t.CreatedAt)))
 	case "paused":
 		b.WriteString("⏸️ Paused")
 	default:
@@ -130,7 +140,7 @@ func shortDuration(d time.Duration) string {
 func activityLine(s string) string {
 	s = cut(strings.TrimSpace(strings.SplitN(s, "\n", 2)[0]), 180)
 	l := strings.ToLower(s)
-	for _, status := range []string{"queued", "preparing", "running", "waiting_input", "paused", "pushing", "pr_open", "completed", "failed", "cancelled"} {
+	for _, status := range []string{"queued", "preparing", "running", "waiting_input", "paused", "pushing", "pr_open", "branch_ready", "completed", "failed", "cancelled"} {
 		if l == status || strings.HasPrefix(l, status+":") {
 			return ""
 		}

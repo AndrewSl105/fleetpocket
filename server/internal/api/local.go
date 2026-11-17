@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -46,6 +47,21 @@ func (l *Local) loginCodes() *auth.Tickets {
 // LoginURL is the link the CLI opens in the browser.
 func (l *Local) LoginURL(code string) string {
 	return fmt.Sprintf("http://127.0.0.1:%d/auth/local?code=%s", l.Port, code)
+}
+
+// LoginURLTo is LoginURL that lands on next (an app path such as
+// /projects/site) after logging in.
+func (l *Local) LoginURLTo(code, next string) string {
+	u := l.LoginURL(code)
+	if safeNext(next) {
+		u += "&next=" + url.QueryEscape(next)
+	}
+	return u
+}
+
+// safeNext accepts only same-origin app paths ("/x", not "//host" or "/\host").
+func safeNext(next string) bool {
+	return strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") && !strings.ContainsAny(next, "\\\r\n")
 }
 
 // hostAllowed rejects DNS rebinding: a page on evil.example resolving to
@@ -89,7 +105,11 @@ func (s *Server) localLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	dest := "/"
+	if next := r.URL.Query().Get("next"); safeNext(next) {
+		dest = next
+	}
+	http.Redirect(w, r, dest, http.StatusSeeOther)
 }
 
 func (s *Server) requireControl(next http.HandlerFunc) http.HandlerFunc {

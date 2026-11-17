@@ -1,3 +1,4 @@
+import type { Checkpointer } from "./checkpoint.ts";
 import type { Control } from "./control.ts";
 import type { Emitter } from "./emitter.ts";
 import type { RunCommand } from "./protocol.ts";
@@ -7,6 +8,8 @@ export interface SessionContext {
   workspace: string;
   emitter: Emitter;
   control: Control;
+  // Set when the run takes checkpoints; sessions give it their session_ref.
+  checkpointer?: Checkpointer | null;
 }
 
 export type SessionOutcome =

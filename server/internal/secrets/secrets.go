@@ -128,5 +128,9 @@ func (s *Store) writeFile(m map[string]string) error {
 // GitHubToken is the name of the local-mode GitHub user token.
 const GitHubToken = "GITHUB_TOKEN"
 
+// SecretsKey is local mode's SECRETS_KEY (internal/secretbox), generated on
+// the first start.
+const SecretsKey = "SECRETS_KEY"
+
 // AgentKeys are the variables that enable agents (config.AgentEnv).
 var AgentKeys = []string{"CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CURSOR_API_KEY"}

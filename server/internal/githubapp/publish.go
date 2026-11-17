@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/costs"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -13,13 +14,21 @@ import (
 // Publisher implements scheduler.Publisher: validate, push, open or update the PR.
 // The workspace operations run on the task's host (PublishInput.Host).
 type Publisher struct {
-	App *App
+	// App is the GitHub client: the GitHub App (server mode) or the owner's
+	// token (local mode, UserClient).
+	App Client
+	// Connected reports whether GitHub can be used right now; nil means
+	// always (server mode). Local mode: a token is stored.
+	Connected func() bool
 	// RequireScanner fails the publish when the host cannot run the secrets
 	// scan (SECRETS_SCAN=gitleaks).
 	RequireScanner bool
 	// TaskURL links back to the task in the web app.
 	TaskURL func(taskID int64) string
 }
+
+// Enabled implements scheduler.Enabler.
+func (p *Publisher) Enabled() bool { return p.Connected == nil || p.Connected() }
 
 func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*scheduler.PublishResult, error) {
 	t, repo, h := in.Task, in.Repo, in.Host
@@ -29,8 +38,19 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 		}
 		return nil, err
 	}
-	wsRepo := workspace.Repo{FullName: repo.FullName, InstallationID: repo.InstallationID, BaseBranch: repo.BaseBranch}
-	if err := h.Push(ctx, t.ID, wsRepo, in.Branch); err != nil {
+	wsRepo := scheduler.WorkspaceRepo(repo, t)
+	forcedFrom := ""
+	if in.Force {
+		// A restore discarded commits that were already pushed.
+		old, err := h.ForcePush(ctx, t.ID, wsRepo, in.Branch)
+		if errors.Is(err, workspace.ErrNotAgentBranch) {
+			return nil, fmt.Errorf("%w: a restore rewrote branch %s, which Jungle Monkey did not create, so it is not force-pushed", scheduler.ErrRejected, in.Branch)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("force push (with lease): %w", err)
+		}
+		forcedFrom = old
+	} else if err := h.Push(ctx, t.ID, wsRepo, in.Branch); err != nil {
 		return nil, fmt.Errorf("push: %w", err)
 	}
 	stat, _ := h.DiffStat(ctx, t.ID, repo.BaseBranch)
@@ -48,9 +68,9 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 		if err != nil {
 			return nil, err
 		}
-		return &scheduler.PublishResult{PRNumber: pr.Number, PRURL: pr.URL, Created: true}, nil
+		return &scheduler.PublishResult{PRNumber: pr.Number, PRURL: pr.URL, Created: true, ForcedFrom: forcedFrom}, nil
 	}
-	if err := p.App.Comment(ctx, repo.FullName, repo.InstallationID, number, p.comment(in, stat)); err != nil {
+	if err := p.App.Comment(ctx, repo.FullName, repo.InstallationID, number, p.comment(in, stat, forcedFrom)); err != nil {
 		return nil, err
 	}
 	url := ""
@@ -59,7 +79,7 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 	} else {
 		url = fmt.Sprintf("https://github.com/%s/pull/%d", repo.FullName, number)
 	}
-	return &scheduler.PublishResult{PRNumber: number, PRURL: url}, nil
+	return &scheduler.PublishResult{PRNumber: number, PRURL: url, ForcedFrom: forcedFrom}, nil
 }
 
 func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
@@ -74,7 +94,7 @@ func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 	if stat = strings.TrimSpace(stat); stat != "" {
 		fmt.Fprintf(&b, "### Files changed\n\n```\n%s\n```\n\n", stat)
 	}
-	fmt.Fprintf(&b, "Cost: $%.2f · Turns: %d", in.CostUSD, in.Turns)
+	fmt.Fprintf(&b, "Cost: %s · Turns: %d", costs.Format(in.CostUSD, in.Task.CostEstimated, in.Task.CostUnknown), in.Turns)
 	if p.TaskURL != nil {
 		if u := p.TaskURL(in.Task.ID); u != "" {
 			fmt.Fprintf(&b, " · [Task #%d](%s)", in.Task.ID, u)
@@ -84,9 +104,12 @@ func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 	return b.String()
 }
 
-func (p *Publisher) comment(in scheduler.PublishInput, stat string) string {
+func (p *Publisher) comment(in scheduler.PublishInput, stat, forcedFrom string) string {
 	var b strings.Builder
 	b.WriteString("### New run pushed\n\n")
+	if forcedFrom != "" {
+		fmt.Fprintf(&b, "> [!NOTE]\n> The owner restored this task to an earlier checkpoint, so Jungle Monkey rewrote `%s` with `--force-with-lease` (it was at %s). The commits after the checkpoint are no longer on this branch.\n\n", in.Branch, shortSHA(forcedFrom))
+	}
 	if in.Summary != "" {
 		fmt.Fprintf(&b, "%s\n\n", in.Summary)
 	}
@@ -96,7 +119,7 @@ func (p *Publisher) comment(in scheduler.PublishInput, stat string) string {
 	if stat = strings.TrimSpace(stat); stat != "" {
 		fmt.Fprintf(&b, "<details><summary>Files changed (whole PR)</summary>\n\n```\n%s\n```\n</details>\n\n", stat)
 	}
-	fmt.Fprintf(&b, "Task cost so far: $%.2f", in.CostUSD)
+	fmt.Fprintf(&b, "Task cost so far: %s", costs.Format(in.CostUSD, in.Task.CostEstimated, in.Task.CostUnknown))
 	return b.String()
 }
 
@@ -106,4 +129,11 @@ func quote(s string) string {
 		lines[i] = "> " + l
 	}
 	return strings.Join(lines, "\n")
+}
+
+func shortSHA(s string) string {
+	if len(s) > 12 {
+		return s[:12]
+	}
+	return s
 }

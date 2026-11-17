@@ -5,10 +5,17 @@ name: release
 # image: the server never pulls it) and `docker compose up -d`.
 # Run it by hand (workflow_dispatch) to build and deploy everything, e.g. the
 # first time.
+#
+# Push a version tag (vX.Y.Z): the npm release of `npx jungle-monkey` (jobs
+# jm-*): binaries for every target in npm/platforms.json with the web app
+# embedded, the agent image tagged with the same version, a GitHub Release
+# with the binaries and checksums.txt, then npm publish (platform packages
+# first, jungle-monkey last). The deploy jobs above do not run for tags.
 
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
   workflow_dispatch:
 
 permissions:
@@ -27,6 +34,7 @@ env:
 
 jobs:
   changes:
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-24.04
     outputs:
       server: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.server == 'true' }}
@@ -178,3 +186,119 @@ jobs:
             # The Caddyfile is a bind mount: up -d does not restart Caddy for it.
             $compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
             docker image prune -f
+
+  # ---- npm release (version tags) ----
+
+  jm-binaries:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Web app
+        run: cd web && npm ci
+      # Every target in npm/platforms.json, CGO off, the web app embedded,
+      # config.Version = the tag (it picks the agent image tag).
+      - name: Binaries
+        run: make jungle-monkey-all JM_VERSION="$GITHUB_REF_NAME"
+      - name: Every platform in npm/platforms.json was built
+        run: |
+          for key in $(jq -r '.[].key' npm/platforms.json); do
+            ext=; [ "${key%%-*}" = win32 ] && ext=.exe
+            test -s "bin/jungle-monkey-$key$ext"
+          done
+      - name: npm packages
+        run: node npm/build.mjs "$GITHUB_REF_NAME" bin
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jm-release
+          path: |
+            bin/jungle-monkey-*
+            bin/checksums.txt
+            npm/dist/
+          if-no-files-found: error
+
+  jm-agent-image:
+    # The binary pulls fleetpocket-agent:<tag> (config.RunnerImageFor).
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: agent
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.AGENT_IMAGE }}:${{ github.ref_name }}
+          cache-from: type=gha,scope=agent
+
+  jm-github-release:
+    needs: [jm-binaries, jm-agent-image]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: jm-release
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            bin/jungle-monkey-*
+            bin/checksums.txt
+
+  jm-npm-publish:
+    # Trusted publishing (OIDC) when the repository variable
+    # NPM_TRUSTED_PUBLISHING is "true", else the NPM_TOKEN secret; without
+    # either the job says so and succeeds (docs/LOCAL.md, owner checklist).
+    needs: jm-github-release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # npm provenance and trusted publishing
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      TRUSTED: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: jm-release
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Publish
+        run: |
+          if [ "$TRUSTED" != true ] && [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::notice::npm publish skipped: set NPM_TOKEN or configure trusted publishing (NPM_TRUSTED_PUBLISHING=true)"
+            exit 0
+          fi
+          # Trusted publishing needs npm >= 11.5.1.
+          npm install -g "npm@^11.5.1"
+          if [ "$TRUSTED" = true ]; then unset NODE_AUTH_TOKEN; fi
+          version="${GITHUB_REF_NAME#v}"
+          publish() {
+            name=$(jq -r .name "$1/package.json")
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is already published"
+              return
+            fi
+            (cd "$1" && npm publish --access public --provenance)
+          }
+          for dir in npm/dist/*/; do
+            [ "$(basename "$dir")" = jungle-monkey ] || publish "$dir"
+          done
+          publish npm/dist/jungle-monkey

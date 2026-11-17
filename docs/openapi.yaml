@@ -21,6 +21,8 @@ tags:
   - name: tasks
   - name: nodes
   - name: system
+  - name: settings
+  - name: schedules
 
 paths:
   /api/v1/setup/status:
@@ -329,19 +331,31 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [full_name, installation_id]
-              additionalProperties: false
-              properties:
-                full_name: { type: string, example: andrewsl105/vatary-server }
-                installation_id: { type: integer, format: int64 }
-                base_branch: { allOf: [{ $ref: '#/components/schemas/BranchName' }], default: dev }
-                is_default: { type: boolean, default: false }
+              oneOf:
+                - type: object
+                  required: [full_name, installation_id]
+                  additionalProperties: false
+                  properties:
+                    full_name: { type: string, example: andrewsl105/vatary-server }
+                    installation_id: { type: integer, format: int64 }
+                    base_branch: { allOf: [{ $ref: '#/components/schemas/BranchName' }], default: dev }
+                    is_default: { type: boolean, default: false }
+                    source: { type: string, enum: [github] }
+                - type: object
+                  description: 'A local repository (local mode only; `400 local_mode_only` otherwise). Same as `POST /local/repos` with this project'
+                  required: [source, path]
+                  additionalProperties: false
+                  properties:
+                    source: { type: string, enum: [local] }
+                    path: { type: string, description: Absolute path of the work tree }
       responses:
         '201':
           description: Added
           content: { application/json: { schema: { $ref: '#/components/schemas/Repository' } } }
-        '400': { $ref: '#/components/responses/Error' }
+        '200':
+          description: 'Local repository that was already added (idempotent)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Repository' } } }
+        '400': { description: '`invalid`, or `local_mode_only` for a local repository in server mode', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
@@ -405,6 +419,152 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/GitHubRepo' } }
         '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules:
+    get:
+      operationId: listSchedules
+      tags: [schedules]
+      summary: List schedules
+      description: By name, each with its month-to-date spend, whether a task of it is still running, and its latest firing.
+      responses:
+        '200':
+          description: All schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Schedule' } }
+    post:
+      operationId: createSchedule
+      tags: [schedules]
+      summary: Create a schedule
+      description: 400 for a bad cron expression, time zone, concurrency, loop, agent, or a repository of another project.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleInput' } } }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getSchedule
+      tags: [schedules]
+      summary: One schedule
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateSchedule
+      tags: [schedules]
+      summary: Replace a schedule
+      description: Fields left out take their defaults. The next run is computed again from now.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleInput' } } }
+      responses:
+        '200':
+          description: Updated
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSchedule
+      tags: [schedules]
+      summary: Delete a schedule (its tasks stay, with schedule_id null)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/enable:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: enableSchedule
+      tags: [schedules]
+      summary: Resume a schedule
+      description: The next run is the first firing after now; firings while it was paused are not made up.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/disable:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: disableSchedule
+      tags: [schedules]
+      summary: Pause a schedule (next_run_at becomes null)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The schedule
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/run:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: runSchedule
+      tags: [schedules]
+      summary: Fire the schedule now (also when paused)
+      description: Applies the concurrency policy like a timed firing; the result's `outcome` says whether a task started (`task_id`), the firing waits (`queued`) or was `skipped`.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The firing
+          content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleFiring' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/duplicate:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: duplicateSchedule
+      tags: [schedules]
+      summary: Copy a schedule as "<name> (copy)", paused
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The copy
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/schedules/{id}/firings:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: listScheduleFirings
+      tags: [schedules]
+      summary: The schedule's history, newest first
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Firings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ScheduleFiring' } }
+        '404': { $ref: '#/components/responses/Error' }
 
   /api/v1/skills:
     get:
@@ -573,6 +733,8 @@ paths:
                 output: { $ref: '#/components/schemas/TaskOutput', description: "Defaults to the project's default_output, else `pr`. `artifacts` and `pr_and_artifacts` are refused with 400 until diagram collection ships" }
                 skills_add: { type: array, items: { type: string }, description: Skill slugs added to the project's skills for this task }
                 skills_remove: { type: array, items: { type: string }, description: Skill slugs removed from the project's skills for this task }
+                loop: { $ref: '#/components/schemas/LoopInput' }
+                start_from: { $ref: '#/components/schemas/StartFrom', description: '`working_tree` only for local repositories (400 otherwise); default `last_commit`' }
           multipart/form-data:
             schema:
               type: object
@@ -588,6 +750,8 @@ paths:
                 output: { $ref: '#/components/schemas/TaskOutput' }
                 skills_add: { type: string, description: Comma-separated skill slugs }
                 skills_remove: { type: string, description: Comma-separated skill slugs }
+                loop: { type: string, description: 'LoopInput as JSON' }
+                start_from: { $ref: '#/components/schemas/StartFrom' }
                 'files[]':
                   type: array
                   maxItems: 10
@@ -749,7 +913,7 @@ paths:
       description: |
         `queued`/`preparing`/`running`/`waiting_input`/`pushing`: the text is queued
         (`queued_message` on the task, event `message` with `delivery: queued`) and
-        starts the next run when the current one ends. `paused`/`pr_open`/`completed`:
+        starts the next run when the current one ends. `paused`/`pr_open`/`branch_ready`/`completed`:
         starts a new run now (`delivery: new_run`). Otherwise `409`.
         JSON, or `multipart/form-data` with `text` plus files in `files[]`;
         the attachments are listed in the `message` event and reach the run that
@@ -840,6 +1004,338 @@ paths:
         '409': { description: 'Not pr_open (`conflict`), or GitHub refused the merge (`not_mergeable`; the message says why)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '503': { $ref: '#/components/responses/Error' }
 
+  /api/v1/tasks/{id}/branch/merge:
+    post:
+      operationId: branchMerge
+      tags: [local]
+      summary: Merge the delivered branch into the current branch of the local repository
+      description: 'Fast-forward when possible, else a merge commit; completes the task ("branch merged into <branch>") and records `branch_action {merged}`. `409`: `dirty` (uncommitted changes to tracked files), `detached` (no current branch), `current_branch`, `merge_conflict` (aborted; `files` lists the conflicts), `git_refused` (e.g. untracked files would be overwritten; nothing changed), `branch_gone`, `repo_missing`, or `conflict` when the task is not `branch_ready`'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/checkout:
+    post:
+      operationId: branchCheckout
+      tags: [local]
+      summary: Check out the delivered branch in the local repository
+      description: 'The task stays `branch_ready`; records `branch_action {checked_out}`. `409`: `dirty`, `git_refused`, `branch_gone`, `repo_missing`, `conflict`'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/discard:
+    post:
+      operationId: branchDiscard
+      tags: [local]
+      summary: Delete the delivered branch and complete the task
+      description: 'Records `branch_action {discarded}` and sets `local_branch` to null. `409`: `current_branch` (check out another branch first), `repo_missing`, `conflict`'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/push:
+    post:
+      operationId: branchPush
+      tags: [local]
+      summary: Push the task branch to GitHub and open a PR
+      description: 'Needs a GitHub `origin` remote (`400 no_github_remote` otherwise) and GitHub connected in local mode (`503 github_disabled` otherwise). Pushes `agent/<id>-<slug>` with the owners token from the server process, opens the PR and moves the task to `pr_open` (normal PR/CI flow, including CI auto-fix). On failure the task returns to `branch_ready` with the reason'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/local/repos/suggestions:
+    get:
+      operationId: localRepoSuggestions
+      tags: [local]
+      summary: Git work trees found on this computer (local mode)
+      description: 'Scans ~/code, ~/Projects, ~/projects, ~/dev, ~/src, ~/repos, ~/Documents/GitHub, ~/work and the directory the CLI was started in, 3 levels deep, skipping node_modules, hidden folders and symlink loops. At most 200 results within 2 s, newest commit first; cached for 60 s. `400 local_mode_only` in server mode'
+      responses:
+        '200':
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, start]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/LocalRepoSuggestion' } }
+                  start: { type: [string, 'null'], description: 'The repository the CLI was started in, when it is one ("this folder")' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/fs:
+    get:
+      operationId: localBrowse
+      tags: [local]
+      summary: Folder browser limited to the home directory (local mode)
+      description: 'Lists the subfolders (no files, no hidden folders) of `path` (default: the home directory) and marks git repositories. The resolved path must stay inside the home directory: `403 outside_home` otherwise; symlinks that lead out of it are not listed'
+      parameters:
+        - { name: path, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: Listing, content: { application/json: { schema: { $ref: '#/components/schemas/FolderListing' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/repos:
+    post:
+      operationId: addLocalRepo
+      tags: [local]
+      summary: Add a folder as a local repository (local mode)
+      description: 'The folder must be the top of a non-bare git work tree with at least one commit, outside the Jungle Monkey data directory. Without `project_id` a project named after the folder is created (id: its slug, `-2`… when taken). Idempotent: an added folder returns its repository (`200`, `created: false`). Also accepts the CLI''s control token (`Authorization: Bearer`) for `jungle-monkey add`'
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              additionalProperties: false
+              properties:
+                path: { type: string, description: Absolute path }
+                project_id: { type: string, description: Attach to this project instead of creating one }
+      responses:
+        '201': { description: Added, content: { application/json: { schema: { $ref: '#/components/schemas/LocalRepoAdded' } } } }
+        '200': { description: Already added, content: { application/json: { schema: { $ref: '#/components/schemas/LocalRepoAdded' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/repos/{repoId}/status:
+    get:
+      operationId: localRepoStatus
+      tags: [local]
+      summary: Branch and dirty state of a local repository's folder
+      parameters:
+        - { name: repoId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/LocalRepoStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/repos/{repoId}/locate:
+    post:
+      operationId: locateLocalRepo
+      tags: [local]
+      summary: Point a local repository at its folder after it was moved ("Locate…")
+      description: 'Deliveries that waited for the folder (`pushing`, reason "repository folder not found") resume'
+      parameters:
+        - { name: repoId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [path], additionalProperties: false, properties: { path: { type: string } } }
+      responses:
+        '200': { description: The repository, content: { application/json: { schema: { $ref: '#/components/schemas/Repository' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github:
+    get:
+      operationId: localGitHubStatus
+      tags: [local]
+      summary: GitHub connection in local mode (optional; for Push & open PR)
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: localGitHubDisconnect
+      tags: [local]
+      summary: Forget the stored GitHub token
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/device:
+    post:
+      operationId: localGitHubDeviceStart
+      tags: [local]
+      summary: Start the OAuth device flow (scope `repo`)
+      description: 'POST https://github.com/login/device/code with the Jungle Monkey OAuth App client id. The owner opens `verification_uri` and enters `user_code`, then the client polls `/local/github/device/poll` every `interval` seconds. `502 github` when GitHub refuses or no client id is configured'
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Device code, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceCode' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/device/poll:
+    post:
+      operationId: localGitHubDevicePoll
+      tags: [local]
+      summary: Ask GitHub once whether the owner authorized the device
+      description: 'Respects the interval (slow_down adds 5 s); `connected` stores the token in the OS keychain'
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200':
+          description: Poll result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, github]
+                properties:
+                  status: { type: string, enum: [pending, connected, expired, denied, none] }
+                  github: { $ref: '#/components/schemas/GitHubConnStatus' }
+        '400': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/gh:
+    post:
+      operationId: localGitHubImportGH
+      tags: [local]
+      summary: Use the GitHub CLI's token (`gh auth token`)
+      description: The web app asks the owner first. `400 invalid` when gh is missing or not logged in, or GitHub rejects the token
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/token:
+    post:
+      operationId: localGitHubSetToken
+      tags: [local]
+      summary: Store a pasted fine-grained personal access token
+      description: Checked with GET /user before it is stored; `400 invalid` when GitHub rejects it
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [token], additionalProperties: false, properties: { token: { type: string } } }
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/budget-override:
+    post:
+      operationId: overrideTaskBudget
+      tags: [tasks]
+      summary: Start a task that waits for a monthly budget anyway
+      description: Only a queued task. The task may start runs despite the monthly caps until the calendar month ends; a `budget` event (phase `override`) records it.
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Allowed; the scheduler picks it up, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/checkpoints:
+    get:
+      operationId: listTaskCheckpoints
+      tags: [tasks]
+      summary: The task's checkpoints, oldest first
+      description: Empty unless checkpoints were on (GET /settings/checkpoints) while the task ran. `available` is false, with a `reason`, while the task is busy, once its PR is closed, and after WORKSPACE_RETENTION removed the workspace (and the checkpoint refs with it).
+      parameters: [{ $ref: '#/components/parameters/TaskID' }]
+      responses:
+        '200':
+          description: Checkpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Checkpoint' } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/checkpoints/{checkpointId}:
+    get:
+      operationId: previewTaskCheckpoint
+      tags: [tasks]
+      summary: What restoring a checkpoint discards
+      description: Counts of what came after the checkpoint and `git diff <checkpoint> HEAD` from the task's host. A checkpoint whose commit is no longer in the workspace comes back with `available` false and a reason.
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - { name: checkpointId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: Preview
+          content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointPreview' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/checkpoints/{checkpointId}/restore:
+    post:
+      operationId: restoreTaskCheckpoint
+      tags: [tasks]
+      summary: Roll the task back to a checkpoint and continue
+      description: 'Queues a `restore` run: the scheduler resets the workspace to the checkpoint on the task branch, then the agent continues with `instruction` (empty: "Continue the task from here."). Claude resumes its session at the checkpoint as a fork (`mode` fork); Codex and Cursor start a new session seeded with a summary of the timeline up to the checkpoint (`mode` summary). Records a `checkpoint_restored` event; the later events stay in the timeline. If commits after the checkpoint were already pushed, the next push rewrites the branch with --force-with-lease (only agent/<id> branches) and records `branch_force_pushed`. 409 while the task is busy, after its PR closed, or after WORKSPACE_RETENTION.'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - { name: checkpointId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instruction: { type: string, description: Follow-up for the agent, e.g. "…then do it with a migration instead" }
+      responses:
+        '200': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/settings/checkpoints:
+    get:
+      operationId: getCheckpointSettings
+      tags: [settings]
+      summary: Whether runners take checkpoints
+      description: Off by default. When on, every run commits the working tree to hidden refs after each step that changed files and before each question (docs/PROTOCOL.md, "Checkpoints").
+      responses:
+        '200':
+          description: The setting
+          content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
+    put:
+      operationId: putCheckpointSettings
+      tags: [settings]
+      summary: Turn checkpoints on or off
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
+      responses:
+        '200':
+          description: Saved
+          content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
+        '400': { $ref: '#/components/responses/Error' }
+
   /api/v1/stats:
     get:
       operationId: getStats
@@ -852,13 +1348,328 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [running, queued, waiting_input, cost_usd_today, cost_usd_month]
+                required: [running, queued, waiting_input, cost_usd_today, cost_usd_month, cost_unknown_today, cost_unknown_month]
                 properties:
                   running: { type: integer }
                   queued: { type: integer }
                   waiting_input: { type: integer }
                   cost_usd_today: { type: number }
                   cost_usd_month: { type: number }
+                  cost_unknown_today: { type: boolean, description: Some of today's runs have no price (cost_usd_today is a lower bound) }
+                  cost_unknown_month: { type: boolean, description: Some of this month's runs have no price }
+
+  /api/v1/settings/ci-autofix:
+    get:
+      operationId: getCIAutoFixDefaults
+      tags: [settings]
+      summary: Global CI auto-fix default
+      description: What projects inherit for the fields their `ci_autofix` leaves null. Missing fields use the built-in defaults (off, 2 attempts, all checks, half the task budget, no CI changes).
+      responses:
+        '200':
+          description: The global default
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+    put:
+      operationId: putCIAutoFixDefaults
+      tags: [settings]
+      summary: Replace the global CI auto-fix default
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/settings/costs:
+    get:
+      operationId: getCostSettings
+      tags: [settings]
+      summary: Global monthly budget and the price table
+      responses:
+        '200':
+          description: The cost settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CostSettings' }
+    put:
+      operationId: putCostSettings
+      tags: [settings]
+      summary: Replace the global monthly budget and the price table
+      description: '`monthly_budget_usd` null or 0 removes the global cap. `price_table` null restores the built-in table.'
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                monthly_budget_usd: { type: [number, 'null'], minimum: 0 }
+                price_table: { oneOf: [{ $ref: '#/components/schemas/PriceTable' }, { type: 'null' }] }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CostSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/costs:
+    get:
+      operationId: getCosts
+      tags: [system]
+      summary: Cost report and month-to-date budgets
+      description: |
+        Runs started from `from` through `to` (dates in the server's local time; default: the first of this month to
+        today, at most 400 days), summed in total, by project, by agent, by `period` and per day × project × agent
+        (`rows`, the CSV export). `budget` and `projects` are always this calendar month.
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: period, in: query, schema: { type: string, enum: [day, week, month], default: day } }
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CostReport' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/mcp-servers:
+    get:
+      operationId: listMCPServers
+      tags: [integrations]
+      summary: MCP servers of a project, or the global ones
+      parameters:
+        - name: project
+          in: query
+          description: Project id; without it, the global servers (that projects can enable)
+          schema: { type: string }
+      responses:
+        '200':
+          description: Servers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/MCPServer' } }
+    post:
+      operationId: createMCPServer
+      tags: [integrations]
+      summary: Add an MCP server
+      description: Needs SECRETS_KEY (503 `secrets_disabled` without it). Secrets are write-only.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MCPServerInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPServer' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/mcp-servers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getMCPServer
+      tags: [integrations]
+      summary: One MCP server
+      responses:
+        '200':
+          description: Server
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPServer' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateMCPServer
+      tags: [integrations]
+      summary: Replace an MCP server's settings
+      description: Every field is replaced except `secrets`, which merge (a key set to null is removed, keys not sent are kept). `project_id` cannot change.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MCPServerInput' }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPServer' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteMCPServer
+      tags: [integrations]
+      summary: Delete an MCP server
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/mcp-servers/{id}/test:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      operationId: testMCPServer
+      tags: [integrations]
+      summary: Test connection
+      description: Connects to the server as the gateway would (a stdio server is started for the test) and lists its tools. A failed connection is `ok:false` with `error`, not an HTTP error.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPTestResult' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/projects/{id}/integrations:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getIntegrations
+      tags: [integrations]
+      summary: A project's MCP servers and egress policy
+      responses:
+        '200':
+          description: Integrations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Integrations' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: putIntegrations
+      tags: [integrations]
+      summary: Set the egress policy and the global servers the project uses
+      description: Fields left out are kept. Changes apply from the next run.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                egress: { $ref: '#/components/schemas/Egress' }
+                global_server_ids: { type: array, items: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Integrations' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/projects/{id}/egress/allow:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: allowEgress
+      tags: [integrations]
+      summary: Allow a blocked host for this project (next run)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host]
+              properties:
+                host: { type: string }
+      responses:
+        '200':
+          description: The project's egress policy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Egress' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/mcp-gateway/mcp/{server}:
+    post:
+      operationId: gatewayMCP
+      tags: [gateway]
+      summary: MCP gateway (runners only)
+      description: |
+        Streamable HTTP MCP endpoint of one server for a running task (docs/PROTOCOL.md, "MCP servers"). Authenticated
+        only by the run's gateway token (`Authorization: Bearer jmg_…`); no session or CSRF header. 401 for a missing,
+        expired or finished run's token; 404 for a server outside the run's scope; 502 when the upstream cannot be reached.
+      security: []
+      parameters:
+        - name: server
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, description: JSON-RPC message }
+      responses:
+        '200':
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+  /api/mcp-gateway/egress/blocked:
+    post:
+      operationId: gatewayEgressBlocked
+      tags: [gateway]
+      summary: Egress proxy report of a blocked host
+      description: Sent by the egress proxy sidecar with the run's token; recorded once per host and run as an `egress_blocked` event.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host]
+              properties:
+                host: { type: string }
+      responses:
+        '204': { description: Recorded }
+        '401': { $ref: '#/components/responses/Error' }
 
   /api/v1/nodes:
     get:
@@ -1211,13 +2022,15 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+            files: { type: array, items: { type: string }, description: '`merge_conflict` only: the files the merge could not combine' }
 
     SessionInfo:
       type: object
-      required: [ok, kind, agents, default_agent]
+      required: [ok, kind, agents, default_agent, mode]
       properties:
         ok: { type: boolean }
         kind: { type: string, enum: [web, telegram] }
+        mode: { type: string, enum: [server, local], description: '`local`: `npx jungle-monkey` on the owner''s computer (local repositories, optional GitHub)' }
         agents:
           type: array
           items: { $ref: '#/components/schemas/Agent' }
@@ -1251,15 +2064,142 @@ components:
         runner_cpus: { type: [number, 'null'] }
         telegram_thread_id: { type: [integer, 'null'], format: int64 }
         archived: { type: boolean }
+        ci_autofix:
+          $ref: '#/components/schemas/CIAutoFixSettings'
+          description: Replaces the project's CI auto-fix overrides as a whole; null fields inherit the global default
+        budget:
+          $ref: '#/components/schemas/ProjectBudget'
+          description: Replaces the project's monthly cap; null or 0 `monthly_usd` removes it
         default_output:
           type: [string, 'null']
           enum: [pr, artifacts, pr_and_artifacts, '', null]
           description: Output new tasks get; empty or null is `pr`. Values other than `pr` are refused with 400 until diagram collection ships
         skills: { type: array, items: { type: string }, description: Replaces the project's enabled skills (slugs; unknown slugs are ignored) }
 
+    CIAutoFixSettings:
+      type: object
+      additionalProperties: false
+      description: CI auto-fix settings (docs/SPEC-server.md "CI auto-fix"). A null field inherits the level below (project → global default → built-in default).
+      properties:
+        enabled: { type: [boolean, 'null'], description: 'Fix failing CI on PRs Jungle Monkey opened; built-in default false' }
+        max_attempts: { type: [integer, 'null'], minimum: 1, maximum: 5, description: Fix attempts per loop; built-in default 2 }
+        checks: { type: [array, 'null'], items: { type: string }, description: Check names auto-fix handles; null or empty is all }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: Budget of one attempt; null or 0 is half the project's task budget }
+        allow_ci_changes: { type: [boolean, 'null'], description: 'Push fixes that touch CI configuration, delete or skip tests, or change coverage thresholds without asking; built-in default false' }
+
+    ProjectBudget:
+      type: [object, 'null']
+      additionalProperties: false
+      description: A project's monthly cap (docs/SPEC-server.md "Costs and budgets"); null is none
+      properties:
+        monthly_usd: { type: [number, 'null'], minimum: 0 }
+
+    Price:
+      type: object
+      required: [agent, model, input_usd, output_usd]
+      additionalProperties: false
+      description: USD per million tokens. The cache rates default to `input_usd` when null.
+      properties:
+        agent: { $ref: '#/components/schemas/Agent' }
+        model: { type: string, description: 'Model name as the run reports it; `*` matches any model of the agent without a row of its own' }
+        input_usd: { type: number, minimum: 0 }
+        cached_input_usd: { type: [number, 'null'], minimum: 0 }
+        cache_write_usd: { type: [number, 'null'], minimum: 0 }
+        output_usd: { type: number, minimum: 0 }
+
+    PriceTable:
+      type: object
+      required: [prices]
+      additionalProperties: false
+      description: Prices for agents that report tokens but no cost (Codex, Cursor); their runs' costs are estimates.
+      properties:
+        updated: { type: string, description: 'When the prices were last checked (YYYY-MM-DD)' }
+        prices: { type: array, items: { $ref: '#/components/schemas/Price' } }
+
+    CostSettings:
+      type: object
+      required: [monthly_budget_usd, price_table, price_table_is_default]
+      properties:
+        monthly_budget_usd: { type: [number, 'null'], description: Global monthly cap; null is none }
+        price_table: { $ref: '#/components/schemas/PriceTable' }
+        price_table_is_default: { type: boolean, description: The built-in table (never edited) }
+
+    CostSum:
+      type: object
+      required: [cost_usd, estimated_usd, autofix_usd, api_equivalent_usd, runs, unknown_runs, input_tokens, output_tokens]
+      properties:
+        cost_usd: { type: number, description: All runs' cost, estimates included }
+        estimated_usd: { type: number, description: Part of cost_usd estimated from the price table }
+        autofix_usd: { type: number, description: Part of cost_usd spent by CI auto-fix runs }
+        api_equivalent_usd: { type: number, description: Part of cost_usd reported for Claude subscription (OAuth) runs, i.e. what the API would charge }
+        runs: { type: integer }
+        unknown_runs: { type: integer, description: Runs with tokens but no price (cost 0) }
+        input_tokens: { type: integer, format: int64 }
+        output_tokens: { type: integer, format: int64 }
+
+    CostReport:
+      type: object
+      required: [from, to, period, month_start, budget, projects, total, by_project, by_agent, by_period, rows]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        period: { type: string, enum: [day, week, month] }
+        month_start: { type: string, format: date }
+        budget: { $ref: '#/components/schemas/BudgetStatus' }
+        projects:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/BudgetStatus'
+              - type: object
+                required: [project_id, name]
+                properties:
+                  project_id: { type: string }
+                  name: { type: string }
+        total: { $ref: '#/components/schemas/CostSum' }
+        by_project: { type: array, items: { $ref: '#/components/schemas/KeyedCostSum' } }
+        by_agent: { type: array, items: { $ref: '#/components/schemas/KeyedCostSum' } }
+        by_period:
+          type: array
+          description: Every day, week (from Monday) or month of the range, empty ones included
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CostSum'
+              - type: object
+                required: [start]
+                properties:
+                  start: { type: string, format: date }
+        rows:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CostSum'
+              - type: object
+                required: [day, project_id, agent]
+                properties:
+                  day: { type: string, format: date }
+                  project_id: { type: string }
+                  agent: { type: string }
+
+    KeyedCostSum:
+      allOf:
+        - $ref: '#/components/schemas/CostSum'
+        - type: object
+          required: [key]
+          properties:
+            key: { type: string, description: Project id or agent }
+
+    BudgetStatus:
+      type: object
+      required: [monthly_usd, month_cost_usd, month_cost_unknown]
+      properties:
+        monthly_usd: { type: [number, 'null'], description: The monthly cap; null is none }
+        month_cost_usd: { type: number, description: Cost of runs started this calendar month }
+        month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
+
     Project:
       type: object
-      required: [id, name, instructions, services, env, archived, created_at, updated_at, repositories]
+      required: [id, name, instructions, services, env, archived, ci_autofix, budget, month_cost_usd, month_cost_unknown, created_at, updated_at, repositories]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1277,6 +2217,10 @@ components:
         runner_cpus: { type: [number, 'null'] }
         telegram_thread_id: { type: [integer, 'null'], format: int64 }
         archived: { type: boolean }
+        ci_autofix: { $ref: '#/components/schemas/CIAutoFixSettings' }
+        budget: { $ref: '#/components/schemas/ProjectBudget' }
+        month_cost_usd: { type: number, description: Cost of the project's runs started this calendar month }
+        month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
         default_output: { type: [string, 'null'], enum: [pr, artifacts, pr_and_artifacts, null], description: null is `pr` }
         skills: { type: array, items: { type: string }, description: Slugs of the skills enabled for the project's tasks }
         created_at: { type: string, format: date-time }
@@ -1306,6 +2250,93 @@ components:
         files: { type: array, maxItems: 49, items: { $ref: '#/components/schemas/SkillFile' }, description: 'Extra files; at most 50 files and 1 MB per skill including SKILL.md' }
         enabled_by_default: { type: boolean, description: On for every project's tasks }
 
+    Schedule:
+      type: object
+      description: 'A recurring task (SPEC-server, "Schedules"). Each firing creates an ordinary task with `source: schedule` and `schedule_id`.'
+      required: [id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop, enabled, next_run_at, created_at, updated_at, month_spend_usd, busy, last_firing]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        project_id: { type: string }
+        repository_id: { type: [integer, 'null'], format: int64, description: "null: the project's default repository" }
+        prompt: { type: string }
+        agent: { type: [string, 'null'], enum: [claude, codex, cursor, null], description: "null: the project's agent" }
+        skills: { type: array, items: { type: string }, description: "Skill slugs added to the project's skills" }
+        mcp_servers: { type: [array, 'null'], items: { type: string }, description: "MCP server names (of the project's); null: all of them" }
+        cron: { type: string, description: 'Five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, @yearly; normalised' }
+        timezone: { type: string, description: IANA time zone the cron expression is read in }
+        run_budget_usd: { type: [number, 'null'], description: "Each run's budget; null: the project's" }
+        monthly_budget_usd: { type: [number, 'null'], description: 'Monthly cap of its tasks; null: none' }
+        concurrency: { type: string, enum: [skip, queue], description: '`skip`: a firing while a task of the schedule is still running is skipped. `queue`: it waits (at most one) and starts when that task finishes' }
+        pr_only_if_changes: { type: boolean, description: 'false: a run without changes makes an empty commit so a PR is opened anyway' }
+        ends_at: { type: [string, 'null'], format: date-time, description: No firings after this }
+        loop: { $ref: '#/components/schemas/LoopConfigOrNull' }
+        enabled: { type: boolean }
+        next_run_at: { type: [string, 'null'], format: date-time, description: 'null while paused or after ends_at' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        month_spend_usd: { type: number, description: "Month-to-date cost of its tasks' runs" }
+        busy: { type: boolean, description: A task of it has not reached a PR or an end yet }
+        last_firing: { oneOf: [{ $ref: '#/components/schemas/ScheduleFiring' }, { type: 'null' }] }
+
+    ScheduleInput:
+      type: object
+      required: [name, project_id, prompt, cron]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        project_id: { type: string }
+        repository_id: { type: [integer, 'null'], format: int64 }
+        prompt: { type: string, minLength: 1 }
+        agent: { type: [string, 'null'], enum: [claude, codex, cursor, null] }
+        skills: { type: array, items: { type: string } }
+        mcp_servers: { type: [array, 'null'], items: { type: string } }
+        cron: { type: string }
+        timezone: { type: string, description: Default UTC }
+        run_budget_usd: { type: [number, 'null'], minimum: 0 }
+        monthly_budget_usd: { type: [number, 'null'], minimum: 0 }
+        concurrency: { type: string, enum: [skip, queue], description: Default skip }
+        pr_only_if_changes: { type: boolean, description: Default true }
+        ends_at: { type: [string, 'null'], format: date-time }
+        loop: { oneOf: [{ $ref: '#/components/schemas/LoopInput' }, { type: 'null' }] }
+        enabled: { type: boolean, description: Default true }
+
+    ScheduleFiring:
+      type: object
+      required: [id, schedule_id, scheduled_for, trigger, outcome, reason, task_id, created_at, task_status, task_cost_usd, task_pr_url, loop_state]
+      properties:
+        id: { type: integer, format: int64 }
+        schedule_id: { type: integer, format: int64 }
+        scheduled_for: { type: string, format: date-time, description: 'The cron time (manual runs: when asked)' }
+        trigger: { type: string, enum: [cron, manual] }
+        outcome: { type: string, enum: [started, queued, skipped, missed, failed], description: '`missed`: the server was down for more than one interval at that time' }
+        reason: { type: [string, 'null'] }
+        task_id: { type: [integer, 'null'], format: int64 }
+        created_at: { type: string, format: date-time }
+        task_status: { oneOf: [{ $ref: '#/components/schemas/TaskStatus' }, { type: 'null' }] }
+        task_cost_usd: { type: [number, 'null'] }
+        task_pr_url: { type: [string, 'null'] }
+        loop_state: { $ref: '#/components/schemas/LoopState' }
+
+    ScheduleEvent:
+      description: The schedule that started this task (`trigger` cron, or manual with `via`).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [schedule] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [schedule_id, name, trigger, scheduled_for]
+              properties:
+                schedule_id: { type: integer, format: int64 }
+                name: { type: string }
+                trigger: { type: string, enum: [cron, manual] }
+                scheduled_for: { type: string, format: date-time }
+                via: { type: string, enum: [web, telegram] }
+
     Skill:
       type: object
       required: [id, slug, name, description, body, files, enabled_by_default, created_at, updated_at, projects]
@@ -1323,14 +2354,90 @@ components:
 
     Repository:
       type: object
-      required: [id, project_id, full_name, base_branch, installation_id, is_default]
+      required: [id, project_id, full_name, base_branch, installation_id, is_default, source, path, remote_url]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
-        full_name: { type: string }
+        full_name: { type: string, description: '"owner/name" on GitHub; the folder name for a local repository' }
         base_branch: { type: string }
-        installation_id: { type: integer, format: int64 }
+        installation_id: { type: integer, format: int64, description: 0 for local repositories }
         is_default: { type: boolean }
+        source: { $ref: '#/components/schemas/RepositorySource' }
+        path: { type: string, description: 'Absolute work tree of a local repository ("" for GitHub)' }
+        remote_url: { type: string, description: 'Origin remote of a local repository, if any (informational; "" otherwise)' }
+
+    LocalRepoSuggestion:
+      type: object
+      required: [name, path, branch, dirty, last_commit, added]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        branch: { type: string, description: '"" on a detached HEAD' }
+        dirty: { type: boolean, description: Uncommitted changes to tracked files }
+        last_commit: { type: string, format: date-time }
+        added: { type: boolean, description: Already a local repository of some project }
+
+    FolderListing:
+      type: object
+      required: [path, parent, home, is_git, entries]
+      properties:
+        path: { type: string }
+        parent: { type: [string, 'null'], description: null at the home directory }
+        home: { type: string }
+        is_git: { type: boolean }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [name, path, is_git]
+            properties:
+              name: { type: string }
+              path: { type: string }
+              is_git: { type: boolean }
+
+    LocalRepoAdded:
+      type: object
+      required: [project, repository, created]
+      properties:
+        project: { $ref: '#/components/schemas/Project' }
+        repository: { $ref: '#/components/schemas/Repository' }
+        created: { type: boolean, description: false when the folder was already added }
+
+    LocalRepoStatus:
+      type: object
+      required: [repository_id, path, missing, branch, detached, dirty]
+      properties:
+        repository_id: { type: integer, format: int64 }
+        path: { type: string }
+        missing: { type: boolean, description: 'The folder is gone (moved or deleted): offer "Locate…"' }
+        branch: { type: string }
+        detached: { type: boolean }
+        dirty: { type: boolean }
+
+    GitHubConnStatus:
+      type: object
+      required: [connected, login, scopes, error, device_flow, gh_cli]
+      properties:
+        connected: { type: boolean }
+        login: { type: string }
+        scopes: { type: array, items: { type: string }, description: 'Classic OAuth scopes (X-OAuth-Scopes); empty for a fine-grained token' }
+        error: { type: string, description: A stored token that no longer works }
+        device_flow: { type: boolean, description: An OAuth App client id is configured }
+        gh_cli: { type: boolean, description: The GitHub CLI is installed }
+
+    DeviceCode:
+      type: object
+      required: [user_code, verification_uri, expires_in, interval]
+      properties:
+        user_code: { type: string, example: WDJB-MJHT }
+        verification_uri: { type: string, example: 'https://github.com/login/device' }
+        expires_in: { type: integer }
+        interval: { type: integer, description: Seconds between polls }
+
+    RepositorySource:
+      type: string
+      enum: [github, local]
+      description: '`local` (a folder on the owner''s disk) exists only in local mode (`npx jungle-monkey`)'
 
     BranchName:
       type: string
@@ -1379,11 +2486,12 @@ components:
 
     TaskStatus:
       type: string
-      enum: [queued, preparing, running, waiting_input, paused, pushing, pr_open, completed, failed, cancelled]
+      enum: [queued, preparing, running, waiting_input, paused, pushing, pr_open, branch_ready, completed, failed, cancelled]
+      description: '`branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`'
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, output, skills, skills_add, skills_remove]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove, schedule_id, mcp_servers, run_budget_usd, loop, loop_state, loop_iteration, local_branch, start_from]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1397,9 +2505,9 @@ components:
         pr_number: { type: [integer, 'null'] }
         pr_url: { type: [string, 'null'] }
         ci_status: { type: [string, 'null'], enum: [pending, success, failure, null] }
-        cost_usd_total: { type: number, description: 'Reported by Claude only; 0 for Codex and Cursor' }
+        cost_usd_total: { type: number, description: 'Sum of the runs'' cost: reported by Claude, estimated from the price table for Codex and Cursor (0 when their model has no price)' }
         turns: { type: integer, description: Agent turns across all runs }
-        source: { type: string, enum: [web, telegram, api] }
+        source: { type: string, enum: [web, telegram, api, schedule], description: '`schedule`: fired by the schedule `schedule_id`' }
         agent: { $ref: '#/components/schemas/Agent', description: 'Fixed when the task is created: the request''s agent, else the project''s, else the server default' }
         node: { type: [string, 'null'], description: 'Node the task runs on, fixed when it is created; null is the server' }
         created_at: { type: string, format: date-time }
@@ -1415,9 +2523,75 @@ components:
         skills: { type: array, items: { type: string }, description: Skills (slugs) the last run used }
         skills_add: { type: array, items: { type: string } }
         skills_remove: { type: array, items: { type: string } }
+        local_branch: { type: [string, 'null'], description: 'Branch delivered into a local repository (`jm/<id>-<slug>`, `-2`… on a name collision); null before delivery and after Discard' }
+        start_from: { $ref: '#/components/schemas/StartFrom' }
         queued_message:
           type: [string, 'null']
           description: Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued.
+        autofix_state:
+          $ref: '#/components/schemas/AutoFixState'
+        autofix_attempts: { type: integer, description: CI auto-fix attempts made in the current loop }
+        autofix_max_attempts: { type: [integer, 'null'], description: Attempt cap of the current loop }
+        autofix_cost_usd: { type: number, description: Part of cost_usd_total spent by CI auto-fix runs }
+        cost_estimated: { type: boolean, description: 'Some run''s cost is an estimate: show ≈' }
+        cost_api_equivalent: { type: boolean, description: Some run's cost was reported for a Claude subscription (OAuth) login, i.e. what the API would charge }
+        cost_unknown: { type: boolean, description: 'Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?`' }
+        budget_wait:
+          type: [string, 'null']
+          enum: [global, project, schedule, null]
+          description: 'Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.'
+        budget_override_at: { type: [string, 'null'], format: date-time, description: When the owner let it start despite the monthly caps (good for that calendar month) }
+        schedule_id: { type: [integer, 'null'], format: int64, description: The schedule that fired the task (null once the schedule is deleted, or for other tasks) }
+        mcp_servers: { type: [array, 'null'], items: { type: string }, description: 'MCP server names the task may use (a subset of its project''s, set by its schedule); null: all of the project''s' }
+        run_budget_usd: { type: [number, 'null'], description: 'Budget of each run (set by its schedule); null: the project''s' }
+        loop: { $ref: '#/components/schemas/LoopConfigOrNull' }
+        loop_state: { $ref: '#/components/schemas/LoopState' }
+        loop_iteration: { type: integer, description: The current loop iteration (1-based; 0 without a loop) }
+
+    LoopConfig:
+      type: object
+      description: 'Loop until a check passes (SPEC-server, "Loops"): after each agent run the runner runs `check_command` in the task container; a non-zero exit starts the next iteration with the trimmed output. The PR is opened only when the loop ends.'
+      required: [check_command, max_iterations, budget_usd]
+      properties:
+        check_command: { type: string, minLength: 1, maxLength: 2000, description: 'e.g. `npm test`, `go test ./...`, `make lint`, or a script that exits 0 when done' }
+        max_iterations: { type: integer, minimum: 1, maximum: 10, default: 3 }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: 'Cap on the cost of all iterations; null: only the per-run budget' }
+        timeout_sec: { type: integer, minimum: 1, maximum: 3600, description: Check command timeout; absent means 600 }
+
+    LoopInput:
+      type: object
+      description: 'Loop until `check_command` passes. 400 with output `artifacts`.'
+      required: [check_command]
+      additionalProperties: false
+      properties:
+        check_command: { type: string, minLength: 1, maxLength: 2000 }
+        max_iterations: { type: integer, minimum: 1, maximum: 10, description: Default 3 }
+        budget_usd: { type: [number, 'null'], minimum: 0, description: 'Cap on all iterations together; null or 0: none' }
+        timeout_sec: { type: integer, minimum: 1, maximum: 3600, description: Default 600 }
+
+    LoopConfigOrNull:
+      oneOf:
+        - $ref: '#/components/schemas/LoopConfig'
+        - type: 'null'
+
+    LoopState:
+      type: [string, 'null']
+      enum: [running, passed, max_iterations, budget, no_changes, stopped, null]
+      description: '`running`, or why the loop ended: the check passed, max_iterations reached, the loop budget used up, two iterations in a row without file changes, or `stopped` (a run limit, a missing check result). null: no loop.'
+
+    StartFrom:
+      type: string
+      enum: [last_commit, working_tree]
+      description: 'Local repositories: start from the last commit (base branch), or from the checked-out commit plus the uncommitted changes and untracked files (committed as "WIP: working tree at start")'
+
+    AutoFixState:
+      type: [string, 'null']
+      enum: [fixing, held, approved, waiting, green, needs_you, cancelled, null]
+      description: |
+        CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
+        owner's answer to the open question), `approved` (pushing it anyway), `waiting` (pushed, waiting for CI), `green`
+        (CI passed after a fix), `needs_you` (stopped: attempts used up, same failure twice, budget, a guarded fix discarded),
+        `cancelled` (human push, manual follow-up, PR closed). null: no loop.
 
     TaskView:
       allOf:
@@ -1430,19 +2604,34 @@ components:
 
     Run:
       type: object
-      required: [id, task_id, kind, input, last_seq, cost_usd, turns]
+      required: [id, task_id, kind, input, last_seq, cost_usd, turns, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth]
       properties:
         id: { type: integer, format: int64 }
         task_id: { type: integer, format: int64 }
-        kind: { type: string, enum: [initial, resume, followup, retry] }
+        kind: { type: string, enum: [initial, resume, followup, retry, restore, loop], description: '`loop`: a loop iteration after a failed check' }
         input: { type: string }
         container_id: { type: [string, 'null'] }
         exit_code: { type: [integer, 'null'] }
         last_seq: { type: integer, format: int64 }
         cost_usd: { type: number, description: This run's own cost (not the session total) }
         turns: { type: integer, description: Last usage.turns the runner reported for this run }
+        autofix_attempt: { type: [integer, 'null'], description: Set on runs CI auto-fix started (the attempt number) }
+        loop_iteration: { type: [integer, 'null'], description: The loop iteration the run belongs to (null without a loop) }
+        agent: { type: [string, 'null'], description: Agent of the run; null for runs from before it was recorded }
+        model: { type: [string, 'null'], description: 'Model the run reported in `started`' }
+        input_tokens: { type: integer, format: int64, description: All input, cache reads and writes included }
+        output_tokens: { type: integer, format: int64 }
+        cache_read_tokens: { type: integer, format: int64 }
+        cache_write_tokens: { type: integer, format: int64 }
+        cost_source: { $ref: '#/components/schemas/CostSource' }
+        auth: { type: [string, 'null'], enum: [api_key, subscription, null], description: 'How the agent was authenticated, when known; `subscription` (Claude OAuth) makes the cost API-equivalent' }
         started_at: { type: [string, 'null'], format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }
+
+    CostSource:
+      type: [string, 'null']
+      enum: [reported, estimated, unknown, null]
+      description: 'Where cost_usd came from: reported by the agent, estimated from the price table, or unknown (tokens but no price; cost 0). null for runs without usage yet or from before it was recorded.'
 
     Question:
       type: object
@@ -1488,6 +2677,19 @@ components:
         - $ref: '#/components/schemas/PrClosedEvent'
         - $ref: '#/components/schemas/CiEvent'
         - $ref: '#/components/schemas/DiffRejectedEvent'
+        - $ref: '#/components/schemas/AutoFixEvent'
+        - $ref: '#/components/schemas/MCPCallEvent'
+        - $ref: '#/components/schemas/EgressBlockedEvent'
+        - $ref: '#/components/schemas/IntegrationsEvent'
+        - $ref: '#/components/schemas/BudgetEvent'
+        - $ref: '#/components/schemas/CheckpointEvent'
+        - $ref: '#/components/schemas/CheckEvent'
+        - $ref: '#/components/schemas/LoopEvent'
+        - $ref: '#/components/schemas/ScheduleEvent'
+        - $ref: '#/components/schemas/CheckpointRestoredEvent'
+        - $ref: '#/components/schemas/BranchForcePushedEvent'
+        - $ref: '#/components/schemas/BranchReadyEvent'
+        - $ref: '#/components/schemas/BranchActionEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -1515,10 +2717,23 @@ components:
           pr_closed: '#/components/schemas/PrClosedEvent'
           ci: '#/components/schemas/CiEvent'
           diff_rejected: '#/components/schemas/DiffRejectedEvent'
+          autofix: '#/components/schemas/AutoFixEvent'
+          mcp_call: '#/components/schemas/MCPCallEvent'
+          egress_blocked: '#/components/schemas/EgressBlockedEvent'
+          integrations: '#/components/schemas/IntegrationsEvent'
+          budget: '#/components/schemas/BudgetEvent'
+          checkpoint: '#/components/schemas/CheckpointEvent'
+          check: '#/components/schemas/CheckEvent'
+          loop: '#/components/schemas/LoopEvent'
+          schedule: '#/components/schemas/ScheduleEvent'
+          checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
+          branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
+          branch_ready: '#/components/schemas/BranchReadyEvent'
+          branch_action: '#/components/schemas/BranchActionEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, check, loop, schedule, checkpoint_restored, branch_force_pushed, branch_ready, branch_action]
 
     EventBase:
       type: object
@@ -1578,6 +2793,7 @@ components:
             type: { type: string, enum: [started] }
             session_id: { type: string }
             model: { type: string }
+            auth: { type: string, enum: [api_key, subscription], description: Claude only; absent when unknown }
 
     AssistantTextEvent:
       allOf:
@@ -1650,14 +2866,17 @@ components:
           properties:
             type: { type: string, enum: [question] }
             run_id: { type: integer, format: int64 }
-            seq: { type: integer, format: int64 }
+            seq: { type: [integer, 'null'], format: int64, description: 'null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix_guard`)' }
             payload: { $ref: '#/components/schemas/QuestionPayload' }
 
     QuestionPayload:
       allOf:
-        - $ref: '#/components/schemas/RunnerPayloadBase'
         - type: object
-          required: [type, question_id, text]
+          properties:
+            ts: { type: string, format: date-time }
+            seq: { type: integer, format: int64 }
+        - type: object
+          required: [question_id, text]
           properties:
             type: { type: string, enum: [question] }
             question_id: { type: string, description: 'Runner-local id (q1, q2, …); the API question id is "<run_id>-<question_id>"' }
@@ -1686,6 +2905,8 @@ components:
             input_tokens: { type: integer }
             output_tokens: { type: integer }
             turns: { type: integer, description: Turns in this run }
+            cache_read_tokens: { type: integer, description: Part of input_tokens; absent from older runners }
+            cache_write_tokens: { type: integer, description: Part of input_tokens; absent from older runners }
 
     CommittedEvent:
       allOf:
@@ -1697,6 +2918,59 @@ components:
             run_id: { type: integer, format: int64 }
             seq: { type: integer, format: int64 }
             payload: { $ref: '#/components/schemas/CommittedPayload' }
+
+    CheckpointEvent:
+      description: The runner committed the working tree to the hidden ref refs/jm/checkpoints/<run_id>/<n> (docs/PROTOCOL.md, "Checkpoints"). Only with checkpoints on (GET /settings/checkpoints).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, run_id, seq, payload]
+          properties:
+            type: { type: string, enum: [checkpoint] }
+            run_id: { type: integer, format: int64 }
+            seq: { type: integer, format: int64 }
+            payload: { $ref: '#/components/schemas/CheckpointPayload' }
+
+    CheckpointPayload:
+      allOf:
+        - $ref: '#/components/schemas/RunnerPayloadBase'
+        - type: object
+          required: [type, n, ref_sha, turn, session_ref, files_changed]
+          properties:
+            type: { type: string, enum: [checkpoint] }
+            n: { type: integer, description: 1-based within the run }
+            ref_sha: { type: string }
+            turn: { type: integer, description: The agent step (tool round) of the run at which it was taken }
+            session_ref: { type: string, description: 'What the agent needs to resume at this point; "" when it cannot (Codex, Cursor)' }
+            files_changed: { type: integer, description: Files changed since the previous checkpoint of the run (or HEAD) }
+            reason: { type: string, enum: [turn, question, iteration], description: '`iteration`: the checkpoint that ends a loop iteration' }
+
+    CheckEvent:
+      description: The check command of a loop iteration ran in the runner container after the agent's work was committed (docs/PROTOCOL.md, "Loops"). Exit code 0 passes.
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, run_id, seq, payload]
+          properties:
+            type: { type: string, enum: [check] }
+            run_id: { type: integer, format: int64 }
+            seq: { type: integer, format: int64 }
+            payload: { $ref: '#/components/schemas/CheckPayload' }
+
+    CheckPayload:
+      allOf:
+        - $ref: '#/components/schemas/RunnerPayloadBase'
+        - type: object
+          required: [type, command, exit_code, output, duration_ms, timed_out]
+          properties:
+            type: { type: string, enum: [check] }
+            command: { type: string }
+            exit_code: { type: integer, description: '0 passes; 124 when the timeout killed it' }
+            output: { type: string, description: The end of stdout and stderr, trimmed like CI logs (the last 400 lines plus earlier error lines) }
+            duration_ms: { type: integer, format: int64 }
+            timed_out: { type: boolean }
+            iteration: { type: integer, description: The loop iteration (added by the server) }
+            max_iterations: { type: integer, description: The loop's max_iterations (added by the server) }
 
     CommittedPayload:
       allOf:
@@ -1910,7 +3184,7 @@ components:
       required: [run_id, kind]
       properties:
         run_id: { type: integer, format: int64 }
-        kind: { type: string, enum: [initial, resume, followup, retry] }
+        kind: { type: string, enum: [initial, resume, followup, retry, restore] }
 
     RunFinishedEvent:
       allOf:
@@ -1928,6 +3202,48 @@ components:
       properties:
         run_id: { type: integer, format: int64 }
         exit_code: { type: integer, description: Runner exit code (PROTOCOL.md) }
+        cost_usd: { type: number, description: "The run's cost (absent before costs were recorded)" }
+        cost_source: { type: string, enum: [reported, estimated, unknown] }
+        auth: { type: string, enum: [api_key, subscription] }
+
+    BranchReadyEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [branch_ready] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/BranchReadyPayload' }
+
+    BranchReadyPayload:
+      type: object
+      required: [branch, commits, diffstat, updated]
+      properties:
+        branch: { type: string, description: 'Branch in the owner''s repository, e.g. jm/42-fix-login' }
+        commits: { type: integer, description: Commits on the branch that are not on the base branch }
+        diffstat: { type: string, description: '`git diff --stat` summary line against the base branch' }
+        updated: { type: boolean, description: 'A follow-up fast-forwarded a branch delivered before' }
+        previous: { type: string, description: 'Set when the update went to a new branch because the old one was checked out or had moved' }
+
+    BranchActionEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [branch_action] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/BranchActionPayload' }
+
+    BranchActionPayload:
+      type: object
+      required: [action, branch]
+      properties:
+        action: { type: string, enum: [merged, checked_out, discarded, pushed] }
+        branch: { type: string }
+        into: { type: string, description: 'merged: the owner''s branch it was merged into' }
+        fast_forward: { type: boolean, description: 'merged: true when no merge commit was needed' }
 
     PrOpenedEvent:
       allOf:
@@ -2013,3 +3329,345 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+
+    CheckpointRestoredEvent:
+      description: The owner restored a checkpoint. Events after `checkpoint_event_id` up to this one are the abandoned branch (kept, shown greyed).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [checkpoint_restored] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/CheckpointRestoredPayload' }
+
+    CheckpointRestoredPayload:
+      type: object
+      required: [checkpoint_id, n, run_id, ref_sha, mode, instruction, via, restore_run_id]
+      properties:
+        checkpoint_id: { type: integer, format: int64 }
+        checkpoint_event_id: { type: integer, format: int64, description: The checkpoint's timeline event (absent once event retention removed it) }
+        n: { type: integer }
+        run_id: { type: integer, format: int64, description: The run the checkpoint belongs to }
+        restore_run_id: { type: integer, format: int64 }
+        ref_sha: { type: string }
+        mode: { type: string, enum: [fork, summary] }
+        instruction: { type: string }
+        via: { type: string }
+
+    BranchForcePushedEvent:
+      description: A push after a restore rewrote the task branch with --force-with-lease (also commented on the PR and sent to Telegram).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [branch_force_pushed] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/BranchForcePushedPayload' }
+
+    BranchForcePushedPayload:
+      type: object
+      required: [branch, from, reason, number]
+      properties:
+        branch: { type: string }
+        from: { type: string, description: The remote commit that was replaced }
+        reason: { type: string, enum: [restore] }
+        number: { type: integer, description: PR number }
+
+    CheckpointSettings:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+
+    Checkpoint:
+      type: object
+      required: [id, task_id, run_id, event_id, n, ref_sha, turn, files_changed, reason, created_at, ref, mode, available]
+      properties:
+        id: { type: integer, format: int64 }
+        task_id: { type: integer, format: int64 }
+        run_id: { type: integer, format: int64 }
+        event_id: { type: [integer, 'null'], format: int64, description: Its `checkpoint` timeline event }
+        n: { type: integer }
+        ref_sha: { type: string }
+        turn: { type: integer }
+        files_changed: { type: integer }
+        reason: { type: string, enum: [turn, question] }
+        created_at: { type: string, format: date-time }
+        ref: { type: string, description: 'refs/jm/checkpoints/<run_id>/<n> (workspace only, never pushed)' }
+        mode: { type: string, enum: [fork, summary] }
+        available: { type: boolean }
+        unavailable_reason: { type: string, description: Why it cannot be restored now (absent when available) }
+
+    CheckpointPreview:
+      allOf:
+        - $ref: '#/components/schemas/Checkpoint'
+        - type: object
+          required: [discarded, diff, truncated]
+          properties:
+            discarded:
+              type: object
+              required: [runs, steps, messages, commits]
+              properties:
+                runs: { type: integer }
+                steps: { type: integer }
+                messages: { type: integer }
+                commits: { type: integer }
+            diff: { type: string, description: 'git diff <checkpoint> HEAD: the file changes a restore discards' }
+            truncated: { type: boolean }
+
+    MCPServer:
+      type: object
+      required: [id, project_id, name, kind, transport, url, runtime, package, command, args, secret_hints, tools_mode, tools, read_only, max_calls, enabled, last_used_at, last_status, last_error, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: [string, 'null'], description: null for a global server }
+        name: { type: string, description: 'lowercase letters, digits, - and _; the agent sees tools as mcp__<name>__<tool>' }
+        kind: { type: string, enum: [remote, stdio, postgres] }
+        transport: { type: [string, 'null'], enum: [http, sse, null] }
+        url: { type: [string, 'null'] }
+        runtime: { type: [string, 'null'], enum: [npm, pip, image, null] }
+        package: { type: [string, 'null'], description: npm or pip package, or Docker image }
+        command: { type: [string, 'null'], description: 'pip: the executable to run (default: the package name)' }
+        args: { type: array, items: { type: string } }
+        secret_hints:
+          type: object
+          additionalProperties: { type: string }
+          description: Stored secret keys with their last characters; values are never returned
+        tools_mode: { type: string, enum: [all, allow, deny] }
+        tools: { type: array, items: { type: string }, description: 'Tool names or patterns (* and ?) for allow/deny' }
+        read_only: { type: boolean, description: 'Postgres: enforced (read-only transaction, always rolled back). Other servers: only tools annotated readOnlyHint are exposed.' }
+        max_calls: { type: [integer, 'null'], description: Calls per run; null = no limit }
+        enabled: { type: boolean }
+        last_used_at: { type: [string, 'null'], format: date-time }
+        last_status: { type: [string, 'null'], enum: [ok, error, null] }
+        last_error: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    MCPServerInput:
+      type: object
+      required: [name, kind]
+      properties:
+        project_id: { type: [string, 'null'], description: 'POST only; null or absent: a global server' }
+        name: { type: string }
+        kind: { type: string, enum: [remote, stdio, postgres] }
+        transport: { type: [string, 'null'], enum: [http, sse, null], description: 'remote; default http' }
+        url: { type: [string, 'null'] }
+        runtime: { type: [string, 'null'], enum: [npm, pip, image, null] }
+        package: { type: [string, 'null'] }
+        command: { type: [string, 'null'] }
+        args: { type: array, items: { type: string } }
+        secrets:
+          type: object
+          additionalProperties: { type: [string, 'null'] }
+          description: |
+            Write-only. remote: HTTP header names (or `bearer` for `Authorization: Bearer`); stdio: environment variables
+            of the sidecar; postgres: `DATABASE_URL`. null removes a key; keys not sent are kept.
+        tools_mode: { type: string, enum: [all, allow, deny] }
+        tools: { type: array, items: { type: string } }
+        read_only: { type: [boolean, 'null'], description: 'default: true for postgres, false otherwise' }
+        max_calls: { type: [integer, 'null'] }
+        enabled: { type: [boolean, 'null'] }
+
+    MCPTool:
+      type: object
+      required: [name, description, allowed, read_only]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        allowed: { type: boolean, description: The project's settings expose it }
+        read_only: { type: boolean }
+
+    MCPTestResult:
+      type: object
+      required: [ok, tools]
+      properties:
+        ok: { type: boolean }
+        error: { type: string }
+        tools: { type: array, items: { $ref: '#/components/schemas/MCPTool' } }
+
+    Egress:
+      type: object
+      required: [mode, presets, hosts]
+      properties:
+        mode: { type: string, enum: [open, allowlist], description: 'open: today''s behaviour (default)' }
+        presets: { type: array, items: { type: string } }
+        hosts: { type: array, items: { type: string }, description: 'host, *.domain (subdomains only) or host:port' }
+
+    EgressPreset:
+      type: object
+      required: [id, label, hosts]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        hosts: { type: array, items: { type: string } }
+
+    AgentMCPSupport:
+      type: object
+      required: [agent, mcp, proxy, note]
+      properties:
+        agent: { type: string }
+        mcp: { type: boolean }
+        proxy: { type: string, enum: ['yes', unverified] }
+        note: { type: string }
+
+    Integrations:
+      type: object
+      required: [secrets_enabled, egress, egress_supported, presets, servers, global_servers, global_server_ids, active, agents, gateway_url]
+      properties:
+        secrets_enabled: { type: boolean, description: false when SECRETS_KEY is not set (MCP servers cannot be used) }
+        egress: { $ref: '#/components/schemas/Egress' }
+        egress_supported: { type: boolean, description: false when the project runs on a node (allowlist tasks would not start) }
+        presets: { type: array, items: { $ref: '#/components/schemas/EgressPreset' } }
+        servers: { type: array, items: { $ref: '#/components/schemas/MCPServer' }, description: The project's own servers }
+        global_servers: { type: array, items: { $ref: '#/components/schemas/MCPServer' } }
+        global_server_ids: { type: array, items: { type: integer, format: int64 }, description: Global servers this project uses }
+        active: { type: array, items: { $ref: '#/components/schemas/MCPServer' }, description: What the next task gets }
+        agents: { type: array, items: { $ref: '#/components/schemas/AgentMCPSupport' } }
+        gateway_url: { type: string, description: Base URL runners reach the gateway at ("" when unknown) }
+
+    AutoFixEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [autofix] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/AutoFixPayload' }
+
+    AutoFixCheck:
+      type: object
+      required: [name, url, conclusion]
+      properties:
+        name: { type: string }
+        url: { type: string, description: The check run on GitHub (its logs) }
+        conclusion: { type: string }
+
+    AutoFixPayload:
+      type: object
+      required: [phase]
+      description: |
+        One automatic CI auto-fix step. `started`: attempt `attempt`/`max_attempts` was queued as run `run_id` with the failing
+        `checks`, the failure `signature` and the trimmed logs in `attachments`. `pushed`: the fix was pushed. `held`: the fix
+        changes CI or tests (`reasons`); the open question asks the owner. `discarded`: the owner discarded it. `green`: CI passed
+        after `fixes` fixes. `needs_you`: the loop stopped (`reason`). `cancelled`: a human push, follow-up or closed PR (`reason`).
+      properties:
+        phase: { type: string, enum: [started, pushed, held, discarded, green, needs_you, cancelled] }
+        attempt: { type: integer }
+        max_attempts: { type: integer }
+        run_id: { type: integer, format: int64 }
+        head_sha: { type: string }
+        signature: { type: string }
+        checks: { type: array, items: { $ref: '#/components/schemas/AutoFixCheck' } }
+        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' } }
+        reasons: { type: array, items: { type: string } }
+        reason: { type: string }
+        fixes: { type: integer }
+
+    MCPCallEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [mcp_call] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/MCPCallPayload' }
+
+    MCPCallPayload:
+      type: object
+      required: [server, tool, ok]
+      description: One call through the MCP gateway. Sizes and timing only; never arguments, results or credentials. `tool` is "" for a failed connection.
+      properties:
+        server: { type: string }
+        tool: { type: string }
+        ok: { type: boolean }
+        duration_ms: { type: integer }
+        args_bytes: { type: integer }
+        result_bytes: { type: integer }
+        denied: { type: string, enum: [denied, limit], description: 'denied: the tool is not allowed; limit: max_calls reached' }
+        error: { type: string }
+
+    EgressBlockedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [egress_blocked] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [host]
+              properties:
+                host: { type: string, description: 'The refused host (once per host and run); POST /projects/{id}/egress/allow allows it' }
+
+    BudgetEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [budget] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [phase]
+              description: |
+                Monthly budgets: `warning` (this task's run took the scope to 80% this month), `reached` (100%: running runs finish,
+                new runs wait), `waiting` (this queued task is held: "waiting: budget"), `override` (the owner let it start anyway,
+                `via` web or telegram). Sent once per scope, month and level for warning and reached.
+              properties:
+                phase: { type: string, enum: [warning, reached, waiting, override] }
+                scope: { type: string, enum: [global, project, schedule] }
+                project_id: { type: string }
+                schedule_id: { type: integer, format: int64, description: 'scope schedule: the schedule whose monthly cap it is' }
+                schedule: { type: string, description: 'scope schedule: its name (warning, reached)' }
+                level: { type: integer, enum: [80, 100] }
+                spent_usd: { type: number }
+                limit_usd: { type: number }
+                via: { type: string, enum: [web, telegram] }
+
+    LoopEvent:
+      description: 'A loop (SPEC-server, "Loops"): `iteration` when an iteration is queued (1 when the task is created or retried; the next one after a failed check, with the check''s `exit_code` and the reason), `stopped` when the loop ended (`state` says why). The PR is opened after `stopped`.'
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [loop] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [phase, iteration]
+              properties:
+                phase: { type: string, enum: [iteration, stopped] }
+                iteration: { type: integer }
+                max_iterations: { type: integer }
+                check_command: { type: string }
+                run_id: { type: integer, format: int64, description: 'iteration: the run of the iteration' }
+                exit_code: { type: integer, description: 'iteration > 1: the failed check of the previous one' }
+                timed_out: { type: boolean }
+                state: { $ref: '#/components/schemas/LoopState' }
+                reason: { type: string }
+                spent_usd: { type: number, description: What the loop's runs cost so far }
+
+    IntegrationsEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [integrations] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [servers, egress]
+              description: What the run got, written at its start when it has MCP servers or an allowlist.
+              properties:
+                servers: { type: array, items: { type: string } }
+                egress: { type: string, enum: [open, allowlist] }
+                warning: { type: string }

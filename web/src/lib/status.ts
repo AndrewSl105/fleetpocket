@@ -5,6 +5,7 @@ import {
   CirclePause,
   CircleSlash,
   CircleX,
+  GitBranch,
   GitPullRequest,
   Loader,
   Upload,
@@ -14,10 +15,11 @@ import {
 import type { TaskStatus } from '@/api/types'
 import { t } from '@/i18n/en'
 
-/** Field Manual stamp tones (fm-stamp[data-tone] in src/index.css). */
-export type Tone = 'signal' | 'ask' | 'olive' | 'danger' | 'paused' | 'plain'
+/** Field Manual stamp tones (fm-stamp[data-tone] in src/index.css); `branch` is an olive outline. */
+export type Tone = 'signal' | 'ask' | 'olive' | 'branch' | 'danger' | 'paused' | 'plain'
 
-export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: LucideIcon; blink?: boolean }> = {
+/** `glyph` replaces the icon in the stamp (⎇ for a delivered branch). */
+export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: LucideIcon; blink?: boolean; glyph?: string }> = {
   queued: { label: t.status.queued, tone: 'plain', icon: CircleDashed },
   preparing: { label: t.status.preparing, tone: 'signal', icon: Wrench },
   running: { label: t.status.running, tone: 'signal', icon: Loader, blink: true },
@@ -25,6 +27,7 @@ export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: Lucid
   paused: { label: t.status.paused, tone: 'paused', icon: CirclePause },
   pushing: { label: t.status.pushing, tone: 'signal', icon: Upload },
   pr_open: { label: t.status.pr_open, tone: 'olive', icon: GitPullRequest },
+  branch_ready: { label: t.status.branch_ready, tone: 'branch', icon: GitBranch, glyph: '⎇' },
   completed: { label: t.status.completed, tone: 'olive', icon: CircleCheck },
   failed: { label: t.status.failed, tone: 'danger', icon: CircleX },
   cancelled: { label: t.status.cancelled, tone: 'paused', icon: CircleSlash },
@@ -36,7 +39,7 @@ export type TaskGroup = 'active' | 'pr_open' | 'done' | 'failed'
 
 export const GROUPS: Record<TaskGroup, TaskStatus[]> = {
   active: ['queued', 'preparing', 'running', 'waiting_input', 'paused', 'pushing'],
-  pr_open: ['pr_open'],
+  pr_open: ['pr_open', 'branch_ready'],
   done: ['completed'],
   failed: ['failed', 'cancelled'],
 }
@@ -54,6 +57,7 @@ const ACTIONS: Record<TaskStatus, TaskAction[]> = {
   paused: ['answer', 'message', 'cancel'],
   pushing: ['message', 'cancel'],
   pr_open: ['merge', 'message', 'cancel'],
+  branch_ready: ['message', 'cancel'],
   completed: ['message'],
   failed: ['retry'],
   cancelled: ['retry'],
@@ -71,5 +75,5 @@ export function can(status: TaskStatus, action: TaskAction): boolean {
  */
 export function composerMode(status: TaskStatus): 'queue' | 'followup' | null {
   if (!can(status, 'message')) return null
-  return status === 'paused' || status === 'pr_open' || status === 'completed' ? 'followup' : 'queue'
+  return status === 'paused' || status === 'pr_open' || status === 'branch_ready' || status === 'completed' ? 'followup' : 'queue'
 }

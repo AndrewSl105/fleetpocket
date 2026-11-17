@@ -1,15 +1,20 @@
 import { memo, useState } from 'react'
+import { toast } from 'sonner'
 import {
+  Ban,
   ChevronRight,
   CircleCheck,
   CircleX,
   ExternalLink,
+  GitBranch,
   GitCommitHorizontal,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
   OctagonAlert,
+  Plug,
   Sparkles,
+  Wrench,
 } from 'lucide-react'
 import type { TimelineItem } from '@/lib/timeline'
 import { STATUS } from '@/lib/status'
@@ -17,15 +22,38 @@ import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/Markdown'
 import { AttachmentGrid } from '@/components/attachments/AttachmentGrid'
 import { CopyButton } from '@/components/CopyButton'
+import { Button } from '@/components/ui/button'
+import { useAllowEgress, useTask } from '@/api/hooks'
 import { t } from '@/i18n/en'
+import { c } from '@/i18n/costs'
+import { usd } from '@/lib/format'
+import { cp } from '@/i18n/checkpoints'
+import { CheckpointRow } from './CheckpointRow'
+import { branchActionText, branchReadyText } from '@/lib/local'
+import { lc } from '@/i18n/local'
+import { lp } from '@/i18n/loops'
 
 const tl = t.task.timeline
 
 export function dividerText(text: string): string {
   if (text.startsWith('run_started:')) return tl.runStarted(text.slice('run_started:'.length))
   if (text.startsWith('run_finished:')) {
-    const code = text.slice('run_finished:'.length)
-    return tl.runFinished(code === '' ? null : Number(code))
+    const [code, cost, source] = text.slice('run_finished:'.length).split('|')
+    const done = tl.runFinished(code === '' ? null : Number(code))
+    if (cost === undefined) return done
+    return `${done} · ${c.runCost(usd(Number(cost), source === 'estimated', source === 'unknown'))}`
+  }
+  if (text.startsWith('budget:')) {
+    try {
+      const b = JSON.parse(text.slice('budget:'.length)) as { phase: string; scope?: string; project_id?: string; spent_usd?: number; limit_usd?: number; via?: string }
+      return c.budgetEvent(b.phase, b.scope, b.project_id, b.spent_usd, b.limit_usd, b.via)
+    } catch {
+      return text
+    }
+  }
+  if (text.startsWith('integrations:')) {
+    const [servers, egress] = text.slice('integrations:'.length).split('|')
+    return tl.integrations(servers, egress)
   }
   if (text === 'interrupt') return tl.interrupt
   if (text === 'paused') return tl.paused
@@ -77,6 +105,130 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
       )}
     </div>
   )
+}
+
+/** A gateway call: like a tool row, with the server and the time it took. */
+function MCPRow({ item }: { item: Extract<TimelineItem, { kind: 'mcp' }> }) {
+  const failed = !item.ok
+  const label = item.tool ? tl.mcpCall(item.server, item.tool) : tl.mcpConnect(item.server)
+  const note = item.denied === 'denied' ? tl.mcpDenied : item.denied === 'limit' ? tl.mcpLimit : item.error
+  return (
+    <div className={cn('flex min-h-9 items-center gap-2 px-2 text-xs text-muted-foreground', failed && 'text-danger')}>
+      <Plug className="size-3.5 shrink-0" aria-hidden="true" />
+      <span className="shrink-0 fm-label">mcp</span>
+      <span className="truncate font-mono">{label}</span>
+      {note && <span className="truncate">· {note}</span>}
+      {item.ok && item.ms > 0 && <span className="ml-auto shrink-0 font-mono">{item.ms} ms</span>}
+      {failed && <CircleX className="ml-auto size-3.5 shrink-0" aria-label="failed" />}
+    </div>
+  )
+}
+
+/** A host the egress proxy refused, with "Allow for this project" (next run). */
+function EgressRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'egress' }>; taskId: number }) {
+  const task = useTask(taskId)
+  const allow = useAllowEgress(task.data?.project_id ?? '')
+  const [done, setDone] = useState(false)
+  return (
+    <div className="flex flex-wrap items-center gap-2 fm-ask px-3 py-2 text-sm">
+      <Ban className="size-4 shrink-0 text-danger" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-xs font-semibold break-all">{tl.blocked(item.host)}</div>
+        <div className="text-xs text-muted-foreground">{done ? tl.allowed(item.host) : tl.blockedHint}</div>
+      </div>
+      {!done && (
+        <Button
+          variant="outline"
+          className="h-11"
+          disabled={!task.data || allow.isPending}
+          onClick={() => allow.mutate(item.host, { onSuccess: () => { setDone(true); toast.success(tl.allowed(item.host)) } })}
+        >
+          {tl.allow}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+const af = t.autofix
+
+function CheckLinks({ checks }: { checks: Extract<TimelineItem, { kind: 'autofix' }>['checks'] }) {
+  if (!checks.length) return null
+  return (
+    <ul className="mt-1.5 space-y-0.5">
+      {checks.map((c) => (
+        <li key={c.name}>
+          <a
+            href={c.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-8 items-center gap-1.5 font-mono text-xs text-danger underline-offset-2 hover:underline"
+          >
+            <CircleX className="size-3.5 shrink-0" aria-hidden="true" />
+            {c.name}
+            <ExternalLink className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** A CI auto-fix step: the attempt section, its stops and the green stamp. */
+function AutoFixRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'autofix' }>; taskId: number }) {
+  switch (item.phase) {
+    case 'started':
+      return (
+        <section aria-label={af.attempt(item.attempt, item.maxAttempts)} className="fm-card px-3.5 py-3">
+          <div className="fm-label flex items-center gap-1.5 font-semibold">
+            <Wrench className="size-3.5" aria-hidden="true" />
+            {af.attempt(item.attempt, item.maxAttempts)}
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">{af.failingChecks}</div>
+          <CheckLinks checks={item.checks} />
+          {item.signature && (
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              {af.signature} <span className="font-mono text-foreground">{item.signature}</span>
+            </div>
+          )}
+          {item.attachments.length > 0 && (
+            <>
+              <div className="mt-2 mb-1 text-xs text-muted-foreground">{af.logs}</div>
+              <AttachmentGrid taskId={taskId} items={item.attachments} />
+            </>
+          )}
+        </section>
+      )
+    case 'green':
+      return (
+        <div className="fm-group bg-grid px-3 py-2.5 text-sm font-semibold text-olive-text" role="status">
+          {af.green(item.fixes)}
+        </div>
+      )
+    case 'needs_you':
+    case 'held':
+      return (
+        <div className="fm-ask px-3.5 py-3 text-sm">
+          <div className="fm-label font-semibold text-signal-text">{item.phase === 'held' ? af.held : af.stopped}</div>
+          {item.reason && <p className="mt-1 break-words">{item.reason}</p>}
+          {item.reasons.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 font-mono text-xs break-words">
+              {item.reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+          <CheckLinks checks={item.checks} />
+        </div>
+      )
+    case 'pushed':
+      return <Divider>{af.pushed(item.attempt)}</Divider>
+    case 'discarded':
+      return <Divider warn>{af.discarded}</Divider>
+    case 'cancelled':
+      return <Divider warn>{af.cancelled(item.reason ?? '')}</Divider>
+  }
+  return null
 }
 
 function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number }) {
@@ -205,9 +357,127 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
           />
         </div>
       )
+    case 'autofix':
+      return <AutoFixRow item={item} taskId={taskId} />
+    case 'mcp':
+      return <MCPRow item={item} />
+    case 'egress':
+      return <EgressRow item={item} taskId={taskId} />
+    case 'checkpoint':
+      return <CheckpointRow item={item} taskId={taskId} />
+    case 'restored':
+      return (
+        <Divider>
+          {cp.restored(item.n, item.mode)}
+          {item.instruction && <span className="block italic">“{item.instruction}”</span>}
+        </Divider>
+      )
+    case 'force_push':
+      return <Divider warn>{cp.forcePushed(item.branch, item.from)}</Divider>
+    case 'abandoned':
+      return <AbandonedRow item={item} taskId={taskId} />
+    case 'branch_ready':
+      return (
+        <div className="flex gap-2.5 fm-group bg-grid px-3 py-2.5 text-sm">
+          <GitBranch className="mt-0.5 size-4 shrink-0 text-olive-text" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <div className="font-medium break-words">{branchReadyText(item)}</div>
+            {item.previous && <div className="text-xs text-muted-foreground">{lc.timeline.previous(item.previous)}</div>}
+          </div>
+          <CopyButton text={item.branch} label={t.task.actions.copyBranch} className="-mt-1 -mr-1.5" />
+        </div>
+      )
+    case 'branch_action':
+      return <Divider>{branchActionText(item)}</Divider>
+    case 'iteration':
+      return (
+        <div className="flex min-h-9 items-center gap-2 border-y-2 border-ink bg-grid px-3 py-1.5" role="separator" aria-label={lp.iteration(item.n, item.max)}>
+          <span className="fm-label font-semibold">{lp.iteration(item.n, item.max)}</span>
+          {item.command && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{item.command}</span>}
+        </div>
+      )
+    case 'check':
+      return <CheckRow item={item} />
+    case 'loop_end':
+      return (
+        <Divider warn={item.state !== 'passed'}>
+          {lp.ended(item.state)}
+          {item.reason && item.state !== 'passed' ? ` · ${item.reason}` : ''}
+        </Divider>
+      )
     case 'question':
       return null
   }
+}
+
+/** The check that ended a loop iteration: a stamp, then its output on demand. */
+function CheckRow({ item }: { item: Extract<TimelineItem, { kind: 'check' }> }) {
+  const [open, setOpen] = useState(false)
+  const passed = item.exitCode === 0 && !item.timedOut
+  return (
+    <div className="fm-group px-3 py-2.5" data-testid="loop-check">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="fm-stamp" data-tone={passed ? 'olive' : 'danger'}>
+          {passed ? lp.checkPassed : lp.checkFailed(item.iteration, item.max)}
+        </span>
+        <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{item.command}</span>
+        <span className="ml-auto font-mono text-xs text-muted-foreground">
+          {item.timedOut ? lp.checkTimedOut : lp.exitCode(item.exitCode)} · {(item.ms / 1000).toFixed(1)}s
+        </span>
+      </div>
+      {item.output.trim() && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="mt-1 flex min-h-11 items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} aria-hidden="true" />
+            {open ? lp.hideOutput : lp.showOutput}
+          </button>
+          {open && <pre className="max-h-72 overflow-auto bg-grid p-2 font-mono text-[11px] leading-snug whitespace-pre-wrap break-words">{item.output}</pre>}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Steps a restore discarded: collapsed and greyed, never deleted. */
+function AbandonedRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'abandoned' }>; taskId: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border border-dashed border-border opacity-60">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex min-h-11 w-full items-center gap-2 px-3 text-left font-mono text-xs uppercase tracking-wide text-muted-foreground"
+      >
+        <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} aria-hidden="true" />
+        <span className="flex-1 line-through decoration-muted-foreground/50">{cp.abandoned(item.items.length)}</span>
+        <span>{open ? cp.hideAbandoned : cp.showAbandoned}</span>
+      </button>
+      {open && (
+        <div className="space-y-2 px-2 pb-2 grayscale">
+          {item.items.map((child) =>
+            child.kind === 'question' ? (
+              <p key={child.key} className="px-2 text-sm text-muted-foreground">
+                {child.text}
+                {child.answer && <span className="block">→ {child.answer.text}</span>}
+              </p>
+            ) : child.kind === 'checkpoint' ? (
+              <p key={child.key} className="px-2 font-mono text-xs uppercase text-muted-foreground">
+                {cp.marker(child.n, child.reason, child.files)}
+              </p>
+            ) : (
+              <TimelineRowImpl key={child.key} item={child} taskId={taskId} />
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export const TimelineRow = memo(TimelineRowImpl)

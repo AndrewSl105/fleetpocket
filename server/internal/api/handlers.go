@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
+	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
@@ -108,7 +110,11 @@ func (s *Server) sessionInfo(kind string) map[string]any {
 	if def == "" {
 		def = "claude"
 	}
-	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def}
+	mode := s.Cfg.Mode
+	if mode == "" {
+		mode = config.ModeServer
+	}
+	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def, "mode": mode}
 }
 
 // ---- projects ----
@@ -129,6 +135,10 @@ func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
 	if out.Items == nil {
 		out.Items = []*store.Project{}
 	}
+	if err := s.withMonthCost(r.Context(), out.Items...); err != nil {
+		writeErr(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -147,6 +157,9 @@ func (s *Server) createProject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getProject(w http.ResponseWriter, r *http.Request) {
 	p, err := s.Store.GetProject(r.Context(), r.PathValue("id"))
+	if err == nil {
+		err = s.withMonthCost(r.Context(), p)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -160,9 +173,15 @@ func (s *Server) updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := s.Projects.Update(r.Context(), r.PathValue("id"), in)
+	if err == nil {
+		err = s.withMonthCost(r.Context(), p)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
+	}
+	if in.Budget != nil && s.Tasks != nil && s.Tasks.Executor != nil {
+		s.Tasks.Executor.Wake() // a raised cap lets waiting tasks start
 	}
 	writeJSON(w, http.StatusOK, p)
 }
@@ -179,6 +198,10 @@ func (s *Server) archiveProject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) addRepository(w http.ResponseWriter, r *http.Request) {
 	var in projects.RepoInput
 	if !decode(w, r, &in) {
+		return
+	}
+	if in.Source == "local" {
+		s.addRepositoryLocal(w, r, in)
 		return
 	}
 	repo, err := s.Projects.AddRepository(r.Context(), r.PathValue("id"), in)
@@ -275,7 +298,7 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var in tasks.CreateInput
 	if isMultipart(r) {
-		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove")
+		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove", "loop", "start_from")
 		if !ok {
 			return
 		}
@@ -285,7 +308,13 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		in = tasks.CreateInput{ProjectID: f["project_id"], RepositoryID: repoID, Title: f["title"], Prompt: f["prompt"], Agent: f["agent"], Node: f["node"], Images: imgs,
-			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"])}
+			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"]), StartFrom: f["start_from"]}
+		if f["loop"] != "" {
+			if err := json.Unmarshal([]byte(f["loop"]), &in.Loop); err != nil {
+				writeError(w, http.StatusBadRequest, "invalid", "loop: "+err.Error())
+				return
+			}
+		}
 	} else if !decode(w, r, &in) {
 		return
 	}

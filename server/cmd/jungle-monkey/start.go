@@ -17,6 +17,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/pgembed"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
+	"github.com/andrewsl105/fleetpocket/server/internal/secretbox"
 	"github.com/andrewsl105/fleetpocket/server/internal/secrets"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/webui"
@@ -40,12 +41,23 @@ func runStart(args []string) error {
 	}
 	p := config.LocalPaths{Root: cfg.DataDir}
 	st := cfg.LocalState
+	cwd, _ := os.Getwd()
+	startRepo := workTree(cwd)
 	if c := newControl(p); c != nil && c.ping() {
 		fmt.Fprintf(os.Stderr, "Jungle Monkey is already running at %s\n", c.base)
+		next := ""
+		if startRepo != "" {
+			if a, err := addRepo(c, startRepo); err == nil {
+				printAdded(a)
+				next = "/projects/" + a.Project.ID
+			} else {
+				fmt.Fprintf(os.Stderr, "  %s %v\n", red("Could not add this folder:"), err)
+			}
+		}
 		if f.noOpen {
 			return nil
 		}
-		return runOpen(nil)
+		return openAt(c, next)
 	}
 	if f.port != 0 && f.port != st.Port {
 		st.Port = f.port
@@ -90,6 +102,9 @@ func runStart(args []string) error {
 	// 2. Credentials: agent keys from the keychain (or env), as fleetpocket-node does.
 	sec := secrets.New(cfg.DataDir)
 	fillAgentKeys(cfg, sec)
+	if err := ensureSecretsKey(cfg, sec); err != nil {
+		return fmt.Errorf("secrets key: %w", err)
+	}
 
 	// 3. Database
 	label := "Database"
@@ -136,7 +151,8 @@ func runStart(args []string) error {
 		return out
 	}
 	var ui = webui.Dist()
-	opts := app.Options{Local: local}
+	home, _ := os.UserHomeDir()
+	opts := app.Options{Local: local, Home: home, StartDir: startRepo, DataDir: cfg.DataDir, Secrets: sec}
 	if ui != nil {
 		opts.UI = webui.Handler(ui)
 	}
@@ -147,7 +163,18 @@ func runStart(args []string) error {
 			slog.Error("login code", "err", err)
 			return
 		}
-		u := local.LoginURL(code)
+		// Started inside a repository: add it (idempotent) and open on it.
+		next := ""
+		if startRepo != "" {
+			c := &control{base: cfg.PublicBaseURL, token: st.ControlToken}
+			if a, err := addRepo(c, startRepo); err == nil {
+				printAdded(a)
+				next = "/projects/" + a.Project.ID
+			} else {
+				fmt.Fprintf(os.Stderr, "  %s %v\n", red("Could not add this folder:"), err)
+			}
+		}
+		u := local.LoginURLTo(code, next)
 		fmt.Fprintf(os.Stderr, "\n  %s %s\n", green("Ready:"), bold(cfg.PublicBaseURL))
 		if ui == nil {
 			fmt.Fprintln(os.Stderr, dim("  (built without the embedweb tag: run the web app with `npm run dev` in web/)"))
@@ -173,7 +200,7 @@ func runStart(args []string) error {
 			}
 		}
 	}
-	defer os.Remove(p.PIDFile())
+	defer func() { _ = os.Remove(p.PIDFile()) }()
 	return app.Serve(ctx, cancel, cfg, opts)
 }
 
@@ -193,6 +220,28 @@ func fillAgentKeys(cfg *config.Config, sec *secrets.Store) {
 			*k.dst = sec.Get(k.name)
 		}
 	}
+}
+
+// ensureSecretsKey gives local mode its SECRETS_KEY: the environment's, or
+// the one kept in the keychain (generated on first use), like the agent keys.
+// It stays out of config.json, so the key is not next to the database.
+func ensureSecretsKey(cfg *config.Config, sec *secrets.Store) error {
+	if cfg.SecretsKey != "" {
+		return nil
+	}
+	if v := sec.Get(secrets.SecretsKey); v != "" {
+		cfg.SecretsKey = v
+		return nil
+	}
+	key, err := secretbox.GenerateKey()
+	if err != nil {
+		return err
+	}
+	if _, err := sec.Set(secrets.SecretsKey, key); err != nil {
+		return err
+	}
+	cfg.SecretsKey = key
+	return nil
 }
 
 func errString(err error) string {

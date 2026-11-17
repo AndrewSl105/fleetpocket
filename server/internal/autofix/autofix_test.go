@@ -101,3 +101,43 @@ func TestGuardDiff(t *testing.T) {
 		}
 	}
 }
+
+func TestParseDiffFeedsGuard(t *testing.T) {
+	diff := `diff --git a/main.go b/main.go
+index 1..2 100644
+--- a/main.go
++++ b/main.go
+@@ -1 +1 @@
+-x
++y
+diff --git a/old_test.go b/old_test.go
+deleted file mode 100644
+--- a/old_test.go
++++ /dev/null
+@@ -1 +0,0 @@
+-package x
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -1 +1 @@
++on: push
+diff --git a/web/a.test.ts b/web/a.test.ts
+--- a/web/a.test.ts
++++ b/web/a.test.ts
+@@ -1 +1 @@
++it.skip('x', () => {})
+`
+	files := ParseDiff(diff)
+	if len(files) != 4 || files[0].Path != "main.go" || !files[1].Deleted || files[1].Path != "old_test.go" {
+		t.Fatalf("%+v", files)
+	}
+	if got := GuardDiff(files[:1]); len(got) != 0 {
+		t.Fatalf("plain change flagged: %v", got)
+	}
+	got := strings.Join(GuardDiff(files), "|")
+	for _, want := range []string{"deletes test file: old_test.go", "changes CI configuration: .github/workflows/ci.yml", "skips a test in web/a.test.ts"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}

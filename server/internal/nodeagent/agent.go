@@ -218,6 +218,9 @@ func (a *Agent) handle(ctx context.Context, c *websocket.Conn, m hosts.Message) 
 		if errors.Is(err, workspace.ErrInvalidDiff) {
 			out.ErrorKind = hosts.ErrKindInvalidDiff
 		}
+		if errors.Is(err, workspace.ErrCheckpointGone) {
+			out.ErrorKind = hosts.ErrKindCheckpointGone
+		}
 		if m.Method != hosts.MSend {
 			slog.Warn("call failed", "method", m.Method, "err", err)
 		}
@@ -241,7 +244,8 @@ func (a *Agent) dispatch(ctx context.Context, method string, raw json.RawMessage
 	switch method {
 	case hosts.MPrepareWorkspace, hosts.MUnpushed, hosts.MDiff, hosts.MDiffStat, hosts.MValidate, hosts.MPush,
 		hosts.MRemoveWorkspace, hosts.MEventLog, hosts.MEnsureNetwork, hosts.MEnsureVolume, hosts.MEnsureSidecars,
-		hosts.MRemoveAll, hosts.MRemoveSidecars, hosts.MRemoveVolume:
+		hosts.MRemoveAll, hosts.MRemoveSidecars, hosts.MRemoveVolume,
+		hosts.MCheckpointDiff, hosts.MRestoreCheckpoint, hosts.MDiverged, hosts.MForcePush:
 		if err := json.Unmarshal(raw, &tp); err != nil {
 			return nil, err
 		}
@@ -266,6 +270,15 @@ func (a *Agent) dispatch(ctx context.Context, method string, raw json.RawMessage
 		return nil, l.Validate(ctx, tp.TaskID, tp.Base, tp.Strict)
 	case hosts.MPush:
 		return nil, a.Local.Git(tp.Token).Push(ctx, tp.TaskID, tp.Repo, tp.Branch)
+	case hosts.MCheckpointDiff:
+		d, trunc, err := l.CheckpointDiff(ctx, tp.TaskID, tp.Ref, tp.SHA, tp.Limit)
+		return hosts.DiffResult{Diff: d, Truncated: trunc}, err
+	case hosts.MRestoreCheckpoint:
+		return nil, l.RestoreCheckpoint(ctx, tp.TaskID, tp.Ref, tp.SHA)
+	case hosts.MDiverged:
+		return l.Diverged(ctx, tp.TaskID, tp.Branch)
+	case hosts.MForcePush:
+		return a.Local.Git(tp.Token).ForcePush(ctx, tp.TaskID, tp.Repo, tp.Branch)
 	case hosts.MRemoveWorkspace:
 		return nil, l.RemoveWorkspace(ctx, tp.TaskID)
 	case hosts.MEventLog:

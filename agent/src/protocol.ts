@@ -45,10 +45,40 @@ export const RunCommand = z.object({
     message: z.string().min(1),
     author_name: z.string().min(1),
     author_email: z.string().min(1),
+    // Commit even when nothing changed (an empty commit), so a PR is opened
+    // anyway (a schedule with "open a PR only if there are changes" off).
+    allow_empty: z.boolean().optional(),
   }),
+  // The run's MCP servers, all behind Jungle Monkey's gateway. The token is
+  // the run's gateway token (no third-party credential): it expires when the
+  // run ends and reaches only these servers.
+  mcp: z
+    .object({
+      token: z.string().min(1),
+      servers: z.array(z.object({ name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/), url: z.string().url() })),
+    })
+    .optional(),
   skills: z.array(Skill).default([]),
   output: z.enum(OUTPUTS).default("pr"),
+  // Present only when checkpoints are on: after each step that changed files
+  // and before each question, the runner commits the working tree to
+  // refs/jm/checkpoints/<run_id>/<n> and emits `checkpoint`.
+  checkpoints: z.object({ run_id: z.union([z.string().min(1), z.number()]).transform(String) }).optional(),
+  // A checkpoint's session_ref (restore): the agent resumes that
+  // conversation at that point as a new fork (Claude only; replaces
+  // resume_session_id, which the server then leaves out).
+  resume_session_ref: z.string().min(1).optional(),
+  // A loop iteration: after a `done` session (and its commit) the runner
+  // runs this command in /workspace and emits `check` before `done`.
+  check: z
+    .object({
+      command: z.string().min(1).max(2000),
+      timeout_sec: z.number().int().positive().max(3600).default(600),
+    })
+    .optional(),
 });
+
+export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;
 
 export const AnswerCommand = z.object({
   type: z.literal("answer"),
@@ -92,13 +122,39 @@ export function parseCommand(line: string): { ok: true; command: Command } | { o
 
 export type EventBody =
   | { type: "ready"; runner_version: string }
-  | { type: "started"; session_id: string; model: string }
+  // auth: how the agent is authenticated, when the runner knows (Claude):
+  // "subscription" (OAuth token) makes the reported cost API-equivalent.
+  | { type: "started"; session_id: string; model: string; auth?: "api_key" | "subscription" }
   | { type: "assistant_text"; text: string }
   | { type: "tool_use"; tool: string; summary: string }
   | { type: "tool_result"; tool: string; ok: boolean; summary?: string }
   | { type: "question"; question_id: string; text: string; options?: string[] }
-  | { type: "usage"; cost_usd_total: number; input_tokens: number; output_tokens: number; turns: number }
+  // input_tokens includes the cache reads and writes; cache_*_tokens count
+  // them on their own when the agent reports them.
+  | {
+      type: "usage";
+      cost_usd_total: number;
+      input_tokens: number;
+      output_tokens: number;
+      turns: number;
+      cache_read_tokens?: number;
+      cache_write_tokens?: number;
+    }
   | { type: "committed"; sha: string; files_changed: number; insertions: number; deletions: number }
+  // ref_sha is the commit at refs/jm/checkpoints/<run>/<n>; session_ref is
+  // "" when the agent cannot resume at that point (Codex, Cursor).
+  | {
+      type: "checkpoint";
+      n: number;
+      ref_sha: string;
+      turn: number;
+      session_ref: string;
+      files_changed: number;
+      reason: "turn" | "question" | "iteration";
+    }
+  // The loop check: output is the tail of stdout+stderr (≤ 256 KiB);
+  // exit_code 124 with timed_out when the timeout killed it.
+  | { type: "check"; command: string; exit_code: number; output: string; duration_ms: number; timed_out: boolean }
   | { type: "done"; session_id: string; summary: string; no_changes: boolean; cost_usd_total: number }
   | { type: "paused"; session_id: string; reason: "question_timeout"; question_id: string }
   | { type: "error"; code: string; message: string; session_id?: string }

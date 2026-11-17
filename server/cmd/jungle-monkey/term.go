@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -99,5 +98,3 @@ func openBrowser(url string) error {
 	}
 	return cmd.Start()
 }
-
-func indent(s string) string { return "  " + strings.ReplaceAll(s, "\n", "\n  ") }

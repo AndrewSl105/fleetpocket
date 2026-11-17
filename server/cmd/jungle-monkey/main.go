@@ -17,7 +17,9 @@ const usage = `Jungle Monkey: AI coding agents on your computer.
 usage: jungle-monkey [command] [flags]
 
 commands:
-  start             start everything and open the browser (default)
+  start             start everything and open the browser (default); inside a
+                    git repository, add it and open it
+  add [path]        add a folder (default: this one) as a local repository
   open              open the web app with a fresh one-time login link
   status            is it running? URL, version, tasks, Docker and Postgres
   stop              stop a running instance
@@ -56,6 +58,8 @@ func main() {
 		err = runStart(args)
 	case "open":
 		err = runOpen(args)
+	case "add":
+		err = runAdd(args)
 	case "status":
 		err = runStatus(args)
 	case "stop":

@@ -38,6 +38,8 @@ type Bot struct {
 	Tasks   *tasks.Service
 	Hub     *events.Hub
 	OwnerID int64
+	// Schedules backs /schedules; nil disables it.
+	Schedules Schedules
 
 	WebAppURL, MiniAppLink string
 	EditInterval           time.Duration
@@ -387,6 +389,7 @@ type payload struct {
 	Name     string   `json:"name"`
 	Question string   `json:"question_id"`
 	Options  []string `json:"options"`
+	Branch   string   `json:"branch"`
 }
 
 func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
@@ -414,6 +417,30 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 				}
 				return fmt.Sprintf("❌ <b>#%d · CI failed</b>\n%s", t.ID, name)
 			})
+		}
+	case "autofix":
+		t, err := b.Store.GetTask(ctx, ev.TaskID)
+		if err != nil {
+			return
+		}
+		if text := renderAutoFix(t, ev.Payload); text != "" {
+			_, _ = b.sendTask(ctx, t, "autofix", text, b.taskButtons(ctx, t, b.targetPrivate(ctx, t)), true)
+		}
+	case "branch_force_pushed":
+		b.notify(ctx, ev.TaskID, "force_push", func(t *store.Task) string {
+			return fmt.Sprintf("⏪ <b>#%d · branch rewritten</b>\nRestored to a checkpoint: <code>%s</code> was force-pushed with a lease (PR #%d).", t.ID, esc(cut(p.Branch, 100)), p.Number)
+		})
+	case "egress_blocked":
+		b.sendEgressBlocked(ctx, ev)
+	case "budget":
+		b.sendBudget(ctx, ev)
+	case "loop":
+		t, err := b.Store.GetTask(ctx, ev.TaskID)
+		if err != nil {
+			return
+		}
+		if text := renderLoop(t, ev.Payload); text != "" {
+			_, _ = b.sendTask(ctx, t, "loop", text, b.taskButtons(ctx, t, b.targetPrivate(ctx, t)), true)
 		}
 	case "error":
 		if p.Code == "limit_exceeded" || strings.Contains(strings.ToLower(p.Code), "limit") {
@@ -584,6 +611,12 @@ func (b *Bot) onCallback(ctx context.Context, cq *telego.CallbackQuery) {
 			return
 		}
 		answer(fmt.Sprintf("PR #%d merged", deref(v.PRNumber)))
+	case "egress_allow":
+		b.allowEgress(ctx, cq, c, answer)
+	case "budget_override":
+		b.overrideBudget(ctx, c, answer)
+	case "schedule_run", "schedule_pause", "schedule_resume":
+		b.scheduleCallback(ctx, c, answer)
 	case "draft_create", "draft_cancel", "draft_project", "draft_repo", "draft_edit", "draft_agent", "draft_node":
 		b.handleDraftCallback(ctx, cq, c, answer)
 	default:

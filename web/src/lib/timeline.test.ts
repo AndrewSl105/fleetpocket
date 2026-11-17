@@ -129,3 +129,104 @@ describe('attachments', () => {
     expect(plain).not.toHaveProperty('attachments')
   })
 })
+
+describe('CI auto-fix', () => {
+  it('maps autofix steps and the backend guard question', () => {
+    const att = { id: 9, name: 'ci-logs-attempt-1.txt', mime: 'text/plain', size: 120, width: 0, height: 0 }
+    const items = buildTimeline([
+      ev(
+        'autofix',
+        { phase: 'started', attempt: 1, max_attempts: 2, checks: [{ name: 'test', url: 'u', conclusion: 'failure' }], signature: 'abc', attachments: [att] },
+        { runner: false },
+      ),
+      ev('question', { question_id: 'autofix_guard', text: 'The fix changes CI or tests. Push anyway?', options: ['Push anyway', 'Discard'] }, { runner: false, run: 4 }),
+      ev('answer', { question_id: '4-autofix_guard', text: 'Push anyway', answered_via: 'web' }, { runner: false }),
+      ev('autofix', { phase: 'green', fixes: 1 }, { runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['autofix', 'question', 'autofix'])
+    const started = items[0] as Extract<(typeof items)[number], { kind: 'autofix' }>
+    expect(started).toMatchObject({ phase: 'started', attempt: 1, maxAttempts: 2, signature: 'abc', attachments: [att] })
+    expect(items[1]).toMatchObject({ questionId: '4-autofix_guard', answer: { text: 'Push anyway' } })
+    expect(items[2]).toMatchObject({ phase: 'green', fixes: 1 })
+  })
+})
+
+describe('integrations events', () => {
+  it('maps gateway calls, blocked hosts and the run summary', () => {
+    const items = buildTimeline([
+      ev('integrations', { servers: ['db', 'linear'], egress: 'allowlist' }, { runner: false }),
+      ev('mcp_call', { server: 'linear', tool: 'list_issues', ok: true, duration_ms: 412, args_bytes: 1, result_bytes: 2 }, { runner: false }),
+      ev('mcp_call', { server: 'linear', tool: 'delete_issue', ok: false, denied: 'denied' }, { runner: false }),
+      ev('egress_blocked', { host: 'status.linear.app' }, { runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['divider', 'mcp', 'mcp', 'egress'])
+    expect(items[0]).toMatchObject({ text: 'integrations:db, linear|allowlist' })
+    expect(items[1]).toMatchObject({ server: 'linear', tool: 'list_issues', ok: true, ms: 412 })
+    expect(items[2]).toMatchObject({ ok: false, denied: 'denied' })
+    expect(items[3]).toMatchObject({ host: 'status.linear.app' })
+  })
+
+  it("shows a run's cost on its divider and budget steps as dividers", () => {
+    const items = buildTimeline([
+      ev('run_finished', { run_id: 3, exit_code: 0 }, { runner: false }),
+      ev('run_finished', { run_id: 4, exit_code: 0, cost_usd: 0.84, cost_source: 'estimated' }, { runner: false }),
+      ev('budget', { phase: 'waiting', scope: 'project', project_id: 'p', spent_usd: 5, limit_usd: 5 }, { runner: false }),
+      ev('budget', { phase: 'override', via: 'web' }, { runner: false }),
+    ])
+    expect(items.map((i) => (i.kind === 'divider' ? i.text.split(':')[0] : i.kind))).toEqual(['run_finished', 'run_finished', 'budget', 'budget'])
+    expect(items[0]).toMatchObject({ text: 'run_finished:0' })
+    expect(items[1]).toMatchObject({ text: 'run_finished:0|0.84|estimated' })
+    expect(items[2]).toMatchObject({ tone: 'warn' })
+    expect(items[3]).toMatchObject({ tone: 'muted' })
+  })
+})
+
+describe('checkpoints', () => {
+  it('shows checkpoints and folds what a restore discarded into an abandoned branch', () => {
+    const items = buildTimeline([
+      ev('tool_use', { tool: 'Edit', summary: 'Edit a.sql' }, { id: 10 }),
+      ev('checkpoint', { n: 1, ref_sha: 'x', turn: 1, session_ref: 's/u', files_changed: 1, reason: 'turn' }, { id: 11 }),
+      ev('tool_use', { tool: 'Write', summary: 'Write b.ts' }, { id: 12 }),
+      ev('checkpoint', { n: 2, ref_sha: 'y', turn: 2, session_ref: 's/v', files_changed: 1, reason: 'turn' }, { id: 13 }),
+      ev('committed', { sha: 'abc', files_changed: 2, insertions: 3, deletions: 0 }, { id: 14 }),
+      ev('checkpoint_restored', { checkpoint_id: 4, checkpoint_event_id: 11, n: 1, run_id: 3, restore_run_id: 4, ref_sha: 'x', mode: 'fork', instruction: 'use a migration', via: 'web' }, { id: 15, runner: false }),
+      ev('run_started', { run_id: 4, kind: 'restore' }, { id: 16, runner: false }),
+      ev('branch_force_pushed', { branch: 'agent/1-x', from: 'abc', reason: 'restore', number: 5 }, { id: 17, runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['tool', 'checkpoint', 'abandoned', 'restored', 'divider', 'force_push'])
+    const cp = items[1] as Extract<(typeof items)[number], { kind: 'checkpoint' }>
+    expect(cp).toMatchObject({ eventId: 11, n: 1, files: 1, reason: 'turn' })
+    const group = items[2] as Extract<(typeof items)[number], { kind: 'abandoned' }>
+    expect(group.items.map((i) => i.key)).toEqual(['12', '13', '14'])
+    expect(items[3]).toMatchObject({ kind: 'restored', n: 1, mode: 'fork', instruction: 'use a migration' })
+  })
+
+  it('leaves the timeline alone without a restore', () => {
+    const items = buildTimeline([
+      ev('checkpoint', { n: 1, ref_sha: 'x', turn: 1, session_ref: '', files_changed: 0, reason: 'question' }, { id: 30 }),
+      ev('tool_use', { tool: 'Edit', summary: 'Edit a' }, { id: 31 }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['checkpoint', 'tool'])
+  })
+})
+
+describe('loops in the timeline', () => {
+  it('groups runs under iteration headers and stamps each check', () => {
+    const items = buildTimeline([
+      ev('loop', { phase: 'iteration', iteration: 1, max_iterations: 3, check_command: 'npm test' }, { runner: false }),
+      ev('run_started', { run_id: 3, kind: 'initial' }, { runner: false }),
+      ev('check', { command: 'npm test', exit_code: 1, output: 'FAIL', duration_ms: 1200, timed_out: false, iteration: 1, max_iterations: 3 }),
+      ev('loop', { phase: 'iteration', iteration: 2, max_iterations: 3, exit_code: 1 }, { runner: false }),
+      ev('run_started', { run_id: 4, kind: 'loop' }, { runner: false }),
+      ev('check', { command: 'npm test', exit_code: 0, output: 'ok', duration_ms: 900, timed_out: false, iteration: 2, max_iterations: 3 }, { run: 4 }),
+      ev('loop', { phase: 'stopped', state: 'passed', iteration: 2, reason: 'check passed in iteration 2/3' }, { runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['iteration', 'divider', 'check', 'iteration', 'divider', 'check', 'loop_end'])
+    const checks = items.filter((i) => i.kind === 'check')
+    expect(checks.map((c) => [c.iteration, c.max, c.exitCode])).toEqual([
+      [1, 3, 1],
+      [2, 3, 0],
+    ])
+    expect(items.at(-1)).toMatchObject({ kind: 'loop_end', state: 'passed' })
+  })
+})

@@ -105,7 +105,7 @@ func (m *Maintainer) Once(ctx context.Context) {
 		}
 	}
 
-	idle, err := m.Store.IdleTasks(ctx, []string{tasks.Paused, tasks.PROpen}, now.Add(-m.SidecarIdleTTL))
+	idle, err := m.Store.IdleTasks(ctx, []string{tasks.Paused, tasks.PROpen, tasks.BranchReady}, now.Add(-m.SidecarIdleTTL))
 	if err != nil {
 		slog.Error("retention: idle tasks", "err", err)
 	}

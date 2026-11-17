@@ -28,6 +28,8 @@ const (
 	EvQuestion      = "question"
 	EvUsage         = "usage"
 	EvCommitted     = "committed"
+	EvCheckpoint    = "checkpoint"
+	EvCheck         = "check"
 	EvDone          = "done"
 	EvPaused        = "paused"
 	EvError         = "error"
@@ -47,6 +49,9 @@ type CommitInfo struct {
 	Message     string `json:"message"`
 	AuthorName  string `json:"author_name"`
 	AuthorEmail string `json:"author_email"`
+	// AllowEmpty commits a clean tree as an empty commit (a schedule whose
+	// "open a PR only if there are changes" is off). Ignored with Check.
+	AllowEmpty bool `json:"allow_empty,omitempty"`
 }
 
 type RunCommand struct {
@@ -59,8 +64,53 @@ type RunCommand struct {
 	Model              string     `json:"model,omitempty"`
 	Limits             Limits     `json:"limits"`
 	Commit             CommitInfo `json:"commit"`
-	Skills             []Skill    `json:"skills,omitempty"`
-	Output             string     `json:"output,omitempty"` // "pr" (default) | "artifacts" | "pr_and_artifacts"
+	// MCP is the run's MCP gateway config; nil (omitted) = no MCP servers.
+	MCP    *MCPConfig `json:"mcp,omitempty"`
+	Skills []Skill    `json:"skills,omitempty"`
+	Output string     `json:"output,omitempty"` // "pr" (default) | "artifacts" | "pr_and_artifacts"
+	// Checkpoints is set only when checkpoints are on (nil: none taken).
+	Checkpoints *CheckpointsConfig `json:"checkpoints,omitempty"`
+	// ResumeSessionRef is a checkpoint's session_ref: the agent resumes that
+	// conversation at that point as a new fork (Claude). Sent instead of
+	// ResumeSessionID.
+	ResumeSessionRef string `json:"resume_session_ref,omitempty"`
+	// Check makes the run a loop iteration: after a done session and its
+	// commit the runner runs the command in /workspace and emits `check`.
+	Check *CheckConfig `json:"check,omitempty"`
+}
+
+// CheckConfig is a loop's check command (docs/PROTOCOL.md, "Loops").
+type CheckConfig struct {
+	Command    string `json:"command"`
+	TimeoutSec int    `json:"timeout_sec,omitempty"`
+}
+
+// CheckpointsConfig names the run in the checkpoint refs
+// (refs/jm/checkpoints/<run_id>/<n>).
+type CheckpointsConfig struct {
+	RunID string `json:"run_id"`
+}
+
+// CheckpointRefPrefix is where the runner keeps checkpoint commits. They are
+// never pushed: the server pushes only HEAD:refs/heads/<branch>.
+const CheckpointRefPrefix = "refs/jm/checkpoints/"
+
+// CheckpointRef is the ref of checkpoint n of a run.
+func CheckpointRef(runID int64, n int) string {
+	return fmt.Sprintf("%s%d/%d", CheckpointRefPrefix, runID, n)
+}
+
+// MCPConfig gives the agent its MCP servers through the gateway. Token is
+// the run's gateway token (not a third-party credential): it expires when
+// the run ends and reaches only these servers.
+type MCPConfig struct {
+	Token   string         `json:"token"`
+	Servers []MCPServerRef `json:"servers"`
+}
+
+type MCPServerRef struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 // Task output modes.
@@ -126,6 +176,7 @@ type Event struct {
 	RunnerVersion string   `json:"runner_version,omitempty"`
 	SessionID     string   `json:"session_id,omitempty"`
 	Model         string   `json:"model,omitempty"`
+	Auth          string   `json:"auth,omitempty"` // started: api_key | subscription
 	Text          string   `json:"text,omitempty"`
 	Tool          string   `json:"tool,omitempty"`
 	Summary       string   `json:"summary,omitempty"`
@@ -135,22 +186,36 @@ type Event struct {
 	CostUSDTotal  float64  `json:"cost_usd_total,omitempty"`
 	InputTokens   int64    `json:"input_tokens,omitempty"`
 	OutputTokens  int64    `json:"output_tokens,omitempty"`
-	Turns         int      `json:"turns,omitempty"`
-	SHA           string   `json:"sha,omitempty"`
-	FilesChanged  int      `json:"files_changed,omitempty"`
-	Insertions    int      `json:"insertions,omitempty"`
-	Deletions     int      `json:"deletions,omitempty"`
-	NoChanges     bool     `json:"no_changes,omitempty"`
-	Reason        string   `json:"reason,omitempty"`
-	Code          string   `json:"code,omitempty"`
-	Message       string   `json:"message,omitempty"`
+	// CacheReadTokens and CacheWriteTokens are part of InputTokens.
+	CacheReadTokens  int64  `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens int64  `json:"cache_write_tokens,omitempty"`
+	Turns            int    `json:"turns,omitempty"`
+	SHA              string `json:"sha,omitempty"`
+	FilesChanged     int    `json:"files_changed,omitempty"`
+	Insertions       int    `json:"insertions,omitempty"`
+	Deletions        int    `json:"deletions,omitempty"`
+	// checkpoint
+	N          int    `json:"n,omitempty"`
+	RefSHA     string `json:"ref_sha,omitempty"`
+	Turn       int    `json:"turn,omitempty"`
+	SessionRef string `json:"session_ref,omitempty"`
+	NoChanges  bool   `json:"no_changes,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	// check
+	Command    string `json:"command,omitempty"`
+	ExitCode   *int   `json:"exit_code,omitempty"`
+	Output     string `json:"output,omitempty"`
+	DurationMS int64  `json:"duration_ms,omitempty"`
+	TimedOut   bool   `json:"timed_out,omitempty"`
+	Code       string `json:"code,omitempty"`
+	Message    string `json:"message,omitempty"`
 
 	Raw json.RawMessage `json:"-"`
 }
 
 var knownEvents = map[string]bool{
 	EvReady: true, EvStarted: true, EvAssistantText: true, EvToolUse: true, EvToolResult: true,
-	EvQuestion: true, EvUsage: true, EvCommitted: true, EvDone: true, EvPaused: true,
+	EvQuestion: true, EvUsage: true, EvCommitted: true, EvCheckpoint: true, EvCheck: true, EvDone: true, EvPaused: true,
 	EvError: true, EvHeartbeat: true,
 }
 
@@ -185,6 +250,14 @@ func ParseEvent(line []byte) (Event, error) {
 	case EvCommitted:
 		if ev.SHA == "" {
 			return ev, errors.New("committed needs sha")
+		}
+	case EvCheckpoint:
+		if ev.N <= 0 || ev.RefSHA == "" {
+			return ev, errors.New("checkpoint needs n and ref_sha")
+		}
+	case EvCheck:
+		if ev.ExitCode == nil {
+			return ev, errors.New("check needs exit_code")
 		}
 	case EvError:
 		if ev.Code == "" {

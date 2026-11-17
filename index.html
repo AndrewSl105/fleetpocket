@@ -4,124 +4,320 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Jungle Monkey: coding agents on your repos, from your phone</title>
-<meta name="description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back. Claude Code, Codex or Cursor, self-hosted, MIT.">
+<title>Jungle Monkey: coding agents in a sealed box, steered from your phone</title>
+<meta name="description" content="Send a coding agent (Claude Code, Codex or Cursor) into your repo, answer its questions from your phone, get a branch or a pull request back. Self-hosted, MIT.">
 <meta name="theme-color" content="#F2EFE6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14170F" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://andrewsl105.github.io/jungle_monkey/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Jungle Monkey">
 <meta property="og:url" content="https://andrewsl105.github.io/jungle_monkey/">
 <meta property="og:title" content="Jungle Monkey">
-<meta property="og:description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back.">
+<meta property="og:description" content="Send a coding agent into your repo, answer its questions from your phone, get a branch or a pull request back.">
 <meta property="og:image" content="https://andrewsl105.github.io/jungle_monkey/docs/brand/jungle-monkey-og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Jungle Monkey: an orange-brown monkey on a jungle branch">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Jungle Monkey">
-<meta name="twitter:description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back.">
+<meta name="twitter:description" content="Send a coding agent into your repo, answer its questions from your phone, get a branch or a pull request back.">
 <meta name="twitter:image" content="https://andrewsl105.github.io/jungle_monkey/docs/brand/jungle-monkey-og.jpg">
 <link rel="icon" type="image/png" sizes="32x32" href="docs/brand/jungle-monkey-icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="docs/brand/jungle-monkey-icon-16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="docs/brand/jungle-monkey-icon-192.png">
 <link rel="apple-touch-icon" href="docs/brand/jungle-monkey-icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap"></noscript>
 <style>
-/* Field Manual: ink on paper, square corners, ruled rows, stamp statuses, one orange signal colour. */
-:root{--paper:#F2EFE6;--raised:#FBF9F3;--grid:#E4E0D3;--rule:#B9B4A5;--ink:#1B1F1A;--ink2:#3D4238;--muted:#5E6357;--signal:#F06A1D;--signal-ink:#1B1F1A;--signal-text:#B23A06;--olive:#3F5A2E;--olive-ink:#F2EFE6;--danger:#A12A1C;
+/* Field Manual: ink on paper, square corners, ruled rows, stamp statuses, one orange signal colour. Dashed = waiting on you. */
+:root{--paper:#F2EFE6;--raised:#FBF9F3;--grid:#E4E0D3;--rule:#B9B4A5;--ink:#1B1F1A;--ink2:#3D4238;--muted:#5E6357;--signal:#F06A1D;--signal-ink:#1B1F1A;--signal-text:#B23A06;--olive:#3F5A2E;--olive-ink:#F2EFE6;--olive-text:#3F5A2E;--danger:#A12A1C;
+--l-read:#3F5A2E;--l-web:#2F6FAF;--l-edit:#F06A1D;--l-shell:#1B1F1A;--l-git:#7A4E9E;
 --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root{--paper:#14170F;--raised:#1C2016;--grid:#23281C;--rule:#3A3F33;--ink:#ECE8DC;--ink2:#D4D0C4;--muted:#A8AB9C;--signal:#F2793A;--signal-ink:#14170F;--signal-text:#FF9A5C;--olive-ink:#ECE8DC;--danger:#FF7A66}}
+@media (prefers-color-scheme:dark){:root{--paper:#14170F;--raised:#1C2016;--grid:#20251A;--rule:#3A3F33;--ink:#ECE8DC;--ink2:#D4D0C4;--muted:#A8AB9C;--signal:#F2793A;--signal-ink:#14170F;--signal-text:#FF9A5C;--olive-ink:#ECE8DC;--olive-text:#9FC27F;--danger:#FF7A66;--l-read:#9FC27F;--l-web:#6FA8E0;--l-edit:#F2793A;--l-shell:#ECE8DC;--l-git:#B48AD8}}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 var(--sans)}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 var(--sans);overflow-x:hidden}
 a{color:var(--signal-text);text-underline-offset:3px}
-a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-img{display:block;max-width:100%;height:auto}
-.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
-.label{font:500 12px/1.4 var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
-.mono{font-family:var(--mono)}
-.stamp{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink);padding:3px 7px;font:600 12px/1.2 var(--mono);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
-.stamp.run{background:var(--signal);color:var(--signal-ink)}
-.stamp.ask{border-style:dashed}
-.stamp.pr{background:var(--olive);color:var(--olive-ink);border-color:var(--olive)}
-.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border:1.5px solid var(--ink);font:600 16px var(--sans);text-decoration:none;color:var(--ink);background:var(--raised)}
-.btn.ink{background:var(--ink);color:var(--paper)}
-.btn.ink:active{transform:translate(-2px,-2px);box-shadow:2px 2px 0 var(--signal)}
-header.top{border-bottom:2px solid var(--ink)}
-header.top .wrap{display:flex;align-items:center;gap:12px;min-height:60px}
-header.top img{width:36px;height:36px;border:1.5px solid var(--ink)}
-header.top nav{margin-left:auto;display:flex;gap:4px}
-header.top nav a{font:500 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);text-decoration:none;padding:12px 8px}
-.hero{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;border-bottom:2px solid var(--ink)}
-.hero .wrap{display:grid;gap:32px;padding-top:40px;padding-bottom:48px;align-items:center}
-.hero figure{margin:0;border:1.5px solid var(--ink);background:var(--raised);padding:8px}
-.hero figure img{aspect-ratio:1/1;width:100%}
-.hero figcaption{display:flex;justify-content:space-between;padding-top:8px;font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
-h1{font:700 44px/1.05 var(--sans);margin:12px 0 16px;letter-spacing:-.5px}
-.sub{font-size:20px;line-height:1.45;color:var(--ink2);margin:0 0 28px;max-width:32ch}
-.cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
-.agents{font:400 13px var(--mono);color:var(--muted)}
-section.block{padding:56px 0;border-bottom:2px solid var(--ink)}
-h2{font:700 26px/1.2 var(--sans);margin:6px 0 24px}
-.sec-head{border-bottom:2px solid var(--ink);margin-bottom:0;padding-bottom:12px}
-.ledger{list-style:none;margin:0;padding:0}
-.ledger li{display:grid;grid-template-columns:56px 1fr;gap:12px;padding:18px 0;border-bottom:1px solid var(--rule)}
-.ledger .n{font:600 14px var(--mono);color:var(--muted)}
-.ledger h3{font:600 18px/1.3 var(--sans);margin:0 0 4px}
-.ledger p{margin:0;color:var(--ink2)}
-.shots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding-top:24px}
-.shots figure{margin:0;border:1.5px solid var(--ink);background:var(--raised)}
-.shots figcaption{border-top:1px solid var(--rule);padding:8px 10px;font:500 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
-.shots .wide{grid-column:1/-1}
-.cols{display:grid;gap:0;border-top:2px solid var(--ink)}
-.cols > div{padding:20px 0;border-bottom:1px solid var(--rule)}
-.cols h3{font:600 18px var(--sans);margin:8px 0}
-.cols p{margin:0;color:var(--ink2)}
-table.spec{width:100%;border-collapse:collapse;border-top:2px solid var(--ink)}
-.spec th,.spec td{text-align:left;vertical-align:top;padding:14px 12px 14px 0;border-bottom:1px solid var(--rule)}
-.spec th{font:500 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);width:38%}
-.spec td{color:var(--ink2)}
-.cmd{display:flex;align-items:stretch;border:1.5px solid var(--ink);background:var(--raised);margin:8px 0 24px}
-.cmd code{flex:1;overflow-x:auto;padding:14px;font:400 14px/1.5 var(--mono);white-space:nowrap}
-.cmd button{border:0;border-left:1.5px solid var(--ink);background:var(--ink);color:var(--paper);font:600 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;padding:0 16px;min-width:88px;min-height:48px;cursor:pointer}
-ul.req{margin:0;padding:0;list-style:none;border-top:2px solid var(--ink)}
-ul.req li{padding:12px 0;border-bottom:1px solid var(--rule);color:var(--ink2)}
-footer .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding-top:28px;padding-bottom:40px}
-footer img{width:48px;height:48px;border:1.5px solid var(--ink)}
-footer nav{display:flex;flex-wrap:wrap;gap:4px 16px}
-footer nav a{font:500 13px var(--mono);color:var(--ink);padding:10px 0}
-footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
-@media (min-width:860px){
-  .hero .wrap{grid-template-columns:1.05fr 1fr;padding-top:64px;padding-bottom:72px}
-  .hero figure{order:2}
-  h1{font-size:64px}
-  .cols{grid-template-columns:1fr 1fr;gap:0 40px}
-  .cols.three{grid-template-columns:repeat(3,1fr)}
-}
-@media (max-width:600px){.shots{grid-template-columns:1fr 1fr}.shots figure:nth-child(3){display:none}header.top nav a.opt{display:none}}
-.tabs{display:flex;flex-wrap:wrap;border-bottom:1.5px solid var(--ink);margin:8px 0 16px}
-.tabs button{flex:1 1 auto;min-height:48px;padding:0 12px;border:1.5px solid var(--ink);border-bottom:0;margin-right:-1.5px;background:var(--raised);color:var(--ink);font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase;cursor:pointer}
-.tabs button[aria-selected=true]{background:var(--signal);color:var(--signal-ink)}
-.panel .cmd{background:#1B1F1A;border-color:var(--ink)}
-.panel .cmd code{color:#F2EFE6}
-.panel .cmd button{background:#F06A1D;color:#1B1F1A;border-left-color:#F2EFE6}
-.scroll{overflow-x:auto;margin-top:24px}
-table.cmp{width:100%;min-width:340px;border-collapse:collapse;border-top:2px solid var(--ink);font-size:14px}
-.cmp caption{text-align:left;padding-bottom:8px;color:var(--muted)}
-.cmp th,.cmp td{text-align:left;padding:10px 8px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}
-.cmp thead th{font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase}
-.cmp tbody th{font:500 12px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
 :focus-visible{outline:3px solid var(--signal-text);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+img{display:block;max-width:100%;height:auto}
+button{font:inherit;color:inherit;cursor:pointer}
+code{font-family:var(--mono);font-size:.92em}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:8px;top:-60px;background:var(--ink);color:var(--paper);padding:10px 14px;z-index:9}
+.skip:focus{top:8px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+.label{font:500 12px/1.4 var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:0}
+.stamp{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink);padding:3px 7px;font:600 12px/1.2 var(--mono);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;color:var(--ink);background:transparent}
+.stamp.run{background:var(--signal);color:var(--signal-ink);border-color:var(--ink)}
+.stamp.ask{border-style:dashed}
+.stamp.ok{background:var(--olive);color:var(--olive-ink);border-color:var(--olive)}
+.stamp.br{border-color:var(--olive-text);color:var(--olive-text)}
+.stamp.bad{border-color:var(--danger);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border:1.5px solid var(--ink);font:600 16px var(--sans);text-decoration:none;color:var(--ink);background:var(--raised);box-shadow:3px 3px 0 var(--ink);transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn.ink{background:var(--ink);color:var(--paper);box-shadow:3px 3px 0 var(--signal)}
+.btn.sig{background:var(--signal);color:var(--signal-ink)}
+.btn.sm{min-height:44px;padding:0 14px;font-size:14px}
+.btn[disabled]{opacity:.55;cursor:default;transform:none}
+header.top{border-bottom:2px solid var(--ink);background:var(--paper)}
+header.top .wrap{display:flex;align-items:center;gap:10px;min-height:60px}
+header.top img{width:36px;height:36px;border:1.5px solid var(--ink)}
+.brand{font:600 13px var(--mono);letter-spacing:2px;text-transform:uppercase}
+header.top nav{margin-left:auto;display:flex}
+header.top nav a{font:500 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);text-decoration:none;padding:14px 7px}
+header.top nav a:hover{text-decoration:underline}
+section{scroll-margin-top:8px}
+.block{padding:56px 0;border-bottom:2px solid var(--ink)}
+h1{font:700 46px/1.02 var(--sans);margin:14px 0 16px;letter-spacing:-.5px}
+h2{font:700 28px/1.15 var(--sans);margin:6px 0 10px;letter-spacing:-.2px}
+h3{font:600 18px/1.3 var(--sans);margin:0 0 6px}
+.lede{color:var(--ink2);max-width:60ch;margin:0 0 28px}
+.head{border-bottom:2px solid var(--ink);margin-bottom:24px}
+.grid-bg{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
+.two{display:grid;gap:32px;align-items:start}
+@media (min-width:900px){.two{grid-template-columns:1fr 1fr;gap:48px}.two.wide-r{grid-template-columns:.85fr 1.15fr}}
+
+/* Hero */
+.hero{border-bottom:2px solid var(--ink)}
+.hero .wrap{display:grid;gap:28px;padding-top:36px;padding-bottom:44px;align-items:center}
+.sub{font-size:20px;line-height:1.45;color:var(--ink2);margin:0 0 28px;max-width:34ch}
+.cta{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:22px}
+.agents{font:400 13px var(--mono);color:var(--muted);margin:0}
+.monkey{margin:0;border:1.5px solid var(--ink);background:var(--raised);padding:8px;box-shadow:6px 6px 0 var(--ink)}
+.monkey svg{display:block;width:100%;height:auto;aspect-ratio:300/340;max-height:440px;background:#DCE6C8;touch-action:manipulation}
+.monkey figcaption{display:flex;justify-content:space-between;padding-top:8px;font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.feed{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-top:12px}
+.feed .stamp{min-width:0}
+#nom{font:700 17px var(--mono);letter-spacing:1px}
+@media (min-width:860px){.hero .wrap{grid-template-columns:1.05fr 1fr;padding-top:64px;padding-bottom:72px}h1{font-size:68px}}
+
+/* Install */
+.tabs{display:flex;flex-wrap:wrap;margin:8px 0 0}
+.tabs button{flex:1 1 180px;min-height:48px;padding:8px 12px;border:1.5px solid var(--ink);margin:0 -1.5px -1.5px 0;background:var(--raised);font:600 12px/1.3 var(--mono);letter-spacing:1px;text-transform:uppercase;text-align:left}
+.tabs button[aria-selected=true]{background:var(--signal);color:var(--signal-ink)}
+.panel{border:1.5px solid var(--ink);padding:20px 16px;background:var(--raised)}
+.cmd{display:flex;align-items:stretch;border:1.5px solid #1B1F1A;background:#1B1F1A;margin:0 0 18px}
+.cmd code{flex:1;min-width:0;overflow-x:auto;padding:14px;font:400 14px/1.5 var(--mono);white-space:nowrap;color:#F2EFE6}
+.cmd code::before{content:"$ ";color:#A8AB9C}
+.cmd button{border:0;border-left:1.5px solid #F2EFE6;background:#F06A1D;color:#1B1F1A;font:600 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;padding:0 14px;min-width:96px;min-height:48px}
+.cmd button.done{background:#3F5A2E;color:#F2EFE6}
+ul.req{margin:0 0 16px;padding:0;list-style:none;border-top:2px solid var(--ink)}
+ul.req li{padding:10px 0 10px 22px;border-bottom:1px solid var(--rule);color:var(--ink2);position:relative}
+ul.req li::before{content:"";position:absolute;left:2px;top:19px;width:9px;height:9px;background:var(--signal);border:1.5px solid var(--ink)}
+.doc{font:600 14px var(--mono);margin:0}
+.scroll{overflow-x:auto;margin-top:28px;border-top:2px solid var(--ink)}
+table.cmp{width:100%;min-width:560px;border-collapse:collapse;font-size:14px}
+.cmp caption{text-align:left;padding:10px 0;caption-side:top}
+.cmp th,.cmp td{text-align:left;padding:10px 10px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.cmp thead th{font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase}
+.cmp tbody th{font:500 12px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted);width:20%}
+.cmp td{color:var(--ink2)}
+
+/* Phone demo */
+.ctl{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:20px 0}
+.seg{display:inline-flex;border:1.5px solid var(--ink)}
+.seg button{min-height:44px;padding:0 12px;border:0;background:var(--raised);font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+ol.steps{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+ol.steps li{display:grid;grid-template-columns:40px 1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--rule);color:var(--ink2)}
+ol.steps li b{font:600 13px var(--mono);color:var(--muted)}
+ol.steps li.cur{color:var(--ink)}
+ol.steps li.cur b{color:var(--signal-text)}
+.phone{width:100%;max-width:360px;margin:0 auto;border:2px solid var(--ink);border-radius:0;background:var(--ink);padding:10px;box-shadow:8px 8px 0 var(--signal)}
+.scr{background:var(--paper);height:620px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.ph-bar{display:flex;justify-content:space-between;padding:6px 12px;font:500 11px var(--mono);color:var(--muted);border-bottom:1px solid var(--rule)}
+.view{display:flex;flex-direction:column;min-height:0;flex:1}
+.view[hidden]{display:none}
+.ph-head{padding:12px 14px;border-bottom:1.5px solid var(--ink)}
+.ph-head .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ph-title{font:700 19px/1.2 var(--sans);margin:4px 0 8px}
+.ph-meta{font:400 12px/1.6 var(--mono);color:var(--muted);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ph-tabs{display:flex;gap:18px;padding:0 14px;border-bottom:1.5px solid var(--ink);font:600 12px var(--mono);letter-spacing:1.5px}
+.ph-tabs span{padding:10px 0;color:var(--muted)}
+.ph-tabs span:first-child{color:var(--ink);border-bottom:3px solid var(--ink)}
+.icon{min-width:44px;min-height:44px;border:0;background:none;font-size:20px;padding:0}
+.list{list-style:none;margin:0;padding:0}
+.list li{padding:12px 14px;border-bottom:1px solid var(--rule)}
+.list li button{display:block;width:100%;text-align:left;border:0;background:none;padding:0}
+.list .t{display:block;font-weight:600;margin-bottom:6px}
+.list .m{font:400 12px var(--mono);color:var(--muted)}
+.list li.new{animation:slide .4s ease-out}
+.form{padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.fld{border:1.5px solid var(--ink);background:var(--raised);padding:10px;min-height:96px;font-size:15px}
+.fld.small{min-height:0;font:400 13px var(--mono)}
+.caret::after{content:"▍";animation:blink 1s steps(2,jump-none) infinite;color:var(--signal-text)}
+.fl{font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.tl{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
+.tl p{margin:0}
+p.ln{font:400 13px/1.45 var(--mono);color:var(--ink2);animation:slide .3s ease-out;overflow-wrap:anywhere}
+.ln b{font-weight:600;color:var(--ink)}
+.ln.out{color:var(--muted);padding-left:16px}
+.ln.sys{color:var(--muted);text-align:center;border-top:1px solid var(--rule);padding-top:6px;font-size:12px}
+.say{border:1.5px solid var(--ink);background:var(--raised);padding:10px;font-size:14px;animation:slide .3s ease-out}
+.card{border:1.5px solid var(--ink);padding:12px;background:var(--raised);animation:slide .3s ease-out}
+.card.asks{border-style:dashed}
+.card .k{font:600 12px var(--mono);letter-spacing:1.5px;color:var(--signal-text);margin:0 0 6px}
+.card .k.ok{color:var(--olive-text)}
+.card p{margin:0 0 10px;font-size:14px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.ob{min-height:44px;padding:0 12px;border:1.5px solid var(--ink);background:var(--paper);font-weight:600;font-size:14px}
+.ob.p{background:var(--ink);color:var(--paper)}
+.ob.s{background:var(--signal);color:var(--signal-ink)}
+.ph-foot{border-top:1px solid var(--rule);padding:8px 14px;font:400 12px var(--mono);color:var(--muted)}
+.pulse{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--signal) 40%,transparent)}}
+@keyframes slide{from{opacity:0;transform:translateY(6px)}}
+@keyframes blink{50%{opacity:0}}
+
+/* Canvas node */
+.switch{margin-bottom:16px}
+.node{border:1.5px solid var(--ink);background:var(--raised);box-shadow:6px 6px 0 var(--ink);max-width:460px;height:440px;display:flex;flex-direction:column}
+.nbar{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border-bottom:1.5px solid var(--ink);font:700 13px var(--sans)}
+.nbar .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nbar .ag{font:400 11px var(--mono)}
+.node.fin .nbar{background:var(--olive);color:var(--olive-ink)}
+.led{width:10px;height:10px;background:var(--signal);flex-shrink:0}
+.led.live{animation:led 1.6s steps(2,jump-none) infinite}
+.node.fin .led{background:var(--olive-ink)}
+@keyframes led{50%{opacity:.25}}
+.nbody{flex:1;display:flex;flex-direction:column;gap:12px;padding:12px;min-height:0}
+.now{display:flex;gap:12px;min-height:56px}
+.glyph{width:52px;height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--ink);background:var(--paper)}
+.glyph svg *{transform-box:fill-box;transform-origin:center}
+.g-bob{animation:g-bob 1.4s ease-in-out infinite}
+.g-squash{animation:g-squash 1.6s ease-in-out infinite}
+.g-orbit{transform-box:view-box!important;transform-origin:16px 16px!important;animation:g-spin 2.4s linear infinite}
+.g-blink{animation:led 1s steps(2,jump-none) infinite}
+.g-fill{transform-origin:left center!important;animation:g-fill 1.8s ease-out infinite}
+.g-draw{transform-origin:left center!important;animation:g-fill 1.4s ease-in-out infinite alternate}
+.g-dot{animation:g-pulse 1.2s ease-in-out infinite}.g-dot2{animation-delay:.2s}.g-dot3{animation-delay:.4s}
+.g-rise{animation:g-rise 1.3s ease-in infinite}
+@keyframes g-bob{50%{transform:translateY(-3px)}}
+@keyframes g-squash{50%{transform:scaleX(.2)}}
+@keyframes g-spin{to{transform:rotate(360deg)}}
+@keyframes g-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes g-pulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@keyframes g-rise{from{transform:translateY(5px);opacity:0}30%{opacity:1}to{transform:translateY(-5px);opacity:0}}
+.verb{font:600 12px var(--mono);letter-spacing:1px;margin:2px 0}
+.tgt{font:400 12px var(--mono);color:var(--muted);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lanes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;height:84px}
+.lanes li{display:flex;align-items:center;gap:8px;font:400 10px var(--mono)}
+.lanes .ln-n{width:40px;color:var(--muted);letter-spacing:1px}
+.lanes .ln-c{width:20px;text-align:right}
+.lanes .blk{display:flex;gap:3px}
+.blk i{width:9px;height:10px;opacity:.75;animation:fade .3s ease-out}
+.blk i.new{opacity:1}
+@keyframes fade{from{opacity:0}}
+.fin-box{height:84px;display:flex;flex-direction:column;gap:8px}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule);margin:0}
+.fgrid div{padding:4px 8px;border-right:1px solid var(--rule)}
+.fgrid div:last-child{border:0}
+.fgrid dt{font:500 10px var(--mono);letter-spacing:1px;color:var(--muted)}
+.fgrid dd{margin:0;font:600 13px var(--mono)}
+.touched{flex:1;min-height:0;overflow:hidden}
+.touched ul{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+.touched li{display:flex;gap:8px;align-items:center;font:400 11px var(--mono);animation:slide .3s ease-out;white-space:nowrap;overflow:hidden}
+.badge{width:16px;height:16px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font:700 10px var(--mono)}
+.badge.R{background:var(--olive);color:var(--olive-ink)}
+.badge.W{background:#F06A1D;color:#1B1F1A}
+.nfoot{display:flex;gap:14px;font:400 11px var(--mono);color:var(--muted)}
+.nfoot span:last-child{margin-left:auto}
+.term{background:#1B1F1A;color:#E8E4D8;border:1.5px solid var(--ink);box-shadow:6px 6px 0 var(--signal);max-width:460px;height:440px;padding:12px;font:400 12.5px/1.6 var(--mono);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.term[hidden],.node[hidden]{display:none}
+.term p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.term .d{color:#A8AB9C}.term .o{color:#F6A26B}.term .g{color:#9FC27F}
+
+/* System map */
+.map svg{width:100%;height:auto;max-width:560px;display:block;margin:0 auto}
+.map .bx{fill:var(--raised);stroke:var(--ink);stroke-width:1.5}
+.map .bx.seal{fill:none;stroke-width:3}
+.map .srv{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:5 4}
+.map .t{fill:var(--ink);font:600 10.5px var(--mono);letter-spacing:.5px}
+.map .s{fill:var(--muted);font:400 9.5px var(--mono)}
+.map path.ln{fill:none;stroke:var(--rule);stroke-width:2}
+.map path.ln.on{stroke:var(--ink);stroke-width:2.5}
+.map .hot .bx{fill:var(--signal)}
+.map .hot .t,.map .hot .s{fill:#1B1F1A}
+.map .pk{fill:var(--signal);stroke:var(--ink);stroke-width:1.5}
+.map .blk-x{opacity:0}
+.map .blk-x.show{opacity:1}
+.map .blk-x text{fill:var(--danger);font:700 10px var(--mono)}
+.map .proxy.deny .bx{fill:#A12A1C;transition:fill .1s}
+.map .proxy.deny .t,.map .proxy.deny .s{fill:#FFF}
+ol.hops{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+ol.hops li{border-bottom:1px solid var(--rule)}
+ol.hops button{display:grid;grid-template-columns:36px 1fr;gap:8px;width:100%;text-align:left;border:0;background:none;padding:10px 4px;min-height:48px;align-items:center}
+ol.hops button b{font:600 13px var(--mono);color:var(--muted)}
+ol.hops button[aria-current=step]{background:var(--signal);color:var(--signal-ink)}
+ol.hops button[aria-current=step] b{color:var(--signal-ink)}
+.hopdesc{border:1.5px dashed var(--ink);padding:12px;margin:16px 0 0;min-height:96px;color:var(--ink2);background:var(--raised)}
+
+/* Features */
+.feats{display:grid;border-top:2px solid var(--ink);border-left:1.5px solid var(--ink)}
+.feat{border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);padding:20px 16px;background:var(--paper)}
+.feat:hover{background:var(--raised)}
+.feat p{margin:0;color:var(--ink2);font-size:15px}
+.mini{height:76px;margin-bottom:14px;border:1px solid var(--rule);background:var(--raised);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px}
+@media (min-width:700px){.feats{grid-template-columns:1fr 1fr}}
+@media (min-width:1000px){.feats{grid-template-columns:repeat(3,1fr)}}
+/* mini animations run only while .play (in view) */
+.mini .seq{position:relative;width:150px;height:28px}
+.mini .seq .stamp{position:absolute;left:50%;top:0;transform:translateX(-50%);opacity:0}
+.play .seq .stamp{animation:seq 6s infinite}
+.play .seq .stamp:nth-child(2){animation-delay:2s}
+.play .seq .stamp:nth-child(3){animation-delay:4s}
+@keyframes seq{0%{opacity:0}4%,30%{opacity:1}34%,100%{opacity:0}}
+.hosts{display:flex;flex-direction:column;gap:3px;font:500 11px var(--mono)}
+.hosts span{opacity:1}
+.play .hosts span{animation:hostin 4.5s infinite both}
+.play .hosts span:nth-child(2){animation-delay:.4s}
+.play .hosts span:nth-child(3){animation-delay:.8s}
+@keyframes hostin{0%{opacity:0;transform:translateX(-8px)}10%,85%{opacity:1;transform:none}100%{opacity:0}}
+.hosts .x{color:var(--danger)}
+.hosts .y{color:var(--olive-text)}
+.bar{width:70%;height:14px;border:1.5px solid var(--ink);position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:80%;background:var(--signal)}
+.play .bar i{animation:fill 4s ease-in-out infinite}
+@keyframes fill{0%{width:0}60%,100%{width:80%}}
+.bar+.stamp{position:absolute;right:8px;top:8px}
+.mini .cap{position:absolute;left:8px;top:6px;font:500 10px var(--mono);letter-spacing:1px;color:var(--muted)}
+.plates{display:flex;gap:40px;position:relative}
+.plate{border:1.5px solid var(--ink);padding:4px 8px;font:600 11px var(--mono);letter-spacing:1px;background:var(--paper)}
+.chip{position:absolute;top:-16px;left:6px;width:14px;height:10px;background:var(--signal);border:1.5px solid var(--ink)}
+.play .chip{animation:hop 4s ease-in-out infinite}
+@keyframes hop{0%,20%{transform:translateX(0)}50%,80%{transform:translateX(96px)}100%{transform:translateX(0)}}
+.mini svg{width:200px;height:64px}
+.mini .draw{stroke-dasharray:140;stroke-dashoffset:0}
+.play .draw{animation:draw 4.5s ease-in-out infinite}
+@keyframes draw{0%{stroke-dashoffset:140}50%,100%{stroke-dashoffset:0}}
+.ink-s{stroke:var(--ink)}.sig-s{stroke:var(--signal)}.oli-s{stroke:var(--olive-text)}.mut-s{stroke:var(--muted)}
+.ink-f{fill:var(--ink)}.sig-f{fill:var(--signal)}.oli-f{fill:var(--olive-text)}.pap-f{fill:var(--paper)}
+.mt{font:500 9px var(--mono);fill:var(--muted)}
+
+footer .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;padding-top:28px;padding-bottom:40px}
+footer img{width:72px;height:72px;border:1.5px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
+footer nav{display:flex;flex-wrap:wrap;gap:0 18px}
+footer nav a{font:500 13px var(--mono);color:var(--ink);padding:12px 0;display:inline-block}
+footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
+
+/* Off-screen sections pause their CSS animations. */
+.off *,.off *::before,.off *::after{animation-play-state:paused!important}
+@media (max-width:520px){header.top nav a.opt{display:none}h2{font-size:24px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.mini .seq .stamp:nth-child(3){opacity:1}*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="top">
   <div class="wrap">
     <img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="36" height="36">
-    <span class="label" style="color:var(--ink);font-weight:600">Jungle Monkey</span>
+    <span class="brand">Jungle Monkey</span>
     <nav aria-label="Site">
-      <a class="opt" href="#how">How</a>
+      <a class="opt" href="#try">Demo</a>
       <a class="opt" href="#keys">Security</a>
       <a href="#install">Install</a>
       <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
@@ -129,33 +325,77 @@ table.cmp{width:100%;min-width:340px;border-collapse:collapse;border-top:2px sol
   </div>
 </header>
 
-<main>
-<section class="hero">
+<main id="main">
+<section class="hero grid-bg" aria-labelledby="hero-h">
   <div class="wrap">
     <div>
       <p class="label">Agent field unit · Nº 01</p>
-      <h1>Jungle Monkey</h1>
-      <p class="sub">Send a coding agent into your GitHub repo from your phone. Get a pull request back.</p>
+      <h1 id="hero-h">Jungle Monkey</h1>
+      <p class="sub">Send a coding agent into your repo, answer its questions from your phone, and get a branch or a pull request back.</p>
       <div class="cta">
         <a class="btn ink" href="#install">Install</a>
         <a class="btn" href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
       </div>
-      <p class="agents">Claude Code · Codex · Cursor · self-hosted · MIT</p>
+      <p class="agents">Claude Code · Codex · Cursor · sealed containers · self-hosted · MIT</p>
     </div>
-    <figure>
-      <picture>
-        <source srcset="docs/brand/jungle-monkey-hero.webp" type="image/webp">
-        <img src="docs/brand/jungle-monkey-hero.png" alt="Jungle Monkey logo: a painted orange-brown monkey on a branch in a green jungle" width="1200" height="1200" fetchpriority="high">
-      </picture>
-      <figcaption><span>Fig. 1: Field unit</span><span>Nº 01</span></figcaption>
+    <figure class="monkey" id="monkey">
+      <svg viewBox="0 0 300 340" role="img" aria-labelledby="monkey-t">
+        <title id="monkey-t">An orange-brown monkey hanging upside down by its tail from a jungle branch, swinging and waving</title>
+        <g opacity=".9"><ellipse cx="26" cy="300" rx="40" ry="22" fill="#B9CD94"/><ellipse cx="282" cy="310" rx="44" ry="26" fill="#A9C27A"/><ellipse cx="250" cy="250" rx="18" ry="9" fill="#B9CD94" transform="rotate(-30 250 250)"/><ellipse cx="46" cy="210" rx="16" ry="8" fill="#A9C27A" transform="rotate(25 46 210)"/></g>
+        <path d="M44 34 q-10 50 4 96 q10 40 -6 84" stroke="#5E7F33" stroke-width="3" fill="none"/>
+        <g fill="#6E8F3A"><ellipse cx="40" cy="92" rx="9" ry="4" transform="rotate(-35 40 92)"/><ellipse cx="54" cy="140" rx="9" ry="4" transform="rotate(30 54 140)"/><ellipse cx="44" cy="190" rx="8" ry="4" transform="rotate(-30 44 190)"/></g>
+        <path d="M-10 36 C80 16 200 22 310 42" stroke="#4A3B2A" stroke-width="15" fill="none" stroke-linecap="round"/>
+        <path d="M20 26 C90 14 190 18 290 32" stroke="#6B5640" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <g fill="#6E8F3A"><ellipse cx="30" cy="20" rx="26" ry="9" transform="rotate(-14 30 20)"/><ellipse cx="270" cy="26" rx="24" ry="9" transform="rotate(16 270 26)"/></g>
+        <g fill="#3F5A2E"><ellipse cx="94" cy="42" rx="16" ry="6" transform="rotate(32 94 42)"/><ellipse cx="216" cy="44" rx="15" ry="6" transform="rotate(-28 216 44)"/><ellipse cx="248" cy="16" rx="12" ry="5" transform="rotate(-10 248 16)"/></g>
+        <g id="swing">
+          <g transform="rotate(180 150 180)">
+            <path d="M150 212 C118 236 186 262 152 288 S134 318 150 330 c8 6 16 0 12 -8" stroke="#8A4518" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <g id="legL"><path d="M138 206 Q130 228 126 246" stroke="#B0601F" stroke-width="13" fill="none" stroke-linecap="round"/><ellipse cx="124" cy="251" rx="9" ry="6" fill="#E9C9AE"/></g>
+            <g id="legR"><path d="M162 206 Q170 228 174 246" stroke="#B0601F" stroke-width="13" fill="none" stroke-linecap="round"/><ellipse cx="176" cy="251" rx="9" ry="6" fill="#E9C9AE"/></g>
+            <ellipse cx="150" cy="178" rx="30" ry="36" fill="#B0601F"/>
+            <ellipse cx="150" cy="184" rx="18" ry="24" fill="#E3B88A"/>
+            <g id="armW"><path d="M124 160 Q104 142 97 120" stroke="#B0601F" stroke-width="12" fill="none" stroke-linecap="round"/><circle cx="96" cy="115" r="7" fill="#E9C9AE"/></g>
+            <g id="armRest"><path d="M176 160 Q194 182 198 204" stroke="#B0601F" stroke-width="12" fill="none" stroke-linecap="round"/><circle cx="199" cy="208" r="7" fill="#E9C9AE"/></g>
+            <g id="armEat" opacity="0">
+              <path d="M176 160 Q208 176 183 149" stroke="#B0601F" stroke-width="12" fill="none" stroke-linecap="round"/>
+              <g id="peel"><path d="M182 151 q-7 8 -3 17 M182 151 q6 8 9 16" stroke="#D4A92A" stroke-width="4" fill="none" stroke-linecap="round"/></g>
+              <path class="bite" d="M158 132 L166 138" stroke="#F2C230" stroke-width="9" stroke-linecap="round"/>
+              <path class="bite" d="M166 138 L174 143" stroke="#F2C230" stroke-width="9" stroke-linecap="round"/>
+              <path class="bite" d="M174 143 L181 149" stroke="#F2C230" stroke-width="9" stroke-linecap="round"/>
+              <circle cx="182" cy="149" r="7" fill="#E9C9AE"/>
+            </g>
+            <circle cx="116" cy="104" r="12" fill="#8A4518"/><circle cx="116" cy="104" r="6" fill="#E9C9AE"/>
+            <circle cx="184" cy="104" r="12" fill="#8A4518"/><circle cx="184" cy="104" r="6" fill="#E9C9AE"/>
+            <circle cx="150" cy="108" r="34" fill="#B0601F"/>
+            <path d="M150 84 C132 78 120 92 124 108 C126 122 128 140 150 144 C172 140 174 122 176 108 C180 92 168 78 150 84Z" fill="#F0D9BF"/>
+            <circle cx="140" cy="104" r="6.5" fill="#FFF"/><circle cx="160" cy="104" r="6.5" fill="#FFF"/>
+            <g id="pupils" fill="#1B1F1A"><circle cx="140" cy="105" r="3.6"/><circle cx="160" cy="105" r="3.6"/></g>
+            <g id="lids" fill="#E3C3A3"><ellipse cx="140" cy="104" rx="7.5" ry="0"/><ellipse cx="160" cy="104" rx="7.5" ry="0"/></g>
+            <circle cx="147" cy="119" r="1.8" fill="#6B3A1E"/><circle cx="153" cy="119" r="1.8" fill="#6B3A1E"/>
+            <g id="cheeks" fill="#E39A7A" opacity=".85"><circle cx="131" cy="124" r="6"/><circle cx="169" cy="124" r="6"/></g>
+            <ellipse id="tongue" cx="150" cy="137" rx="4.5" ry="6" fill="#D9536B" opacity="0"/>
+            <path id="smile" d="M141 129 q9 7 18 0" stroke="#5A2A10" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse id="mopen" cx="150" cy="132" rx="6" ry="4.5" fill="#5A2A10" opacity="0"/>
+          </g>
+          <text id="nom" x="186" y="300" fill="#1B1F1A" opacity="0">NOM NOM</text>
+        </g>
+      </svg>
+      <figcaption><span>Fig. 1: Field unit, inverted</span><span>Nº 01</span></figcaption>
+      <div class="feed">
+        <button type="button" class="btn sm" id="feed">Feed the monkey</button>
+        <span class="stamp ask" id="feed-stamp">? Needs a banana</span>
+        <span class="label">Bananas fed: <span id="fed">0</span></span>
+      </div>
+      <p class="sr" id="feed-live" aria-live="polite"></p>
     </figure>
   </div>
 </section>
 
 <section class="block" id="install" aria-labelledby="install-h">
   <div class="wrap">
-    <p class="label">Section 01 · Deployment</p>
-    <h2 id="install-h">Install</h2>
+    <div class="head"><p class="label">§ 01 · Deployment</p><h2 id="install-h">Install</h2></div>
+    <p class="lede">Three ways in. Start on your laptop in a minute; move to a server when you want it running while you sleep.</p>
     <div class="tabs" role="tablist" aria-label="Ways to install">
       <button type="button" role="tab" id="tab-npx" aria-controls="panel-npx" aria-selected="true">On your computer · npx</button>
       <button type="button" role="tab" id="tab-curl" aria-controls="panel-curl" aria-selected="false" tabindex="-1">On a server · curl</button>
@@ -164,142 +404,719 @@ table.cmp{width:100%;min-width:340px;border-collapse:collapse;border-top:2px sol
     <div class="panel" role="tabpanel" id="panel-npx" aria-labelledby="tab-npx" tabindex="0">
       <div class="cmd"><code>npx jungle-monkey</code><button type="button" class="copy" aria-label="Copy the npx command">Copy</button></div>
       <ul class="req">
-        <li>Server, database and web app on your machine; the browser opens logged in</li>
-        <li>Needs Docker and one agent login or key (Claude, Codex or Cursor)</li>
-        <li>No domain, server or <code>.env</code>; stops when the computer sleeps</li>
+        <li>Works with repos on your disk and gives you a branch back; connect GitHub to push and open PRs.</li>
+        <li>Needs Docker and an agent login (Claude, Codex or Cursor).</li>
+        <li>Stops when the computer sleeps.</li>
       </ul>
-      <p><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/LOCAL.md">Local mode guide →</a></p>
+      <p class="doc"><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/LOCAL.md">Local mode guide (LOCAL.md) →</a></p>
     </div>
     <div class="panel" role="tabpanel" id="panel-curl" aria-labelledby="tab-curl" tabindex="0" hidden>
-      <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh</code><button type="button" class="copy" aria-label="Copy the install command">Copy</button></div>
+      <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh</code><button type="button" class="copy" aria-label="Copy the server install command">Copy</button></div>
       <ul class="req">
-        <li>A small Linux server (Ubuntu 24.04) and a domain; Docker is installed if needed</li>
-        <li>Runs 24/7: phone app (PWA), optional Telegram bot, your own GitHub App, PRs and CI</li>
-        <li>Run it again later to update; it keeps your <code>.env</code></li>
+        <li>A 24/7 server, with phone (PWA) and Telegram access.</li>
+        <li>Your own GitHub App, pull requests and CI.</li>
+        <li>Run it again to update; it keeps your <code>.env</code>.</li>
       </ul>
-      <p><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md#quick-setup">Server setup guide →</a></p>
+      <p class="doc"><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md#quick-setup">Server setup guide (DEPLOY.md) →</a></p>
     </div>
     <div class="panel" role="tabpanel" id="panel-self" aria-labelledby="tab-self" tabindex="0" hidden>
       <div class="cmd"><code>docker compose -f docker-compose.deploy.yml up -d</code><button type="button" class="copy" aria-label="Copy the compose command">Copy</button></div>
       <ul class="req">
-        <li><code>deploy/docker-compose.deploy.yml</code> with Caddy, the web app, the server, Postgres and a Docker socket proxy</li>
-        <li><code>deploy/cloud-init.yaml</code> for unattended installs on Hetzner or DigitalOcean</li>
-        <li>Or every step by hand, to control each piece</li>
+        <li><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/deploy/docker-compose.deploy.yml"><code>docker-compose.deploy.yml</code></a>: Caddy, the web app, the server, Postgres and a Docker socket proxy.</li>
+        <li><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/deploy/cloud-init.yaml"><code>deploy/cloud-init.yaml</code></a> for Hetzner or DigitalOcean.</li>
+        <li>Or the fully manual setup, to control every piece.</li>
       </ul>
-      <p><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md#manual-setup">Manual setup guide →</a></p>
+      <p class="doc"><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md#manual-setup">Manual setup (DEPLOY.md) →</a></p>
     </div>
-    <div class="scroll">
+    <div class="scroll" tabindex="0" role="region" aria-label="Comparison of the three ways to install">
     <table class="cmp">
       <caption class="label">Compare</caption>
-      <thead><tr><th scope="col"></th><th scope="col">Computer</th><th scope="col">Server</th><th scope="col">Your way</th></tr></thead>
+      <thead><tr><th scope="col"><span class="sr">Question</span></th><th scope="col">On your computer</th><th scope="col">On a server</th><th scope="col">Self-hosted</th></tr></thead>
       <tbody>
-        <tr><th scope="row">Runs on</th><td>your laptop</td><td>a Linux VPS</td><td>anywhere</td></tr>
-        <tr><th scope="row">GitHub needed</th><td>not to start</td><td>yes, own App</td><td>yes, own App</td></tr>
-        <tr><th scope="row">Phone access</th><td>own tunnel</td><td>PWA, Telegram</td><td>PWA, Telegram</td></tr>
-        <tr><th scope="row">Runs 24/7</th><td>no</td><td>yes</td><td>yes</td></tr>
-        <tr><th scope="row">Setup</th><td>~1 min</td><td>~10 min</td><td>your pace</td></tr>
+        <tr><th scope="row">Where it runs</th><td>your laptop or desktop, in your Docker</td><td>a small Linux VPS</td><td>wherever you put it</td></tr>
+        <tr><th scope="row">GitHub needed?</th><td>no: local repos get a branch back; connect GitHub for PRs</td><td>yes (your own GitHub App)</td><td>yes (your own GitHub App)</td></tr>
+        <tr><th scope="row">Phone access</th><td>not yet: use a server install</td><td>yes: PWA and Telegram</td><td>yes: PWA and Telegram</td></tr>
+        <tr><th scope="row">Runs 24/7</th><td>no, stops when the computer sleeps</td><td>yes</td><td>yes</td></tr>
+        <tr><th scope="row">Setup time</th><td>about a minute</td><td>about 10 minutes</td><td>as long as you like</td></tr>
       </tbody>
     </table>
     </div>
   </div>
 </section>
 
-<section class="block" id="how">
-  <div class="wrap">
-    <p class="label">Section 02 · Procedure</p>
-    <h2>How it works</h2>
-    <ol class="ledger" style="border-top:2px solid var(--ink)">
-      <li><span class="n">01</span><div><h3>Describe the change.</h3><p>Type it on your phone and attach screenshots or files.</p></div></li>
-      <li><span class="n">02</span><div><h3>The agent works on a new branch. <span class="stamp run">● Running</span></h3><p>Pick Claude Code, Codex or Cursor per project or per task, and follow every step live.</p></div></li>
-      <li><span class="n">03</span><div><h3>Answer its questions. <span class="stamp ask">? Needs answer</span></h3><p>When Claude needs a decision, the task shows its question with answer buttons. Codex and Cursor make their own choices and list open questions in the summary.</p></div></li>
-      <li><span class="n">04</span><div><h3>Get a pull request. <span class="stamp pr">✓ PR open</span></h3><p>Read the summary, the PR and the CI result, and send a follow-up if something needs changing.</p></div></li>
-    </ol>
-  </div>
-</section>
-
-<section class="block" aria-labelledby="shots-h">
-  <div class="wrap">
-    <p class="label">Section 03 · Exhibits</p>
-    <h2 id="shots-h">The field log</h2>
-    <div class="shots">
-      <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tasks-phone-dark.png"><img src="docs/screenshots/tasks-phone-light.png" alt="Task list with running, waiting and paused tasks" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Task list</figcaption></figure>
-      <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-question-phone-dark.png"><img src="docs/screenshots/task-question-phone-light.png" alt="A task waiting on a question, with answer buttons" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Agent asks</figcaption></figure>
-      <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-pr-phone-dark.png"><img src="docs/screenshots/task-pr-phone-light.png" alt="A finished task with its summary, pull request and CI result" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Pull request</figcaption></figure>
-      <figure class="wide"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-running-desktop-dark.png"><img src="docs/screenshots/task-running-desktop-light.png" alt="Desktop: rail, task list and a running task with its live timeline" width="1440" height="900" loading="lazy" decoding="async"></picture><figcaption>Desktop · task running</figcaption></figure>
+<section class="block grid-bg" id="try" aria-labelledby="try-h">
+  <div class="wrap two">
+    <div>
+      <div class="head"><p class="label">§ 02 · Field exercise</p><h2 id="try-h">Try it, scripted</h2></div>
+      <p class="lede">A phone running the real app's screens with fake data. Start a task, answer Claude's question, and pick how the work comes back.</p>
+      <ol class="steps" id="ph-steps">
+        <li class="cur"><b>01</b><span>Tap <strong>+ New</strong> and start the task.</span></li>
+        <li><b>02</b><span>Watch it run: Read, Grep, Edit, Bash.</span></li>
+        <li><b>03</b><span>Claude asks. Tap an answer.</span></li>
+        <li><b>04</b><span>It commits, then hands the work back.</span></li>
+      </ol>
+      <div class="ctl">
+        <span class="label" id="end-l">Ending</span>
+        <div class="seg" role="group" aria-labelledby="end-l">
+          <button type="button" id="end-gh" aria-pressed="true">GitHub PR</button>
+          <button type="button" id="end-local" aria-pressed="false">Local branch</button>
+        </div>
+        <button type="button" class="btn sm" id="ph-restart">Restart</button>
+      </div>
+      <p class="sr" id="ph-live" aria-live="polite"></p>
+    </div>
+    <div class="phone" role="group" aria-label="Demo of the Jungle Monkey app on a phone">
+      <div class="scr">
+        <div class="ph-bar" aria-hidden="true"><span>9:41</span><span>JUNGLE MONKEY</span><span>▮▮▮</span></div>
+        <div class="view" id="v-list">
+          <div class="ph-head"><div class="row"><span class="ph-title" style="margin:0">Tasks</span><button type="button" class="btn sig sm pulse" id="ph-new">+ New</button></div></div>
+          <ul class="list" id="ph-list">
+            <li><button type="button" disabled><span class="t">Bump Go to 1.25</span><span class="stamp ok">✓ PR open</span> <span class="m">#0041</span></button></li>
+            <li><button type="button" disabled><span class="t">Fix flaky login test</span><span class="stamp">Completed</span> <span class="m">#0040</span></button></li>
+          </ul>
+        </div>
+        <div class="view" id="v-new" hidden>
+          <div class="ph-head"><div class="row"><button type="button" class="icon" id="ph-cancel" aria-label="Back to tasks">←</button><span class="label">New task</span><span style="width:44px"></span></div></div>
+          <div class="form">
+            <div><p class="fl">Project</p><div class="fld small" id="ph-proj">acme/hooks · Claude Code</div></div>
+            <div><p class="fl">What should change?</p><div class="fld caret" id="ph-prompt"></div></div>
+            <div id="ph-from" hidden><p class="fl" id="from-l">Start from</p>
+              <div class="seg" role="group" aria-labelledby="from-l"><button type="button" aria-pressed="true" data-from="0">Last commit</button><button type="button" aria-pressed="false" data-from="1">Include my uncommitted changes</button></div>
+            </div>
+            <button type="button" class="btn ink" id="ph-start">Start task</button>
+          </div>
+        </div>
+        <div class="view" id="v-task" hidden>
+          <div class="ph-head">
+            <div class="row"><button type="button" class="icon" id="ph-back" aria-label="Back to tasks">←</button><span class="label">Task #0042</span><span style="width:44px"></span></div>
+            <p class="ph-title">Retry webhook deliveries with backoff</p>
+            <p style="margin:0 0 6px"><span class="stamp" id="ph-stamp">Queued</span></p>
+            <p class="ph-meta" id="ph-cost">$0.00 API-equivalent · 0 turns</p>
+            <p class="ph-meta" id="ph-branch">agent/42-retry-webhook-deliveries</p>
+          </div>
+          <div class="ph-tabs" aria-hidden="true"><span>ACTIVITY</span><span>DIFF</span><span>INFO</span></div>
+          <div class="tl" id="ph-tl"></div>
+          <div class="ph-foot" aria-hidden="true">Message for the next run…</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="block" id="keys" aria-labelledby="keys-h">
-  <div class="wrap">
-    <p class="label">Section 04 · Security</p>
-    <h2 id="keys-h">Your keys stay with you</h2>
-    <table class="spec">
-      <tr><th scope="row">Owner</th><td>One: you. It runs on your own server.</td></tr>
-      <tr><th scope="row">Agent container</th><td>Sealed, with only the code it was asked to change.</td></tr>
-      <tr><th scope="row">GitHub token</th><td>None inside the container.</td></tr>
-      <tr><th scope="row">Docker access</th><td>None inside the container.</td></tr>
-      <tr><th scope="row">Host network</th><td>None inside the container.</td></tr>
-      <tr><th scope="row">Pushes &amp; pull requests</th><td>Done by your server, which keeps every key.</td></tr>
-      <tr><th scope="row">Sign-in</th><td>Password plus a code from your authenticator app.</td></tr>
-    </table>
-  </div>
-</section>
-
-<section class="block" aria-labelledby="where-h">
-  <div class="wrap">
-    <p class="label">Section 05 · Terrain</p>
-    <h2 id="where-h">Run it on your phone, desktop or Mac</h2>
-    <div class="cols three">
-      <div><p class="label">Phone</p><h3>Install it as an app</h3><p>A progressive web app: add it to your home screen and it opens full screen. Also works as a Telegram Mini App.</p></div>
-      <div><p class="label">Desktop</p><h3>Any browser</h3><p>Rail, task list and the open task side by side, plus a canvas of live terminals.</p></div>
-      <div><p class="label">Mac</p><h3>Optional runner</h3><p>Add your Mac in Settings → Computers and choose per project or per task where it runs. One login, one task list.</p></div>
+<section class="block" id="watch" aria-labelledby="watch-h">
+  <div class="wrap two wide-r">
+    <div>
+      <div class="head"><p class="label">§ 03 · Observation</p><h2 id="watch-h">Watch the agent work</h2></div>
+      <p class="lede">The canvas puts every running task on one board as a live node: what it is doing now, its activity lanes, the files it read (R) and wrote (W), its steps, cost and time. Flip a node to a plain terminal for the same run as log lines.</p>
+      <div class="seg switch" role="group" aria-label="View">
+        <button type="button" id="sw-term" aria-pressed="false">Terminal</button>
+        <button type="button" id="sw-node" aria-pressed="true">Node</button>
+      </div>
+      <p class="sr" id="node-live" aria-live="polite"></p>
+    </div>
+    <div>
+      <section class="node" id="node" aria-label="Task node #0042">
+        <div class="nbar"><span class="led live" id="n-led"></span><span class="tt">#42 · Retry webhook deliveries</span><span class="ag">Claude Code</span></div>
+        <div class="nbody">
+          <div class="now"><span class="glyph" id="n-glyph" aria-hidden="true"></span><div style="min-width:0;flex:1"><p class="verb" id="n-verb">QUEUED</p><p class="tgt" id="n-tgt">waiting for a slot</p></div></div>
+          <div id="n-mid"></div>
+          <div class="touched"><p class="label" style="font-size:10px">Touched</p><ul id="n-files"></ul></div>
+          <div class="nfoot"><span id="n-step">STEP 0</span><span id="n-cost">$0.00</span><span id="n-time">0s</span></div>
+        </div>
+      </section>
+      <div class="term" id="term" hidden aria-live="off" aria-label="Terminal view of task #0042"></div>
     </div>
   </div>
 </section>
 
+<section class="block grid-bg" id="keys" aria-labelledby="keys-h">
+  <div class="wrap two">
+    <div>
+      <div class="head"><p class="label">§ 04 · Security</p><h2 id="keys-h">Your keys stay with you</h2></div>
+      <p class="lede">The agent gets a folder and a prompt. It gets no GitHub token, no Docker access and no host network. Everything with a key lives outside its box. Tap a hop.</p>
+      <ol class="hops" id="hops"></ol>
+      <p class="hopdesc" id="hop-desc"></p>
+      <p class="sr" id="hop-live" aria-live="polite"></p>
+      <div class="ctl"><button type="button" class="btn sm" id="hop-play" aria-pressed="true">Pause tour</button></div>
+    </div>
+    <div class="map" id="map">
+      <svg viewBox="0 0 384 380" role="img" aria-labelledby="map-t">
+        <title id="map-t">System map: a sealed agent container; an egress proxy to allowed hosts; the MCP gateway to integrations; the publisher, which holds the GitHub token, to GitHub; the notifier to your phone.</title>
+        <rect class="srv" x="124" y="112" width="124" height="262"/>
+        <text class="s" x="128" y="370">JUNGLE MONKEY</text>
+        <rect class="bx seal" x="6" y="14" width="96" height="352"/>
+        <text class="t" x="12" y="30">SEALED</text><text class="t" x="12" y="42">CONTAINER</text>
+        <g id="b-agent"><rect class="bx" x="16" y="56" width="76" height="46"/><text class="t" x="24" y="76">AGENT</text><text class="s" x="24" y="90">no keys</text></g>
+        <g id="b-ws"><rect class="bx" x="16" y="296" width="76" height="46"/><text class="t" x="22" y="316">WORKSPACE</text><text class="s" x="24" y="330">one repo</text></g>
+        <path class="ln" id="p-ws" d="M54 102 V296"/>
+        <g class="proxy" id="b-proxy"><rect class="bx" x="134" y="22" width="106" height="52"/><text class="t" x="140" y="42">EGRESS PROXY</text><text class="s" x="140" y="58">allowlist</text></g>
+        <g class="blk-x" id="b-x"><text x="132" y="92">✕ tracker.example.net</text></g>
+        <g id="b-hosts"><rect class="bx" x="274" y="22" width="104" height="52"/><text class="t" x="280" y="42">ALLOWED</text><text class="s" x="280" y="58">npm · PyPI · API</text></g>
+        <g id="b-gw"><rect class="bx" x="134" y="120" width="106" height="52"/><text class="t" x="140" y="140">MCP GATEWAY</text><text class="s" x="140" y="156">creds in memory</text></g>
+        <g id="b-int"><rect class="bx" x="274" y="120" width="104" height="52"/><text class="t" x="280" y="140">TOOLS</text><text class="s" x="280" y="156">Linear · Sentry</text></g>
+        <g id="b-pub"><rect class="bx" x="134" y="210" width="106" height="52"/><text class="t" x="140" y="230">PUBLISHER</text><text class="s" x="140" y="246">holds GitHub key</text></g>
+        <g id="b-gh"><rect class="bx" x="274" y="210" width="104" height="52"/><text class="t" x="280" y="230">GITHUB</text><text class="s" x="280" y="246">push · PR</text></g>
+        <g id="b-note"><rect class="bx" x="134" y="300" width="106" height="52"/><text class="t" x="140" y="320">NOTIFIER</text><text class="s" x="140" y="336">Telegram bot</text></g>
+        <g id="b-phone"><rect class="bx" x="274" y="300" width="104" height="52"/><text class="t" x="280" y="320">YOUR PHONE</text><text class="s" x="280" y="336">answer · merge</text></g>
+        <path class="ln" id="p-c-proxy" d="M102 48 H134"/><path class="ln" id="p-proxy-hosts" d="M240 48 H274"/>
+        <path class="ln" id="p-c-gw" d="M102 146 H134"/><path class="ln" id="p-gw-int" d="M240 146 H274"/>
+        <path class="ln" id="p-c-pub" d="M102 236 H134"/><path class="ln" id="p-pub-gh" d="M240 236 H274"/>
+        <path class="ln" id="p-c-note" d="M102 326 H134"/><path class="ln" id="p-note-phone" d="M240 326 H274"/>
+        <rect class="pk" id="pk" x="-20" y="-20" width="9" height="9"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="features" aria-labelledby="feat-h">
+  <div class="wrap">
+    <div class="head"><p class="label">§ 05 · Equipment</p><h2 id="feat-h">What else is in the kit</h2></div>
+    <div class="feats" id="feats">
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><div class="seq"><span class="stamp bad">✕ CI failed</span><span class="stamp run">● Fixing · 1/3</span><span class="stamp ok">✓ CI green</span></div></div>
+        <h3>CI auto-fix</h3>
+        <p>A failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><div class="hosts"><span class="y">✓ mcp · linear</span><span class="y">✓ registry.npmjs.org</span><span class="x">✕ tracker.example.net · Allow?</span></div></div>
+        <h3>MCP integrations, egress allowlist</h3>
+        <p>MCP servers (Linear, Sentry, a database, any npm/pip package or image) through a gateway that holds the credentials, enforces tool lists and call limits and logs every call. Lock the network to an allowlist; blocked hosts get a one-tap "Allow".</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><span class="cap">MAY · ACME/HOOKS</span><div class="bar"><i></i></div><span class="stamp ask">80% · notice</span></div>
+        <h3>Costs and budgets</h3>
+        <p>Every run's tokens and cost: reported by Claude, estimated for Codex and Cursor (<code>≈$0.84</code>). Totals by project, agent and day with a CSV export. Monthly caps hold new runs at 100%, with a notice at 80% and a one-tap "Start anyway".</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><div class="plates"><span class="chip"></span><span class="plate">SERVER</span><span class="plate">MY MAC</span></div></div>
+        <h3>Remote computers</h3>
+        <p>Add your Mac in Settings → Computers (it runs <code>fleetpocket-node</code>, which only connects out) and choose per project or per task whether a task runs on the server or on it.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><path d="M10 44 H190" class="ink-s" stroke-width="2.5" fill="none"/><path class="draw sig-s" d="M40 44 C60 44 60 18 84 18 H130 C150 18 150 44 168 44" stroke-width="2.5" fill="none"/><circle cx="40" cy="44" r="4" class="ink-f"/><circle cx="168" cy="44" r="4" class="oli-f"/><text x="88" y="12" class="mt">jm/42-…</text><text x="12" y="60" class="mt">main</text></svg></div>
+        <h3>Local repos</h3>
+        <p>Point it at a folder on your disk and get a <code>jm/&lt;task id&gt;-&lt;slug&gt;</code> branch back in that repo: merge it into your current branch, check it out, discard it, or push it and open a PR when GitHub is connected.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><path d="M12 32 H110" class="ink-s" stroke-width="2.5"/><path d="M110 32 H188" class="mut-s" stroke-width="2" stroke-dasharray="4 4"/><path class="draw sig-s" d="M70 32 C84 32 90 54 110 54 H180" stroke-width="2.5" fill="none"/><g class="ink-f"><circle cx="30" cy="32" r="4"/><circle cx="50" cy="32" r="4"/><circle cx="70" cy="32" r="5"/></g><circle cx="130" cy="32" r="4" class="pap-f mut-s"/><circle cx="160" cy="32" r="4" class="pap-f mut-s"/><text x="54" y="16" class="mt">↶ restore here</text></svg></div>
+        <h3>Checkpoints</h3>
+        <p>Every agent step that changes files can be saved. Restore any step, add "…then do it with a migration instead", and the agent continues from there; discarded steps stay as an abandoned branch.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><rect x="14" y="12" width="52" height="40" class="pap-f ink-s" stroke-width="1.5"/><path d="M22 24 H58 M22 32 H52 M22 40 H46" class="mut-s" stroke-width="2"/><text x="20" y="9" class="mt">SKILL.md</text><path class="draw sig-s" d="M72 32 H118" stroke-width="2.5" fill="none"/><rect x="124" y="20" width="62" height="24" class="pap-f ink-s" stroke-width="1.5"/><text x="131" y="36" class="mt">✓ project</text></svg></div>
+        <h3>Skill library</h3>
+        <p>Your playbooks as SKILL.md skills with templates. Tick which ones a project's tasks get, or add one to a single task. Four diagram skills included, off until you enable them.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><circle cx="34" cy="32" r="18" class="pap-f ink-s" stroke-width="1.5"/><path d="M34 32 V20 M34 32 L43 37" class="ink-s" stroke-width="2"/><path class="draw sig-s" d="M62 32 H96 C108 32 108 14 120 14 C132 14 132 32 144 32 H156" stroke-width="2.5" fill="none"/><text x="140" y="56" class="mt">✓ check</text><text x="66" y="56" class="mt">0 3 * * 1-5</text></svg></div>
+        <h3>Schedules and loops</h3>
+        <p>Start a task on a timetable with its own budgets, or let a task loop until your check passes; the PR or local branch arrives once, at the end.</p>
+      </article>
+    </div>
+  </div>
+</section>
 </main>
 
 <footer>
   <div class="wrap">
-    <img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="48" height="48" loading="lazy">
+    <img src="docs/brand/jungle-monkey-stamp-192.jpg" alt="Jungle Monkey stamp" width="72" height="72" loading="lazy" decoding="async">
     <nav aria-label="Footer">
       <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey#docs">Docs</a>
       <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md">Setup guide</a>
       <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/LOCAL.md">Local mode</a>
-      <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/README.md#docs">Docs</a>
       <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/LICENSE">License</a>
     </nav>
-    <span class="mit">MIT</span>
+    <span class="mit">MIT · Nº 01</span>
   </div>
 </footer>
 <script>
-document.querySelectorAll('.copy').forEach(function (b) {
-  b.addEventListener('click', function () {
-    navigator.clipboard.writeText(b.previousElementSibling.textContent).then(function () {
-      b.textContent = 'Copied ✓'
-      setTimeout(function () { b.textContent = 'Copy' }, 1600)
-    })
+(function () {
+'use strict'
+var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+function $(id) { return document.getElementById(id) }
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e }
+
+// One rAF loop for every demo; a demo only ticks while its section is on screen.
+var demos = [], raf = 0, last = 0
+function Demo(node, frame) {
+  var d = { node: node, vis: false, now: 0, q: [], frame: frame }
+  d.after = function (ms, fn) { d.q.push({ t: d.now + ms, fn: fn }) }
+  d.clear = function () { d.q = [] }
+  demos.push(d)
+  io.observe(node)
+  return d
+}
+var io = new IntersectionObserver(function (es) {
+  es.forEach(function (e) {
+    demos.forEach(function (d) { if (d.node === e.target) { d.vis = e.isIntersecting; d.node.classList.toggle('off', !d.vis) } })
   })
-})
+  start()
+}, { rootMargin: '80px' })
+function start() {
+  if (raf || document.hidden || !demos.some(function (d) { return d.vis })) return
+  last = 0; raf = requestAnimationFrame(loop)
+}
+function loop(ts) {
+  raf = 0
+  var dt = last ? Math.min(ts - last, 64) : 16, any = false
+  last = ts
+  demos.forEach(function (d) {
+    if (!d.vis) return
+    any = true
+    d.now += dt
+    for (var guard = 0; guard < 20; guard++) {
+      var i = -1
+      for (var j = 0; j < d.q.length; j++) if (d.q[j].t <= d.now && (i < 0 || d.q[j].t < d.q[i].t)) i = j
+      if (i < 0) break
+      d.q.splice(i, 1)[0].fn()
+    }
+    if (d.frame) d.frame(dt, d.now)
+  })
+  if (any && !document.hidden) raf = requestAnimationFrame(loop)
+}
+document.addEventListener('visibilitychange', start)
+
+// Polite announcements, at most one every 1.5 s (last one wins).
+function Live(node) {
+  var lastT = 0, text = '', timer = 0
+  return function (t) {
+    text = t
+    if (timer) return
+    timer = setTimeout(function () { timer = 0; lastT = Date.now(); node.textContent = text }, Math.max(0, lastT + 1500 - Date.now()))
+  }
+}
+function setStamp(s, cls, text) { s.className = 'stamp ' + cls; s.textContent = text }
+
+/* ---------- Install: tabs and copy ---------- */
 var tabs = Array.prototype.slice.call(document.querySelectorAll('[role=tab]'))
-function select(t) {
+function selectTab(t) {
   tabs.forEach(function (x) {
     var on = x === t
-    x.setAttribute('aria-selected', on)
+    x.setAttribute('aria-selected', on ? 'true' : 'false')
     x.tabIndex = on ? 0 : -1
-    document.getElementById(x.getAttribute('aria-controls')).hidden = !on
+    $(x.getAttribute('aria-controls')).hidden = !on
   })
 }
 tabs.forEach(function (t, i) {
-  t.addEventListener('click', function () { select(t) })
+  t.addEventListener('click', function () { selectTab(t) })
   t.addEventListener('keydown', function (e) {
-    var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-    if (!d) return
-    var n = tabs[(i + d + tabs.length) % tabs.length]
-    select(n); n.focus()
+    var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null
+    if (n === null) return
+    e.preventDefault()
+    var x = tabs[(n + tabs.length) % tabs.length]
+    selectTab(x); x.focus()
   })
 })
+function copyFallback(text) {
+  var ta = el('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'
+  document.body.appendChild(ta); ta.select()
+  var ok = false
+  try { ok = document.execCommand('copy') } catch (e) { ok = false }
+  document.body.removeChild(ta)
+  return ok
+}
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var text = b.previousElementSibling.textContent
+    function done(ok) {
+      b.textContent = ok ? 'Copied ✓' : 'Select it'
+      b.classList.toggle('done', ok)
+      setTimeout(function () { b.textContent = 'Copy'; b.classList.remove('done') }, 1800)
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { done(true) }, function () { done(copyFallback(text)) })
+    else done(copyFallback(text))
+  })
+})
+
+/* ---------- Hero monkey ---------- */
+;(function () {
+  var fig = $('monkey'), svg = fig.querySelector('svg')
+  var swing = $('swing'), armW = $('armW'), legL = $('legL'), legR = $('legR')
+  var armRest = $('armRest'), armEat = $('armEat'), peel = $('peel'), bites = fig.querySelectorAll('.bite')
+  var lids = $('lids').children, cheeks = $('cheeks').children, tongue = $('tongue'), smile = $('smile'), mopen = $('mopen'), nom = $('nom')
+  var pupils = $('pupils'), btn = $('feed'), stamp = $('feed-stamp'), fed = $('fed'), live = Live($('feed-live'))
+  var phase = 0, speed = 1, target = 1, blinkAt = 2500, tongueAt = 6000, tongueUntil = 0, feedT = -1, n = 0
+  function rot(g, a, x, y) { g.setAttribute('transform', 'rotate(' + a.toFixed(2) + ' ' + x + ' ' + y + ')') }
+  function ease(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
+  function finish() {
+    n++; fed.textContent = n
+    var pr = '#' + ('0000' + (41 + n)).slice(-4)
+    setStamp(stamp, 'ok', '✓ PR open · ' + pr)
+    live('Monkey fed. PR open ' + pr + '. Bananas fed: ' + n)
+    btn.disabled = false; feedT = -1
+  }
+  function eatFrame(t) {
+    // 0–400 arm up, bites at 900/1600/2300, peel drops at 2700, arm down at 3600, done at 4000.
+    var up = t < 3600 ? ease(t / 400) : 1 - ease((t - 3600) / 400)
+    armEat.setAttribute('opacity', up > 0.05 ? 1 : 0)
+    armRest.setAttribute('opacity', up > 0.05 ? 0 : 1)
+    rot(armEat, 60 * (1 - up), 176, 160)
+    var chew = false
+    ;[900, 1600, 2300].forEach(function (b, i) {
+      bites[i].setAttribute('opacity', t < b ? 1 : 0)
+      if (t >= b && t < b + 380) chew = true
+    })
+    mopen.setAttribute('opacity', chew ? 1 : 0)
+    smile.setAttribute('opacity', chew ? 0 : 1)
+    for (var i = 0; i < 2; i++) cheeks[i].setAttribute('r', chew ? 8.5 : 6)
+    nom.setAttribute('opacity', t > 850 && t < 2800 ? 1 : 0)
+    var p = Math.max(0, Math.min(1, (t - 2700) / 900))
+    peel.setAttribute('transform', p ? 'translate(' + (-14 * p).toFixed(1) + ' ' + (-150 * p * p).toFixed(1) + ') rotate(' + (200 * p).toFixed(1) + ' 182 151)' : '')
+    peel.setAttribute('opacity', t < 2700 ? 1 : 1 - p)
+  }
+  function frame(dt, now) {
+    speed += (target - speed) * Math.min(1, dt / 300)
+    phase += dt / 1000 * speed * 2.1
+    rot(swing, 9 * Math.sin(phase), 150, 30)
+    rot(armW, -16 + 22 * Math.sin(now / 160), 124, 160)
+    rot(legL, 14 * Math.sin(now / 230), 138, 206)
+    rot(legR, -14 * Math.sin(now / 230 + 0.8), 162, 206)
+    var b = now - blinkAt, lid = b > 0 && b < 160 ? 7.5 * Math.sin(b / 160 * Math.PI) : 0
+    if (b >= 160) blinkAt = now + 2200 + Math.random() * 3000
+    for (var i = 0; i < 2; i++) lids[i].setAttribute('ry', lid.toFixed(2))
+    if (feedT < 0 && now > tongueAt) { tongueUntil = now + 1100; tongueAt = now + 5000 + Math.random() * 5000 }
+    tongue.setAttribute('opacity', feedT < 0 && now < tongueUntil ? 1 : 0)
+    if (feedT >= 0) { feedT += dt; eatFrame(feedT); if (feedT >= 4000) { eatFrame(4000); finish() } }
+  }
+  var d = Demo(fig, RM ? null : frame)
+  fig.addEventListener('pointerenter', function () { target = 2.6 })
+  fig.addEventListener('pointerleave', function () { target = 1 })
+  btn.addEventListener('click', function () {
+    if (feedT >= 0) return
+    if (RM) return finish()
+    btn.disabled = true; feedT = 0
+    bites.forEach(function (x) { x.setAttribute('opacity', 1) })
+    setStamp(stamp, 'run', '● Running · eating')
+    live('Running: the monkey is eating')
+    start()
+  })
+  if (RM) return
+  var pending = false, px = 0, py = 0
+  window.addEventListener('pointermove', function (e) {
+    px = e.clientX; py = e.clientY
+    if (pending || !d.vis) return
+    pending = true
+    requestAnimationFrame(function () {
+      pending = false
+      var r = svg.getBoundingClientRect()
+      var dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height * 0.74), dd = Math.sqrt(dx * dx + dy * dy) || 1, k = Math.min(2.6, dd / 40) / dd
+      // The monkey is drawn upright and turned 180°, so the offset is mirrored.
+      pupils.setAttribute('transform', 'translate(' + (-dx * k).toFixed(2) + ' ' + (-dy * k).toFixed(2) + ')')
+    })
+  }, { passive: true })
+})()
+
+/* ---------- Try it: the phone ---------- */
+;(function () {
+  var sec = $('try'), live = Live($('ph-live'))
+  var vList = $('v-list'), vNew = $('v-new'), vTask = $('v-task')
+  var tl = $('ph-tl'), stamp = $('ph-stamp'), cost = $('ph-cost'), branch = $('ph-branch'), prompt = $('ph-prompt')
+  var newBtn = $('ph-new'), steps = $('ph-steps').children, list = $('ph-list')
+  var endGh = $('end-gh'), endLocal = $('end-local'), from = $('ph-from')
+  var mode = 'gh', phase = 'list', row = null, run = 0
+  var PROMPT = 'Retry webhook deliveries with exponential backoff instead of failing on the first 5xx.'
+  var d = Demo(sec)
+  // Under reduced motion every scripted step happens at once.
+  function after(ms, fn) { if (RM) fn(); else d.after(ms, fn) }
+  function show(v) { [vList, vNew, vTask].forEach(function (x) { x.hidden = x !== v }) }
+  function step(i) { for (var k = 0; k < steps.length; k++) steps[k].classList.toggle('cur', k === i) }
+  function scroll() { tl.scrollTop = tl.scrollHeight }
+  function add(node) { tl.appendChild(node); scroll(); return node }
+  function line(tool, arg, cls) { var p = el('p', 'ln' + (cls ? ' ' + cls : '')); if (tool) { p.appendChild(el('span', null, '› ')); p.appendChild(el('b', null, tool)); p.appendChild(document.createTextNode(' · ' + arg)) } else p.textContent = arg; return add(p) }
+  function status(cls, text, say) { setStamp(stamp, cls, text); if (row) setStamp(row, cls, text); live(say || text) }
+  function meta(c, turns) { cost.textContent = '$' + c.toFixed(2) + ' API-equivalent · ' + turns + ' turns' }
+  function brName() { return mode === 'gh' ? 'agent/42-retry-webhook-deliveries' : 'jm/42-retry-webhook-deliveries' }
+  function setMode(m) {
+    mode = m
+    endGh.setAttribute('aria-pressed', m === 'gh'); endLocal.setAttribute('aria-pressed', m === 'local')
+    from.hidden = m !== 'local'
+    $('ph-proj').textContent = m === 'gh' ? 'acme/hooks · GitHub · Claude Code' : '~/code/hooks · origin: GitHub (connected) · Claude Code'
+    branch.textContent = brName()
+    if (phase === 'end') { var c = tl.querySelector('.card.end'); if (c) c.remove(); ending() }
+  }
+  function reset() {
+    run++; d.clear(); phase = 'list'
+    tl.textContent = ''; prompt.textContent = ''; prompt.classList.add('caret')
+    if (row) { row.closest('li').remove(); row = null }
+    meta(0, 0); setStamp(stamp, '', 'Queued'); branch.textContent = brName()
+    newBtn.classList.add('pulse'); show(vList); step(0)
+  }
+  function typePrompt(i) {
+    prompt.textContent = PROMPT.slice(0, i)
+    if (i < PROMPT.length) after(18, function () { typePrompt(i + 2) })
+  }
+  newBtn.addEventListener('click', function () {
+    if (phase !== 'list') { show(vTask); return }
+    phase = 'new'; newBtn.classList.remove('pulse'); show(vNew); typePrompt(0)
+    $('ph-start').focus()
+  })
+  $('ph-cancel').addEventListener('click', function () { if (phase === 'new') reset() })
+  $('ph-back').addEventListener('click', function () { show(vList); newBtn.textContent = '+ New'; newBtn.focus() })
+  from.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return
+    from.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b) })
+  })
+  $('ph-start').addEventListener('click', function () {
+    if (phase !== 'new') return
+    phase = 'run'; prompt.textContent = PROMPT; prompt.classList.remove('caret')
+    var li = el('li', 'new'), b = el('button'); b.type = 'button'
+    b.appendChild(el('span', 't', 'Retry webhook deliveries with backoff'))
+    row = el('span', 'stamp', 'Queued'); b.appendChild(row); b.appendChild(document.createTextNode(' ')); b.appendChild(el('span', 'm', '#0042'))
+    b.addEventListener('click', function () { show(vTask) })
+    li.appendChild(b); list.insertBefore(li, list.firstChild)
+    show(vTask); step(1); $('ph-back').focus()
+    status('run', 'Preparing', 'Task 42 started: preparing')
+    var my = run
+    var script = [
+      [500, function () { status('run', '● Running', 'Running'); line(null, 'Run started (initial)', 'sys') }],
+      [700, function () { line('Read', 'internal/webhooks/deliver.go'); meta(0.06, 1) }],
+      [700, function () { line('Grep', '"deliver(" internal/') }],
+      [700, function () { line('Read', 'internal/webhooks/deliver_test.go'); meta(0.14, 2) }],
+      [800, function () { var s = add(el('div', 'say')); s.textContent = 'Deliveries fail hard on the first 5xx. I can add retries with backoff in internal/webhooks.'; meta(0.21, 3) }],
+      [900, ask]
+    ]
+    var t = 0
+    script.forEach(function (s) { t += s[0]; after(t, function () { if (my === run) s[1]() }) })
+  })
+  function ask() {
+    phase = 'ask'; step(2)
+    status('ask', '? Needs answer', 'Claude asks: how many attempts should a delivery get before it is marked as failed?')
+    var c = add(el('div', 'card asks'))
+    c.appendChild(el('p', 'k', '? CLAUDE ASKS'))
+    c.appendChild(el('p', null, 'How many attempts should a delivery get before it is marked as failed?'))
+    var o = el('div', 'opts'); c.appendChild(o)
+    ;['3 attempts', '5 attempts', '10 attempts'].forEach(function (a) {
+      var b = el('button', 'ob', a); b.type = 'button'
+      b.addEventListener('click', function () { answer(c, a) })
+      o.appendChild(b)
+    })
+    scroll()
+    if (!RM) o.firstChild.focus({ preventScroll: true })
+  }
+  function answer(card, a) {
+    if (phase !== 'ask') return
+    phase = 'run2'; step(3)
+    card.querySelector('.opts').replaceWith(el('p', 'ln', '❯ ' + a))
+    var my = run, t = 0
+    status('run', '● Running', 'Answered ' + a + '. Running')
+    ;[
+      [600, function () { line('Edit', 'internal/webhooks/backoff.go'); meta(0.27, 4) }],
+      [700, function () { line('Edit', 'internal/webhooks/deliver.go') }],
+      [700, function () { line('Edit', 'internal/webhooks/deliver_test.go'); meta(0.33, 5) }],
+      [700, function () { line('Bash', 'go test ./internal/webhooks/...') }],
+      [800, function () { line(null, 'ok   acme/hooks/internal/webhooks  0.84s', 'out'); meta(0.38, 6) }],
+      [700, function () { line(null, '● Committed a1f9c2e · +186 −12 · 4 files') }],
+      [700, function () { if (mode === 'gh') status('run', 'Pushing', 'Pushing') }],
+      [800, function () { phase = 'end'; ending() }]
+    ].forEach(function (s) { t += s[0]; after(t, function () { if (my === run) s[1]() }) })
+  }
+  function action(text, fn) { var b = el('button', 'ob', text); b.type = 'button'; b.addEventListener('click', fn); return b }
+  function ending() {
+    branch.textContent = brName()
+    var c = el('div', 'card end'), o = el('div', 'opts')
+    if (mode === 'gh') {
+      status('ok', '✓ PR open · CI ✓', 'Pull request 57 open, CI passed')
+      c.appendChild(el('p', 'k ok', '✓ PULL REQUEST #57 · CI ✓ 4/4'))
+      c.appendChild(el('p', null, 'Retry webhook deliveries with backoff. 4 files, +186 −12.'))
+      var m = action('Merge', function () { merged(c, 'Merged into main') }); m.className = 'ob p'; o.appendChild(m)
+    } else {
+      status('br', '⎇ Branch ready', 'Branch ready: jm/42-retry-webhook-deliveries')
+      c.appendChild(el('p', 'k ok', '⎇ BRANCH READY · jm/42-…'))
+      c.appendChild(el('p', null, 'jm/42-retry-webhook-deliveries in ~/code/hooks. 4 files, +186 −12.'))
+      var mm = action('Merge into current branch', function () { merged(c, 'Merged into main (your current branch)') }); mm.className = 'ob p'; o.appendChild(mm)
+      o.appendChild(action('Check out the branch', function () { line(null, 'Switched to branch jm/42-retry-webhook-deliveries', 'out') }))
+      o.appendChild(action('Discard', function () { c.remove(); line(null, 'Branch discarded', 'sys'); status('ok', '✓ Completed', 'Branch discarded, task completed') }))
+      o.appendChild(action('Push & open PR', function () {
+        line(null, '● Pushed agent/42-retry-webhook-deliveries · PR #57 opened', '')
+        c.remove(); mode = 'gh'; endGh.setAttribute('aria-pressed', true); endLocal.setAttribute('aria-pressed', false); ending()
+      }))
+    }
+    c.appendChild(o); add(c)
+  }
+  function merged(c, text) {
+    c.querySelector('.opts').replaceWith(el('p', 'ln', '✓ ' + text))
+    status('ok', '✓ Completed', text + '. Task completed')
+    phase = 'done'
+  }
+  endGh.addEventListener('click', function () { setMode('gh') })
+  endLocal.addEventListener('click', function () { setMode('local') })
+  $('ph-restart').addEventListener('click', function () { reset(); newBtn.focus() })
+  reset()
+})()
+
+/* ---------- Watch the agent: node and terminal ---------- */
+;(function () {
+  var sec = $('watch'), node = $('node'), term = $('term'), live = Live($('node-live'))
+  var glyph = $('n-glyph'), verb = $('n-verb'), tgt = $('n-tgt'), mid = $('n-mid'), files = $('n-files')
+  var stepE = $('n-step'), costE = $('n-cost'), timeE = $('n-time'), led = $('n-led')
+  var NS = 'http://www.w3.org/2000/svg'
+  var G = {
+    read: '<path d="M4 10h9l2 3h13v14H4z"/><g class="g-bob"><path d="M10 4h12v12H10z" fill="var(--paper)"/><path d="M13 8h6M13 11h6"/></g>',
+    web: '<circle cx="16" cy="16" r="10"/><ellipse class="g-squash" cx="16" cy="16" rx="5" ry="10"/><path d="M6 16h20"/><g class="g-orbit"><circle cx="16" cy="3" r="2" fill="var(--signal)" stroke="none"/></g>',
+    test: '<path d="M3 12h26v8H3z"/><path class="g-fill" d="M5 16h22" stroke="var(--signal)" stroke-width="4" stroke-linecap="butt"/>',
+    shell: '<path d="M3 6h26v20H3z"/><path d="M8 12l4 4-4 4"/><path class="g-blink" d="M15 21h7"/>',
+    edit: '<path d="M8 21l13-13 4 4-13 13H8z"/><path class="g-draw" d="M4 29h24" stroke="var(--signal)"/>',
+    think: '<circle class="g-dot" cx="8" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle class="g-dot g-dot2" cx="16" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle class="g-dot g-dot3" cx="24" cy="16" r="2.5" fill="currentColor" stroke="none"/>',
+    git: '<g class="g-rise"><path d="M16 26V8M9 15l7-7 7 7"/></g>',
+    done: '<path d="M7 16l6 6 12-12" stroke-width="3"/>',
+    idle: '<path d="M12 9v14M20 9v14" stroke-width="3"/>'
+  }
+  var LANES = [['read', 'READ'], ['web', 'WEB'], ['edit', 'EDIT'], ['shell', 'SHELL'], ['git', 'GIT']]
+  // [glyph, verb, target, lane, file, mode, seconds, cost, terminal line, terminal output]
+  var EV = [
+    ['think', 'THINKING', 'planning the change', null, null, null, 6, 0.02, '● Thinking…'],
+    ['read', 'READING', 'internal/webhooks/deliver.go', 'read', 'internal/webhooks/deliver.go', 'R', 4, 0.05, '● Read internal/webhooks/deliver.go'],
+    ['read', 'READING', 'grep "deliver(" internal/', 'read', null, null, 3, 0.07, '● Grep "deliver(" internal/', '  4 matches in 2 files'],
+    ['read', 'READING', 'internal/webhooks/deliver_test.go', 'read', 'internal/webhooks/deliver_test.go', 'R', 4, 0.1, '● Read internal/webhooks/deliver_test.go'],
+    ['web', 'FETCHING', 'pkg.go.dev/math/rand/v2', 'web', null, null, 7, 0.13, '● WebFetch pkg.go.dev/math/rand/v2'],
+    ['edit', 'WRITING', 'internal/webhooks/backoff.go', 'edit', 'internal/webhooks/backoff.go', 'W', 12, 0.19, '● Write internal/webhooks/backoff.go', '  +64'],
+    ['edit', 'WRITING', 'internal/webhooks/deliver.go', 'edit', 'internal/webhooks/deliver.go', 'W', 10, 0.24, '● Edit internal/webhooks/deliver.go', '  +38 −12'],
+    ['test', 'TESTING', 'go test ./internal/webhooks/...', 'shell', null, null, 14, 0.27, '● Bash go test ./internal/webhooks/...', '  --- FAIL: TestDeliverRetries (0.01s)'],
+    ['edit', 'WRITING', 'internal/webhooks/deliver_test.go', 'edit', 'internal/webhooks/deliver_test.go', 'W', 9, 0.32, '● Edit internal/webhooks/deliver_test.go', '  +84'],
+    ['test', 'TESTING', 'go test ./...', 'shell', null, null, 18, 0.35, '● Bash go test ./...', '  ok   acme/hooks/internal/webhooks  0.84s'],
+    ['shell', 'RUNNING', 'go vet ./...', 'shell', null, null, 6, 0.36, '● Bash go vet ./...'],
+    ['git', 'COMMITTED', 'a1f9c2e · +186 −12', 'git', null, null, 3, 0.38, '● Committed a1f9c2e +186 −12'],
+    ['git', 'PUSHING', 'agent/42-retry-webhook-deliveries', 'git', null, null, 5, 0.38, '● Pushing agent/42-retry-webhook-deliveries'],
+    ['done', 'PR OPEN', '#57 · CI ✓', null, null, null, 2, 0.38, '✓ PR #57 open · CI ✓']
+  ]
+  var st, view = 'node'
+  function fresh() { return { i: 0, lanes: { read: 0, web: 0, edit: 0, shell: 0, git: 0 }, active: null, files: [], secs: 0, cost: 0 } }
+  function setGlyph(k) {
+    var s = document.createElementNS(NS, 'svg')
+    s.setAttribute('viewBox', '0 0 32 32'); s.setAttribute('width', '32'); s.setAttribute('height', '32')
+    s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'square')
+    s.innerHTML = G[k]
+    glyph.textContent = ''; glyph.appendChild(s)
+  }
+  function dur(s) { return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's' }
+  function renderMid(fin) {
+    mid.textContent = ''
+    if (fin) {
+      var b = el('div', 'fin-box'), r = el('div')
+      r.appendChild(el('span', 'stamp ok', 'PR #57')); r.appendChild(document.createTextNode(' ')); r.appendChild(el('span', 'stamp ok', 'CI ✓'))
+      b.appendChild(r)
+      var g = el('dl', 'fgrid')
+      ;[['FILES', '4'], ['DIFF', '+186 −12'], ['COST', '$' + st.cost.toFixed(2)]].forEach(function (x) { var c = el('div'); c.appendChild(el('dt', null, x[0])); c.appendChild(el('dd', null, x[1])); g.appendChild(c) })
+      b.appendChild(g); mid.appendChild(b); return
+    }
+    var ul = el('ul', 'lanes'); ul.setAttribute('aria-label', 'Activity by lane')
+    LANES.forEach(function (l) {
+      var li = el('li'), n = st.lanes[l[0]]
+      li.setAttribute('aria-label', l[1] + ': ' + n)
+      li.appendChild(el('span', 'ln-n', l[1])); li.appendChild(el('span', 'ln-c', String(n)))
+      var bl = el('span', 'blk')
+      for (var i = 0; i < Math.min(n, 12); i++) { var x = el('i', st.active === l[0] && i === Math.min(n, 12) - 1 ? 'new' : ''); x.style.background = 'var(--l-' + l[0] + ')'; bl.appendChild(x) }
+      li.appendChild(bl); ul.appendChild(li)
+    })
+    mid.appendChild(ul)
+  }
+  function renderFiles() {
+    files.textContent = ''
+    st.files.slice(-5).forEach(function (f) {
+      var li = el('li'); li.appendChild(el('span', 'badge ' + f[1], f[1])); li.appendChild(el('span', null, f[0])); files.appendChild(li)
+    })
+  }
+  function tline(text, cls) { var p = el('p', cls, text); term.appendChild(p); while (term.children.length > 22) term.removeChild(term.firstChild) }
+  function apply(e) {
+    st.secs += e[6]; st.cost = e[7]; st.i++
+    if (e[3]) { st.lanes[e[3]]++; st.active = e[3] }
+    if (e[4]) {
+      var f = st.files.filter(function (x) { return x[0] === e[4] })[0]
+      if (f) { if (e[5] === 'W') f[1] = 'W' } else st.files.push([e[4], e[5]])
+    }
+    var fin = e[0] === 'done'
+    setGlyph(e[0]); verb.textContent = e[1]; tgt.textContent = e[2]
+    node.classList.toggle('fin', fin); led.classList.toggle('live', !fin)
+    renderMid(fin); renderFiles()
+    stepE.textContent = 'STEP ' + st.i; costE.textContent = '$' + st.cost.toFixed(2); timeE.textContent = dur(st.secs)
+    tline(e[8], fin ? 'g' : e[1] === 'COMMITTED' || e[1] === 'PUSHING' ? 'o' : '')
+    if (e[9]) tline(e[9], 'd')
+  }
+  function restart() {
+    st = fresh(); term.textContent = ''
+    tline('$ jungle-monkey · task #42 · claude-code', 'd'); tline('  Retry webhook deliveries with backoff', 'd')
+    setGlyph('idle'); verb.textContent = 'QUEUED'; tgt.textContent = 'waiting for a slot'
+    node.classList.remove('fin'); led.classList.add('live'); renderMid(false); renderFiles()
+    stepE.textContent = 'STEP 0'; costE.textContent = '$0.00'; timeE.textContent = '0s'
+  }
+  var d = Demo(sec)
+  function tick() {
+    if (st.i >= EV.length) { d.after(4500, function () { restart(); d.after(900, tick) }); return }
+    var e = EV[st.i]
+    apply(e); live(view === 'node' ? e[1] + ' ' + e[2] : e[8])
+    d.after(e[0] === 'edit' || e[0] === 'test' ? 1500 : 1100, tick)
+  }
+  restart()
+  if (RM) EV.forEach(apply)
+  else d.after(600, tick)
+  function sw(v) {
+    view = v
+    $('sw-node').setAttribute('aria-pressed', v === 'node'); $('sw-term').setAttribute('aria-pressed', v === 'term')
+    node.hidden = v !== 'node'; term.hidden = v !== 'term'
+  }
+  $('sw-node').addEventListener('click', function () { sw('node') })
+  $('sw-term').addEventListener('click', function () { sw('term') })
+})()
+
+/* ---------- Your keys stay with you: system map ---------- */
+;(function () {
+  var map = $('map'), pk = $('pk'), list = $('hops'), desc = $('hop-desc'), live = $('hop-live'), play = $('hop-play')
+  var HOPS = [
+    ['Container → workspace', ['b-agent', 'b-ws'], ['p-ws'], 'The agent sees one folder: this task’s copy of the repo, on its own task network. It gets no GitHub token, no Docker access and no host network.'],
+    ['Egress proxy → allowed hosts', ['b-proxy', 'b-hosts'], ['p-c-proxy', 'p-proxy-hosts'], 'With an allowlist, the task network has no route out except a per-run proxy that lets through only the hosts you listed (npm, PyPI, the agent’s API…).'],
+    ['Blocked request', ['b-proxy'], ['p-c-proxy'], 'A host not on the list, or a name that resolves to a private address, is refused at the proxy. You get an “Allow for this project” button; it applies from the next run.', true],
+    ['MCP gateway → tools', ['b-gw', 'b-int'], ['p-c-gw', 'p-gw-int'], 'The agent calls MCP tools with a per-run token. The gateway decrypts the credentials in memory, applies tool lists and call limits, and logs each call without its arguments.'],
+    ['Publisher → GitHub', ['b-pub', 'b-gh'], ['p-c-pub', 'p-pub-gh'], 'When the run ends, the server checks the diff (no .github/ changes, size limits, secrets scan), then pushes and opens the PR with a token the container never sees.'],
+    ['Notifier → your phone', ['b-note', 'b-phone'], ['p-c-note', 'p-note-phone'], 'Questions, PRs and CI results reach you through the Telegram bot and the web app. You answer or merge from there; the container has no route to either.']
+  ]
+  var cur = 0, auto = !RM, t = 0, btns = []
+  HOPS.forEach(function (h, i) {
+    var li = el('li'), b = el('button'); b.type = 'button'
+    b.appendChild(el('b', null, '0' + (i + 1))); b.appendChild(el('span', null, h[0]))
+    b.addEventListener('click', function () { auto = false; syncPlay(); select(i); live.textContent = h[0] + '. ' + h[3] })
+    li.appendChild(b); list.appendChild(li); btns.push(b)
+  })
+  function syncPlay() { play.textContent = auto ? 'Pause tour' : 'Play tour'; play.setAttribute('aria-pressed', auto) }
+  play.addEventListener('click', function () { auto = !auto && !RM; syncPlay(); t = 0 })
+  function select(i) {
+    cur = i; t = 0
+    var h = HOPS[i]
+    btns.forEach(function (b, k) { if (k === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current') })
+    map.querySelectorAll('.hot').forEach(function (g) { g.classList.remove('hot') })
+    map.querySelectorAll('.ln.on').forEach(function (p) { p.classList.remove('on') })
+    $('b-proxy').classList.remove('deny'); $('b-x').classList.remove('show')
+    h[1].forEach(function (id) { if (!h[4]) $(id).classList.add('hot') })
+    h[2].forEach(function (id) { $(id).classList.add('on') })
+    desc.textContent = h[3]
+    if (RM) { pk.setAttribute('x', -20); if (h[4]) { $('b-proxy').classList.add('deny'); $('b-x').classList.add('show') } }
+  }
+  var LEG = 700
+  function frame(dt) {
+    t += dt
+    var h = HOPS[cur], paths = h[2], total = paths.length * LEG
+    if (t < total) {
+      var p = $(paths[Math.floor(t / LEG)]), len = p.getTotalLength(), pt = p.getPointAtLength(len * ((t % LEG) / LEG))
+      pk.setAttribute('x', (pt.x - 4.5).toFixed(1)); pk.setAttribute('y', (pt.y - 4.5).toFixed(1))
+    } else {
+      pk.setAttribute('x', -20)
+      if (h[4]) { var on = t < total + 1600; $('b-proxy').classList.toggle('deny', on && Math.floor((t - total) / 200) % 2 === 0); $('b-x').classList.toggle('show', on) }
+      else h[1].forEach(function (id) { $(id).classList.add('hot') })
+    }
+    if (t > total + 2600) { t = 0; if (auto) select((cur + 1) % HOPS.length) }
+  }
+  select(0); syncPlay()
+  if (RM) play.hidden = true
+  Demo(map.closest('section'), RM ? null : frame)
+})()
+
+/* ---------- Feature cards: play their mini animation while in view ---------- */
+;(function () {
+  var cards = document.querySelectorAll('.feat')
+  var o = new IntersectionObserver(function (es) { es.forEach(function (e) { e.target.classList.toggle('play', e.isIntersecting) }) }, { threshold: 0.3 })
+  cards.forEach(function (c) { o.observe(c) })
+})()
+})()
 </script>
 </body>
 </html>

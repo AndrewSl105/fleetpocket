@@ -1,12 +1,22 @@
 import { setupWorker } from 'msw/browser'
 import { handlers } from './handlers'
 import { startSimulator } from './simulator'
+import { applyMockModeParam, mockMode } from './mode'
+import { seedLocal } from './localdb'
 
-/** Mock mode: MSW service worker for REST, MSW WebSocket interception for /api/v1/ws. */
+/**
+ * Mock mode: MSW service worker for REST, MSW WebSocket interception for /api/v1/ws.
+ * `?mock=local` pretends to be `npx jungle-monkey` (local repositories, from
+ * onboarding); `?mock=local-demo` adds a delivered branch; `?mock=server` goes back.
+ */
 export async function startMocks() {
+  applyMockModeParam(window.location.search)
+  const mode = mockMode()
+  if (mode !== 'server') seedLocal(mode === 'local-demo')
   const worker = setupWorker(...handlers)
   await worker.start({ onUnhandledFrame: 'bypass', quiet: true })
-  startSimulator()
+  // Local tasks run a short script; a faster clock keeps the e2e within its timeout.
+  startSimulator(mode === 'server' ? 2500 : 700)
   installFakeTelegram()
 }
 

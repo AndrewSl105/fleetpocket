@@ -26,6 +26,7 @@ const RANK: Record<TaskStatus, number> = {
   pushing: 4,
   queued: 5,
   pr_open: 6,
+  branch_ready: 6,
   failed: 7,
   cancelled: 8,
   completed: 9,

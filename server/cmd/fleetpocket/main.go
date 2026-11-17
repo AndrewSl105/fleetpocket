@@ -15,6 +15,7 @@ import (
 
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
+	"github.com/andrewsl105/fleetpocket/server/internal/egress"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 )
 
@@ -25,6 +26,8 @@ commands:
   migrate         apply database migrations and exit
   hash-password   read a password and print its bcrypt hash (ADMIN_PASSWORD_HASH)
   totp-setup      print a new TOTP secret (ADMIN_TOTP_SECRET) and its otpauth:// URI
+  egress-proxy    run the egress allowlist proxy (a task sidecar; EGRESS_* env)
+  egress-proxy-health  exit 0 when the local egress proxy accepts connections
 `
 
 func main() {
@@ -43,6 +46,10 @@ func main() {
 		err = hashPassword()
 	case "totp-setup":
 		err = totpSetup()
+	case "egress-proxy":
+		err = egress.RunProxy(signalContext())
+	case "egress-proxy-health":
+		err = egress.Health()
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:

@@ -260,6 +260,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List schedules
+         * @description By name, each with its month-to-date spend, whether a task of it is still running, and its latest firing.
+         */
+        get: operations["listSchedules"];
+        put?: never;
+        /**
+         * Create a schedule
+         * @description 400 for a bad cron expression, time zone, concurrency, loop, agent, or a repository of another project.
+         */
+        post: operations["createSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One schedule */
+        get: operations["getSchedule"];
+        /**
+         * Replace a schedule
+         * @description Fields left out take their defaults. The next run is computed again from now.
+         */
+        put: operations["updateSchedule"];
+        post?: never;
+        /** Delete a schedule (its tasks stay, with schedule_id null) */
+        delete: operations["deleteSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a schedule
+         * @description The next run is the first firing after now; firings while it was paused are not made up.
+         */
+        post: operations["enableSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause a schedule (next_run_at becomes null) */
+        post: operations["disableSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fire the schedule now (also when paused)
+         * @description Applies the concurrency policy like a timed firing; the result's `outcome` says whether a task started (`task_id`), the firing waits (`queued`) or was `skipped`.
+         */
+        post: operations["runSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy a schedule as "<name> (copy)", paused */
+        post: operations["duplicateSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/firings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** The schedule's history, newest first */
+        get: operations["listScheduleFirings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/skills": {
         parameters: {
             query?: never;
@@ -507,7 +656,7 @@ export interface paths {
          * Follow-up message (queued while a run is active)
          * @description `queued`/`preparing`/`running`/`waiting_input`/`pushing`: the text is queued
          *     (`queued_message` on the task, event `message` with `delivery: queued`) and
-         *     starts the next run when the current one ends. `paused`/`pr_open`/`completed`:
+         *     starts the next run when the current one ends. `paused`/`pr_open`/`branch_ready`/`completed`:
          *     starts a new run now (`delivery: new_run`). Otherwise `409`.
          *     JSON, or `multipart/form-data` with `text` plus files in `files[]`;
          *     the attachments are listed in the `message` event and reach the run that
@@ -588,6 +737,382 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{id}/branch/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge the delivered branch into the current branch of the local repository
+         * @description Fast-forward when possible, else a merge commit; completes the task ("branch merged into <branch>") and records `branch_action {merged}`. `409`: `dirty` (uncommitted changes to tracked files), `detached` (no current branch), `current_branch`, `merge_conflict` (aborted; `files` lists the conflicts), `git_refused` (e.g. untracked files would be overwritten; nothing changed), `branch_gone`, `repo_missing`, or `conflict` when the task is not `branch_ready`
+         */
+        post: operations["branchMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/branch/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check out the delivered branch in the local repository
+         * @description The task stays `branch_ready`; records `branch_action {checked_out}`. `409`: `dirty`, `git_refused`, `branch_gone`, `repo_missing`, `conflict`
+         */
+        post: operations["branchCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/branch/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete the delivered branch and complete the task
+         * @description Records `branch_action {discarded}` and sets `local_branch` to null. `409`: `current_branch` (check out another branch first), `repo_missing`, `conflict`
+         */
+        post: operations["branchDiscard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/branch/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push the task branch to GitHub and open a PR
+         * @description Needs a GitHub `origin` remote (`400 no_github_remote` otherwise) and GitHub connected in local mode (`503 github_disabled` otherwise). Pushes `agent/<id>-<slug>` with the owners token from the server process, opens the PR and moves the task to `pr_open` (normal PR/CI flow, including CI auto-fix). On failure the task returns to `branch_ready` with the reason
+         */
+        post: operations["branchPush"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Git work trees found on this computer (local mode)
+         * @description Scans ~/code, ~/Projects, ~/projects, ~/dev, ~/src, ~/repos, ~/Documents/GitHub, ~/work and the directory the CLI was started in, 3 levels deep, skipping node_modules, hidden folders and symlink loops. At most 200 results within 2 s, newest commit first; cached for 60 s. `400 local_mode_only` in server mode
+         */
+        get: operations["localRepoSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/fs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Folder browser limited to the home directory (local mode)
+         * @description Lists the subfolders (no files, no hidden folders) of `path` (default: the home directory) and marks git repositories. The resolved path must stay inside the home directory: `403 outside_home` otherwise; symlinks that lead out of it are not listed
+         */
+        get: operations["localBrowse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a folder as a local repository (local mode)
+         * @description The folder must be the top of a non-bare git work tree with at least one commit, outside the Jungle Monkey data directory. Without `project_id` a project named after the folder is created (id: its slug, `-2`… when taken). Idempotent: an added folder returns its repository (`200`, `created: false`). Also accepts the CLI's control token (`Authorization: Bearer`) for `jungle-monkey add`
+         */
+        post: operations["addLocalRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos/{repoId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Branch and dirty state of a local repository's folder */
+        get: operations["localRepoStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos/{repoId}/locate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Point a local repository at its folder after it was moved ("Locate…")
+         * @description Deliveries that waited for the folder (`pushing`, reason "repository folder not found") resume
+         */
+        post: operations["locateLocalRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GitHub connection in local mode (optional; for Push & open PR) */
+        get: operations["localGitHubStatus"];
+        put?: never;
+        post?: never;
+        /** Forget the stored GitHub token */
+        delete: operations["localGitHubDisconnect"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the OAuth device flow (scope `repo`)
+         * @description POST https://github.com/login/device/code with the Jungle Monkey OAuth App client id. The owner opens `verification_uri` and enters `user_code`, then the client polls `/local/github/device/poll` every `interval` seconds. `502 github` when GitHub refuses or no client id is configured
+         */
+        post: operations["localGitHubDeviceStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/device/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask GitHub once whether the owner authorized the device
+         * @description Respects the interval (slow_down adds 5 s); `connected` stores the token in the OS keychain
+         */
+        post: operations["localGitHubDevicePoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/gh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use the GitHub CLI's token (`gh auth token`)
+         * @description The web app asks the owner first. `400 invalid` when gh is missing or not logged in, or GitHub rejects the token
+         */
+        post: operations["localGitHubImportGH"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a pasted fine-grained personal access token
+         * @description Checked with GET /user before it is stored; `400 invalid` when GitHub rejects it
+         */
+        post: operations["localGitHubSetToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/budget-override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a task that waits for a monthly budget anyway
+         * @description Only a queued task. The task may start runs despite the monthly caps until the calendar month ends; a `budget` event (phase `override`) records it.
+         */
+        post: operations["overrideTaskBudget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/checkpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The task's checkpoints, oldest first
+         * @description Empty unless checkpoints were on (GET /settings/checkpoints) while the task ran. `available` is false, with a `reason`, while the task is busy, once its PR is closed, and after WORKSPACE_RETENTION removed the workspace (and the checkpoint refs with it).
+         */
+        get: operations["listTaskCheckpoints"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/checkpoints/{checkpointId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What restoring a checkpoint discards
+         * @description Counts of what came after the checkpoint and `git diff <checkpoint> HEAD` from the task's host. A checkpoint whose commit is no longer in the workspace comes back with `available` false and a reason.
+         */
+        get: operations["previewTaskCheckpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/checkpoints/{checkpointId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll the task back to a checkpoint and continue
+         * @description Queues a `restore` run: the scheduler resets the workspace to the checkpoint on the task branch, then the agent continues with `instruction` (empty: "Continue the task from here."). Claude resumes its session at the checkpoint as a fork (`mode` fork); Codex and Cursor start a new session seeded with a summary of the timeline up to the checkpoint (`mode` summary). Records a `checkpoint_restored` event; the later events stay in the timeline. If commits after the checkpoint were already pushed, the next push rewrites the branch with --force-with-lease (only agent/<id> branches) and records `branch_force_pushed`. 409 while the task is busy, after its PR closed, or after WORKSPACE_RETENTION.
+         */
+        post: operations["restoreTaskCheckpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/checkpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether runners take checkpoints
+         * @description Off by default. When on, every run commits the working tree to hidden refs after each step that changed files and before each question (docs/PROTOCOL.md, "Checkpoints").
+         */
+        get: operations["getCheckpointSettings"];
+        /** Turn checkpoints on or off */
+        put: operations["putCheckpointSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats": {
         parameters: {
             query?: never;
@@ -599,6 +1124,221 @@ export interface paths {
         get: operations["getStats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/ci-autofix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global CI auto-fix default
+         * @description What projects inherit for the fields their `ci_autofix` leaves null. Missing fields use the built-in defaults (off, 2 attempts, all checks, half the task budget, no CI changes).
+         */
+        get: operations["getCIAutoFixDefaults"];
+        /** Replace the global CI auto-fix default */
+        put: operations["putCIAutoFixDefaults"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Global monthly budget and the price table */
+        get: operations["getCostSettings"];
+        /**
+         * Replace the global monthly budget and the price table
+         * @description `monthly_budget_usd` null or 0 removes the global cap. `price_table` null restores the built-in table.
+         */
+        put: operations["putCostSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cost report and month-to-date budgets
+         * @description Runs started from `from` through `to` (dates in the server's local time; default: the first of this month to
+         *     today, at most 400 days), summed in total, by project, by agent, by `period` and per day × project × agent
+         *     (`rows`, the CSV export). `budget` and `projects` are always this calendar month.
+         */
+        get: operations["getCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** MCP servers of a project, or the global ones */
+        get: operations["listMCPServers"];
+        put?: never;
+        /**
+         * Add an MCP server
+         * @description Needs SECRETS_KEY (503 `secrets_disabled` without it). Secrets are write-only.
+         */
+        post: operations["createMCPServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp-servers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One MCP server */
+        get: operations["getMCPServer"];
+        /**
+         * Replace an MCP server's settings
+         * @description Every field is replaced except `secrets`, which merge (a key set to null is removed, keys not sent are kept). `project_id` cannot change.
+         */
+        put: operations["updateMCPServer"];
+        post?: never;
+        /** Delete an MCP server */
+        delete: operations["deleteMCPServer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp-servers/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test connection
+         * @description Connects to the server as the gateway would (a stdio server is started for the test) and lists its tools. A failed connection is `ok:false` with `error`, not an HTTP error.
+         */
+        post: operations["testMCPServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** A project's MCP servers and egress policy */
+        get: operations["getIntegrations"];
+        /**
+         * Set the egress policy and the global servers the project uses
+         * @description Fields left out are kept. Changes apply from the next run.
+         */
+        put: operations["putIntegrations"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/egress/allow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Allow a blocked host for this project (next run) */
+        post: operations["allowEgress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp-gateway/mcp/{server}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * MCP gateway (runners only)
+         * @description Streamable HTTP MCP endpoint of one server for a running task (docs/PROTOCOL.md, "MCP servers"). Authenticated
+         *     only by the run's gateway token (`Authorization: Bearer jmg_…`); no session or CSRF header. 401 for a missing,
+         *     expired or finished run's token; 404 for a server outside the run's scope; 502 when the upstream cannot be reached.
+         */
+        post: operations["gatewayMCP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp-gateway/egress/blocked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Egress proxy report of a blocked host
+         * @description Sent by the egress proxy sidecar with the run's token; recorded once per host and run as an `egress_blocked` event.
+         */
+        post: operations["gatewayEgressBlocked"];
         delete?: never;
         options?: never;
         head?: never;
@@ -878,12 +1618,19 @@ export interface components {
             error: {
                 code: string;
                 message: string;
+                /** @description `merge_conflict` only: the files the merge could not combine */
+                files?: string[];
             };
         };
         SessionInfo: {
             ok: boolean;
             /** @enum {string} */
             kind: "web" | "telegram";
+            /**
+             * @description `local`: `npx jungle-monkey` on the owner's computer (local repositories, optional GitHub)
+             * @enum {string}
+             */
+            mode: "server" | "local";
             /** @description Agents with credentials on the server, which tasks may use */
             agents: components["schemas"]["Agent"][];
             default_agent: components["schemas"]["Agent"];
@@ -919,6 +1666,10 @@ export interface components {
             /** Format: int64 */
             telegram_thread_id?: number | null;
             archived?: boolean;
+            /** @description Replaces the project's CI auto-fix overrides as a whole; null fields inherit the global default */
+            ci_autofix?: components["schemas"]["CIAutoFixSettings"];
+            /** @description Replaces the project's monthly cap; null or 0 `monthly_usd` removes it */
+            budget?: components["schemas"]["ProjectBudget"];
             /**
              * @description Output new tasks get; empty or null is `pr`. Values other than `pr` are refused with 400 until diagram collection ships
              * @enum {string|null}
@@ -926,6 +1677,104 @@ export interface components {
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | "" | null;
             /** @description Replaces the project's enabled skills (slugs; unknown slugs are ignored) */
             skills?: string[];
+        };
+        /** @description CI auto-fix settings (docs/SPEC-server.md "CI auto-fix"). A null field inherits the level below (project → global default → built-in default). */
+        CIAutoFixSettings: {
+            /** @description Fix failing CI on PRs Jungle Monkey opened; built-in default false */
+            enabled?: boolean | null;
+            /** @description Fix attempts per loop; built-in default 2 */
+            max_attempts?: number | null;
+            /** @description Check names auto-fix handles; null or empty is all */
+            checks?: string[] | null;
+            /** @description Budget of one attempt; null or 0 is half the project's task budget */
+            budget_usd?: number | null;
+            /** @description Push fixes that touch CI configuration, delete or skip tests, or change coverage thresholds without asking; built-in default false */
+            allow_ci_changes?: boolean | null;
+        };
+        /** @description A project's monthly cap (docs/SPEC-server.md "Costs and budgets"); null is none */
+        ProjectBudget: {
+            monthly_usd?: number | null;
+        } | null;
+        /** @description USD per million tokens. The cache rates default to `input_usd` when null. */
+        Price: {
+            agent: components["schemas"]["Agent"];
+            /** @description Model name as the run reports it; `*` matches any model of the agent without a row of its own */
+            model: string;
+            input_usd: number;
+            cached_input_usd?: number | null;
+            cache_write_usd?: number | null;
+            output_usd: number;
+        };
+        /** @description Prices for agents that report tokens but no cost (Codex, Cursor); their runs' costs are estimates. */
+        PriceTable: {
+            /** @description When the prices were last checked (YYYY-MM-DD) */
+            updated?: string;
+            prices: components["schemas"]["Price"][];
+        };
+        CostSettings: {
+            /** @description Global monthly cap; null is none */
+            monthly_budget_usd: number | null;
+            price_table: components["schemas"]["PriceTable"];
+            /** @description The built-in table (never edited) */
+            price_table_is_default: boolean;
+        };
+        CostSum: {
+            /** @description All runs' cost */
+            cost_usd: number;
+            /** @description Part of cost_usd estimated from the price table */
+            estimated_usd: number;
+            /** @description Part of cost_usd spent by CI auto-fix runs */
+            autofix_usd: number;
+            /** @description Part of cost_usd reported for Claude subscription (OAuth) runs */
+            api_equivalent_usd: number;
+            runs: number;
+            /** @description Runs with tokens but no price (cost 0) */
+            unknown_runs: number;
+            /** Format: int64 */
+            input_tokens: number;
+            /** Format: int64 */
+            output_tokens: number;
+        };
+        CostReport: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            period: "day" | "week" | "month";
+            /** Format: date */
+            month_start: string;
+            budget: components["schemas"]["BudgetStatus"];
+            projects: (components["schemas"]["BudgetStatus"] & {
+                project_id: string;
+                name: string;
+            })[];
+            total: components["schemas"]["CostSum"];
+            by_project: components["schemas"]["KeyedCostSum"][];
+            by_agent: components["schemas"]["KeyedCostSum"][];
+            /** @description Every day, week (from Monday) or month of the range, empty ones included */
+            by_period: (components["schemas"]["CostSum"] & {
+                /** Format: date */
+                start: string;
+            })[];
+            rows: (components["schemas"]["CostSum"] & {
+                /** Format: date */
+                day: string;
+                project_id: string;
+                agent: string;
+            })[];
+        };
+        KeyedCostSum: components["schemas"]["CostSum"] & {
+            /** @description Project id or agent */
+            key: string;
+        };
+        BudgetStatus: {
+            /** @description The monthly cap; null is none */
+            monthly_usd: number | null;
+            /** @description Cost of runs started this calendar month */
+            month_cost_usd: number;
+            /** @description Some of those runs have no price; month_cost_usd is a lower bound */
+            month_cost_unknown: boolean;
         };
         Project: {
             id: string;
@@ -952,6 +1801,12 @@ export interface components {
             /** Format: int64 */
             telegram_thread_id?: number | null;
             archived: boolean;
+            ci_autofix: components["schemas"]["CIAutoFixSettings"];
+            budget: components["schemas"]["ProjectBudget"];
+            /** @description Cost of the project's runs started this calendar month */
+            month_cost_usd: number;
+            /** @description Some of those runs have no price; month_cost_usd is a lower bound */
+            month_cost_unknown: boolean;
             /**
              * @description null is `pr`
              * @enum {string|null}
@@ -985,6 +1840,142 @@ export interface components {
             /** @description On for every project's tasks */
             enabled_by_default?: boolean;
         };
+        /** @description A recurring task (SPEC-server, "Schedules"). Each firing creates an ordinary task with `source: schedule` and `schedule_id`. */
+        Schedule: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            project_id: string;
+            /**
+             * Format: int64
+             * @description null: the project's default repository
+             */
+            repository_id: number | null;
+            prompt: string;
+            /**
+             * @description null: the project's agent
+             * @enum {string|null}
+             */
+            agent: "claude" | "codex" | "cursor" | null;
+            /** @description Skill slugs added to the project's skills */
+            skills: string[];
+            /** @description MCP server names (of the project's); null: all of them */
+            mcp_servers: string[] | null;
+            /** @description Five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, @yearly; normalised */
+            cron: string;
+            /** @description IANA time zone the cron expression is read in */
+            timezone: string;
+            /** @description Each run's budget; null: the project's */
+            run_budget_usd: number | null;
+            /** @description Monthly cap of its tasks; null: none */
+            monthly_budget_usd: number | null;
+            /**
+             * @description `skip`: a firing while a task of the schedule is still running is skipped. `queue`: it waits (at most one) and starts when that task finishes
+             * @enum {string}
+             */
+            concurrency: "skip" | "queue";
+            /** @description false: a run without changes makes an empty commit so a PR is opened anyway */
+            pr_only_if_changes: boolean;
+            /**
+             * Format: date-time
+             * @description No firings after this
+             */
+            ends_at: string | null;
+            loop: components["schemas"]["LoopConfigOrNull"];
+            enabled: boolean;
+            /**
+             * Format: date-time
+             * @description null while paused or after ends_at
+             */
+            next_run_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Month-to-date cost of its tasks' runs */
+            month_spend_usd: number;
+            /** @description A task of it has not reached a PR or an end yet */
+            busy: boolean;
+            last_firing: components["schemas"]["ScheduleFiring"] | null;
+        };
+        ScheduleInput: {
+            name: string;
+            project_id: string;
+            /** Format: int64 */
+            repository_id?: number | null;
+            prompt: string;
+            /** @enum {string|null} */
+            agent?: "claude" | "codex" | "cursor" | null;
+            skills?: string[];
+            mcp_servers?: string[] | null;
+            cron: string;
+            /** @description Default UTC */
+            timezone?: string;
+            run_budget_usd?: number | null;
+            monthly_budget_usd?: number | null;
+            /**
+             * @description Default skip
+             * @enum {string}
+             */
+            concurrency?: "skip" | "queue";
+            /** @description Default true */
+            pr_only_if_changes?: boolean;
+            /** Format: date-time */
+            ends_at?: string | null;
+            loop?: components["schemas"]["LoopInput"] | null;
+            /** @description Default true */
+            enabled?: boolean;
+        };
+        ScheduleFiring: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            schedule_id: number;
+            /**
+             * Format: date-time
+             * @description The cron time (manual runs: when asked)
+             */
+            scheduled_for: string;
+            /** @enum {string} */
+            trigger: "cron" | "manual";
+            /**
+             * @description `missed`: the server was down for more than one interval at that time
+             * @enum {string}
+             */
+            outcome: "started" | "queued" | "skipped" | "missed" | "failed";
+            reason: string | null;
+            /** Format: int64 */
+            task_id: number | null;
+            /** Format: date-time */
+            created_at: string;
+            task_status: components["schemas"]["TaskStatus"] | null;
+            task_cost_usd: number | null;
+            task_pr_url: string | null;
+            loop_state: components["schemas"]["LoopState"];
+        };
+        /** @description The schedule that started this task (`trigger` cron, or manual with `via`). */
+        ScheduleEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "schedule";
+            seq: null;
+            payload: {
+                /** Format: int64 */
+                schedule_id: number;
+                name: string;
+                /** @enum {string} */
+                trigger: "cron" | "manual";
+                /** Format: date-time */
+                scheduled_for: string;
+                /** @enum {string} */
+                via?: "web" | "telegram";
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "schedule";
+        };
         Skill: {
             /** Format: int64 */
             id: number;
@@ -1007,12 +1998,87 @@ export interface components {
             /** Format: int64 */
             id: number;
             project_id: string;
+            /** @description "owner/name" on GitHub; the folder name for a local repository */
             full_name: string;
             base_branch: string;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 0 for local repositories
+             */
             installation_id: number;
             is_default: boolean;
+            source: components["schemas"]["RepositorySource"];
+            /** @description Absolute work tree of a local repository ("" for GitHub) */
+            path: string;
+            /** @description Origin remote of a local repository, if any (informational; "" otherwise) */
+            remote_url: string;
         };
+        LocalRepoSuggestion: {
+            name: string;
+            path: string;
+            /** @description "" on a detached HEAD */
+            branch: string;
+            /** @description Uncommitted changes to tracked files */
+            dirty: boolean;
+            /** Format: date-time */
+            last_commit: string;
+            /** @description Already a local repository of some project */
+            added: boolean;
+        };
+        FolderListing: {
+            path: string;
+            /** @description null at the home directory */
+            parent: string | null;
+            home: string;
+            is_git: boolean;
+            entries: {
+                name: string;
+                path: string;
+                is_git: boolean;
+            }[];
+        };
+        LocalRepoAdded: {
+            project: components["schemas"]["Project"];
+            repository: components["schemas"]["Repository"];
+            /** @description false when the folder was already added */
+            created: boolean;
+        };
+        LocalRepoStatus: {
+            /** Format: int64 */
+            repository_id: number;
+            path: string;
+            /** @description The folder is gone (moved or deleted): offer "Locate…" */
+            missing: boolean;
+            branch: string;
+            detached: boolean;
+            dirty: boolean;
+        };
+        GitHubConnStatus: {
+            connected: boolean;
+            login: string;
+            /** @description Classic OAuth scopes (X-OAuth-Scopes); empty for a fine-grained token */
+            scopes: string[];
+            /** @description A stored token that no longer works */
+            error: string;
+            /** @description An OAuth App client id is configured */
+            device_flow: boolean;
+            /** @description The GitHub CLI is installed */
+            gh_cli: boolean;
+        };
+        DeviceCode: {
+            /** @example WDJB-MJHT */
+            user_code: string;
+            /** @example https://github.com/login/device */
+            verification_uri: string;
+            expires_in: number;
+            /** @description Seconds between polls */
+            interval: number;
+        };
+        /**
+         * @description `local` (a folder on the owner's disk) exists only in local mode (`npx jungle-monkey`)
+         * @enum {string}
+         */
+        RepositorySource: "github" | "local";
         /** @description Plain git branch name; no "..", "//", trailing "/", "." or ".lock" */
         BranchName: string;
         GitHubRepo: {
@@ -1052,8 +2118,11 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
-        /** @enum {string} */
-        TaskStatus: "queued" | "preparing" | "running" | "waiting_input" | "paused" | "pushing" | "pr_open" | "completed" | "failed" | "cancelled";
+        /**
+         * @description `branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`
+         * @enum {string}
+         */
+        TaskStatus: "queued" | "preparing" | "running" | "waiting_input" | "paused" | "pushing" | "pr_open" | "branch_ready" | "completed" | "failed" | "cancelled";
         Task: {
             /** Format: int64 */
             id: number;
@@ -1070,12 +2139,15 @@ export interface components {
             pr_url?: string | null;
             /** @enum {string|null} */
             ci_status?: "pending" | "success" | "failure" | null;
-            /** @description Reported by Claude only; 0 for Codex and Cursor */
+            /** @description Sum of the runs' cost: reported by Claude, estimated from the price table for Codex and Cursor (0 when their model has no price) */
             cost_usd_total: number;
             /** @description Agent turns across all runs */
             turns: number;
-            /** @enum {string} */
-            source: "web" | "telegram" | "api";
+            /**
+             * @description `schedule`: fired by the schedule `schedule_id`
+             * @enum {string}
+             */
+            source: "web" | "telegram" | "api" | "schedule";
             /** @description Fixed when the task is created: the request's agent, else the project's, else the server default */
             agent: components["schemas"]["Agent"];
             /** @description Node the task runs on, fixed when it is created; null is the server */
@@ -1097,9 +2169,88 @@ export interface components {
             skills: string[];
             skills_add: string[];
             skills_remove: string[];
+            /** @description Branch delivered into a local repository (`jm/<id>-<slug>`, `-2`… on a name collision); null before delivery and after Discard */
+            local_branch: string | null;
+            start_from: components["schemas"]["StartFrom"];
             /** @description Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued. */
             queued_message: string | null;
+            autofix_state: components["schemas"]["AutoFixState"];
+            /** @description CI auto-fix attempts made in the current loop */
+            autofix_attempts: number;
+            /** @description Attempt cap of the current loop */
+            autofix_max_attempts: number | null;
+            /** @description Part of cost_usd_total spent by CI auto-fix runs */
+            autofix_cost_usd: number;
+            /** @description Some run's cost is an estimate: show ≈ */
+            cost_estimated: boolean;
+            /** @description Some run's cost was reported for a Claude subscription (OAuth) login */
+            cost_api_equivalent: boolean;
+            /** @description Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?` */
+            cost_unknown: boolean;
+            /**
+             * @description Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.
+             * @enum {string|null}
+             */
+            budget_wait: "global" | "project" | "schedule" | null;
+            /**
+             * Format: date-time
+             * @description When the owner let it start despite the monthly caps (good for that calendar month)
+             */
+            budget_override_at: string | null;
+            /**
+             * Format: int64
+             * @description The schedule that fired the task (null once the schedule is deleted
+             */
+            schedule_id: number | null;
+            /** @description MCP server names the task may use (a subset of its project's, set by its schedule); null: all of the project's */
+            mcp_servers: string[] | null;
+            /** @description Budget of each run (set by its schedule); null: the project's */
+            run_budget_usd: number | null;
+            loop: components["schemas"]["LoopConfigOrNull"];
+            loop_state: components["schemas"]["LoopState"];
+            /** @description The current loop iteration (1-based; 0 without a loop) */
+            loop_iteration: number;
         };
+        /** @description Loop until a check passes (SPEC-server, "Loops"): after each agent run the runner runs `check_command` in the task container; a non-zero exit starts the next iteration with the trimmed output. The PR is opened only when the loop ends. */
+        LoopConfig: {
+            /** @description e.g. `npm test`, `go test ./...`, `make lint`, or a script that exits 0 when done */
+            check_command: string;
+            /** @default 3 */
+            max_iterations: number;
+            /** @description Cap on the cost of all iterations; null: only the per-run budget */
+            budget_usd: number | null;
+            /** @description Check command timeout; absent means 600 */
+            timeout_sec?: number;
+        };
+        /** @description Loop until `check_command` passes. 400 with output `artifacts`. */
+        LoopInput: {
+            check_command: string;
+            /** @description Default 3 */
+            max_iterations?: number;
+            /** @description Cap on all iterations together; null or 0: none */
+            budget_usd?: number | null;
+            /** @description Default 600 */
+            timeout_sec?: number;
+        };
+        LoopConfigOrNull: components["schemas"]["LoopConfig"] | null;
+        /**
+         * @description `running`, or why the loop ended: the check passed, max_iterations reached, the loop budget used up, two iterations in a row without file changes, or `stopped` (a run limit, a missing check result). null: no loop.
+         * @enum {string|null}
+         */
+        LoopState: "running" | "passed" | "max_iterations" | "budget" | "no_changes" | "stopped" | null;
+        /**
+         * @description Local repositories: start from the last commit (base branch), or from the checked-out commit plus the uncommitted changes and untracked files (committed as "WIP: working tree at start")
+         * @enum {string}
+         */
+        StartFrom: "last_commit" | "working_tree";
+        /**
+         * @description CI auto-fix loop: `fixing` (an attempt run is queued or running), `held` (the fix changes CI or tests and waits for the
+         *     owner's answer to the open question), `approved` (pushing it anyway), `waiting` (pushed, waiting for CI), `green`
+         *     (CI passed after a fix), `needs_you` (stopped: attempts used up, same failure twice, budget, a guarded fix discarded),
+         *     `cancelled` (human push, manual follow-up, PR closed). null: no loop.
+         * @enum {string|null}
+         */
+        AutoFixState: "fixing" | "held" | "approved" | "waiting" | "green" | "needs_you" | "cancelled" | null;
         TaskView: components["schemas"]["Task"] & {
             repository?: components["schemas"]["Repository"] | null;
             latest_run?: components["schemas"]["Run"] | null;
@@ -1110,8 +2261,11 @@ export interface components {
             id: number;
             /** Format: int64 */
             task_id: number;
-            /** @enum {string} */
-            kind: "initial" | "resume" | "followup" | "retry";
+            /**
+             * @description `loop`: a loop iteration after a failed check
+             * @enum {string}
+             */
+            kind: "initial" | "resume" | "followup" | "retry" | "restore" | "loop";
             input: string;
             container_id?: string | null;
             exit_code?: number | null;
@@ -1121,11 +2275,41 @@ export interface components {
             cost_usd: number;
             /** @description Last usage.turns the runner reported for this run */
             turns: number;
+            /** @description Set on runs CI auto-fix started (the attempt number) */
+            autofix_attempt?: number | null;
+            /** @description The loop iteration the run belongs to (null without a loop) */
+            loop_iteration?: number | null;
+            /** @description Agent of the run; null for runs from before it was recorded */
+            agent: string | null;
+            /** @description Model the run reported in `started` */
+            model: string | null;
+            /**
+             * Format: int64
+             * @description All input
+             */
+            input_tokens: number;
+            /** Format: int64 */
+            output_tokens: number;
+            /** Format: int64 */
+            cache_read_tokens: number;
+            /** Format: int64 */
+            cache_write_tokens: number;
+            cost_source: components["schemas"]["CostSource"];
+            /**
+             * @description How the agent was authenticated, when known; `subscription` (Claude OAuth) makes the cost API-equivalent
+             * @enum {string|null}
+             */
+            auth: "api_key" | "subscription" | null;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */
             finished_at?: string | null;
         };
+        /**
+         * @description Where cost_usd came from: reported by the agent, estimated from the price table, or unknown (tokens but no price; cost 0). null for runs without usage yet or from before it was recorded.
+         * @enum {string|null}
+         */
+        CostSource: "reported" | "estimated" | "unknown" | null;
         Question: {
             /** @description "<run_id>-<runner question id>"; pass it to /answer */
             id: string;
@@ -1148,9 +2332,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["LoopEvent"] | components["schemas"]["ScheduleEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"] | components["schemas"]["BranchReadyEvent"] | components["schemas"]["BranchActionEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "check" | "loop" | "schedule" | "checkpoint_restored" | "branch_force_pushed" | "branch_ready" | "branch_action";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -1207,6 +2391,11 @@ export interface components {
             type: "started";
             session_id: string;
             model: string;
+            /**
+             * @description Claude only; absent when unknown
+             * @enum {string}
+             */
+            auth?: "api_key" | "subscription";
         };
         AssistantTextEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1278,8 +2467,11 @@ export interface components {
             type: "question";
             /** Format: int64 */
             run_id: number;
-            /** Format: int64 */
-            seq: number;
+            /**
+             * Format: int64
+             * @description null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix_guard`)
+             */
+            seq: number | null;
             payload: components["schemas"]["QuestionPayload"];
         } & {
             /**
@@ -1288,9 +2480,14 @@ export interface components {
              */
             type: "question";
         };
-        QuestionPayload: components["schemas"]["RunnerPayloadBase"] & {
+        QuestionPayload: {
+            /** Format: date-time */
+            ts?: string;
+            /** Format: int64 */
+            seq?: number;
+        } & {
             /** @enum {string} */
-            type: "question";
+            type?: "question";
             /** @description Runner-local id (q1, q2, …); the API question id is "<run_id>-<question_id>" */
             question_id: string;
             text: string;
@@ -1320,6 +2517,10 @@ export interface components {
             output_tokens: number;
             /** @description Turns in this run */
             turns: number;
+            /** @description Part of input_tokens; absent from older runners */
+            cache_read_tokens?: number;
+            /** @description Part of input_tokens; absent from older runners */
+            cache_write_tokens?: number;
         };
         CommittedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1335,6 +2536,72 @@ export interface components {
              * @enum {string}
              */
             type: "committed";
+        };
+        /** @description The runner committed the working tree to the hidden ref refs/jm/checkpoints/<run_id>/<n> (docs/PROTOCOL.md, "Checkpoints"). Only with checkpoints on (GET /settings/checkpoints). */
+        CheckpointEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "checkpoint";
+            /** Format: int64 */
+            run_id: number;
+            /** Format: int64 */
+            seq: number;
+            payload: components["schemas"]["CheckpointPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "checkpoint";
+        };
+        CheckpointPayload: components["schemas"]["RunnerPayloadBase"] & {
+            /** @enum {string} */
+            type: "checkpoint";
+            /** @description 1-based within the run */
+            n: number;
+            ref_sha: string;
+            /** @description The agent step (tool round) of the run at which it was taken */
+            turn: number;
+            /** @description What the agent needs to resume at this point; "" when it cannot (Codex, Cursor) */
+            session_ref: string;
+            /** @description Files changed since the previous checkpoint of the run (or HEAD) */
+            files_changed: number;
+            /**
+             * @description `iteration`: the checkpoint that ends a loop iteration
+             * @enum {string}
+             */
+            reason?: "turn" | "question" | "iteration";
+        };
+        /** @description The check command of a loop iteration ran in the runner container after the agent's work was committed (docs/PROTOCOL.md, "Loops"). Exit code 0 passes. */
+        CheckEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "check";
+            /** Format: int64 */
+            run_id: number;
+            /** Format: int64 */
+            seq: number;
+            payload: components["schemas"]["CheckPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "check";
+        };
+        CheckPayload: components["schemas"]["RunnerPayloadBase"] & {
+            /** @enum {string} */
+            type: "check";
+            command: string;
+            /** @description 0 passes; 124 when the timeout killed it */
+            exit_code: number;
+            /** @description The end of stdout and stderr */
+            output: string;
+            /** Format: int64 */
+            duration_ms: number;
+            timed_out: boolean;
+            /** @description The loop iteration (added by the server) */
+            iteration?: number;
+            /** @description The loop's max_iterations (added by the server) */
+            max_iterations?: number;
         };
         CommittedPayload: components["schemas"]["RunnerPayloadBase"] & {
             /** @enum {string} */
@@ -1554,7 +2821,7 @@ export interface components {
             /** Format: int64 */
             run_id: number;
             /** @enum {string} */
-            kind: "initial" | "resume" | "followup" | "retry";
+            kind: "initial" | "resume" | "followup" | "retry" | "restore";
         };
         RunFinishedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1573,6 +2840,57 @@ export interface components {
             run_id: number;
             /** @description Runner exit code (PROTOCOL.md) */
             exit_code: number;
+            /** @description The run's cost (absent before costs were recorded) */
+            cost_usd?: number;
+            /** @enum {string} */
+            cost_source?: "reported" | "estimated" | "unknown";
+            /** @enum {string} */
+            auth?: "api_key" | "subscription";
+        };
+        BranchReadyEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "branch_ready";
+            seq: null;
+            payload: components["schemas"]["BranchReadyPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "branch_ready";
+        };
+        BranchReadyPayload: {
+            /** @description Branch in the owner's repository, e.g. jm/42-fix-login */
+            branch: string;
+            /** @description Commits on the branch that are not on the base branch */
+            commits: number;
+            /** @description `git diff --stat` summary line against the base branch */
+            diffstat: string;
+            /** @description A follow-up fast-forwarded a branch delivered before */
+            updated: boolean;
+            /** @description Set when the update went to a new branch because the old one was checked out or had moved */
+            previous?: string;
+        };
+        BranchActionEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "branch_action";
+            seq: null;
+            payload: components["schemas"]["BranchActionPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "branch_action";
+        };
+        BranchActionPayload: {
+            /** @enum {string} */
+            action: "merged" | "checked_out" | "discarded" | "pushed";
+            branch: string;
+            /** @description merged: the owner's branch it was merged into */
+            into?: string;
+            /** @description merged: true when no merge commit was needed */
+            fast_forward?: boolean;
         };
         PrOpenedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -1654,6 +2972,397 @@ export interface components {
         };
         DiffRejectedPayload: {
             reason: string;
+        };
+        /** @description The owner restored a checkpoint. Events after `checkpoint_event_id` up to this one are the abandoned branch (kept, shown greyed). */
+        CheckpointRestoredEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "checkpoint_restored";
+            seq: null;
+            payload: components["schemas"]["CheckpointRestoredPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "checkpoint_restored";
+        };
+        CheckpointRestoredPayload: {
+            /** Format: int64 */
+            checkpoint_id: number;
+            /**
+             * Format: int64
+             * @description The checkpoint's timeline event (absent once event retention removed it)
+             */
+            checkpoint_event_id?: number;
+            n: number;
+            /**
+             * Format: int64
+             * @description The run the checkpoint belongs to
+             */
+            run_id: number;
+            /** Format: int64 */
+            restore_run_id: number;
+            ref_sha: string;
+            /** @enum {string} */
+            mode: "fork" | "summary";
+            instruction: string;
+            via: string;
+        };
+        /** @description A push after a restore rewrote the task branch with --force-with-lease (also commented on the PR and sent to Telegram). */
+        BranchForcePushedEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "branch_force_pushed";
+            seq: null;
+            payload: components["schemas"]["BranchForcePushedPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "branch_force_pushed";
+        };
+        BranchForcePushedPayload: {
+            branch: string;
+            /** @description The remote commit that was replaced */
+            from: string;
+            /** @enum {string} */
+            reason: "restore";
+            /** @description PR number */
+            number: number;
+        };
+        CheckpointSettings: {
+            enabled: boolean;
+        };
+        Checkpoint: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            task_id: number;
+            /** Format: int64 */
+            run_id: number;
+            /**
+             * Format: int64
+             * @description Its `checkpoint` timeline event
+             */
+            event_id: number | null;
+            n: number;
+            ref_sha: string;
+            turn: number;
+            files_changed: number;
+            /** @enum {string} */
+            reason: "turn" | "question";
+            /** Format: date-time */
+            created_at: string;
+            /** @description refs/jm/checkpoints/<run_id>/<n> (workspace only, never pushed) */
+            ref: string;
+            /** @enum {string} */
+            mode: "fork" | "summary";
+            available: boolean;
+            /** @description Why it cannot be restored now (absent when available) */
+            unavailable_reason?: string;
+        };
+        CheckpointPreview: components["schemas"]["Checkpoint"] & {
+            discarded: {
+                runs: number;
+                steps: number;
+                messages: number;
+                commits: number;
+            };
+            /** @description git diff <checkpoint> HEAD: the file changes a restore discards */
+            diff: string;
+            truncated: boolean;
+        };
+        MCPServer: {
+            /** Format: int64 */
+            id: number;
+            /** @description null for a global server */
+            project_id: string | null;
+            /** @description lowercase letters, digits, - and _; the agent sees tools as mcp__<name>__<tool> */
+            name: string;
+            /** @enum {string} */
+            kind: "remote" | "stdio" | "postgres";
+            /** @enum {string|null} */
+            transport: "http" | "sse" | null;
+            url: string | null;
+            /** @enum {string|null} */
+            runtime: "npm" | "pip" | "image" | null;
+            /** @description npm or pip package */
+            package: string | null;
+            /** @description pip: the executable to run (default: the package name) */
+            command: string | null;
+            args: string[];
+            /** @description Stored secret keys with their last characters; values are never returned */
+            secret_hints: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            tools_mode: "all" | "allow" | "deny";
+            /** @description Tool names or patterns (* and ?) for allow/deny */
+            tools: string[];
+            /** @description Postgres: enforced (read-only transaction, always rolled back). Other servers: only tools annotated readOnlyHint are exposed. */
+            read_only: boolean;
+            /** @description Calls per run; null = no limit */
+            max_calls: number | null;
+            enabled: boolean;
+            /** Format: date-time */
+            last_used_at: string | null;
+            /** @enum {string|null} */
+            last_status: "ok" | "error" | null;
+            last_error: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MCPServerInput: {
+            /** @description POST only; null or absent: a global server */
+            project_id?: string | null;
+            name: string;
+            /** @enum {string} */
+            kind: "remote" | "stdio" | "postgres";
+            /**
+             * @description remote; default http
+             * @enum {string|null}
+             */
+            transport?: "http" | "sse" | null;
+            url?: string | null;
+            /** @enum {string|null} */
+            runtime?: "npm" | "pip" | "image" | null;
+            package?: string | null;
+            command?: string | null;
+            args?: string[];
+            /**
+             * @description Write-only. remote: HTTP header names (or `bearer` for `Authorization: Bearer`); stdio: environment variables
+             *     of the sidecar; postgres: `DATABASE_URL`. null removes a key; keys not sent are kept.
+             */
+            secrets?: {
+                [key: string]: string | null;
+            };
+            /** @enum {string} */
+            tools_mode?: "all" | "allow" | "deny";
+            tools?: string[];
+            /** @description default: true for postgres, false otherwise */
+            read_only?: boolean | null;
+            max_calls?: number | null;
+            enabled?: boolean | null;
+        };
+        MCPTool: {
+            name: string;
+            description: string;
+            /** @description The project's settings expose it */
+            allowed: boolean;
+            read_only: boolean;
+        };
+        MCPTestResult: {
+            ok: boolean;
+            error?: string;
+            tools: components["schemas"]["MCPTool"][];
+        };
+        Egress: {
+            /**
+             * @description open: today's behaviour (default)
+             * @enum {string}
+             */
+            mode: "open" | "allowlist";
+            presets: string[];
+            /** @description host, *.domain (subdomains only) or host:port */
+            hosts: string[];
+        };
+        EgressPreset: {
+            id: string;
+            label: string;
+            hosts: string[];
+        };
+        AgentMCPSupport: {
+            agent: string;
+            mcp: boolean;
+            /** @enum {string} */
+            proxy: "yes" | "unverified";
+            note: string;
+        };
+        Integrations: {
+            /** @description false when SECRETS_KEY is not set (MCP servers cannot be used) */
+            secrets_enabled: boolean;
+            egress: components["schemas"]["Egress"];
+            /** @description false when the project runs on a node (allowlist tasks would not start) */
+            egress_supported: boolean;
+            presets: components["schemas"]["EgressPreset"][];
+            /** @description The project's own servers */
+            servers: components["schemas"]["MCPServer"][];
+            global_servers: components["schemas"]["MCPServer"][];
+            /** @description Global servers this project uses */
+            global_server_ids: number[];
+            /** @description What the next task gets */
+            active: components["schemas"]["MCPServer"][];
+            agents: components["schemas"]["AgentMCPSupport"][];
+            /** @description Base URL runners reach the gateway at ("" when unknown) */
+            gateway_url: string;
+        };
+        AutoFixEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "autofix";
+            seq: null;
+            payload: components["schemas"]["AutoFixPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "autofix";
+        };
+        AutoFixCheck: {
+            name: string;
+            /** @description The check run on GitHub (its logs) */
+            url: string;
+            conclusion: string;
+        };
+        /**
+         * @description One automatic CI auto-fix step. `started`: attempt `attempt`/`max_attempts` was queued as run `run_id` with the failing
+         *     `checks`, the failure `signature` and the trimmed logs in `attachments`. `pushed`: the fix was pushed. `held`: the fix
+         *     changes CI or tests (`reasons`); the open question asks the owner. `discarded`: the owner discarded it. `green`: CI passed
+         *     after `fixes` fixes. `needs_you`: the loop stopped (`reason`). `cancelled`: a human push, follow-up or closed PR (`reason`).
+         */
+        AutoFixPayload: {
+            /** @enum {string} */
+            phase: "started" | "pushed" | "held" | "discarded" | "green" | "needs_you" | "cancelled";
+            attempt?: number;
+            max_attempts?: number;
+            /** Format: int64 */
+            run_id?: number;
+            head_sha?: string;
+            signature?: string;
+            checks?: components["schemas"]["AutoFixCheck"][];
+            attachments?: components["schemas"]["Attachment"][];
+            reasons?: string[];
+            reason?: string;
+            fixes?: number;
+        };
+        MCPCallEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "mcp_call";
+            seq: null;
+            payload: components["schemas"]["MCPCallPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "mcp_call";
+        };
+        /** @description One call through the MCP gateway. Sizes and timing only; never arguments, results or credentials. `tool` is "" for a failed connection. */
+        MCPCallPayload: {
+            server: string;
+            tool: string;
+            ok: boolean;
+            duration_ms?: number;
+            args_bytes?: number;
+            result_bytes?: number;
+            /**
+             * @description denied: the tool is not allowed; limit: max_calls reached
+             * @enum {string}
+             */
+            denied?: "denied" | "limit";
+            error?: string;
+        };
+        EgressBlockedEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "egress_blocked";
+            seq: null;
+            payload: {
+                /** @description The refused host (once per host and run); POST /projects/{id}/egress/allow allows it */
+                host: string;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "egress_blocked";
+        };
+        BudgetEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "budget";
+            seq: null;
+            /**
+             * @description Monthly budgets: `warning` (this task's run took the scope to 80% this month), `reached` (100%: running runs finish,
+             *     new runs wait), `waiting` (this queued task is held: "waiting: budget"), `override` (the owner let it start anyway,
+             *     `via` web or telegram). Sent once per scope, month and level for warning and reached.
+             */
+            payload: {
+                /** @enum {string} */
+                phase: "warning" | "reached" | "waiting" | "override";
+                /** @enum {string} */
+                scope?: "global" | "project" | "schedule";
+                project_id?: string;
+                /**
+                 * Format: int64
+                 * @description scope schedule: the schedule whose monthly cap it is
+                 */
+                schedule_id?: number;
+                /** @description scope schedule: its name (warning, reached) */
+                schedule?: string;
+                /** @enum {integer} */
+                level?: 80 | 100;
+                spent_usd?: number;
+                limit_usd?: number;
+                /** @enum {string} */
+                via?: "web" | "telegram";
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "budget";
+        };
+        /** @description A loop (SPEC-server, "Loops"): `iteration` when an iteration is queued (1 when the task is created or retried; the next one after a failed check, with the check's `exit_code` and the reason), `stopped` when the loop ended (`state` says why). The PR is opened after `stopped`. */
+        LoopEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "loop";
+            seq: null;
+            payload: {
+                /** @enum {string} */
+                phase: "iteration" | "stopped";
+                iteration: number;
+                max_iterations?: number;
+                check_command?: string;
+                /**
+                 * Format: int64
+                 * @description iteration: the run of the iteration
+                 */
+                run_id?: number;
+                /** @description iteration > 1: the failed check of the previous one */
+                exit_code?: number;
+                timed_out?: boolean;
+                state?: components["schemas"]["LoopState"];
+                reason?: string;
+                /** @description What the loop's runs cost so far */
+                spent_usd?: number;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "loop";
+        };
+        IntegrationsEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "integrations";
+            seq: null;
+            /** @description What the run got, written at its start when it has MCP servers or an allowlist. */
+            payload: {
+                servers: string[];
+                /** @enum {string} */
+                egress: "open" | "allowlist";
+                warning?: string;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "integrations";
         };
     };
     responses: {
@@ -2129,10 +3838,26 @@ export interface operations {
                     base_branch?: components["schemas"]["BranchName"];
                     /** @default false */
                     is_default?: boolean;
+                    /** @enum {string} */
+                    source?: "github";
+                } | {
+                    /** @enum {string} */
+                    source: "local";
+                    /** @description Absolute path of the work tree */
+                    path: string;
                 };
             };
         };
         responses: {
+            /** @description Local repository that was already added (idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"];
+                };
+            };
             /** @description Added */
             201: {
                 headers: {
@@ -2142,7 +3867,15 @@ export interface operations {
                     "application/json": components["schemas"]["Repository"];
                 };
             };
-            400: components["responses"]["Error"];
+            /** @description `invalid`, or `local_mode_only` for a local repository in server mode */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
         };
@@ -2222,6 +3955,252 @@ export interface operations {
                 };
             };
             503: components["responses"]["Error"];
+        };
+    };
+    listSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All schedules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Schedule"][];
+                    };
+                };
+            };
+        };
+    };
+    createSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+            404: components["responses"]["Error"];
+        };
+    };
+    enableSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    disableSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    runSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The firing */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleFiring"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    duplicateSchedule: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The copy */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listScheduleFirings: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Firings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ScheduleFiring"][];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     listSkills: {
@@ -2491,6 +4470,9 @@ export interface operations {
                     skills_add?: string[];
                     /** @description Skill slugs removed from the project's skills for this task */
                     skills_remove?: string[];
+                    loop?: components["schemas"]["LoopInput"];
+                    /** @description `working_tree` only for local repositories (400 otherwise); default `last_commit` */
+                    start_from?: components["schemas"]["StartFrom"];
                 };
                 "multipart/form-data": {
                     project_id: string;
@@ -2511,6 +4493,9 @@ export interface operations {
                     skills_add?: string;
                     /** @description Comma-separated skill slugs */
                     skills_remove?: string;
+                    /** @description LoopInput as JSON */
+                    loop?: string;
+                    start_from?: components["schemas"]["StartFrom"];
                     /** @description PNG, JPEG, WebP or GIF (not animated), at most 40 MB each, 100 MB together; type detected from the content */
                     "files[]"?: string[];
                 };
@@ -2864,6 +4849,573 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    branchMerge: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    branchCheckout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    branchDiscard: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    branchPush: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    localRepoSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["LocalRepoSuggestion"][];
+                        /** @description The repository the CLI was started in, when it is one ("this folder") */
+                        start: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localBrowse: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderListing"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    addLocalRepo: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Absolute path */
+                    path: string;
+                    /** @description Attach to this project instead of creating one */
+                    project_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Already added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalRepoAdded"];
+                };
+            };
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalRepoAdded"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    localRepoStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repoId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalRepoStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    locateLocalRepo: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                repoId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    path: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The repository */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    localGitHubStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localGitHubDisconnect: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localGitHubDeviceStart: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Device code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceCode"];
+                };
+            };
+            400: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    localGitHubDevicePoll: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Poll result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "pending" | "connected" | "expired" | "denied" | "none";
+                        github: components["schemas"]["GitHubConnStatus"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    localGitHubImportGH: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localGitHubSetToken: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    overrideTaskBudget: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Allowed; the scheduler picks it up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    listTaskCheckpoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Checkpoints */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Checkpoint"][];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    previewTaskCheckpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TaskID"];
+                checkpointId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckpointPreview"];
+                };
+            };
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    restoreTaskCheckpoint: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+                checkpointId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Follow-up for the agent */
+                    instruction?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getCheckpointSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The setting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckpointSettings"];
+                };
+            };
+        };
+    };
+    putCheckpointSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckpointSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckpointSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
     getStats: {
         parameters: {
             query?: never;
@@ -2885,9 +5437,434 @@ export interface operations {
                         waiting_input: number;
                         cost_usd_today: number;
                         cost_usd_month: number;
+                        /** @description Some of today's runs have no price (cost_usd_today is a lower bound) */
+                        cost_unknown_today: boolean;
+                        /** @description Some of this month's runs have no price */
+                        cost_unknown_month: boolean;
                     };
                 };
             };
+        };
+    };
+    getCIAutoFixDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The global default */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CIAutoFixSettings"];
+                };
+            };
+        };
+    };
+    putCIAutoFixDefaults: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CIAutoFixSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CIAutoFixSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getCostSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cost settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+        };
+    };
+    putCostSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    monthly_budget_usd?: number | null;
+                    price_table?: components["schemas"]["PriceTable"] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getCosts: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                period?: "day" | "week" | "month";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostReport"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    listMCPServers: {
+        parameters: {
+            query?: {
+                /** @description Project id; without it, the global servers (that projects can enable) */
+                project?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Servers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["MCPServer"][];
+                    };
+                };
+            };
+        };
+    };
+    createMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPServerInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getMCPServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServer"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPServerInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    deleteMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    testMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPTestResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integrations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putIntegrations: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    egress?: components["schemas"]["Egress"];
+                    global_server_ids?: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    allowEgress: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The project's egress policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Egress"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    gatewayMCP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description JSON-RPC response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    gatewayEgressBlocked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
         };
     };
     listNodes: {

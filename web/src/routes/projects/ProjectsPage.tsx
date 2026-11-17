@@ -1,13 +1,18 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight, FolderGit2, Plus } from 'lucide-react'
-import { useProjects, useTasks } from '@/api/hooks'
+import { ChevronRight, FolderGit2, FolderPlus, Plus } from 'lucide-react'
+import { useMode, useProjects, useTasks } from '@/api/hooks'
+import { lc } from '@/i18n/local'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { t } from '@/i18n/en'
+import { c } from '@/i18n/costs'
+import { sk } from '@/i18n/skills'
+import { CostBar } from '@/components/CostBar'
 
 export default function ProjectsPage() {
   const projects = useProjects()
+  const local = useMode() === 'local'
   // The Project object has no active task count; count the active list client-side.
   const active = useTasks({ group: 'active' })
   const activeByProject = useMemo(() => {
@@ -21,11 +26,27 @@ export default function ProjectsPage() {
       <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.projects.title}</h1>
-          <Button asChild variant="outline" className="h-10">
-            <Link to="/projects/new">
-              <Plus /> {t.projects.new}
-            </Link>
+          <Button asChild variant="outline" className="ml-2 h-10 px-3">
+            <Link to="/skills">{sk.open}</Link>
           </Button>
+          <Button asChild variant="outline" className="ml-2 h-10 px-3">
+            <Link to="/costs">{c.open}</Link>
+          </Button>
+          {/* Local mode: a project comes from a folder on this computer. */}
+          {local ? (
+            <Button asChild variant="outline" className="ml-2 h-10">
+              <Link to="/welcome?step=folder">
+                <FolderPlus /> {lc.repo.addFolder}
+              </Link>
+            </Button>
+          ) : (
+            /* Three header buttons fit a 375 px phone only with this one as an icon. */
+            <Button asChild variant="outline" className="ml-2 h-10 max-sm:w-11 max-sm:px-0">
+              <Link to="/projects/new" aria-label={t.projects.new}>
+                <Plus /> <span className="max-sm:hidden">{t.projects.new}</span>
+              </Link>
+            </Button>
+          )}
         </div>
         {projects.isPending ? (
           <div className="space-y-2">
@@ -49,6 +70,7 @@ export default function ProjectsPage() {
                         <span className="font-mono">{p.id}</span> · {t.projects.repos(p.repositories.length)}
                         {n > 0 && <span className="text-primary"> · {t.projects.active(n)}</span>}
                       </div>
+                      <MonthCost spent={p.month_cost_usd} unknown={p.month_cost_unknown} cap={p.budget?.monthly_usd ?? null} />
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                   </Link>
@@ -57,6 +79,20 @@ export default function ProjectsPage() {
             })}
           </ul>
         )}
+      </div>
+    </div>
+  )
+}
+
+/** Month-to-date cost, against the monthly budget when the project has one. */
+function MonthCost({ spent, unknown, cap }: { spent: number; unknown: boolean; cap: number | null }) {
+  if (!cap)
+    return spent > 0 || unknown ? <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">{c.monthToDate(spent, unknown)}</div> : null
+  return (
+    <div className="mt-1.5">
+      <CostBar value={spent} max={cap} tone="budget" label={c.budget} />
+      <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">
+        {c.budget}: {c.ofBudget(spent, cap, unknown)}
       </div>
     </div>
   )

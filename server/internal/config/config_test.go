@@ -84,3 +84,31 @@ func TestValidateOwnerCredentials(t *testing.T) {
 		t.Fatalf("half-set owner: %v", err)
 	}
 }
+
+func TestSecretsKeyAndGatewayURL(t *testing.T) {
+	cfg := validConfig()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("no key is valid (MCP disabled): %v", err)
+	}
+	cfg.SecretsKey = "short"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "SECRETS_KEY") {
+		t.Fatalf("short key: %v", err)
+	}
+	cfg.SecretsKey = strings.Repeat("0a", 32)
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg.PublicBaseURL = "https://jm.example.com"
+	if got := cfg.GatewayBaseURL(); got != "https://jm.example.com" {
+		t.Fatalf("server mode: %s", got)
+	}
+	cfg.Mode, cfg.HTTPAddr = ModeLocal, "127.0.0.1:4815"
+	if got := cfg.GatewayBaseURL(); got != "http://host.docker.internal:4815" {
+		t.Fatalf("local mode: %s", got)
+	}
+	cfg.MCPGatewayURL = "http://10.0.0.2:8080"
+	if got := cfg.GatewayBaseURL(); got != "http://10.0.0.2:8080" {
+		t.Fatalf("override: %s", got)
+	}
+}

@@ -53,7 +53,9 @@ func TestSkillsAPI(t *testing.T) {
 	_ = mw.WriteField("slug", "demo-imported")
 	fw, _ := mw.CreateFormFile("file", "demo.zip")
 	_, _ = fw.Write(zip)
-	mw.Close()
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
 	req, _ := http.NewRequest("POST", c.base+"/api/v1/skills/import", &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Header.Set("X-Requested-With", "fleetpocket")

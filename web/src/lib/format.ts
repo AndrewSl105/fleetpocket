@@ -14,9 +14,24 @@ export function dateTime(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '—' : format(date, 'd MMM yyyy, HH:mm')
 }
 
-export function usd(value: number | null | undefined): string {
+/**
+ * A cost, one format everywhere: $0.84; ≈$0.84 when part of it is an
+ * estimate (Task.cost_estimated); $? when it is unknown (runs with tokens but
+ * no price, nothing known); $0.84+? when only part of it is known
+ * (Task.cost_unknown). Screen readers get costLabel().
+ */
+export function usd(value: number | null | undefined, estimated = false, unknown = false): string {
   const v = value ?? 0
-  return `$${v < 10 ? v.toFixed(2) : v.toFixed(1)}`
+  if (unknown && v === 0) return '$?'
+  return `${estimated ? '≈' : ''}$${v < 10 ? v.toFixed(2) : v.toFixed(1)}${unknown ? '+?' : ''}`
+}
+
+/** What usd() says, in words: "cost unknown", "about $0.84 plus an unknown part". */
+export function costLabel(value: number | null | undefined, estimated = false, unknown = false): string {
+  const v = value ?? 0
+  if (unknown && v === 0) return 'cost unknown'
+  const known = `${estimated ? 'about ' : ''}${usd(v)}`
+  return unknown ? `${known} plus an unknown part` : known
 }
 
 export function duration(fromIso: string | null | undefined, toIso: string | null | undefined): string {

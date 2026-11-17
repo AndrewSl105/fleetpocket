@@ -18,6 +18,10 @@ const project: Project = {
   runner_cpus: null,
   telegram_thread_id: null,
   archived: false,
+  ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
+  budget: null,
+  month_cost_usd: 0,
+  month_cost_unknown: false,
   created_at: '',
   updated_at: '',
   repositories: [],
@@ -31,6 +35,12 @@ describe('patchBody', () => {
   it('sends only changed fields and resets cleared overrides with "" / 0', () => {
     const v = { ...toFormValues(project), name: 'Vatary 2', model: '', max_turns: '', redis: true, max_budget_usd: '2.5' }
     expect(patchBody(v, project)).toEqual({ name: 'Vatary 2', model: '', max_turns: 0, services: ['postgres', 'redis'], max_budget_usd: 2.5 })
+  })
+
+  it('sends the skill list when a skill is ticked, ignoring order', () => {
+    const withSkills = { ...project, skills: ['db-schema', 'infra-map'] }
+    expect(patchBody({ ...toFormValues(withSkills), skills: ['infra-map', 'db-schema'] }, withSkills)).toEqual({})
+    expect(patchBody({ ...toFormValues(project), skills: ['infra-map'] }, project)).toEqual({ skills: ['infra-map'] })
   })
 
   it('sends the whole env map when a variable changes', () => {
@@ -61,5 +71,31 @@ describe('createBody', () => {
   it('omits empty overrides', () => {
     const v = { ...toFormValues(), id: 'new', name: 'New' }
     expect(createBody(v)).toEqual({ id: 'new', name: 'New', services: [], env: {} })
+  })
+})
+
+describe('ci_autofix', () => {
+  it('sends the whole object when a setting changes; empty fields inherit (null)', () => {
+    const v = { ...toFormValues(project), autofix: 'on' as const, autofix_checks: 'test, lint ,', autofix_max_attempts: '3' }
+    expect(patchBody(v, project)).toEqual({
+      ci_autofix: { enabled: true, max_attempts: 3, checks: ['test', 'lint'], budget_usd: null, allow_ci_changes: null },
+    })
+  })
+
+  it('round-trips a project override and leaves it out of a create without one', () => {
+    const p = { ...project, ci_autofix: { enabled: false, max_attempts: 2, checks: ['e2e'], budget_usd: 1.5, allow_ci_changes: true } }
+    expect(patchBody(toFormValues(p), p)).toEqual({})
+    expect(toFormValues(p)).toMatchObject({ autofix: 'off', autofix_allow_ci: 'yes', autofix_checks: 'e2e', autofix_budget_usd: '1.5' })
+    expect(createBody({ ...toFormValues(), id: 'n', name: 'N' })).not.toHaveProperty('ci_autofix')
+  })
+})
+
+describe('monthly budget', () => {
+  it('sets, keeps and removes the cap', () => {
+    expect(patchBody({ ...toFormValues(project), monthly_budget_usd: '50' }, project)).toEqual({ budget: { monthly_usd: 50 } })
+    const capped = { ...project, budget: { monthly_usd: 50 } }
+    expect(patchBody(toFormValues(capped), capped)).toEqual({})
+    expect(patchBody({ ...toFormValues(capped), monthly_budget_usd: '' }, capped)).toEqual({ budget: { monthly_usd: null } })
+    expect(createBody({ ...toFormValues(), id: 'n', name: 'N', monthly_budget_usd: '20' })).toMatchObject({ budget: { monthly_usd: 20 } })
   })
 })

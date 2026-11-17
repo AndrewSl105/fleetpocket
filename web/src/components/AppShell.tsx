@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { FolderGit2, ListTodo, Plus, Settings, SquareTerminal } from 'lucide-react'
+import { BookOpen, Clock, FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
@@ -8,6 +8,7 @@ import { useBackButton } from '@/telegram/controls'
 import { DeepLink } from '@/telegram/DeepLinkHandler'
 import { Logo } from './Logo'
 import { OfflineBanner } from './OfflineBanner'
+import { useLocalOnboardingRedirect } from '@/local/onboarding'
 
 const DebugPanel = import.meta.env.VITE_DEBUG === '1' ? lazy(() => import('@/telegram/DebugPanel')) : null
 
@@ -20,8 +21,16 @@ const NAV = [
   { to: '/settings', label: t.nav.settings, icon: Settings, end: true },
 ] as const
 
-/** The sidebar adds the canvas, a desktop view (not a mobile tab). */
-const SIDEBAR_NAV = [NAV[0], { to: '/canvas', label: t.nav.canvas, icon: SquareTerminal, end: true }, ...NAV.slice(1)] as const
+/** The sidebar adds the canvas, a desktop view, Skills, Schedules and Costs (on phones: from Settings and Projects). */
+const SIDEBAR_NAV = [
+  NAV[0],
+  { to: '/canvas', label: t.nav.canvas, icon: SquareTerminal, end: true },
+  ...NAV.slice(1, 3),
+  { to: '/skills', label: t.nav.skills, icon: BookOpen, end: false },
+  { to: '/schedules', label: t.nav.schedules, icon: Clock, end: false },
+  { to: '/costs', label: t.nav.costs, icon: Receipt, end: true },
+  NAV[3],
+] as const
 
 function isActive(pathname: string, to: string) {
   if (to === '/') return pathname === '/' || pathname.startsWith('/tasks')
@@ -30,6 +39,8 @@ function isActive(pathname: string, to: string) {
 
 export function parentPath(pathname: string): string {
   if (pathname.startsWith('/projects/')) return '/projects'
+  if (pathname.startsWith('/skills/')) return '/skills'
+  if (pathname.startsWith('/schedules/')) return '/schedules'
   return '/'
 }
 
@@ -37,6 +48,7 @@ export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const deep = !TAB_ROOTS.includes(pathname)
+  useLocalOnboardingRedirect()
 
   useBackButton(deep, () => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0

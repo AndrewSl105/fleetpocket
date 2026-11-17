@@ -26,6 +26,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
+	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 	"github.com/andrewsl105/fleetpocket/server/internal/testutil"
@@ -64,12 +65,14 @@ func setup(t *testing.T) (*client, *store.Store, string) {
 	// Claude and Codex have credentials; Cursor does not.
 	cfg := &config.Config{TelegramBotToken: "1:T", TelegramAllowedUserID: 42, ClaudeOAuthToken: "t", OpenAIAPIKey: "k", DefaultAgent: "claude"}
 	hub := events.NewHub()
+	taskSvc := &tasks.Service{Store: st, Hub: hub, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled}
 	srv := &api.Server{
 		Cfg: cfg, Store: st, Hub: hub,
-		Tasks:    &tasks.Service{Store: st, Hub: hub, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled},
-		Projects: &projects.Service{Store: st},
-		Nodes:    &nodes.Service{Store: st, Hub: hub, Registry: &hosts.Registry{}},
-		Auth:     &auth.Manager{Store: st, PasswordHash: hash, TOTPSecret: secret, SessionSecret: []byte("s"), CookieInsecure: true},
+		Tasks:     taskSvc,
+		Schedules: &schedules.Service{Store: st, Tasks: taskSvc, Hub: hub},
+		Projects:  &projects.Service{Store: st},
+		Nodes:     &nodes.Service{Store: st, Hub: hub, Registry: &hosts.Registry{}},
+		Auth:      &auth.Manager{Store: st, PasswordHash: hash, TOTPSecret: secret, SessionSecret: []byte("s"), CookieInsecure: true},
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)

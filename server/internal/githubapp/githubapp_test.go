@@ -400,3 +400,51 @@ func TestMerge(t *testing.T) {
 		t.Fatalf("status %s", tk.Status)
 	}
 }
+
+// After a restore the publisher force-pushes with a lease and says so on the
+// PR; a branch Jungle Monkey did not create is never rewritten.
+func TestPublisherForcePushAfterRestore(t *testing.T) {
+	ctx := context.Background()
+	f, srv := newFakeGitHub(t)
+	app := testApp(t, srv.URL)
+	bare := bareRepo(t)
+	ws := &workspace.Manager{Dir: t.TempDir(), RemoteURL: func(string) string { return bare }, Auth: app.Token}
+	repo := &store.Repository{ID: 1, FullName: "o/r", BaseBranch: "dev", InstallationID: 11}
+	wsRepo := workspace.Repo{FullName: "o/r", InstallationID: 11, BaseBranch: "dev"}
+	if err := ws.Prepare(ctx, 7, wsRepo, "agent/7-x"); err != nil {
+		t.Fatal(err)
+	}
+	commit(t, ws.Path(7), "a.txt", "a\n")
+	if err := ws.Push(ctx, 7, wsRepo, "agent/7-x"); err != nil {
+		t.Fatal(err)
+	}
+	old, _ := exec.Command("git", "-C", ws.Path(7), "rev-parse", "HEAD").Output()
+	// The restore: back to the base, a different change.
+	if out, err := exec.Command("git", "-C", ws.Path(7), "reset", "-q", "--hard", "HEAD^").CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	commit(t, ws.Path(7), "b.txt", "b\n")
+	p := &Publisher{App: app}
+	host := &hosts.Local{Workspace: ws}
+	n := 5
+	task := &store.Task{ID: 7, Title: "Do X", Prompt: "Do X", PRNumber: &n}
+	res, err := p.Publish(ctx, scheduler.PublishInput{Host: host, Task: task, Repo: repo, Branch: "agent/7-x", Summary: "Redid X", Force: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ForcedFrom != strings.TrimSpace(string(old)) {
+		t.Fatalf("forced from %q, want %s", res.ForcedFrom, old)
+	}
+	if c := f.bodies["POST /repos/o/r/issues/5/comments"]; !strings.Contains(c, "force-with-lease") || !strings.Contains(c, "earlier checkpoint") {
+		t.Fatalf("PR comment: %s", c)
+	}
+
+	// Not an agent branch: refused, nothing pushed.
+	_, err = p.Publish(ctx, scheduler.PublishInput{Host: host, Task: task, Repo: repo, Branch: "feature/mine", Force: true})
+	if err == nil || !strings.Contains(err.Error(), "did not create") {
+		t.Fatalf("foreign branch: %v", err)
+	}
+	if out, _ := exec.Command("git", "--git-dir", bare, "branch", "--list", "feature/mine").Output(); len(out) != 0 {
+		t.Fatal("foreign branch was pushed")
+	}
+}

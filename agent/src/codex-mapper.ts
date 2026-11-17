@@ -26,6 +26,8 @@ export class CodexMapper {
   failure = "";
   input = 0;
   output = 0;
+  cacheRead = 0;
+  cacheWrite = 0;
   turns = 0;
 
   private readonly model: string;
@@ -58,9 +60,22 @@ export class CodexMapper {
         return [];
       case "turn.completed":
         this.turns++;
+        // OpenAI counts cached input inside input_tokens.
         this.input += ev.usage.input_tokens;
         this.output += ev.usage.output_tokens;
-        return [{ type: "usage", cost_usd_total: 0, input_tokens: this.input, output_tokens: this.output, turns: this.turns }];
+        this.cacheRead += ev.usage.cached_input_tokens ?? 0;
+        this.cacheWrite += ev.usage.cache_write_input_tokens ?? 0;
+        return [
+          {
+            type: "usage",
+            cost_usd_total: 0,
+            input_tokens: this.input,
+            output_tokens: this.output,
+            turns: this.turns,
+            cache_read_tokens: this.cacheRead,
+            cache_write_tokens: this.cacheWrite,
+          },
+        ];
       case "turn.failed":
         this.failure = ev.error.message;
         return [];

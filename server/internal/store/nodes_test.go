@@ -40,23 +40,23 @@ func TestClaimNextPerHost(t *testing.T) {
 	}
 
 	// The node is offline: only the server task is claimed.
-	got, err := st.ClaimNext(ctx, 5, nil)
+	got, err := st.ClaimNext(ctx, 5, nil, store.BudgetGate{})
 	if err != nil || got == nil || got.ID != s1.ID {
 		t.Fatalf("offline node: claimed %+v, %v", got, err)
 	}
-	if got, _ := st.ClaimNext(ctx, 5, nil); got != nil {
+	if got, _ := st.ClaimNext(ctx, 5, nil, store.BudgetGate{}); got != nil {
 		t.Fatalf("claimed a task of an offline node: %d", got.ID)
 	}
 	// Online with room for one.
-	got, _ = st.ClaimNext(ctx, 5, []string{"mac"})
+	got, _ = st.ClaimNext(ctx, 5, []string{"mac"}, store.BudgetGate{})
 	if got == nil || got.ID != m1.ID {
 		t.Fatalf("online node: claimed %+v", got)
 	}
-	if got, _ := st.ClaimNext(ctx, 5, []string{"mac"}); got != nil {
+	if got, _ := st.ClaimNext(ctx, 5, []string{"mac"}, store.BudgetGate{}); got != nil {
 		t.Fatalf("node over its max_concurrent: claimed %d", got.ID)
 	}
 	// The server's limit does not count node tasks.
-	if got, _ := st.ClaimNext(ctx, 1, nil); got != nil {
+	if got, _ := st.ClaimNext(ctx, 1, nil, store.BudgetGate{}); got != nil {
 		t.Fatalf("server at its limit claimed %d", got.ID)
 	}
 	counts, _ := st.ActiveTasksByNode(ctx)
