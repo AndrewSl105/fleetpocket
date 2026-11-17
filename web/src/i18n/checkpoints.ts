@@ -8,7 +8,7 @@ export const cp = {
     reason === 'question' ? `Checkpoint ${n} · before a question` : `Checkpoint ${n} · ${plural(files, 'file')} changed`,
   restoreHere: 'Restore here',
   unavailable: 'Restore unavailable',
-  abandoned: (n: number) => `Abandoned branch · ${plural(n, 'step')}`,
+  abandoned: (n: number) => `Abandoned branch · ${plural(n, 'entry', 'entries')}`,
   showAbandoned: 'Show',
   hideAbandoned: 'Hide',
   restored: (n: number, mode: string) =>

@@ -106,6 +106,19 @@ test.describe('screens', () => {
     await shot(page, 'task-ci-green')
   })
 
+  test('restore-checkpoint dialog', async ({ page }) => {
+    await open(page, '/')
+    await login(page)
+    await page.getByRole('tab', { name: 'PR open' }).click()
+  await page.getByText('Add an orders table').first().click()
+    await expect(page.getByRole('button', { name: /Abandoned branch/ })).toBeVisible()
+    await page.getByRole('button', { name: /Restore here/ }).last().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('db/schema.sql')).toBeVisible()
+    await dialog.getByLabel('Then (optional)').fill('…then do it with a migration instead')
+    await shot(page, 'restore-checkpoint')
+  })
+
   test('integrations', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

@@ -147,7 +147,7 @@ export function checkpointHandlers(API: string, guard: Guard, err: Err, pushEven
       const preview: CheckpointPreview = {
         ...checkpointOf(task, e),
         discarded: { runs: count('run_started'), steps: count('tool_use'), messages: count('message', 'answer'), commits: count('committed') },
-        diff: count('tool_use') ? DIFF : '',
+        diff: count('tool_use', 'committed') ? DIFF : '',
         truncated: false,
       }
       return HttpResponse.json(preview)
