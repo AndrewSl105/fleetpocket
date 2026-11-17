@@ -15,3 +15,9 @@ agent/dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Web build copied in for the embedweb binary (make embed-web)
+server/internal/webui/dist/
+
+# Local binaries (make jungle-monkey)
+/bin/

@@ -2,6 +2,10 @@
 
 2026-10-14 ·
 
+## 0. Modes
+
+`MODE=server` (default) is everything below. `MODE=local` is the `jungle-monkey` CLI on one user's computer ([LOCAL.md](LOCAL.md)): the same service and scheduler with `hosts.Local`, plus an embedded Postgres and web UI, loopback-only binding, a one-time login link instead of password + TOTP, and computed settings in the data directory. The agent-container properties of sections 3 and 5 are identical in both modes. Details and what is not built yet: DECISIONS.md, Server.
+
 ## 1. Context and goal
 
 Build **Fleetpocket**: a small, self-hosted Go service that runs Claude Code sessions in isolated Docker containers against my GitHub repositories and turns the result into a pull request. It is a personal tool with exactly one user (me), and it must work for any repository, not one specific project.

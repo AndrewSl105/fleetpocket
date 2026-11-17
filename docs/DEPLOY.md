@@ -4,6 +4,8 @@ How to run Jungle Monkey on one server, and how CI/CD builds and deploys it. Bac
 
 One server, one domain. `/srv/fleetpocket/docker-compose.deploy.yml` runs `caddy` (TLS, the only service with ports), `web` (nginx with the client), `server`, `postgres` and `docker-proxy`. Caddy serves `https://<domain>`: `/api/*` (including the WebSocket `/api/v1/ws`), `/webhooks/*` and `/healthz` go to `server:8080`, everything else to `web:80`; `/metrics` answers 404 from outside. Agent containers are started by the server, each in its own task network.
 
+To run it on your own computer instead (no server, no domain), use `npx jungle-monkey`: [LOCAL.md](LOCAL.md). This guide is server mode (`MODE=server`, the default).
+
 Target: a fresh Ubuntu 24.04 VPS with Docker Engine and the Compose plugin, nothing else. Open ports 22, 80 and 443 (and 443/udp for HTTP/3). Below, `fleetpocket.example.com` stands for your domain.
 
 ## Quick setup
@@ -22,7 +24,7 @@ The server starts in **setup mode** because `.env` has no `ADMIN_PASSWORD_HASH`/
 
 ## Manual setup
 
-The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#set-it-up), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
+The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#run-it-247-on-a-server), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
 
 **DNS**: create an A record (and AAAA for IPv6) for `fleetpocket.example.com` pointing at the server, and wait until `dig +short fleetpocket.example.com` returns its address before the first start: Caddy needs it to get the certificate.
 
