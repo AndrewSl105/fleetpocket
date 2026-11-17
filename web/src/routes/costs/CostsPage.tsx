@@ -9,6 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CostBar } from '@/components/CostBar'
 import { usd } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { copyText } from '@/components/CopyButton'
+import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { c } from '@/i18n/costs'
 
@@ -21,6 +23,28 @@ function download(name: string, text: string) {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * Telegram's in-app browsers often ignore `a.download` on a blob URL: there
+ * the CSV goes to the share sheet as a file when the WebView can share files,
+ * else to the clipboard.
+ */
+async function saveCsv(name: string, text: string, telegram: boolean) {
+  if (telegram) {
+    const file = new File([text], name, { type: 'text/csv' })
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: name })
+        return
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+      }
+    }
+    await copyText(text)
+    return
+  }
+  download(name, text)
 }
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
@@ -98,6 +122,7 @@ function Totals({ report }: { report: CostReport }) {
 }
 
 export default function CostsPage() {
+  const runtime = useRuntime()
   const [range, setRange] = useState<Range>('month')
   const { from, to, period } = useMemo(() => rangeDates(range), [range])
   const report = useCosts(from, to, period)
@@ -188,7 +213,7 @@ export default function CostsPage() {
                   variant="outline"
                   className="h-11"
                   disabled={data.rows.length === 0}
-                  onClick={() => download(c.csvFile(data.from, data.to), costsCsv(data))}
+                  onClick={() => void saveCsv(c.csvFile(data.from, data.to), costsCsv(data), runtime.mode === 'telegram')}
                 >
                   <Download /> {c.exportCsv}
                 </Button>

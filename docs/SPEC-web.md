@@ -119,7 +119,7 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 **Costs** (`/costs`, lazy; in the desktop rail, and on phones from Settings and Projects)
 
 - Range: this month, last 30 days (by day), last 90 days (by week). A total panel (`≈` when it includes estimates; estimated, CI auto-fix and API-equivalent parts; runs and tokens; this month against the global budget), then ruled bar lists by project (linking to the project; its budget line), by agent (runs, tokens, runs without a price) and by day or week. No chart library: each row is a label, a thin ruled bar against the largest row and the amount.
-- **Export CSV** writes the report's `rows` (day × project × agent with all sums) in the browser from the API response; no extra endpoint.
+- **Export CSV** writes the report's `rows` (day × project × agent with all sums) in the browser from the API response; no extra endpoint. In the Mini App it opens the share sheet with the file, or copies the CSV when the WebView cannot share files.
 
 
 **6. System screens**
