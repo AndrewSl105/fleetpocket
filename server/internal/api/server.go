@@ -11,6 +11,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/auth"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
+	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
@@ -63,6 +64,9 @@ type Server struct {
 	UI http.Handler
 	// Local is set in local mode only.
 	Local *Local
+	// Gateway is the MCP gateway (also the MCP server registry); its own
+	// endpoints under /api/mcp-gateway/ take the run token, no session.
+	Gateway *mcpgateway.Gateway
 	Now   func() time.Time
 }
 
@@ -121,6 +125,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/tasks/{id}/retry", a(s.control(s.Tasks.Retry)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/merge", a(s.control(s.Tasks.Merge)))
 	mux.HandleFunc("GET /api/v1/stats", a(s.stats))
+	mux.HandleFunc("GET /api/v1/mcp-servers", a(s.listMCPServers))
+	mux.HandleFunc("POST /api/v1/mcp-servers", a(s.createMCPServer))
+	mux.HandleFunc("GET /api/v1/mcp-servers/{id}", a(s.getMCPServer))
+	mux.HandleFunc("PUT /api/v1/mcp-servers/{id}", a(s.updateMCPServer))
+	mux.HandleFunc("DELETE /api/v1/mcp-servers/{id}", a(s.deleteMCPServer))
+	mux.HandleFunc("POST /api/v1/mcp-servers/{id}/test", a(s.testMCPServer))
+	mux.HandleFunc("GET /api/v1/projects/{id}/integrations", a(s.getIntegrations))
+	mux.HandleFunc("PUT /api/v1/projects/{id}/integrations", a(s.putIntegrations))
+	mux.HandleFunc("POST /api/v1/projects/{id}/egress/allow", a(s.allowEgress))
 	mux.HandleFunc("GET /api/v1/settings/ci-autofix", a(s.getAutoFixDefaults))
 	mux.HandleFunc("PUT /api/v1/settings/ci-autofix", a(s.putAutoFixDefaults))
 	if s.Nodes != nil {
@@ -175,6 +188,14 @@ func (s *Server) Handler() http.Handler {
 	h := http.Handler(s.setupGate(root))
 	if s.Local != nil {
 		h = s.localHostCheck(h)
+	}
+	if s.Gateway != nil {
+		// Runners and egress proxies: the run token is the credential, so no
+		// session, CSRF, setup or (local mode) Host check applies.
+		outer := http.NewServeMux()
+		outer.Handle(mcpgateway.PathPrefix, s.Gateway)
+		outer.Handle("/", h)
+		h = outer
 	}
 	return logRequests(h)
 }

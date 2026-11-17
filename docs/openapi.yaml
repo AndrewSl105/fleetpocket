@@ -766,6 +766,233 @@ paths:
               schema: { $ref: '#/components/schemas/CIAutoFixSettings' }
         '400': { $ref: '#/components/responses/Error' }
 
+  /api/v1/mcp-servers:
+    get:
+      operationId: listMCPServers
+      tags: [integrations]
+      summary: MCP servers of a project, or the global ones
+      parameters:
+        - name: project
+          in: query
+          description: Project id; without it, the global servers (that projects can enable)
+          schema: { type: string }
+      responses:
+        '200':
+          description: Servers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/MCPServer' } }
+    post:
+      operationId: createMCPServer
+      tags: [integrations]
+      summary: Add an MCP server
+      description: Needs SECRETS_KEY (503 `secrets_disabled` without it). Secrets are write-only.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MCPServerInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPServer' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/mcp-servers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getMCPServer
+      tags: [integrations]
+      summary: One MCP server
+      responses:
+        '200':
+          description: Server
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPServer' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateMCPServer
+      tags: [integrations]
+      summary: Replace an MCP server's settings
+      description: Every field is replaced except `secrets`, which merge (a key set to null is removed, keys not sent are kept). `project_id` cannot change.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MCPServerInput' }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPServer' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteMCPServer
+      tags: [integrations]
+      summary: Delete an MCP server
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/mcp-servers/{id}/test:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      operationId: testMCPServer
+      tags: [integrations]
+      summary: Test connection
+      description: Connects to the server as the gateway would (a stdio server is started for the test) and lists its tools. A failed connection is `ok:false` with `error`, not an HTTP error.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MCPTestResult' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/projects/{id}/integrations:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getIntegrations
+      tags: [integrations]
+      summary: A project's MCP servers and egress policy
+      responses:
+        '200':
+          description: Integrations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Integrations' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: putIntegrations
+      tags: [integrations]
+      summary: Set the egress policy and the global servers the project uses
+      description: Fields left out are kept. Changes apply from the next run.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                egress: { $ref: '#/components/schemas/Egress' }
+                global_server_ids: { type: array, items: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Integrations' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/projects/{id}/egress/allow:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: allowEgress
+      tags: [integrations]
+      summary: Allow a blocked host for this project (next run)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host]
+              properties:
+                host: { type: string }
+      responses:
+        '200':
+          description: The project's egress policy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Egress' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/mcp-gateway/mcp/{server}:
+    post:
+      operationId: gatewayMCP
+      tags: [gateway]
+      summary: MCP gateway (runners only)
+      description: |
+        Streamable HTTP MCP endpoint of one server for a running task (docs/PROTOCOL.md, "MCP servers"). Authenticated
+        only by the run's gateway token (`Authorization: Bearer jmg_…`); no session or CSRF header. 401 for a missing,
+        expired or finished run's token; 404 for a server outside the run's scope; 502 when the upstream cannot be reached.
+      security: []
+      parameters:
+        - name: server
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, description: JSON-RPC message }
+      responses:
+        '200':
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+  /api/mcp-gateway/egress/blocked:
+    post:
+      operationId: gatewayEgressBlocked
+      tags: [gateway]
+      summary: Egress proxy report of a blocked host
+      description: Sent by the egress proxy sidecar with the run's token; recorded once per host and run as an `egress_blocked` event.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host]
+              properties:
+                host: { type: string }
+      responses:
+        '204': { description: Recorded }
+        '401': { $ref: '#/components/responses/Error' }
+
   /api/v1/nodes:
     get:
       operationId: listNodes
@@ -1375,6 +1602,9 @@ components:
         - $ref: '#/components/schemas/CiEvent'
         - $ref: '#/components/schemas/DiffRejectedEvent'
         - $ref: '#/components/schemas/AutoFixEvent'
+        - $ref: '#/components/schemas/MCPCallEvent'
+        - $ref: '#/components/schemas/EgressBlockedEvent'
+        - $ref: '#/components/schemas/IntegrationsEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -1403,10 +1633,13 @@ components:
           ci: '#/components/schemas/CiEvent'
           diff_rejected: '#/components/schemas/DiffRejectedEvent'
           autofix: '#/components/schemas/AutoFixEvent'
+          mcp_call: '#/components/schemas/MCPCallEvent'
+          egress_blocked: '#/components/schemas/EgressBlockedEvent'
+          integrations: '#/components/schemas/IntegrationsEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations]
 
     EventBase:
       type: object
@@ -1905,6 +2138,117 @@ components:
       properties:
         reason: { type: string }
 
+    MCPServer:
+      type: object
+      required: [id, project_id, name, kind, transport, url, runtime, package, command, args, secret_hints, tools_mode, tools, read_only, max_calls, enabled, last_used_at, last_status, last_error, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: [string, 'null'], description: null for a global server }
+        name: { type: string, description: 'lowercase letters, digits, - and _; the agent sees tools as mcp__<name>__<tool>' }
+        kind: { type: string, enum: [remote, stdio, postgres] }
+        transport: { type: [string, 'null'], enum: [http, sse, null] }
+        url: { type: [string, 'null'] }
+        runtime: { type: [string, 'null'], enum: [npm, pip, image, null] }
+        package: { type: [string, 'null'], description: npm or pip package, or Docker image }
+        command: { type: [string, 'null'], description: 'pip: the executable to run (default: the package name)' }
+        args: { type: array, items: { type: string } }
+        secret_hints:
+          type: object
+          additionalProperties: { type: string }
+          description: Stored secret keys with their last characters; values are never returned
+        tools_mode: { type: string, enum: [all, allow, deny] }
+        tools: { type: array, items: { type: string }, description: 'Tool names or patterns (* and ?) for allow/deny' }
+        read_only: { type: boolean, description: 'Postgres: enforced (read-only transaction, always rolled back). Other servers: only tools annotated readOnlyHint are exposed.' }
+        max_calls: { type: [integer, 'null'], description: Calls per run; null = no limit }
+        enabled: { type: boolean }
+        last_used_at: { type: [string, 'null'], format: date-time }
+        last_status: { type: [string, 'null'], enum: [ok, error, null] }
+        last_error: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    MCPServerInput:
+      type: object
+      required: [name, kind]
+      properties:
+        project_id: { type: [string, 'null'], description: 'POST only; null or absent: a global server' }
+        name: { type: string }
+        kind: { type: string, enum: [remote, stdio, postgres] }
+        transport: { type: [string, 'null'], enum: [http, sse, null], description: 'remote; default http' }
+        url: { type: [string, 'null'] }
+        runtime: { type: [string, 'null'], enum: [npm, pip, image, null] }
+        package: { type: [string, 'null'] }
+        command: { type: [string, 'null'] }
+        args: { type: array, items: { type: string } }
+        secrets:
+          type: object
+          additionalProperties: { type: [string, 'null'] }
+          description: |
+            Write-only. remote: HTTP header names (or `bearer` for `Authorization: Bearer`); stdio: environment variables
+            of the sidecar; postgres: `DATABASE_URL`. null removes a key; keys not sent are kept.
+        tools_mode: { type: string, enum: [all, allow, deny] }
+        tools: { type: array, items: { type: string } }
+        read_only: { type: [boolean, 'null'], description: 'default: true for postgres, false otherwise' }
+        max_calls: { type: [integer, 'null'] }
+        enabled: { type: [boolean, 'null'] }
+
+    MCPTool:
+      type: object
+      required: [name, description, allowed, read_only]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        allowed: { type: boolean, description: The project's settings expose it }
+        read_only: { type: boolean }
+
+    MCPTestResult:
+      type: object
+      required: [ok, tools]
+      properties:
+        ok: { type: boolean }
+        error: { type: string }
+        tools: { type: array, items: { $ref: '#/components/schemas/MCPTool' } }
+
+    Egress:
+      type: object
+      required: [mode, presets, hosts]
+      properties:
+        mode: { type: string, enum: [open, allowlist], description: 'open: today''s behaviour (default)' }
+        presets: { type: array, items: { type: string } }
+        hosts: { type: array, items: { type: string }, description: 'host, *.domain (subdomains only) or host:port' }
+
+    EgressPreset:
+      type: object
+      required: [id, label, hosts]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        hosts: { type: array, items: { type: string } }
+
+    AgentMCPSupport:
+      type: object
+      required: [agent, mcp, proxy, note]
+      properties:
+        agent: { type: string }
+        mcp: { type: boolean }
+        proxy: { type: string, enum: ['yes', unverified] }
+        note: { type: string }
+
+    Integrations:
+      type: object
+      required: [secrets_enabled, egress, egress_supported, presets, servers, global_servers, global_server_ids, active, agents, gateway_url]
+      properties:
+        secrets_enabled: { type: boolean, description: false when SECRETS_KEY is not set (MCP servers cannot be used) }
+        egress: { $ref: '#/components/schemas/Egress' }
+        egress_supported: { type: boolean, description: false when the project runs on a node (allowlist tasks would not start) }
+        presets: { type: array, items: { $ref: '#/components/schemas/EgressPreset' } }
+        servers: { type: array, items: { $ref: '#/components/schemas/MCPServer' }, description: The project's own servers }
+        global_servers: { type: array, items: { $ref: '#/components/schemas/MCPServer' } }
+        global_server_ids: { type: array, items: { type: integer, format: int64 }, description: Global servers this project uses }
+        active: { type: array, items: { $ref: '#/components/schemas/MCPServer' }, description: What the next task gets }
+        agents: { type: array, items: { $ref: '#/components/schemas/AgentMCPSupport' } }
+        gateway_url: { type: string, description: Base URL runners reach the gateway at ("" when unknown) }
+
     AutoFixEvent:
       allOf:
         - $ref: '#/components/schemas/EventBase'
@@ -1943,3 +2287,58 @@ components:
         reasons: { type: array, items: { type: string } }
         reason: { type: string }
         fixes: { type: integer }
+
+    MCPCallEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [mcp_call] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/MCPCallPayload' }
+
+    MCPCallPayload:
+      type: object
+      required: [server, tool, ok]
+      description: One call through the MCP gateway. Sizes and timing only; never arguments, results or credentials. `tool` is "" for a failed connection.
+      properties:
+        server: { type: string }
+        tool: { type: string }
+        ok: { type: boolean }
+        duration_ms: { type: integer }
+        args_bytes: { type: integer }
+        result_bytes: { type: integer }
+        denied: { type: string, enum: [denied, limit], description: 'denied: the tool is not allowed; limit: max_calls reached' }
+        error: { type: string }
+
+    EgressBlockedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [egress_blocked] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [host]
+              properties:
+                host: { type: string, description: 'The refused host (once per host and run); POST /projects/{id}/egress/allow allows it' }
+
+    IntegrationsEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [integrations] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [servers, egress]
+              description: What the run got, written at its start when it has MCP servers or an allowlist.
+              properties:
+                servers: { type: array, items: { type: string } }
+                egress: { type: string, enum: [open, allowlist] }
+                warning: { type: string }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -23,11 +24,13 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/githubapp"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
 	"github.com/andrewsl105/fleetpocket/server/internal/maintenance"
+	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/metrics"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
+	"github.com/andrewsl105/fleetpocket/server/internal/secretbox"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
@@ -97,6 +100,24 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		Cfg: cfg, Store: st, Hub: hub, Tasks: taskSvc, Hosts: registry, Files: files,
 		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome},
 	})
+	// MCP gateway: off (no servers can be added) without SECRETS_KEY.
+	box, err := secretbox.New(cfg.SecretsKey)
+	if err != nil {
+		return err
+	}
+	if !box.Enabled() {
+		slog.Warn("SECRETS_KEY is not set: MCP servers are disabled (rerun deploy/install.sh to generate it)")
+	}
+	gateway := &mcpgateway.Gateway{
+		Store: st, Box: box, Hub: hub, Stdio: &stdioLauncher{docker: docker, agentImage: cfg.RunnerImage},
+		Hooks: mcpgateway.Hooks{
+			Call: met.MCPCall,
+			Blocked: func(_ context.Context, _, _ int64, project, _ string) {
+				met.EgressBlocked(project)
+			},
+		},
+	}
+	sched.Gateway = gateway
 	taskSvc.Executor = sched
 	nodeSvc := &nodes.Service{Store: st, Hub: hub, Registry: registry, RunnerImage: cfg.RunnerImage}
 	registry.OnChange = func(id string, online bool) {
@@ -163,8 +184,9 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
 			SameSiteStrict: cfg.Local(),
 		},
-		UI:    opts.UI,
-		Local: opts.Local,
+		UI:      opts.UI,
+		Local:   opts.Local,
+		Gateway: gateway,
 		Hub:   hub,
 		Nodes: nodeSvc,
 		Files: files,
@@ -280,4 +302,21 @@ func taskURL(cfg *config.Config) func(int64) string {
 		}
 		return fmt.Sprintf("%s/tasks/%d", base, id)
 	}
+}
+
+// stdioLauncher runs the gateway's stdio MCP servers on the server's Docker.
+type stdioLauncher struct {
+	docker     *runnermgr.Manager
+	agentImage string
+}
+
+func (l *stdioLauncher) StartStdio(ctx context.Context, s mcpgateway.StdioSpec) (io.ReadCloser, io.WriteCloser, func(), error) {
+	c, err := mcpgateway.StdioCommand(s, l.agentImage)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return l.docker.StartStdio(ctx, runnermgr.StdioSpec{
+		TaskID: s.TaskID, Project: s.Project, Name: s.Name,
+		Image: c.Image, Entrypoint: c.Entrypoint, Cmd: c.Cmd, Env: c.Env, User: c.User,
+	})
 }

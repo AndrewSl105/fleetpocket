@@ -23,6 +23,9 @@ type Metrics struct {
 	githubErrs   *prometheus.CounterVec
 	autofixRuns  *prometheus.CounterVec
 	autofixEnds  *prometheus.CounterVec
+	mcpCalls     *prometheus.CounterVec
+	mcpDuration  *prometheus.HistogramVec
+	egressBlocks *prometheus.CounterVec
 }
 
 func New(st *store.Store) *Metrics {
@@ -48,8 +51,19 @@ func New(st *store.Store) *Metrics {
 		autofixEnds: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "fleetpocket_autofix_outcomes_total", Help: "CI auto-fix loops that ended, by outcome (green, needs_you, cancelled).",
 		}, []string{"project", "outcome"}),
+		mcpCalls: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_mcp_gateway_calls_total", Help: "MCP gateway tool calls by server and outcome (ok, error, denied, limit).",
+		}, []string{"server", "outcome"}),
+		mcpDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "fleetpocket_mcp_gateway_call_seconds", Help: "Upstream time of MCP gateway tool calls.",
+			Buckets: []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60},
+		}, []string{"server"}),
+		egressBlocks: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_egress_blocked_total", Help: "Hosts the egress proxy refused (once per host and run), by project.",
+		}, []string{"project"}),
 	}
 	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs, m.autofixRuns, m.autofixEnds,
+		m.mcpCalls, m.mcpDuration, m.egressBlocks,
 		&dbCollector{st: st},
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	return m
@@ -72,6 +86,17 @@ func (m *Metrics) AutoFixAttempt(project string) { m.autofixRuns.WithLabelValues
 func (m *Metrics) AutoFixOutcome(project, outcome string) {
 	m.autofixEnds.WithLabelValues(project, outcome).Inc()
 }
+
+// MCPCall counts one gateway call.
+func (m *Metrics) MCPCall(server, outcome string, d time.Duration) {
+	m.mcpCalls.WithLabelValues(server, outcome).Inc()
+	if outcome == "ok" || outcome == "error" {
+		m.mcpDuration.WithLabelValues(server).Observe(d.Seconds())
+	}
+}
+
+// EgressBlocked counts one refused host.
+func (m *Metrics) EgressBlocked(project string) { m.egressBlocks.WithLabelValues(project).Inc() }
 
 // dbCollector reads task counts and costs at scrape time.
 type dbCollector struct{ st *store.Store }

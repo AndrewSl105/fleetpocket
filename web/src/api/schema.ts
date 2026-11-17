@@ -529,6 +529,157 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mcp-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** MCP servers of a project, or the global ones */
+        get: operations["listMCPServers"];
+        put?: never;
+        /**
+         * Add an MCP server
+         * @description Needs SECRETS_KEY (503 `secrets_disabled` without it). Secrets are write-only.
+         */
+        post: operations["createMCPServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp-servers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One MCP server */
+        get: operations["getMCPServer"];
+        /**
+         * Replace an MCP server's settings
+         * @description Every field is replaced except `secrets`, which merge (a key set to null is removed, keys not sent are kept). `project_id` cannot change.
+         */
+        put: operations["updateMCPServer"];
+        post?: never;
+        /** Delete an MCP server */
+        delete: operations["deleteMCPServer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp-servers/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test connection
+         * @description Connects to the server as the gateway would (a stdio server is started for the test) and lists its tools. A failed connection is `ok:false` with `error`, not an HTTP error.
+         */
+        post: operations["testMCPServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** A project's MCP servers and egress policy */
+        get: operations["getIntegrations"];
+        /**
+         * Set the egress policy and the global servers the project uses
+         * @description Fields left out are kept. Changes apply from the next run.
+         */
+        put: operations["putIntegrations"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/egress/allow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Allow a blocked host for this project (next run) */
+        post: operations["allowEgress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp-gateway/mcp/{server}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * MCP gateway (runners only)
+         * @description Streamable HTTP MCP endpoint of one server for a running task (docs/PROTOCOL.md, "MCP servers"). Authenticated
+         *     only by the run's gateway token (`Authorization: Bearer jmg_…`); no session or CSRF header. 401 for a missing,
+         *     expired or finished run's token; 404 for a server outside the run's scope; 502 when the upstream cannot be reached.
+         */
+        post: operations["gatewayMCP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp-gateway/egress/blocked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Egress proxy report of a blocked host
+         * @description Sent by the egress proxy sidecar with the run's token; recorded once per host and run as an `egress_blocked` event.
+         */
+        post: operations["gatewayEgressBlocked"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nodes": {
         parameters: {
             query?: never;
@@ -1046,9 +1197,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -1561,6 +1712,132 @@ export interface components {
         DiffRejectedPayload: {
             reason: string;
         };
+        MCPServer: {
+            /** Format: int64 */
+            id: number;
+            /** @description null for a global server */
+            project_id: string | null;
+            /** @description lowercase letters, digits, - and _; the agent sees tools as mcp__<name>__<tool> */
+            name: string;
+            /** @enum {string} */
+            kind: "remote" | "stdio" | "postgres";
+            /** @enum {string|null} */
+            transport: "http" | "sse" | null;
+            url: string | null;
+            /** @enum {string|null} */
+            runtime: "npm" | "pip" | "image" | null;
+            /** @description npm or pip package */
+            package: string | null;
+            /** @description pip: the executable to run (default: the package name) */
+            command: string | null;
+            args: string[];
+            /** @description Stored secret keys with their last characters; values are never returned */
+            secret_hints: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            tools_mode: "all" | "allow" | "deny";
+            /** @description Tool names or patterns (* and ?) for allow/deny */
+            tools: string[];
+            /** @description Postgres: enforced (read-only transaction, always rolled back). Other servers: only tools annotated readOnlyHint are exposed. */
+            read_only: boolean;
+            /** @description Calls per run; null = no limit */
+            max_calls: number | null;
+            enabled: boolean;
+            /** Format: date-time */
+            last_used_at: string | null;
+            /** @enum {string|null} */
+            last_status: "ok" | "error" | null;
+            last_error: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MCPServerInput: {
+            /** @description POST only; null or absent: a global server */
+            project_id?: string | null;
+            name: string;
+            /** @enum {string} */
+            kind: "remote" | "stdio" | "postgres";
+            /**
+             * @description remote; default http
+             * @enum {string|null}
+             */
+            transport?: "http" | "sse" | null;
+            url?: string | null;
+            /** @enum {string|null} */
+            runtime?: "npm" | "pip" | "image" | null;
+            package?: string | null;
+            command?: string | null;
+            args?: string[];
+            /**
+             * @description Write-only. remote: HTTP header names (or `bearer` for `Authorization: Bearer`); stdio: environment variables
+             *     of the sidecar; postgres: `DATABASE_URL`. null removes a key; keys not sent are kept.
+             */
+            secrets?: {
+                [key: string]: string | null;
+            };
+            /** @enum {string} */
+            tools_mode?: "all" | "allow" | "deny";
+            tools?: string[];
+            /** @description default: true for postgres, false otherwise */
+            read_only?: boolean | null;
+            max_calls?: number | null;
+            enabled?: boolean | null;
+        };
+        MCPTool: {
+            name: string;
+            description: string;
+            /** @description The project's settings expose it */
+            allowed: boolean;
+            read_only: boolean;
+        };
+        MCPTestResult: {
+            ok: boolean;
+            error?: string;
+            tools: components["schemas"]["MCPTool"][];
+        };
+        Egress: {
+            /**
+             * @description open: today's behaviour (default)
+             * @enum {string}
+             */
+            mode: "open" | "allowlist";
+            presets: string[];
+            /** @description host, *.domain (subdomains only) or host:port */
+            hosts: string[];
+        };
+        EgressPreset: {
+            id: string;
+            label: string;
+            hosts: string[];
+        };
+        AgentMCPSupport: {
+            agent: string;
+            mcp: boolean;
+            /** @enum {string} */
+            proxy: "yes" | "unverified";
+            note: string;
+        };
+        Integrations: {
+            /** @description false when SECRETS_KEY is not set (MCP servers cannot be used) */
+            secrets_enabled: boolean;
+            egress: components["schemas"]["Egress"];
+            /** @description false when the project runs on a node (allowlist tasks would not start) */
+            egress_supported: boolean;
+            presets: components["schemas"]["EgressPreset"][];
+            /** @description The project's own servers */
+            servers: components["schemas"]["MCPServer"][];
+            global_servers: components["schemas"]["MCPServer"][];
+            /** @description Global servers this project uses */
+            global_server_ids: number[];
+            /** @description What the next task gets */
+            active: components["schemas"]["MCPServer"][];
+            agents: components["schemas"]["AgentMCPSupport"][];
+            /** @description Base URL runners reach the gateway at ("" when unknown) */
+            gateway_url: string;
+        };
         AutoFixEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
             type: "autofix";
@@ -1599,6 +1876,66 @@ export interface components {
             reasons?: string[];
             reason?: string;
             fixes?: number;
+        };
+        MCPCallEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "mcp_call";
+            seq: null;
+            payload: components["schemas"]["MCPCallPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "mcp_call";
+        };
+        /** @description One call through the MCP gateway. Sizes and timing only; never arguments, results or credentials. `tool` is "" for a failed connection. */
+        MCPCallPayload: {
+            server: string;
+            tool: string;
+            ok: boolean;
+            duration_ms?: number;
+            args_bytes?: number;
+            result_bytes?: number;
+            /**
+             * @description denied: the tool is not allowed; limit: max_calls reached
+             * @enum {string}
+             */
+            denied?: "denied" | "limit";
+            error?: string;
+        };
+        EgressBlockedEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "egress_blocked";
+            seq: null;
+            payload: {
+                /** @description The refused host (once per host and run); POST /projects/{id}/egress/allow allows it */
+                host: string;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "egress_blocked";
+        };
+        IntegrationsEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "integrations";
+            seq: null;
+            /** @description What the run got, written at its start when it has MCP servers or an allowlist. */
+            payload: {
+                servers: string[];
+                /** @enum {string} */
+                egress: "open" | "allowlist";
+                warning?: string;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "integrations";
         };
     };
     responses: {
@@ -2663,6 +3000,305 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+        };
+    };
+    listMCPServers: {
+        parameters: {
+            query?: {
+                /** @description Project id; without it, the global servers (that projects can enable) */
+                project?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Servers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["MCPServer"][];
+                    };
+                };
+            };
+        };
+    };
+    createMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPServerInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getMCPServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServer"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPServerInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    deleteMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    testMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPTestResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integrations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putIntegrations: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    egress?: components["schemas"]["Egress"];
+                    global_server_ids?: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    allowEgress: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The project's egress policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Egress"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    gatewayMCP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description JSON-RPC response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    gatewayEgressBlocked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
         };
     };
     listNodes: {

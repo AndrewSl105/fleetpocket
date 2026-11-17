@@ -423,6 +423,8 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 		if text := renderAutoFix(t, ev.Payload); text != "" {
 			_, _ = b.sendTask(ctx, t, "autofix", text, b.taskButtons(ctx, t, b.targetPrivate(ctx, t)), true)
 		}
+	case "egress_blocked":
+		b.sendEgressBlocked(ctx, ev)
 	case "error":
 		if p.Code == "limit_exceeded" || strings.Contains(strings.ToLower(p.Code), "limit") {
 			t, err := b.Store.GetTask(ctx, ev.TaskID)
@@ -592,6 +594,8 @@ func (b *Bot) onCallback(ctx context.Context, cq *telego.CallbackQuery) {
 			return
 		}
 		answer(fmt.Sprintf("PR #%d merged", deref(v.PRNumber)))
+	case "egress_allow":
+		b.allowEgress(ctx, cq, c, answer)
 	case "draft_create", "draft_cancel", "draft_project", "draft_repo", "draft_edit", "draft_agent", "draft_node":
 		b.handleDraftCallback(ctx, cq, c, answer)
 	default:

@@ -176,6 +176,9 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `diff_rejected` | `{reason}` |
   | `autofix` | `{phase, …}`: one CI auto-fix step, see below |
   | `question` | only for the CI auto-fix question: `{question_id: "autofix_guard", text, options}` with the attempt's `run_id` |
+  | `integrations` | `{servers, egress, warning?}`: the MCP servers and egress mode a run got (only when it has servers or an allowlist) |
+  | `mcp_call` | `{server, tool, ok, duration_ms, args_bytes, result_bytes, denied?, error?}`: one call through the MCP gateway (`denied`: `denied` = tool not allowed, `limit` = `max_calls` reached; `tool: ""` = connection failed). Never arguments, results or credentials |
+  | `egress_blocked` | `{host}`: the egress proxy refused a host (once per host and run); also sent to Telegram with an "Allow for this project" button |
 
 ### CI auto-fix
 
@@ -192,6 +195,33 @@ Images and other files go with a task's prompt or with a message. Send the reque
 - Each attachment is `{id, name, mime, size, width, height}`. Task attachments are listed in the task's `created` event, message attachments in its `message` event.
 - Download with `GET /tasks/{id}/attachments/{attachmentId}` (session required like every endpoint; `?thumb=1` for an image's thumbnail). Files that are not images are served as `application/octet-stream` with `Content-Disposition: attachment`. Telegram Web clients send the bearer token, so fetch the image and show it from a blob URL rather than an `<img src>`.
 - The agent sees the files of the input it is working on (the prompt, or the messages a run starts with) at `/attachments/<id>.<ext>`, plus the task's earlier files. A file's `<ext>` is its name's extension (lowercase alphanumeric, at most 10 characters) or `bin`. They are removed (`410 gone`, files deleted) when the task becomes `completed`, and with the workspace for `failed` and `cancelled` tasks (`WORKSPACE_RETENTION`), so Retry and follow-ups still have them until then. Files of a queued message that is dropped (`message_dropped`) are removed with it.
+
+## Integrations (MCP servers and egress)
+
+MCP servers reach the agent only through the server's MCP gateway; their credentials never reach the runner. They need `SECRETS_KEY` (encryption of the stored secrets): without it, writes answer `503 secrets_disabled` and runs get no MCP servers; everything else works.
+
+| endpoint | |
+|---|---|
+| `GET /mcp-servers?project=<id>` | `{items}`: the project's servers, or the global ones without `?project` |
+| `POST /mcp-servers` | create; body `MCPServerInput` (below), `201` with the server |
+| `GET /mcp-servers/{id}` | one server |
+| `PUT /mcp-servers/{id}` | replace its settings; `secrets` merge (`null` removes a key, keys not sent are kept) |
+| `DELETE /mcp-servers/{id}` | `204` |
+| `POST /mcp-servers/{id}/test` | connect as the gateway would and list tools: `{ok, error?, tools: [{name, description, allowed, read_only}]}` |
+| `GET /projects/{id}/integrations` | `{secrets_enabled, egress, egress_supported, presets, servers, global_servers, global_server_ids, active, agents, gateway_url}`; `active` is what the next run gets |
+| `PUT /projects/{id}/integrations` | `{egress?, global_server_ids?}`; fields left out are kept; applies from the next run |
+| `POST /projects/{id}/egress/allow` `{host}` | add a host to the allowlist ("Allow for this project" on a blocked request); returns the egress policy |
+
+A server: `{id, project_id (null: global), name, kind, transport, url, runtime, package, command, args, secret_hints, tools_mode, tools, read_only, max_calls, enabled, last_used_at, last_status, last_error, created_at, updated_at}`.
+
+- `kind: "remote"`: `url` with `transport` `http` (Streamable HTTP, default) or `sse`; `secrets` are HTTP headers (`{"Authorization": "…"}`) or `{"bearer": "<token>"}`.
+- `kind: "stdio"`: `runtime` `npm` (`npx -y <package> <args>`), `pip` (installed in a venv, runs `command` or the package name) or `image` (a Docker image with `args`); `secrets` become the sidecar's environment. It runs as a sidecar on the server's Docker, reachable only by the gateway over its stdio.
+- `kind: "postgres"`: the bundled Postgres server (tools `query`, `list_tables`) with secret `DATABASE_URL`; `read_only` defaults to `true` and is enforced (one statement, read-only transaction, always rolled back).
+- `secret_hints` maps each stored key to its last characters (`…abcd`); secret values are never returned. `tools_mode` `all`, `allow` or `deny` with `tools` (names or `*` patterns); `read_only` on other servers exposes only tools annotated read-only; `max_calls` caps calls per run.
+
+Egress: `{mode: "open"|"allowlist", presets, hosts}`. `open` (default) is today's behaviour. In `allowlist` mode the task network is internal and the runner's `HTTP(S)_PROXY` points at an egress proxy that allows only the presets' hosts, `hosts` (`host`, `*.domain` = subdomains only, `host:port`; without a port 80 and 443) and the gateway. Presets: `agent` (the task's agent API), `npm`, `pypi`, `go`, `crates`, `dockerhub`, `github`. Tasks on nodes cannot use allowlist mode (they fail with an explanation). Tools that ignore the proxy variables cannot reach the network.
+
+The gateway itself (`/api/mcp-gateway/mcp/<server>`, `/api/mcp-gateway/egress/blocked`) is for runners and egress proxies only; it takes the run's token, no session (PROTOCOL.md, "MCP servers").
 
 ## Computers (nodes)
 
