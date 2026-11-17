@@ -12,6 +12,7 @@ import { repoState } from './localdb'
 import { knownSlugs, skillHandlers, taskSkills } from './skills'
 import { mockLoop, scheduleHandlers } from './schedules'
 import { ideaHandlers, ideasEnabled, ideaState, linkIdeaTask } from './ideas'
+import { applyTeamToNewTask, hasKeyFor, refuseTaskAction, refuseWrite, sessionExtras, teamHandlers } from './team'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -21,7 +22,8 @@ function session(): string | null {
   // Local mode: the CLI's one-time link has logged the browser in.
   if (isLocalMock()) return 'web'
   try {
-    return localStorage.getItem(SESSION_KEY)
+    // Team mode stores "web:<user id>".
+    return localStorage.getItem(SESSION_KEY)?.split(':')[0] ?? null
   } catch {
     return null
   }
@@ -148,6 +150,8 @@ function pushTask(task: Task) {
 }
 
 export const handlers = [
+  // Team mode first: its login and /setup/status answer before the defaults.
+  ...teamHandlers,
   ...integrationHandlers(API, guard, err),
   ...costHandlers(API, guard, err),
   ...checkpointHandlers(API, guard, err, pushEvent),
@@ -186,7 +190,7 @@ export const handlers = [
     }
     failures = 0
     setSession('web')
-    return HttpResponse.json({ ok: true, kind: 'web', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS })
+    return HttpResponse.json({ ok: true, kind: 'web', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS, ...sessionExtras() })
   }),
   http.post(`${API}/auth/telegram`, async () => {
     await delay(400)
@@ -204,7 +208,9 @@ export const handlers = [
   }),
   http.get(`${API}/me`, () => {
     const kind = session()
-    return kind ? HttpResponse.json({ ok: true, kind: kind as 'web' | 'telegram', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS }) : err(401, 'unauthorized', 'Not signed in')
+    return kind
+      ? HttpResponse.json({ ok: true, kind: kind as 'web' | 'telegram', mode: mode(), ideas_enabled: ideasEnabled(), ...MOCK_AGENTS, ...sessionExtras() })
+      : err(401, 'unauthorized', 'Not signed in')
   }),
 
   // ---- Projects ----
@@ -337,14 +343,18 @@ export const handlers = [
     const q = new URL(request.url).searchParams
     const statuses = q.get('status')?.split(',').filter(Boolean)
     const project = q.get('project')
+    const createdBy = Number(q.get('created_by')) || 0
     const items = db.tasks
       .filter((t) => (!statuses || statuses.includes(t.status)) && (!project || t.project_id === project))
+      .filter((t) => !createdBy || t.created_by?.id === createdBy)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
     return HttpResponse.json({ items, next_cursor: '' })
   }),
   http.post(`${API}/tasks`, async ({ request }) => {
     const denied = guard(request)
     if (denied) return denied
+    const refused = refuseWrite()
+    if (refused) return refused
     const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'output', 'skills_add', 'skills_remove', 'loop', 'start_from', 'idea_id'])
     if ('error' in read) return read.error
     const f = read.fields
@@ -365,7 +375,8 @@ export const handlers = [
     const host = nodeId ? db.nodes.find((n) => n.id === nodeId) : null
     if (nodeId && !host) return err(400, 'invalid', `no computer "${nodeId}"`)
     const agentsHere = host ? host.agents : MOCK_AGENTS.agents
-    if (!agentsHere.includes(agent)) return err(400, 'invalid', `agent ${agent} is not configured`)
+    // Team mode: each person's key decides (needs_key), not the server's.
+    if (!agentsHere.includes(agent) && !(sessionExtras().user && !host)) return err(400, 'invalid', `agent ${agent} is not configured`)
     const repositoryId = body.repository_id ?? p.repositories.find((r) => r.is_default)?.id ?? 1
     const repo = p.repositories.find((r) => r.id === repositoryId)
     const startFrom = f.start_from || 'last_commit'
@@ -390,8 +401,10 @@ export const handlers = [
     addEvent(task.id, 'created', { attachments })
     // JSON sends the loop as an object, multipart as a JSON string.
     mockLoop(task, typeof f.loop === 'string' ? JSON.parse(f.loop) : (f.loop as LoopInput | undefined))
+    applyTeamToNewTask(task)
     startRun(task.id, 'initial', task.prompt)
     addEvent(task.id, 'status', { status: 'queued' })
+    if (task.status === 'needs_key') addEvent(task.id, 'status', { status: 'needs_key', reason: task.status_reason })
     if (ideaId) linkIdeaTask(ideaId, task)
     pushTask(task)
     return HttpResponse.json(taskView(task), { status: 201 })
@@ -459,6 +472,8 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
+    const notYours = refuseTaskAction(task)
+    if (notYours) return notYours
     const body = (await request.json()) as { question_id: string; text: string }
     const q = (db.questions.get(task.id) ?? []).find((x) => x.id === body.question_id)
     if (!q) return err(404, 'not_found', 'No such question')
@@ -486,6 +501,8 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
+    const notYours = refuseTaskAction(task)
+    if (notYours) return notYours
     const read = await readBody(request, ['text'])
     if ('error' in read) return read.error
     const body = { text: read.fields.text ?? '' }
@@ -521,6 +538,8 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
+    const notYours = refuseTaskAction(task)
+    if (notYours) return notYours
     if (!['running', 'waiting_input'].includes(task.status)) return err(409, 'not_running', 'Not running')
     pushEvent(task.id, addEvent(task.id, 'interrupt', {}))
     // Like the backend: the run ends as done ("Interrupted by the user.") and pushes what it has.
@@ -532,6 +551,8 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
+    const notYours = refuseTaskAction(task)
+    if (notYours) return notYours
     if (!GROUPS.active.includes(task.status) && task.status !== 'pr_open' && task.status !== 'branch_ready') return err(409, 'conflict', 'Not allowed')
     emitStatus(task, 'cancelled', 'cancelled by the user')
     return HttpResponse.json(taskView(task))
@@ -541,6 +562,13 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
+    const notYours = refuseTaskAction(task)
+    if (notYours) return notYours
+    if (task.status === 'needs_key') {
+      // The pending run never started; with a key now it queues again.
+      if (hasKeyFor(task)) emitStatus(task, 'queued')
+      return HttpResponse.json(taskView(task))
+    }
     if (task.status !== 'failed' && task.status !== 'cancelled') return err(409, 'conflict', 'Not allowed')
     startRun(task.id, 'retry', task.prompt)
     task.finished_at = null
@@ -553,6 +581,8 @@ export const handlers = [
     if (denied) return denied
     const task = findTask(params.id)
     if (!task) return err(404, 'not_found', 'No such task')
+    const notYours = refuseTaskAction(task)
+    if (notYours) return notYours
     if (task.status !== 'pr_open' || task.pr_number == null) return err(409, 'conflict', 'Not allowed')
     pushEvent(task.id, addEvent(task.id, 'pr_closed', { number: task.pr_number, merged: true }))
     emitStatus(task, 'completed', 'PR merged')

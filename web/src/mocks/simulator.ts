@@ -35,6 +35,20 @@ function interruptRun(task: Task) {
 
 const SCRIPT: Array<(task: Task) => void> = [
   (t) => emit(t.id, 'tool_use', { tool: 'Grep', summary: 'Grep "LIMIT" src/audit' }),
+  // Team mode: the agent asks its creator one question (docs/API.md "Teams").
+  (t) => {
+    if (!t.created_by || asked.has(t.id)) return
+    asked.add(t.id)
+    const run = (db.runs.get(t.id) ?? []).at(-1)
+    const text = 'Should the page size stay at 50 or become configurable?'
+    const options = ['Keep 50', 'Make it configurable']
+    emit(t.id, 'question', { question_id: 'q1', text, options })
+    db.questions.set(t.id, [
+      ...(db.questions.get(t.id) ?? []),
+      { id: `${run?.id ?? 0}-q1`, task_id: t.id, run_id: run?.id ?? 0, text, options, answer: null, answered_via: null, created_at: new Date().toISOString(), answered_at: null },
+    ])
+    emitStatus(t, 'waiting_input')
+  },
   (t) => emit(t.id, 'tool_result', { tool: 'Grep', ok: true }),
   (t) => emit(t.id, 'assistant_text', { text: 'The endpoint loads the whole table. I will switch it to **keyset pagination** on `(created_at, id)`.' }),
   (t) => emit(t.id, 'tool_use', { tool: 'Edit', summary: 'Edit src/audit/routes.ts' }),
