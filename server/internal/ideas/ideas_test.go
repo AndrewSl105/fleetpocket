@@ -13,9 +13,11 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
+	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 	"github.com/andrewsl105/fleetpocket/server/internal/testutil"
 )
 
@@ -211,5 +213,82 @@ func TestFetchPreview(t *testing.T) {
 		title </title>`, &url.URL{Scheme: "https", Host: "x"})
 	if p.Title != "Plain title" || p.ImageURL != "" {
 		t.Fatalf("plain: %+v", p)
+	}
+}
+
+// The production path: Watch hears status changes on the hub as the task
+// service (webhook, merge button, scheduler) publishes them.
+func TestWatchMovesCardsFromHubStatusChanges(t *testing.T) {
+	st := testutil.DB(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	hub := events.NewHub()
+	taskSvc := &tasks.Service{Store: st, Hub: hub}
+	svc := &Service{Store: st, Hub: hub, NoPreviews: true}
+	if _, err := st.CreateProject(ctx, "p", store.ProjectFields{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.AddRepository(ctx, store.Repository{ProjectID: "p", FullName: "o/r", BaseBranch: "main", InstallationID: 1, IsDefault: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetSettings(ctx, store.IdeaSettings{Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	go svc.Watch(ctx)
+	time.Sleep(50 * time.Millisecond) // let Watch subscribe
+
+	start := func(title string) (*store.Idea, int64) {
+		idea, err := svc.Create(ctx, Input{Title: title}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := taskSvc.Create(ctx, tasks.CreateInput{ProjectID: "p", Prompt: title, Source: "web"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := svc.LinkTask(ctx, idea.ID, v.Task); err != nil {
+			t.Fatal(err)
+		}
+		return idea, v.ID
+	}
+	eventually := func(what string, cond func(*store.Idea) bool, id int64) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			got, err := st.GetIdea(ctx, id)
+			if err == nil && cond(got) {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("timed out waiting for %s: %+v", what, got)
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
+	merged, mergedTask := start("Merge me")
+	if _, err := st.SetStatus(ctx, mergedTask, nil, tasks.PROpen, "", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := taskSvc.SetStatus(ctx, mergedTask, tasks.Completed, "PR merged"); err != nil {
+		t.Fatal(err)
+	}
+	eventually("Done after the PR merged", func(i *store.Idea) bool { return i.Column == store.IdeaDone }, merged.ID)
+
+	failed, failedTask := start("Fail me")
+	if _, err := taskSvc.SetStatus(ctx, failedTask, tasks.Failed, "boom"); err != nil {
+		t.Fatal(err)
+	}
+	eventually("✕ after the failure", func(i *store.Idea) bool { return i.Failed && i.Column == store.IdeaInProgress }, failed.ID)
+	eventuallyEvents := func() int {
+		evs, _ := st.LastEvents(ctx, failedTask, []string{EventIdea}, 5)
+		return len(evs)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for eventuallyEvents() != 2 { // started, failed
+		if time.Now().After(deadline) {
+			t.Fatalf("idea events on the failed task: %d", eventuallyEvents())
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
