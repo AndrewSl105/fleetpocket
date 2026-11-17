@@ -47,6 +47,25 @@ type Repo struct {
 	FullName       string
 	InstallationID int64
 	BaseBranch     string
+
+	// LocalPath is set for a local repository (MODE=local): the workspace
+	// is a copy of that folder (local.go). StartFrom is StartLastCommit or
+	// StartWorkingTree; Resume is the branch delivered before, which a
+	// re-created workspace starts from.
+	LocalPath string
+	StartFrom string
+	Resume    string
+	// PushURL replaces origin for Push and ForcePush (a local repository's
+	// GitHub remote once "Push & open PR" was used).
+	PushURL string
+}
+
+// pushTarget is where Push and ForcePush send the branch.
+func (r Repo) pushTarget() string {
+	if r.PushURL != "" {
+		return r.PushURL
+	}
+	return "origin"
 }
 
 // Prepare makes sure the task workspace is a checkout of branch. A new branch
@@ -65,6 +84,9 @@ func (m *Manager) Prepare(ctx context.Context, taskID int64, repo Repo, branch s
 			}
 		}
 		return nil
+	}
+	if repo.LocalPath != "" {
+		return m.prepareLocal(ctx, taskID, repo, branch)
 	}
 	if err := os.MkdirAll(m.Dir, 0o755); err != nil {
 		return err
@@ -145,7 +167,7 @@ func (m *Manager) Push(ctx context.Context, taskID int64, repo Repo, branch stri
 	if err != nil {
 		return err
 	}
-	_, err = git(ctx, m.Path(taskID), auth, "push", "origin", "HEAD:refs/heads/"+branch)
+	_, err = git(ctx, m.Path(taskID), auth, "push", repo.pushTarget(), "HEAD:refs/heads/"+branch)
 	if err != nil {
 		return err
 	}

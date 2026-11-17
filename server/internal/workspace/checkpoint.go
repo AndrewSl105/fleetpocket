@@ -113,7 +113,7 @@ func (m *Manager) ForcePush(ctx context.Context, taskID int64, repo Repo, branch
 		return "", err
 	}
 	lease := "--force-with-lease=refs/heads/" + branch + ":" + old
-	if _, err := git(ctx, dir, auth, "push", lease, "origin", "HEAD:refs/heads/"+branch); err != nil {
+	if _, err := git(ctx, dir, auth, "push", lease, repo.pushTarget(), "HEAD:refs/heads/"+branch); err != nil {
 		return "", err
 	}
 	_, _ = git(ctx, dir, nil, "update-ref", "refs/remotes/origin/"+branch, "HEAD")
