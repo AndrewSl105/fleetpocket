@@ -86,12 +86,8 @@ h3{font:600 18px/1.3 var(--sans);margin:0 0 6px}
 .sub{font-size:20px;line-height:1.45;color:var(--ink2);margin:0 0 28px;max-width:34ch}
 .cta{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:22px}
 .agents{font:400 13px var(--mono);color:var(--muted);margin:0}
-.monkey{margin:0;border:1.5px solid var(--ink);background:var(--raised);padding:8px;box-shadow:6px 6px 0 var(--ink)}
-.monkey svg{display:block;width:100%;height:auto;aspect-ratio:300/340;max-height:440px;background:#DCE6C8;touch-action:manipulation}
-.monkey figcaption{display:flex;justify-content:space-between;padding-top:8px;font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
-.feed{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-top:12px}
-.feed .stamp{min-width:0}
-#nom{font:700 17px var(--mono);letter-spacing:1px}
+.monkey{margin:0 auto;max-width:440px;width:100%;box-shadow:6px 6px 0 var(--ink)}
+.monkey img{display:block;width:100%;height:auto;aspect-ratio:1}
 @media (min-width:860px){.hero .wrap{grid-template-columns:1.05fr 1fr;padding-top:64px;padding-bottom:72px}h1{font-size:68px}}
 
 /* Install */
@@ -338,56 +334,8 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
       </div>
       <p class="agents">Claude Code · Codex · Cursor · sealed containers · self-hosted · MIT</p>
     </div>
-    <figure class="monkey" id="monkey">
-      <svg viewBox="0 0 300 340" role="img" aria-labelledby="monkey-t">
-        <title id="monkey-t">An orange-brown monkey hanging upside down by its tail from a jungle branch, swinging and waving</title>
-        <g opacity=".9"><ellipse cx="26" cy="300" rx="40" ry="22" fill="#B9CD94"/><ellipse cx="282" cy="310" rx="44" ry="26" fill="#A9C27A"/><ellipse cx="250" cy="250" rx="18" ry="9" fill="#B9CD94" transform="rotate(-30 250 250)"/><ellipse cx="46" cy="210" rx="16" ry="8" fill="#A9C27A" transform="rotate(25 46 210)"/></g>
-        <path d="M44 34 q-10 50 4 96 q10 40 -6 84" stroke="#5E7F33" stroke-width="3" fill="none"/>
-        <g fill="#6E8F3A"><ellipse cx="40" cy="92" rx="9" ry="4" transform="rotate(-35 40 92)"/><ellipse cx="54" cy="140" rx="9" ry="4" transform="rotate(30 54 140)"/><ellipse cx="44" cy="190" rx="8" ry="4" transform="rotate(-30 44 190)"/></g>
-        <path d="M-10 36 C80 16 200 22 310 42" stroke="#4A3B2A" stroke-width="15" fill="none" stroke-linecap="round"/>
-        <path d="M20 26 C90 14 190 18 290 32" stroke="#6B5640" stroke-width="3" fill="none" stroke-linecap="round"/>
-        <g fill="#6E8F3A"><ellipse cx="30" cy="20" rx="26" ry="9" transform="rotate(-14 30 20)"/><ellipse cx="270" cy="26" rx="24" ry="9" transform="rotate(16 270 26)"/></g>
-        <g fill="#3F5A2E"><ellipse cx="94" cy="42" rx="16" ry="6" transform="rotate(32 94 42)"/><ellipse cx="216" cy="44" rx="15" ry="6" transform="rotate(-28 216 44)"/><ellipse cx="248" cy="16" rx="12" ry="5" transform="rotate(-10 248 16)"/></g>
-        <g id="swing">
-          <g transform="rotate(180 150 180)">
-            <path d="M150 212 C118 236 186 262 152 288 S134 318 150 330 c8 6 16 0 12 -8" stroke="#8A4518" stroke-width="7" fill="none" stroke-linecap="round"/>
-            <g id="legL"><path d="M138 206 Q130 228 126 246" stroke="#B0601F" stroke-width="13" fill="none" stroke-linecap="round"/><ellipse cx="124" cy="251" rx="9" ry="6" fill="#E9C9AE"/></g>
-            <g id="legR"><path d="M162 206 Q170 228 174 246" stroke="#B0601F" stroke-width="13" fill="none" stroke-linecap="round"/><ellipse cx="176" cy="251" rx="9" ry="6" fill="#E9C9AE"/></g>
-            <ellipse cx="150" cy="178" rx="30" ry="36" fill="#B0601F"/>
-            <ellipse cx="150" cy="184" rx="18" ry="24" fill="#E3B88A"/>
-            <g id="armW"><path d="M124 160 Q104 142 97 120" stroke="#B0601F" stroke-width="12" fill="none" stroke-linecap="round"/><circle cx="96" cy="115" r="7" fill="#E9C9AE"/></g>
-            <g id="armRest"><path d="M176 160 Q194 182 198 204" stroke="#B0601F" stroke-width="12" fill="none" stroke-linecap="round"/><circle cx="199" cy="208" r="7" fill="#E9C9AE"/></g>
-            <g id="armEat" opacity="0">
-              <path d="M176 160 Q208 176 183 149" stroke="#B0601F" stroke-width="12" fill="none" stroke-linecap="round"/>
-              <g id="peel"><path d="M182 151 q-7 8 -3 17 M182 151 q6 8 9 16" stroke="#D4A92A" stroke-width="4" fill="none" stroke-linecap="round"/></g>
-              <path class="bite" d="M158 132 L166 138" stroke="#F2C230" stroke-width="9" stroke-linecap="round"/>
-              <path class="bite" d="M166 138 L174 143" stroke="#F2C230" stroke-width="9" stroke-linecap="round"/>
-              <path class="bite" d="M174 143 L181 149" stroke="#F2C230" stroke-width="9" stroke-linecap="round"/>
-              <circle cx="182" cy="149" r="7" fill="#E9C9AE"/>
-            </g>
-            <circle cx="116" cy="104" r="12" fill="#8A4518"/><circle cx="116" cy="104" r="6" fill="#E9C9AE"/>
-            <circle cx="184" cy="104" r="12" fill="#8A4518"/><circle cx="184" cy="104" r="6" fill="#E9C9AE"/>
-            <circle cx="150" cy="108" r="34" fill="#B0601F"/>
-            <path d="M150 84 C132 78 120 92 124 108 C126 122 128 140 150 144 C172 140 174 122 176 108 C180 92 168 78 150 84Z" fill="#F0D9BF"/>
-            <circle cx="140" cy="104" r="6.5" fill="#FFF"/><circle cx="160" cy="104" r="6.5" fill="#FFF"/>
-            <g id="pupils" fill="#1B1F1A"><circle cx="140" cy="105" r="3.6"/><circle cx="160" cy="105" r="3.6"/></g>
-            <g id="lids" fill="#E3C3A3"><ellipse cx="140" cy="104" rx="7.5" ry="0"/><ellipse cx="160" cy="104" rx="7.5" ry="0"/></g>
-            <circle cx="147" cy="119" r="1.8" fill="#6B3A1E"/><circle cx="153" cy="119" r="1.8" fill="#6B3A1E"/>
-            <g id="cheeks" fill="#E39A7A" opacity=".85"><circle cx="131" cy="124" r="6"/><circle cx="169" cy="124" r="6"/></g>
-            <ellipse id="tongue" cx="150" cy="137" rx="4.5" ry="6" fill="#D9536B" opacity="0"/>
-            <path id="smile" d="M141 129 q9 7 18 0" stroke="#5A2A10" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-            <ellipse id="mopen" cx="150" cy="132" rx="6" ry="4.5" fill="#5A2A10" opacity="0"/>
-          </g>
-          <text id="nom" x="186" y="300" fill="#1B1F1A" opacity="0">NOM NOM</text>
-        </g>
-      </svg>
-      <figcaption><span>Fig. 1: Field unit, inverted</span><span>Nº 01</span></figcaption>
-      <div class="feed">
-        <button type="button" class="btn sm" id="feed">Feed the monkey</button>
-        <span class="stamp ask" id="feed-stamp">? Needs a banana</span>
-        <span class="label">Bananas fed: <span id="fed">0</span></span>
-      </div>
-      <p class="sr" id="feed-live" aria-live="polite"></p>
+    <figure class="monkey">
+      <img src="docs/brand/jungle-monkey-stamp-512.png" alt="Jungle Monkey logo: an orange-brown monkey in a square ink frame" width="512" height="512" fetchpriority="high" decoding="async">
     </figure>
   </div>
 </section>
@@ -728,84 +676,6 @@ document.querySelectorAll('.copy').forEach(function (b) {
     else done(copyFallback(text))
   })
 })
-
-/* ---------- Hero monkey ---------- */
-;(function () {
-  var fig = $('monkey'), svg = fig.querySelector('svg')
-  var swing = $('swing'), armW = $('armW'), legL = $('legL'), legR = $('legR')
-  var armRest = $('armRest'), armEat = $('armEat'), peel = $('peel'), bites = fig.querySelectorAll('.bite')
-  var lids = $('lids').children, cheeks = $('cheeks').children, tongue = $('tongue'), smile = $('smile'), mopen = $('mopen'), nom = $('nom')
-  var pupils = $('pupils'), btn = $('feed'), stamp = $('feed-stamp'), fed = $('fed'), live = Live($('feed-live'))
-  var phase = 0, speed = 1, target = 1, blinkAt = 2500, tongueAt = 6000, tongueUntil = 0, feedT = -1, n = 0
-  function rot(g, a, x, y) { g.setAttribute('transform', 'rotate(' + a.toFixed(2) + ' ' + x + ' ' + y + ')') }
-  function ease(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
-  function finish() {
-    n++; fed.textContent = n
-    var pr = '#' + ('0000' + (41 + n)).slice(-4)
-    setStamp(stamp, 'ok', '✓ PR open · ' + pr)
-    live('Monkey fed. PR open ' + pr + '. Bananas fed: ' + n)
-    btn.disabled = false; feedT = -1
-  }
-  function eatFrame(t) {
-    // 0–400 arm up, bites at 900/1600/2300, peel drops at 2700, arm down at 3600, done at 4000.
-    var up = t < 3600 ? ease(t / 400) : 1 - ease((t - 3600) / 400)
-    armEat.setAttribute('opacity', up > 0.05 ? 1 : 0)
-    armRest.setAttribute('opacity', up > 0.05 ? 0 : 1)
-    rot(armEat, 60 * (1 - up), 176, 160)
-    var chew = false
-    ;[900, 1600, 2300].forEach(function (b, i) {
-      bites[i].setAttribute('opacity', t < b ? 1 : 0)
-      if (t >= b && t < b + 380) chew = true
-    })
-    mopen.setAttribute('opacity', chew ? 1 : 0)
-    smile.setAttribute('opacity', chew ? 0 : 1)
-    for (var i = 0; i < 2; i++) cheeks[i].setAttribute('r', chew ? 8.5 : 6)
-    nom.setAttribute('opacity', t > 850 && t < 2800 ? 1 : 0)
-    var p = Math.max(0, Math.min(1, (t - 2700) / 900))
-    peel.setAttribute('transform', p ? 'translate(' + (-14 * p).toFixed(1) + ' ' + (-150 * p * p).toFixed(1) + ') rotate(' + (200 * p).toFixed(1) + ' 182 151)' : '')
-    peel.setAttribute('opacity', t < 2700 ? 1 : 1 - p)
-  }
-  function frame(dt, now) {
-    speed += (target - speed) * Math.min(1, dt / 300)
-    phase += dt / 1000 * speed * 2.1
-    rot(swing, 9 * Math.sin(phase), 150, 30)
-    rot(armW, -16 + 22 * Math.sin(now / 160), 124, 160)
-    rot(legL, 14 * Math.sin(now / 230), 138, 206)
-    rot(legR, -14 * Math.sin(now / 230 + 0.8), 162, 206)
-    var b = now - blinkAt, lid = b > 0 && b < 160 ? 7.5 * Math.sin(b / 160 * Math.PI) : 0
-    if (b >= 160) blinkAt = now + 2200 + Math.random() * 3000
-    for (var i = 0; i < 2; i++) lids[i].setAttribute('ry', lid.toFixed(2))
-    if (feedT < 0 && now > tongueAt) { tongueUntil = now + 1100; tongueAt = now + 5000 + Math.random() * 5000 }
-    tongue.setAttribute('opacity', feedT < 0 && now < tongueUntil ? 1 : 0)
-    if (feedT >= 0) { feedT += dt; eatFrame(feedT); if (feedT >= 4000) { eatFrame(4000); finish() } }
-  }
-  var d = Demo(fig, RM ? null : frame)
-  fig.addEventListener('pointerenter', function () { target = 2.6 })
-  fig.addEventListener('pointerleave', function () { target = 1 })
-  btn.addEventListener('click', function () {
-    if (feedT >= 0) return
-    if (RM) return finish()
-    btn.disabled = true; feedT = 0
-    bites.forEach(function (x) { x.setAttribute('opacity', 1) })
-    setStamp(stamp, 'run', '● Running · eating')
-    live('Running: the monkey is eating')
-    start()
-  })
-  if (RM) return
-  var pending = false, px = 0, py = 0
-  window.addEventListener('pointermove', function (e) {
-    px = e.clientX; py = e.clientY
-    if (pending || !d.vis) return
-    pending = true
-    requestAnimationFrame(function () {
-      pending = false
-      var r = svg.getBoundingClientRect()
-      var dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height * 0.74), dd = Math.sqrt(dx * dx + dy * dy) || 1, k = Math.min(2.6, dd / 40) / dd
-      // The monkey is drawn upright and turned 180°, so the offset is mirrored.
-      pupils.setAttribute('transform', 'translate(' + (-dx * k).toFixed(2) + ' ' + (-dy * k).toFixed(2) + ')')
-    })
-  }, { passive: true })
-})()
 
 /* ---------- Try it: the phone ---------- */
 ;(function () {
