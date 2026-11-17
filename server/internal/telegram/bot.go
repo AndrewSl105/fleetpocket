@@ -82,7 +82,7 @@ func (b *Bot) Run(ctx context.Context, tg *telego.Bot) error {
 	b.fail("set_commands", tg.SetMyCommands(ctx, &telego.SetMyCommandsParams{Commands: commandList}))
 	if b.WebAppURL != "" {
 		b.fail("set_menu", tg.SetChatMenuButton(ctx, &telego.SetChatMenuButtonParams{MenuButton: &telego.MenuButtonWebApp{
-			Type: telego.ButtonTypeWebApp, Text: "Open Fleetpocket", WebApp: telego.WebAppInfo{URL: b.WebAppURL},
+			Type: telego.ButtonTypeWebApp, Text: "Open Jungle Monkey", WebApp: telego.WebAppInfo{URL: b.WebAppURL},
 		}}))
 	}
 	go b.follow(ctx)

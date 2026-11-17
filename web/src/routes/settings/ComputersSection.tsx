@@ -73,7 +73,7 @@ function StatusDot({ node }: { node: HostNode }) {
   const label = node.online ? c.online : node.last_seen_at ? c.offline : c.neverConnected
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className={cn('size-2 rounded-full', node.online ? 'bg-emerald-500' : 'bg-muted-foreground/40')} aria-hidden="true" />
+      <span className={cn('size-2 rounded-full', node.online ? 'bg-olive' : 'bg-muted-foreground/40')} aria-hidden="true" />
       {label}
       {!node.online && node.last_seen_at && <span>· {c.lastSeen(relativeTime(node.last_seen_at))}</span>}
     </span>
@@ -87,7 +87,7 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
   const remove = useDeleteNode(node.id)
 
   return (
-    <li className="win-etched p-3.5">
+    <li className="fm-group p-3.5">
       <div className="flex items-start gap-3">
         <Laptop className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0 flex-1">

@@ -1,6 +1,6 @@
 # Operations
 
-Health, metrics, logs, retention and restart behaviour of a running Fleetpocket. Back to the [README](../README.md); setup is in [DEPLOY.md](DEPLOY.md).
+Health, metrics, logs, retention and restart behaviour of a running Jungle Monkey. Back to the [README](../README.md); setup is in [DEPLOY.md](DEPLOY.md).
 
 
 - **Health**: `GET /healthz` checks Postgres and Docker.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fleetpocket installer: sets up /srv/fleetpocket and starts the stack.
+# Jungle Monkey installer: sets up /srv/fleetpocket and starts the stack.
 #
 #   curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
 #
@@ -96,7 +96,7 @@ need_root() {
 	# Piped into sh, $0 is not a file: fetch the script again for sudo.
 	tmp=$(mktemp)
 	curl -fsSL "$BASE/install.sh" -o "$tmp" || die "cannot download $BASE/install.sh"
-	say "Fleetpocket needs root for Docker and $DIR; re-running with sudo."
+	say "Jungle Monkey needs root for Docker and $DIR; re-running with sudo."
 	skip_dns=""
 	[ -n "$DNS_CHECK" ] || skip_dns="--skip-dns-check"
 	exec sudo FLEETPOCKET_REF="$REF" FLEETPOCKET_DIR="$DIR" FLEETPOCKET_DOMAIN="$DOMAIN" \
@@ -112,7 +112,7 @@ check_os() {
 	. /etc/os-release
 	case "${ID:-}:${ID_LIKE:-}" in
 	ubuntu:* | debian:* | *:*debian* | *:*ubuntu*) ;;
-	*) die "unsupported OS ${PRETTY_NAME:-unknown}: Fleetpocket's installer supports Ubuntu and Debian" ;;
+	*) die "unsupported OS ${PRETTY_NAME:-unknown}: Jungle Monkey's installer supports Ubuntu and Debian" ;;
 	esac
 }
 
@@ -137,7 +137,7 @@ choose_domain() {
 		DOMAIN="$(printf '%s' "$ip" | tr . -).sslip.io"
 	fi
 	if [ -z "$DOMAIN" ] && interactive; then
-		say "Fleetpocket needs a domain whose DNS A record points at this server (Caddy gets the HTTPS certificate)."
+		say "Jungle Monkey needs a domain whose DNS A record points at this server (Caddy gets the HTTPS certificate)."
 		[ -n "$ip" ] && say "No domain? Press Enter to use $(printf '%s' "$ip" | tr . -).sslip.io."
 		ask DOMAIN "Domain" ""
 		if [ -z "$DOMAIN" ] && [ -n "$ip" ]; then
@@ -291,13 +291,13 @@ print_next() {
 		sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
 	say ""
 	if [ -n "$url" ]; then
-		say "Fleetpocket is running. Finish the setup in your browser:"
+		say "Jungle Monkey is running. Finish the setup in your browser:"
 		say ""
 		say "    $url"
 		say ""
 		say "(The first HTTPS request can take a minute while Caddy gets the certificate.)"
 	else
-		say "Fleetpocket is running: https://$(env_value FLEETPOCKET_DOMAIN)"
+		say "Jungle Monkey is running: https://$(env_value FLEETPOCKET_DOMAIN)"
 	fi
 }
 

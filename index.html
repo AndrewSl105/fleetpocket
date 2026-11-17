@@ -3,1020 +3,232 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<title>FleetOps</title>
-<meta name="description" content="Run Claude Code, Codex or Cursor against your GitHub repositories from your phone, in isolated containers, and get a pull request back. Self-hosted, MIT.">
-<link rel="icon" type="image/svg+xml" href="docs/brand/fleetpocket-icon.svg">
+<meta name="color-scheme" content="light dark">
+<title>Jungle Monkey: coding agents on your repos, from your phone</title>
+<meta name="description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back. Claude Code, Codex or Cursor, self-hosted, MIT.">
+<meta name="theme-color" content="#F2EFE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14170F" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Jungle Monkey">
+<meta property="og:description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back.">
+<meta property="og:image" content="docs/brand/jungle-monkey-og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Jungle Monkey">
+<meta name="twitter:description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back.">
+<meta name="twitter:image" content="docs/brand/jungle-monkey-og.jpg">
+<link rel="icon" type="image/png" sizes="32x32" href="docs/brand/jungle-monkey-icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="docs/brand/jungle-monkey-icon-16.png">
+<link rel="apple-touch-icon" href="docs/brand/jungle-monkey-icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:ital,wght@0,700;0,800;1,700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="preload" as="image" href="docs/brand/jungle-monkey-hero.webp" type="image/webp">
 <style>
-/* A modernised desktop look: blue-titled windows, a green start button, a taskbar and Bliss-style hills. */
-:root{
-  --page:#E9F0FB;--win:#FFFFFF;--win-border:#2559D4;--radius:14px;--shadow:0 18px 40px -18px rgba(18,48,120,.35);
-  --tb-top:#3E7BF2;--tb-bottom:#2559D4;--close:#E2553E;
-  --ink:#0F1B33;--ink-2:#3E4C6B;--muted:#4A5878;--line:#DCE4F3;--line-2:#E3E9F4;--soft:#F4F7FC;--soft-blue:#F4F7FE;
-  --accent:#2559D4;--accent-hover:#1D4BBA;--accent-edge:#173E9E;--link:#1D4FC4;--btn-line:#B9C7E3;
-  --start:#2A7F35;--start-edge:#1E6128;--ship:#F5D90A;--footer:#3F7A2C;--hill-1:#6FAE4E;--hill-2:#3F7A2C;
-  --focus:#F5C518;--note:#FFF8DB;--note-line:#F0DC8A;
-  --font:'Inter','Inter Fallback',system-ui,sans-serif;
-  --font-head:'Inter Tight','Inter Tight Fallback','Inter',system-ui,sans-serif;
-  --font-mono:'JetBrains Mono','JetBrains Mono Fallback',ui-monospace,monospace;
-}
-/* Metric-matched local fallbacks, so swapping in the web fonts does not move the layout. */
-@font-face{font-family:'Inter Fallback';src:local('Arial'),local('Liberation Sans'),local('Helvetica');ascent-override:90.2%;descent-override:22.48%;line-gap-override:0%;size-adjust:107.4%}
-@font-face{font-family:'Inter Tight Fallback';src:local('Arial'),local('Liberation Sans'),local('Helvetica');ascent-override:94%;descent-override:23.4%;line-gap-override:0%;size-adjust:102.6%}
-@font-face{font-family:'JetBrains Mono Fallback';src:local('Courier New'),local('Liberation Mono');ascent-override:102%;descent-override:30%;line-gap-override:0%;size-adjust:100%}
+/* Field Manual: ink on paper, square corners, ruled rows, stamp statuses, one orange signal colour. */
+:root{--paper:#F2EFE6;--raised:#FBF9F3;--grid:#E4E0D3;--rule:#B9B4A5;--ink:#1B1F1A;--ink2:#3D4238;--muted:#5E6357;--signal:#F06A1D;--signal-ink:#1B1F1A;--signal-text:#B23A06;--olive:#3F5A2E;--olive-ink:#F2EFE6;--danger:#A12A1C;
+--sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--paper:#14170F;--raised:#1C2016;--grid:#23281C;--rule:#3A3F33;--ink:#ECE8DC;--ink2:#D4D0C4;--muted:#A8AB9C;--signal:#F2793A;--signal-ink:#14170F;--signal-text:#FF9A5C;--olive-ink:#ECE8DC;--danger:#FF7A66}}
 *{box-sizing:border-box}
-html{scroll-padding-top:16px;-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--page);color:var(--ink);font:400 17px/1.6 var(--font);-webkit-font-smoothing:antialiased}
-a{color:var(--link);text-underline-offset:3px}
-a:hover{color:var(--accent-hover)}
-::selection{background:var(--accent);color:#FFFFFF}
-:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-h1,h2,h3{margin:0;font-family:var(--font-head);font-weight:800;color:var(--ink)}
-h3{font-weight:700}
-p{margin:0}
-.mono{font-family:var(--font-mono)}
-code{font-family:var(--font-mono);font-size:.875em;padding:1px 6px;border-radius:6px;background:#FFFFFF;border:1px solid var(--line);color:var(--ink);overflow-wrap:anywhere}
-.eyebrow{font:500 13px/1.4 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-
-/* Taskbar */
-.taskbar{background:linear-gradient(180deg,#2559D4,#1C47B0);border-bottom:1px solid var(--accent-edge)}
-.taskbar-in{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.start{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 22px 0 14px;border:1px solid var(--start-edge);border-radius:999px;background:var(--start);box-shadow:inset 0 1px 0 rgba(255,255,255,.28);color:#FFFFFF;font:italic 700 18px/1 var(--font-head);text-decoration:none}
-.start:hover{background:var(--start-edge);color:#FFFFFF}
-.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
-.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.22);border-radius:10px;background:rgba(255,255,255,.1);color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none}
-.tab:hover{background:rgba(0,0,0,.16);color:#FFFFFF}
-.heading{margin-left:auto;display:inline-flex;align-items:center;min-height:44px;padding:0 4px 0 12px;font:500 14px/1 var(--font-mono);color:#FFFFFF;white-space:nowrap}
-
-/* Windows */
-.page{max-width:1200px;margin:0 auto;padding:36px 16px 48px;display:flex;flex-direction:column;gap:40px}
-.win{background:var(--win);border:1px solid var(--win-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.tb{height:44px;display:flex;align-items:center;gap:10px;padding:0 8px 0 16px;background:linear-gradient(180deg,var(--tb-top),var(--tb-bottom));color:#FFFFFF;font:600 15px/1 var(--font);text-shadow:0 1px 0 rgba(15,27,51,.25)}
-.tb > svg{flex:none}
-.tb-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tb-b{display:flex;gap:6px}
-.tb-b span{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:rgba(255,255,255,.16)}
-.tb-b span.x{background:var(--close);border-color:#B8402C}
-.tb-b svg{stroke:#FFFFFF;fill:none}
-.body{padding:clamp(24px,4vw,48px)}
-.win-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;padding:12px clamp(24px,4vw,48px);border-top:1px solid var(--line);background:var(--soft);font:400 13px/1.5 var(--font-mono);color:var(--muted)}
-.sec-head{display:flex;flex-direction:column;gap:14px}
-.h1{font-size:clamp(48px,7vw,92px);line-height:.98;letter-spacing:-.035em}
-.h2{font-size:clamp(34px,4.4vw,56px);line-height:1.04;letter-spacing:-.03em}
-.lead{font-size:clamp(19px,1.5vw,21px);line-height:1.6;color:var(--ink-2)}
-
-/* Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 24px;border:1px solid var(--btn-line);border-radius:10px;background:#FFFFFF;color:var(--ink);font:600 17px/1 var(--font);text-decoration:none;cursor:pointer;transition:background-color .15s,border-color .15s}
-.btn:hover{background:var(--soft);border-color:var(--accent);color:var(--ink)}
-.btn svg{fill:currentColor}
-.btn-primary{background:var(--accent);border-color:var(--accent-edge);color:#FFFFFF;box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
-.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-edge);color:#FFFFFF}
-.actions{display:flex;flex-wrap:wrap;gap:12px}
-
-/* Badges: always a dot and a label */
-.badge{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border:1px solid var(--line);border-radius:999px;background:#FFFFFF;color:var(--ink-2);font:500 13px/1.4 var(--font-mono);white-space:nowrap}
-.dot{flex:none;width:8px;height:8px;border-radius:50%;background:currentColor}
-.dot-green{background:var(--start)}
-.dot-blue{background:var(--accent)}
-.dot-yellow{background:var(--ship);box-shadow:inset 0 0 0 1px #B89F00}
-.pill{background:var(--soft);letter-spacing:.08em;text-transform:uppercase}
-
-/* Hero */
-.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,4vw,56px);align-items:center}
-.hero-copy{display:flex;flex-direction:column;align-items:flex-start;gap:24px}
-.hero-copy .lead{max-width:540px}
-.accent-text{color:var(--accent)}
-.sea{position:relative;display:block;width:100%;min-height:440px;margin:0;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--soft);cursor:pointer;font:inherit;color:inherit;touch-action:pan-y;overflow:hidden;-webkit-tap-highlight-color:transparent}
-.sea > svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.sea-cap{display:flex;justify-content:space-between;gap:12px;margin-top:10px;font:400 13px/1.5 var(--font-mono);color:var(--muted)}
-
-/* Hero fleet (recreates docs/brand/fleetpocket-hero.png) */
-.fp-hero-img{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.fp-par{transform-box:fill-box;transform-origin:center;transition:transform 1.1s cubic-bezier(.2,.7,.2,1)}
-.fp-ship{transform-box:fill-box;transform-origin:center}
-.fp-in{animation:fpIn 1.1s cubic-bezier(.15,.8,.25,1) both}
-.fp-in1{animation-delay:.15s}
-.fp-in2{animation-delay:.3s}
-.fp-in3{animation-delay:.45s}
-@keyframes fpIn{0%{transform:translate(-320px,240px);opacity:0}35%{opacity:1}100%{transform:none;opacity:1}}
-.fp-s1{animation:fpBob1 7.5s ease-in-out infinite}
-.fp-s2{animation:fpBob2 6.2s ease-in-out infinite -1.4s}
-.fp-s3{animation:fpBob3 6.8s ease-in-out infinite -3.1s}
-.fp-s4{animation:fpBob4 5.6s ease-in-out infinite -2.2s}
-@keyframes fpBob1{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(14px,-10px) rotate(-1.2deg)}50%{transform:translate(22px,-18px) rotate(.4deg)}75%{transform:translate(4px,-6px) rotate(1.2deg)}}
-@keyframes fpBob2{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(10px,-6px) rotate(1.4deg)}50%{transform:translate(18px,-14px) rotate(-.6deg)}75%{transform:translate(6px,-10px) rotate(-1.4deg)}}
-@keyframes fpBob3{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(12px,-8px) rotate(-1.6deg)}50%{transform:translate(20px,-16px) rotate(.8deg)}75%{transform:translate(4px,-8px) rotate(1.6deg)}}
-@keyframes fpBob4{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(8px,-8px) rotate(2deg)}50%{transform:translate(16px,-14px) rotate(-.8deg)}75%{transform:translate(6px,-4px) rotate(-2deg)}}
-.fp-s1 .fp-sh{animation:fpShadow 7.5s ease-in-out infinite}
-.fp-s2 .fp-sh{animation:fpShadow 6.2s ease-in-out infinite -1.4s}
-.fp-s3 .fp-sh{animation:fpShadow 6.8s ease-in-out infinite -3.1s}
-.fp-s4 .fp-sh{animation:fpShadow 5.6s ease-in-out infinite -2.2s}
-@keyframes fpShadow{0%,100%{transform:translate(10px,22px);opacity:.18}50%{transform:translate(18px,40px);opacity:.08}}
-.fp-wake{stroke-dasharray:26 18;animation:fpWake 1.2s linear infinite}
-@keyframes fpWake{to{stroke-dashoffset:-88}}
-.fp-glint{stroke-dasharray:70 900;animation:fpGlint 4.8s ease-in-out infinite}
-.fp-s2 .fp-glint{animation-delay:-1.2s}
-.fp-s3 .fp-glint{animation-delay:-2.4s}
-.fp-s4 .fp-glint{animation-delay:-3.6s}
-@keyframes fpGlint{0%,55%{stroke-dashoffset:120}100%{stroke-dashoffset:-420}}
-.fp-splash-idle{opacity:0}
-.fp-splash-a,.fp-splash-b{transform-box:fill-box;transform-origin:center;opacity:0}
-.fp-splash-a{animation:fpSplashA 1.3s ease-out}
-.fp-splash-b{animation:fpSplashB 1.3s ease-out}
-.fp-ring2{animation-delay:.2s}
-@keyframes fpSplashA{0%{transform:scale(.15);opacity:.9}100%{transform:scale(1);opacity:0}}
-@keyframes fpSplashB{0%{transform:scale(.15);opacity:.9}100%{transform:scale(1);opacity:0}}
-@media (prefers-reduced-motion: reduce){#sea svg{display:none}.fp-hero-img{display:block}}
-
-/* Ship's log */
-.split{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:clamp(28px,4vw,56px);align-items:start}
-.stack{display:flex;flex-direction:column;gap:24px}
-.fp-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.fp-step{width:100%;min-height:56px;display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;column-gap:14px;row-gap:6px;padding:8px 14px 8px 8px;border:1px solid transparent;border-radius:12px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.fp-step:hover{background:var(--soft)}
-.fp-step-n{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1px solid var(--btn-line);border-radius:10px;background:#FFFFFF;color:var(--accent);font:500 14px/1 var(--font-mono)}
-.fp-step-t{font:700 18px/1.3 var(--font-head);color:var(--ink)}
-.fp-step-body,.fp-step-bar{grid-column:2;display:none}
-.fp-step-body{font-size:16px;line-height:1.55;color:var(--ink-2)}
-.fp-step-bar{height:4px;margin:2px 0 4px;border-radius:4px;background:var(--line);overflow:hidden}
-.fp-step-bar span{display:block;height:100%;width:0;background:var(--accent)}
-.fp-step[aria-current="step"]{background:var(--soft);border-color:var(--line)}
-.fp-step[aria-current="step"] .fp-step-n{background:var(--accent);border-color:var(--accent-edge);color:#FFFFFF}
-.fp-step[aria-current="step"] .fp-step-body,.fp-step[aria-current="step"] .fp-step-bar{display:block}
-#phWrap{display:flex;justify-content:center;min-width:0}
-
-/* App demo (mirrors the web client) */
-.fp-phone{position:absolute;left:0;top:0;width:384px;height:784px;transform-origin:0 0;padding:12px;border-radius:46px;background:var(--ink);box-shadow:var(--shadow),inset 0 0 0 2px #2A3A5C}
-.fp-screen{position:relative;width:360px;height:760px;border-radius:34px;overflow:hidden;background:var(--soft);font-family:var(--font);color:var(--ink)}
-.fp-scr{position:absolute;inset:0;transition:opacity .35s ease,transform .35s ease;background:var(--soft)}
-.fp-title{position:absolute;left:16px;top:14px;width:328px;height:36px;padding:0 14px;display:flex;align-items:center;border-radius:10px;background:linear-gradient(180deg,var(--tb-top),var(--tb-bottom));color:#FFFFFF;font:700 17px/1 var(--font-head)}
-.fp-tabs{position:absolute;left:16px;top:58px;width:328px;height:44px;padding:3px;display:grid;gap:2px;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:10px;background:#FFFFFF}
-.fp-tab{display:flex;align-items:center;justify-content:center;border-radius:7px;color:var(--ink-2);font-size:13px;font-weight:500}
-.fp-tab.on{background:var(--accent);color:#FFFFFF;font-weight:600}
-.fp-chip{height:30px;padding:0 12px;display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:#FFFFFF;color:var(--ink-2);font-size:13px}
-.fp-card{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#FFFFFF;box-shadow:0 1px 2px rgba(18,48,120,.06)}
-.fp-card-t{font-size:14px;font-weight:600;line-height:1.35}
-.fp-meta{font-size:12px;color:var(--muted)}
-.fp-badge{flex:none;height:24px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;border:1px solid;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
-.fp-field{position:absolute;left:16px;width:328px;height:40px;padding:0 10px 0 12px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--btn-line);border-radius:8px;background:#FFFFFF;font-size:14px}
-.fp-label{position:absolute;left:16px;color:var(--ink-2);font-size:13px;font-weight:600}
-.fp-ta{position:absolute;left:16px;top:246px;width:328px;height:160px;padding:10px 12px;border:1px solid var(--btn-line);border-radius:8px;background:#FFFFFF;font-size:14px;line-height:1.45;transition:border-color .2s,box-shadow .2s}
-.fp-ta.focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,89,212,.2)}
-.fp-press{border:1px solid var(--accent-edge);border-radius:10px;background:var(--accent);color:#FFFFFF;box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
-.fp-press.on{background:var(--accent-edge)}
-.fp-dtabs{position:absolute;left:0;top:128px;width:360px;height:44px;padding:0 8px;display:flex;align-items:flex-end;border-bottom:1px solid var(--line)}
-.fp-dtab{height:40px;margin-bottom:-1px;padding:0 14px;display:flex;align-items:center;border-bottom:3px solid transparent;color:var(--muted);font-size:14px}
-.fp-dtab.on{border-color:var(--accent);color:var(--ink);font-weight:600}
-.fp-it{transition:opacity .4s,transform .4s;opacity:0;transform:translateY(10px)}
-.fp-it.on{opacity:1;transform:none}
-.fp-div{height:22px;display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px}
-.fp-div::before,.fp-div::after{content:"";height:1px;flex:1;background:var(--line)}
-.fp-tool{height:32px;display:flex;align-items:center;gap:8px;padding:0 8px;color:var(--muted);font-size:12px;white-space:nowrap}
-.fp-tool b{color:var(--ink);font-weight:600}
-.fp-tool svg{fill:var(--accent)}
-.fp-msg{border:1px solid var(--line);border-radius:12px 12px 12px 4px;background:#FFFFFF}
-.fp-ask{background:var(--note);border-color:var(--note-line);border-left:4px solid #E0A400}
-.fp-ans{height:40px;padding:0 14px;display:inline-flex;align-items:center;border:1px solid var(--btn-line);border-radius:8px;background:#FFFFFF;color:var(--ink);font-size:13px;font-weight:500;transition:background-color .2s,color .2s}
-.fp-ib{flex:none;height:40px;display:flex;align-items:center;justify-content:center;border:1px solid var(--btn-line);border-radius:8px;background:#FFFFFF}
-.fp-bar{background:linear-gradient(180deg,#2559D4,#1C47B0)}
-.fp-nav{min-height:44px;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,.2);border-radius:10px;background:rgba(255,255,255,.1);color:#FFFFFF;font-size:12px;font-weight:600}
-.fp-nav.on{background:rgba(0,0,0,.22)}
-.fp-nav.start{border-color:var(--start-edge);border-radius:999px;background:var(--start);font:italic 700 14px/1 var(--font-head)}
-.fp-nav.start.on{background:var(--start-edge)}
-.fp-toast{position:absolute;left:50%;top:14px;padding:10px 16px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;background:#FFFFFF;box-shadow:var(--shadow);font-size:13px;font-weight:600;white-space:nowrap;opacity:0;transform:translate(-50%,-16px);transition:opacity .3s,transform .3s}
-
-/* The hull */
-.hull{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:stretch}
-.hull-card{display:flex;flex-direction:column;gap:12px;padding:24px;border:1px solid var(--line);border-radius:var(--radius);background:#FFFFFF}
-.hull-card.key{border:2px solid var(--accent);background:var(--soft-blue)}
-.hull-card .eyebrow{color:var(--muted)}
-.hull-card.key .eyebrow{color:var(--accent)}
-.hull-card h3{font-size:22px;line-height:1.2}
-.hull-card ul{margin:0;padding:0 0 0 20px;display:flex;flex-direction:column;gap:6px;color:var(--ink-2);font-size:16px;line-height:1.5}
-.hull-arrow{width:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font:500 12px/1.3 var(--font-mono);text-align:center}
-.hull-arrow svg{stroke:var(--accent)}
-
-/* The helm */
-.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#FFFFFF}
-.tbl table{width:100%;min-width:760px;border-collapse:collapse}
-.tbl th{padding:14px 20px;border-bottom:1px solid var(--line);background:var(--soft);color:var(--muted);font:500 12px/1.4 var(--font-mono);letter-spacing:.08em;text-align:left;text-transform:uppercase}
-.tbl td{padding:20px;border-bottom:1px solid var(--line-2);color:var(--ink-2);font-size:16px;line-height:1.55;vertical-align:middle}
-.tbl tr:last-child td{border-bottom:0}
-.tbl td.n{width:72px;color:var(--accent);font:500 14px var(--font-mono)}
-.tbl h3{display:flex;align-items:center;gap:12px;font-size:20px;white-space:nowrap}
-
-/* Weigh anchor */
-.launch{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(28px,4vw,56px);align-items:start}
-.cta{display:flex;flex-direction:column;align-items:flex-start;gap:20px}
-.panel{display:flex;flex-direction:column;gap:16px;padding:clamp(20px,3vw,32px);border:1px solid var(--line);border-radius:var(--radius);background:var(--soft)}
-.panel-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px}
-.panel-h h3{font-size:clamp(22px,2.4vw,28px);line-height:1.2}
-.panel p{color:var(--ink-2);font-size:16px;line-height:1.6}
-.fp-gh{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
-.fp-gh li{display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:14px;row-gap:2px;color:var(--ink-2);font-size:16px;line-height:1.6}
-.fp-gh-n{grid-row:span 2;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--accent);color:#FFFFFF;font:500 14px/1 var(--font-mono)}
-.fp-gh-t{color:var(--ink);font-weight:700;line-height:36px}
-.fp-gh b{color:var(--ink);font-weight:600}
-
-/* Footer */
-.site-foot{margin-top:8px}
-.hills{display:block;width:100%;height:clamp(72px,9vw,128px);margin-bottom:-1px}
-.foot-band{background:var(--footer);color:#FFFFFF}
-.foot-in{max-width:1200px;margin:0 auto;padding:18px 16px 28px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px;font-size:15px}
-
-@media (max-width:960px){
-  .split{grid-template-columns:minmax(0,1fr)}
-  .hull{grid-template-columns:minmax(0,1fr)}
-  .hull-arrow{width:auto;flex-direction:row;padding:2px 0}
-  .hull-arrow svg{transform:rotate(90deg);width:40px}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 var(--sans)}
+a{color:var(--signal-text);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+img{display:block;max-width:100%;height:auto}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.label{font:500 12px/1.4 var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--mono)}
+.stamp{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink);padding:3px 7px;font:600 12px/1.2 var(--mono);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.stamp.run{background:var(--signal);color:var(--signal-ink)}
+.stamp.ask{border-style:dashed}
+.stamp.pr{background:var(--olive);color:var(--olive-ink);border-color:var(--olive)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border:1.5px solid var(--ink);font:600 16px var(--sans);text-decoration:none;color:var(--ink);background:var(--raised)}
+.btn.ink{background:var(--ink);color:var(--paper)}
+.btn.ink:active{transform:translate(-2px,-2px);box-shadow:2px 2px 0 var(--signal)}
+header.top{border-bottom:2px solid var(--ink)}
+header.top .wrap{display:flex;align-items:center;gap:12px;min-height:60px}
+header.top img{width:36px;height:36px;border:1.5px solid var(--ink)}
+header.top nav{margin-left:auto;display:flex;gap:4px}
+header.top nav a{font:500 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);text-decoration:none;padding:12px 8px}
+.hero{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;border-bottom:2px solid var(--ink)}
+.hero .wrap{display:grid;gap:32px;padding-top:40px;padding-bottom:48px;align-items:center}
+.hero figure{margin:0;border:1.5px solid var(--ink);background:var(--raised);padding:8px}
+.hero figure img{aspect-ratio:1/1;width:100%}
+.hero figcaption{display:flex;justify-content:space-between;padding-top:8px;font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+h1{font:700 44px/1.05 var(--sans);margin:12px 0 16px;letter-spacing:-.5px}
+.sub{font-size:20px;line-height:1.45;color:var(--ink2);margin:0 0 28px;max-width:32ch}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.agents{font:400 13px var(--mono);color:var(--muted)}
+section.block{padding:56px 0;border-bottom:2px solid var(--ink)}
+h2{font:700 26px/1.2 var(--sans);margin:6px 0 24px}
+.sec-head{border-bottom:2px solid var(--ink);margin-bottom:0;padding-bottom:12px}
+.ledger{list-style:none;margin:0;padding:0}
+.ledger li{display:grid;grid-template-columns:56px 1fr;gap:12px;padding:18px 0;border-bottom:1px solid var(--rule)}
+.ledger .n{font:600 14px var(--mono);color:var(--muted)}
+.ledger h3{font:600 18px/1.3 var(--sans);margin:0 0 4px}
+.ledger p{margin:0;color:var(--ink2)}
+.shots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding-top:24px}
+.shots figure{margin:0;border:1.5px solid var(--ink);background:var(--raised)}
+.shots figcaption{border-top:1px solid var(--rule);padding:8px 10px;font:500 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.shots .wide{grid-column:1/-1}
+.cols{display:grid;gap:0;border-top:2px solid var(--ink)}
+.cols > div{padding:20px 0;border-bottom:1px solid var(--rule)}
+.cols h3{font:600 18px var(--sans);margin:8px 0}
+.cols p{margin:0;color:var(--ink2)}
+table.spec{width:100%;border-collapse:collapse;border-top:2px solid var(--ink)}
+.spec th,.spec td{text-align:left;vertical-align:top;padding:14px 12px 14px 0;border-bottom:1px solid var(--rule)}
+.spec th{font:500 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);width:38%}
+.spec td{color:var(--ink2)}
+.cmd{display:flex;align-items:stretch;border:1.5px solid var(--ink);background:var(--raised);margin:8px 0 24px}
+.cmd code{flex:1;overflow-x:auto;padding:14px;font:400 14px/1.5 var(--mono);white-space:nowrap}
+.cmd button{border:0;border-left:1.5px solid var(--ink);background:var(--ink);color:var(--paper);font:600 12px var(--mono);letter-spacing:1.5px;text-transform:uppercase;padding:0 16px;min-width:88px;min-height:48px;cursor:pointer}
+ul.req{margin:0;padding:0;list-style:none;border-top:2px solid var(--ink)}
+ul.req li{padding:12px 0;border-bottom:1px solid var(--rule);color:var(--ink2)}
+footer .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding-top:28px;padding-bottom:40px}
+footer img{width:48px;height:48px;border:1.5px solid var(--ink)}
+footer nav{display:flex;flex-wrap:wrap;gap:4px 16px}
+footer nav a{font:500 13px var(--mono);color:var(--ink);padding:10px 0}
+footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
+@media (min-width:860px){
+  .hero .wrap{grid-template-columns:1.05fr 1fr;padding-top:64px;padding-bottom:72px}
+  .hero figure{order:2}
+  h1{font-size:64px}
+  .cols{grid-template-columns:1fr 1fr;gap:0 40px}
+  .cols.three{grid-template-columns:repeat(3,1fr)}
 }
-@media (max-width:720px){
-  .page{padding:20px 12px 36px;gap:28px}
-  .hero,.launch{grid-template-columns:minmax(0,1fr)}
-  .sea{min-height:320px}
-  .taskbar-in{padding:8px 12px}
-  .tabs{order:3;width:100%}
-  .tab{padding:0 12px;font-size:14px}
-  .tb-b span:not(.x){display:none}
-}
+@media (max-width:600px){.shots{grid-template-columns:1fr 1fr}.shots figure:nth-child(3){display:none}header.top nav a.opt{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
-
-<svg width="0" height="0" style="position: absolute" aria-hidden="true">
-<symbol id="fp-logo" viewBox="250 225 800 800"><path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path><path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path><path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path><path d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path></symbol>
-<symbol id="fp-ctl-min" viewBox="0 0 12 12"><path d="M2.5 9h7" stroke-width="2" stroke-linecap="round"></path></symbol>
-<symbol id="fp-ctl-max" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke-width="1.8"></rect></symbol>
-<symbol id="fp-ctl-x" viewBox="0 0 12 12"><path d="m2.5 2.5 7 7m0-7-7 7" stroke-width="2" stroke-linecap="round"></path></symbol>
-</svg>
-
-<header class="taskbar">
-<nav class="taskbar-in" aria-label="Main">
-<a class="start" href="#top"><svg width="20" height="20" fill="#FFFFFF" aria-hidden="true"><use href="#fp-logo"></use></svg>start</a>
-<ul class="tabs">
-<li><a class="tab" href="#how">Ship's log</a></li>
-<li><a class="tab" href="#security">The hull</a></li>
-<li><a class="tab" href="#features">The helm</a></li>
-<li><a class="tab" href="https://github.com/AndrewSl105/FleetOps">GitHub</a></li>
-</ul>
-<span class="heading">Heading 045°</span>
-</nav>
+<header class="top">
+  <div class="wrap">
+    <img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="36" height="36">
+    <span class="label" style="color:var(--ink);font-weight:600">Jungle Monkey</span>
+    <nav aria-label="Site">
+      <a class="opt" href="#how">How</a>
+      <a class="opt" href="#keys">Security</a>
+      <a href="#setup">Set up</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
+    </nav>
+  </div>
 </header>
 
-<main class="page">
-
-<section id="top" class="win" aria-labelledby="hero-title">
-<div class="tb">
-<svg width="18" height="18" fill="#FFFFFF" aria-hidden="true"><use href="#fp-logo"></use></svg>
-<span class="tb-t">FleetOps</span>
-<span class="tb-b" aria-hidden="true">
-<span><svg width="12" height="12"><use href="#fp-ctl-min"></use></svg></span>
-<span><svg width="12" height="12"><use href="#fp-ctl-max"></use></svg></span>
-<span class="x"><svg width="12" height="12"><use href="#fp-ctl-x"></use></svg></span>
-</span>
-</div>
-
-<div class="body hero">
-<div class="hero-copy">
-<span class="badge pill"><span class="dot dot-green"></span>Self-hosted · MIT · Single owner</span>
-<h1 id="hero-title" class="h1">Your coding fleet, <span class="accent-text">in your pocket.</span></h1>
-<p class="lead">Run Claude Code, OpenAI Codex or Cursor against your GitHub repositories from your phone, in isolated containers, and get a pull request back.</p>
-<div class="actions">
-<a class="btn btn-primary" href="https://github.com/AndrewSl105/FleetOps">Self-host it</a>
-<a class="btn" href="#how">See how it works</a>
-</div>
-</div>
-
-<div>
-<button type="button" id="sea" class="sea" aria-label="Make a splash behind the fleet">
-<img class="fp-hero-img" src="docs/brand/fleetpocket-hero.png" alt="" loading="lazy" decoding="async">
-<svg viewBox="150 200 1000 900" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-<defs>
-<radialGradient id="fpBg" cx="650" cy="620" r="620" gradientUnits="userSpaceOnUse">
-<stop offset="0" stop-color="#FFFFFF"></stop>
-<stop offset="1" stop-color="#E3EBF8"></stop>
-</radialGradient>
-<linearGradient id="fpGlossBlue" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#C2CDFF"></stop>
-<stop offset="0.5" stop-color="#FFFFFF"></stop>
-<stop offset="1" stop-color="#93A6F2"></stop>
-</linearGradient>
-<linearGradient id="fpGlossGrey" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#C7CDD8"></stop>
-<stop offset="0.5" stop-color="#E8EBF1"></stop>
-<stop offset="1" stop-color="#A3ACBF"></stop>
-</linearGradient>
-<linearGradient id="fpGlossYellow" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#FFF27A"></stop>
-<stop offset="0.6" stop-color="#F5D90A"></stop>
-<stop offset="1" stop-color="#D9BF00"></stop>
-</linearGradient>
-<linearGradient id="fpWakeG" x1="1" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#2559D4" stop-opacity="0.9"></stop>
-<stop offset="1" stop-color="#2559D4" stop-opacity="0"></stop>
-</linearGradient>
-<filter id="fpSoft" x="-30%" y="-30%" width="160%" height="160%">
-<feGaussianBlur stdDeviation="14"></feGaussianBlur>
-</filter>
-</defs>
-
-<g class="fp-par" id="seaPar"><rect x="-200" y="-200" width="1700" height="1600" fill="url(#fpBg)"></rect></g>
-
-<g fill="none" stroke="#2559D4" stroke-width="4">
-<circle class="fp-splash-idle" data-splash="0" r="110"></circle>
-<circle class="fp-splash-idle" data-splash="0" data-ring2 r="110"></circle>
-<circle class="fp-splash-idle" data-splash="1" r="110"></circle>
-<circle class="fp-splash-idle" data-splash="1" data-ring2 r="110"></circle>
-<circle class="fp-splash-idle" data-splash="2" r="110"></circle>
-<circle class="fp-splash-idle" data-splash="2" data-ring2 r="110"></circle>
-</g>
-
-<g class="fp-par" data-ship="0">
-<g class="fp-in">
-<g class="fp-ship fp-s1">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#0F1B33" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="8" stroke-linecap="round">
-<path class="fp-wake" d="M600 449 L410 540"></path>
-<path class="fp-wake" d="M862 704 L760 880"></path>
-</g>
-<path fill="#173E9E" stroke="#173E9E" stroke-width="13" stroke-linejoin="round" transform="translate(5 8)" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
-<path fill="url(#fpGlossBlue)" stroke="#2559D4" stroke-width="13" stroke-linejoin="round" d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
-<path fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" opacity="0.75" d="M648 422 L948 318"></path>
-<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" d="M648 422 L948 318"></path>
-</g>
-</g>
-</g>
-
-<g class="fp-par" data-ship="2">
-<g class="fp-in fp-in1">
-<g class="fp-ship fp-s3">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#0F1B33" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="6" stroke-linecap="round">
-<path class="fp-wake" d="M576 772 L462 828"></path>
-<path class="fp-wake" d="M710 906 L640 1028"></path>
-</g>
-<path fill="#1C2E5E" stroke="#1C2E5E" stroke-width="10" stroke-linejoin="round" transform="translate(5 8)" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
-<path fill="url(#fpGlossGrey)" stroke="#2559D4" stroke-width="10" stroke-linejoin="round" d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
-<path fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75" d="M608 757 L752 689"></path>
-<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" d="M608 757 L752 689"></path>
-</g>
-</g>
-</g>
-
-<g class="fp-par" data-ship="1">
-<g class="fp-in fp-in2">
-<g class="fp-ship fp-s2">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#0F1B33" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="7" stroke-linecap="round">
-<path class="fp-wake" d="M378 620 L250 683"></path>
-<path class="fp-wake" d="M536 770 L470 884"></path>
-</g>
-<path fill="#173E9E" stroke="#173E9E" stroke-width="11" stroke-linejoin="round" transform="translate(5 8)" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
-<path fill="url(#fpGlossGrey)" stroke="#2559D4" stroke-width="11" stroke-linejoin="round" d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
-<path fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.75" d="M410 604 L602 537"></path>
-<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" d="M410 604 L602 537"></path>
-</g>
-</g>
-</g>
-
-<g class="fp-par" data-ship="3">
-<g class="fp-in fp-in3">
-<g class="fp-ship fp-s4">
-<path class="fp-sh" filter="url(#fpSoft)" fill="#0F1B33" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
-<g fill="none" stroke="url(#fpWakeG)" stroke-width="6" stroke-linecap="round">
-<path class="fp-wake" d="M290 840 L190 888"></path>
-<path class="fp-wake" d="M400 950 L340 1052"></path>
-</g>
-<path fill="#6B5A00" stroke="#6B5A00" stroke-width="9" stroke-linejoin="round" transform="translate(5 8)" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
-<path fill="url(#fpGlossYellow)" stroke="#8A7400" stroke-width="9" stroke-linejoin="round" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
-<path fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75" d="M318 830 L440 775"></path>
-<path class="fp-glint" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" d="M318 830 L440 775"></path>
-</g>
-</g>
-</g>
-</svg>
-</button>
-<div class="sea-cap" aria-hidden="true">
-<span>Heading 045° · click to splash</span>
-<span>4 ships</span>
-</div>
-</div>
-</div>
-
-<div class="win-foot">
-<span>Go 1.27 · Node 24 · Docker · PWA</span>
-<span>MIT</span>
-</div>
+<main>
+<section class="hero">
+  <div class="wrap">
+    <figure>
+      <picture>
+        <source srcset="docs/brand/jungle-monkey-hero.webp" type="image/webp">
+        <img src="docs/brand/jungle-monkey-hero.png" alt="A painted orange-brown monkey on a branch in a green jungle" width="1200" height="1200" fetchpriority="high">
+      </picture>
+      <figcaption><span>Fig. 1: Field unit</span><span>Nº 01</span></figcaption>
+    </figure>
+    <div>
+      <p class="label">Agent field unit · Nº 01</p>
+      <h1>Jungle Monkey</h1>
+      <p class="sub">Send a coding agent into your GitHub repo from your phone. Get a pull request back.</p>
+      <div class="cta">
+        <a class="btn ink" href="#setup">Set it up</a>
+        <a class="btn" href="https://github.com/AndrewSl105/jungle_monkey">View on GitHub</a>
+      </div>
+      <p class="agents">Claude Code · Codex · Cursor · self-hosted · MIT</p>
+    </div>
+  </div>
 </section>
 
-<section id="how" class="win" aria-labelledby="how-title">
-<div class="tb">
-<svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="#FFFFFF" d="M3 1h7l3 3v11H3z"></path><path fill="none" stroke="#2559D4" stroke-width="1.2" d="M5.5 6.5h5M5.5 9h5M5.5 11.5h3"></path></svg>
-<span class="tb-t">01 · Ship's log - FleetOps Setup Wizard</span>
-<span class="tb-b" aria-hidden="true">
-<span><svg width="12" height="12"><use href="#fp-ctl-min"></use></svg></span>
-<span><svg width="12" height="12"><use href="#fp-ctl-max"></use></svg></span>
-<span class="x"><svg width="12" height="12"><use href="#fp-ctl-x"></use></svg></span>
-</span>
-</div>
-<div class="body split">
-
-<div class="stack">
-<div class="sec-head">
-<span class="eyebrow">How it works</span>
-<h2 id="how-title" class="h2">Describe a change. Get a pull request.</h2>
-<p class="lead">This is the real mobile app, replayed. Tap a step to jump to it.</p>
-</div>
-<ol id="steps" class="fp-steps"></ol>
-<div class="actions">
-<button type="button" id="playBtn" class="btn">
-<svg id="pauseIcon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 2h3v10H3zM8 2h3v10H8z"></path></svg>
-<svg id="playIcon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="display: none"><path d="M3 1.5v11l9-5.5z"></path></svg>
-<span id="playLabel">Pause</span></button>
-<button type="button" id="restartBtn" class="btn">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="fill: none"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>
-Restart</button>
-</div>
-</div>
-
-<div id="phWrap">
-<div id="phSizer" style="width: 384px; height: 784px; position: relative">
-<div id="phone" class="fp-phone" role="img" aria-label="Animated demo of the FleetOps mobile app: a task is created, Claude works in a container, asks a question, and opens a pull request.">
-<div class="fp-screen">
-
-<div id="scrList" class="fp-scr">
-<div class="fp-title">Tasks</div>
-<div class="fp-tabs">
-<span id="tabActive" class="fp-tab on">Active</span>
-<span id="tabPr" class="fp-tab">PR open</span>
-<span class="fp-tab">Done</span>
-<span class="fp-tab">Failed</span>
-</div>
-<div style="position: absolute; left: 16px; top: 114px; display: flex; gap: 6px">
-<span class="fp-chip">Vatary</span><span class="fp-chip">FleetOps</span><span class="fp-chip">Bioma</span>
-</div>
-
-<div id="listActive" style="position: absolute; left: 16px; top: 158px; width: 328px; display: flex; flex-direction: column; gap: 8px; transition: opacity .25s">
-<div class="fp-card">
-<div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start">
-<span class="fp-card-t">Retry webhook deliveries with backoff</span>
-<span class="fp-badge" style="border-color: #C5D4F5; background: #EAF0FD; color: #1D4FC4"><span class="dot"></span>Running</span>
-</div>
-<div class="mono fp-meta" style="margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Grep "deliver(" internal/</div>
-<div class="fp-meta" style="margin-top: 8px; display: flex; gap: 8px"><span>FleetOps</span><span>·</span><span>25 minutes ago</span><span style="margin-left: auto">$0.38</span></div>
-</div>
-<div class="fp-card">
-<div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start">
-<span class="fp-card-t">Migrate components to the new design tokens</span>
-<span class="fp-badge" style="border-color: #DCE4F3; background: #F4F7FC; color: #4A5878"><span class="dot"></span>Queued</span>
-</div>
-<div class="fp-meta" style="margin-top: 8px; display: flex; gap: 8px"><span>Bioma</span><span>·</span><span>2 minutes ago</span><span style="margin-left: auto">$0.00</span></div>
-</div>
-</div>
-
-<div id="listPr" style="position: absolute; left: 16px; top: 158px; width: 328px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transition: opacity .25s">
-<div class="fp-card">
-<div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start">
-<span class="fp-card-t">Add a CSV export button to the Tables toolbar.</span>
-<span class="fp-badge" style="border-color: #D8C8FB; background: #F1EBFE; color: #6D28D9"><span class="dot"></span>PR open</span>
-</div>
-<div class="mono fp-meta" style="margin-top: 4px">CI success</div>
-<div class="fp-meta" style="margin-top: 8px; display: flex; gap: 8px"><span>Vatary</span><span>·</span><span>just now</span><span style="margin-left: auto">$1.84</span></div>
-</div>
-</div>
-</div>
-
-<div id="scrNew" class="fp-scr" style="opacity: 0">
-<div class="fp-title">New task</div>
-<div class="fp-label" style="top: 62px">Project</div>
-<div class="fp-field" style="top: 84px">Vatary<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#4A5878" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m1 1 4 4 4-4"></path></svg></div>
-<div class="fp-label" style="top: 142px">Repository</div>
-<div class="fp-field mono" style="top: 164px; font-size: 13px">andrewsl105/vatary-server<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#4A5878" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m1 1 4 4 4-4"></path></svg></div>
-<div class="fp-label" style="top: 224px">What should Claude do?</div>
-<div id="ta" class="fp-ta">
-<span id="taPh" style="color: #4A5878">Describe the change. Claude works on a new branch and opens a PR.</span><span id="taTyped"></span><span id="caret" style="display: inline-block; width: 2px; height: 16px; vertical-align: -3px; background: #2559D4; opacity: 0"></span>
-</div>
-<div style="position: absolute; left: 10px; top: 412px; display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; font-size: 13px; font-weight: 600; color: #1D4FC4">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"></path></svg>
-Attach images</div>
-<div class="fp-label" style="top: 464px">Title (optional)</div>
-<div class="fp-field" style="top: 486px; color: #4A5878">Defaults to the first line of the prompt</div>
-<div id="startBtn" class="fp-press" style="position: absolute; left: 16px; top: 550px; width: 328px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600">Start task</div>
-</div>
-
-<div id="scrDet" class="fp-scr" style="opacity: 0; transform: translateX(60px)">
-<svg style="position: absolute; left: 16px; top: 22px" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0F1B33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>
-<div style="position: absolute; left: 52px; top: 18px; width: 260px; font-size: 16px; line-height: 22px; font-weight: 700">Add a CSV export button to the Tables toolbar.</div>
-<svg style="position: absolute; right: 14px; top: 22px" width="24" height="24" viewBox="0 0 24 24" fill="#0F1B33" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
-<div class="fp-meta" style="position: absolute; left: 16px; top: 72px; width: 328px; height: 26px; display: flex; align-items: center; gap: 10px; white-space: nowrap">
-<span id="stBadge" class="fp-badge" style="transition: background .3s, color .3s, border-color .3s"><span class="dot"></span><span id="stLabel">Queued</span></span>
-<span style="flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis">vatary <span class="mono">/ vatary-server</span></span>
-<span id="cost" style="flex: none">$0.00</span>
-<span id="prChip" class="fp-badge" style="display: none; border-color: #D8C8FB; background: #F1EBFE; color: #6D28D9">PR #42</span>
-</div>
-<div id="branch" class="mono fp-meta" style="position: absolute; left: 16px; top: 104px; opacity: 0; transition: opacity .3s">agent/57-add-csv-export</div>
-<div class="fp-dtabs">
-<span class="fp-dtab on">Activity</span>
-<span class="fp-dtab">Diff</span>
-<span class="fp-dtab">Info</span>
-</div>
-
-<div style="position: absolute; left: 0; top: 172px; width: 360px; height: 478px; overflow: hidden">
-<div id="tl" style="padding: 12px 16px 0; display: flex; flex-direction: column; gap: 8px; transition: transform .6s cubic-bezier(.2,.7,.2,1)">
-<div class="fp-it fp-div" data-it="7300,22">Status: Preparing</div>
-<div class="fp-it fp-div" data-it="8000,22">Run started (initial)</div>
-<div class="fp-it fp-msg" data-it="8500,82" style="height: 82px; max-width: 92%; padding: 10px 14px; font-size: 13px; line-height: 20px">I'll add a CSV export action to the Tables toolbar. First, let me look at how tables are rendered.</div>
-<div class="fp-it fp-tool" data-it="9500,32"><svg width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l4-4z"></path></svg><b>Read</b><span class="mono">· src/tables/TableView.tsx</span></div>
-<div class="fp-it fp-tool" data-it="10200,32"><svg width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l4-4z"></path></svg><b>Grep</b><span class="mono">· "TableToolbar" src/</span></div>
-<div id="q" class="fp-it fp-card fp-ask" data-it="10900,156" style="height: 156px; padding: 12px 14px; transition: opacity .4s, transform .4s, border-color .3s">
-<div style="height: 18px; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #8A5A00"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"></path></svg>Claude asks</div>
-<div style="margin-top: 6px; height: 40px; font-size: 14px; line-height: 20px">Should the export include hidden columns?</div>
-<div style="margin-top: 12px; display: flex; gap: 8px">
-<span id="qB1" class="fp-ans">Visible only</span>
-<span id="qB2" class="fp-ans">All columns</span>
-</div>
-<div id="qAns" class="fp-meta" style="margin-top: 8px; opacity: 0; transition: opacity .3s">Answered via web</div>
-</div>
-<div class="fp-it fp-tool" data-it="13400,32"><svg width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l4-4z"></path></svg><b>Edit</b><span class="mono">· src/tables/export.ts</span></div>
-<div class="fp-it fp-tool" data-it="14000,32"><svg width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l4-4z"></path></svg><b>Edit</b><span class="mono">· src/tables/TableToolbar.tsx</span></div>
-<div class="fp-it fp-tool" data-it="14600,32"><svg width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l4-4z"></path></svg><b>Bash</b><span class="mono">· pnpm test tables</span></div>
-<div class="fp-it fp-card" data-it="15400,44" style="height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A5878" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M3 12h6M15 12h6"></path></svg>Committed 4 files<span class="mono" style="font-size: 12px; color: #047857">+186</span><span class="mono" style="font-size: 12px; color: #B91C1C">−12</span><span class="mono fp-meta" style="margin-left: auto">a91c3f0</span></div>
-<div class="fp-it fp-div" data-it="16000,22">Status: Pushing</div>
-<div class="fp-it fp-card" data-it="16400,112" style="height: 112px; border-left: 4px solid #047857; padding: 12px 14px; font-size: 13px; line-height: 19px">
-<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #047857; margin-bottom: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg>Done</div>
-<div>Added <strong>Export CSV</strong> to the Tables toolbar:</div>
-<div>• <code style="font-size: 12px; padding: 0 4px">exportCsv()</code> streams rows with quoting</div>
-<div>• unit tests for escaping</div>
-</div>
-<div class="fp-it fp-card" data-it="17200,44" style="height: 44px; display: flex; align-items: center; gap: 10px; border-left: 4px solid #7C3AED; padding: 0 12px; font-size: 13px; font-weight: 700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle><path d="M6 8.5v7M18 15.5V9a3 3 0 0 0-3-3h-4"></path></svg>Opened PR #42<svg style="margin-left: auto" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A5878" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6H5V6h6"></path></svg></div>
-<div class="fp-it" data-it="18200,30" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 8px; font-size: 12px; color: #047857"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>CI success · ci / test</div>
-</div>
-</div>
-
-<div style="position: absolute; left: 0; top: 650px; width: 360px; height: 110px; padding: 8px 12px 0; border-top: 1px solid #DCE4F3; background: #FFFFFF">
-<div id="compHint" class="fp-meta" style="height: 18px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"></div>
-<div style="margin-top: 6px; display: flex; align-items: flex-end; gap: 6px">
-<span class="fp-ib" style="width: 40px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3E4C6B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"></path></svg></span>
-<div id="compPh" class="fp-meta" style="flex: 1; height: 40px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #B9C7E3; border-radius: 8px; font-size: 13px"></div>
-<span class="fp-ib" style="width: 44px; border-color: #173E9E; background: #2559D4"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></span>
-</div>
-</div>
-</div>
-
-<div id="nav" class="fp-bar" style="position: absolute; left: 0; top: 700px; width: 360px; height: 60px; padding: 4px 6px 12px; display: grid; gap: 4px; grid-template-columns: repeat(4, minmax(0, 1fr)); transition: opacity .3s">
-<span id="navTasks" class="fp-nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="6" height="6" rx="1"></rect><path d="m3 17 2 2 4-4M13 6h8M13 12h8M13 18h8"></path></svg>Tasks</span>
-<span id="navPlus" class="fp-nav start"><svg width="18" height="18" fill="#FFFFFF" aria-hidden="true"><use href="#fp-logo"></use></svg>New</span>
-<span class="fp-nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M2 4h7l2 3h11v13H2z"></path></svg>Projects</span>
-<span class="fp-nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"></path></svg>Settings</span>
-</div>
-
-<div id="toast" class="fp-toast"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>Task started</div>
-
-<div id="finger" style="position: absolute; left: 180px; top: 400px; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; background: rgba(15, 27, 51, 0.22); border: 2px solid rgba(255, 255, 255, 0.9); opacity: 0; transition: left .5s cubic-bezier(.4,0,.2,1), top .5s cubic-bezier(.4,0,.2,1), opacity .2s, transform .15s, box-shadow .3s; pointer-events: none"></div>
-</div>
-</div>
-</div>
-</div>
-</div>
+<section class="block" id="how">
+  <div class="wrap">
+    <p class="label">Section 01 · Procedure</p>
+    <h2>How it works</h2>
+    <ol class="ledger" style="border-top:2px solid var(--ink)">
+      <li><span class="n">01</span><div><h3>Describe the change.</h3><p>Type it on your phone and attach screenshots or files.</p></div></li>
+      <li><span class="n">02</span><div><h3>The agent works on a new branch. <span class="stamp run">● Running</span></h3><p>Pick Claude Code, Codex or Cursor per project or per task, and follow every step live.</p></div></li>
+      <li><span class="n">03</span><div><h3>Answer its questions. <span class="stamp ask">? Needs answer</span></h3><p>When Claude needs a decision, the task shows its question with answer buttons. Codex and Cursor make their own choices and list open questions in the summary.</p></div></li>
+      <li><span class="n">04</span><div><h3>Get a pull request. <span class="stamp pr">✓ PR open</span></h3><p>Read the summary, the PR and the CI result, and send a follow-up if something needs changing.</p></div></li>
+    </ol>
+  </div>
 </section>
 
-<section id="security" class="win" aria-labelledby="security-title">
-<div class="tb">
-<svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="8" rx="1.5" fill="#F5D90A"></rect><path fill="none" stroke="#FFFFFF" stroke-width="1.6" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
-<span class="tb-t">02 · The hull - Properties</span>
-<span class="tb-b" aria-hidden="true">
-<span><svg width="12" height="12"><use href="#fp-ctl-min"></use></svg></span>
-<span><svg width="12" height="12"><use href="#fp-ctl-max"></use></svg></span>
-<span class="x"><svg width="12" height="12"><use href="#fp-ctl-x"></use></svg></span>
-</span>
-</div>
-<div class="body" style="display: flex; flex-direction: column; gap: 36px">
-<div style="display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-end; justify-content: space-between">
-<div class="sec-head" style="flex: 1 1 520px">
-<span class="eyebrow">Security</span>
-<h2 id="security-title" class="h2">The agent sails.<br>The server holds the keys.</h2>
-</div>
-<p class="lead" style="flex: 1 1 320px; max-width: 440px">The agent never gets a GitHub token or Docker access. The server holds every credential and performs every side effect.</p>
-</div>
-
-<div class="hull">
-
-<div class="hull-card">
-<span class="eyebrow">You · on deck</span>
-<svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" rx="1" fill="#2559D4"></rect><path d="M11 18.5h2" stroke="#0F1B33" stroke-width="1.4" stroke-linecap="round"></path></svg>
-<h3>Your phone</h3>
-<ul>
-<li>Installable web app (PWA)</li>
-<li>Describes the change</li>
-<li>Answers questions</li>
-</ul>
-</div>
-
-<div class="hull-arrow">
-<span>task →</span>
-<svg width="72" height="12" viewBox="0 0 72 12" aria-hidden="true"><path d="M2 6h64" stroke-width="2" stroke-dasharray="4 4"></path><path d="m62 1 7 5-7 5z" fill="#2559D4" stroke="none"></path></svg>
-<span>← progress</span>
-</div>
-
-<div class="hull-card key">
-<span class="eyebrow">Server · the bridge</span>
-<svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4.5" fill="#F5D90A" stroke="#0F1B33" stroke-width="1.4"></circle><path d="m11.2 11.8 8.3-8.3M17 6l2.5 2.5M14.5 8.5 16.5 10.5" fill="none" stroke="#0F1B33" stroke-width="1.8" stroke-linecap="round"></path></svg>
-<h3>Holds every key</h3>
-<ul>
-<li>GitHub token and Docker access</li>
-<li>Commits, pushes and opens the PR</li>
-<li>Single owner, self-hosted</li>
-</ul>
-</div>
-
-<div class="hull-arrow">
-<span>checkout only</span>
-<svg width="72" height="12" viewBox="0 0 72 12" aria-hidden="true"><path d="M2 6h64" stroke-width="2" stroke-dasharray="4 4"></path><path d="m62 1 7 5-7 5z" fill="#2559D4" stroke="none"></path></svg>
-<span>no keys</span>
-</div>
-
-<div class="hull-card">
-<span class="eyebrow">Container · the vessel</span>
-<svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4" stroke-linejoin="round"></path><path d="m3 8 9 5 9-5M12 13v8" fill="none" stroke="#0F1B33" stroke-width="1.4"></path></svg>
-<h3>The agent at work</h3>
-<ul>
-<li>Claude Code, Codex or Cursor, in a fresh container per task</li>
-<li>Only a checkout of the repository</li>
-<li>No GitHub token, no Docker socket</li>
-</ul>
-</div>
-
-</div>
-</div>
+<section class="block" aria-labelledby="shots-h">
+  <div class="wrap">
+    <p class="label">Section 02 · Exhibits</p>
+    <h2 id="shots-h">The field log</h2>
+    <div class="shots">
+      <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tasks-phone-dark.png"><img src="docs/screenshots/tasks-phone-light.png" alt="Task list with running, waiting and paused tasks" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Task list</figcaption></figure>
+      <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-question-phone-dark.png"><img src="docs/screenshots/task-question-phone-light.png" alt="A task waiting on a question, with answer buttons" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Agent asks</figcaption></figure>
+      <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-pr-phone-dark.png"><img src="docs/screenshots/task-pr-phone-light.png" alt="A finished task with its summary, pull request and CI result" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Pull request</figcaption></figure>
+      <figure class="wide"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/task-running-desktop-dark.png"><img src="docs/screenshots/task-running-desktop-light.png" alt="Desktop: rail, task list and a running task with its live timeline" width="1440" height="900" loading="lazy" decoding="async"></picture><figcaption>Desktop · task running</figcaption></figure>
+    </div>
+  </div>
 </section>
 
-<section id="features" class="win" aria-labelledby="features-title">
-<div class="tb">
-<svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="#F5D90A" d="M1.5 3.5h5l1 1.5h7v8.5h-13z"></path></svg>
-<span class="tb-t">03 · The helm - Exploring</span>
-<span class="tb-b" aria-hidden="true">
-<span><svg width="12" height="12"><use href="#fp-ctl-min"></use></svg></span>
-<span><svg width="12" height="12"><use href="#fp-ctl-max"></use></svg></span>
-<span class="x"><svg width="12" height="12"><use href="#fp-ctl-x"></use></svg></span>
-</span>
-</div>
-<div class="body" style="display: flex; flex-direction: column; gap: 28px">
-<div class="sec-head">
-<span class="eyebrow">Features</span>
-<h2 id="features-title" class="h2">Steer from wherever you are.</h2>
-</div>
-<div class="tbl" role="region" aria-label="Features" tabindex="0">
-<table>
-<thead>
-<tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">Description</th><th scope="col">Type</th></tr>
-</thead>
-<tbody>
-<tr>
-<td class="n">01</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><path d="M12 6.5v7M9 10.5l3 3 3-3" fill="none" stroke="#2559D4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>Installable app</h3></td>
-<td>A progressive web app: add it to your home screen and it opens full screen, like a native app.</td>
-<td><span class="badge"><span class="dot dot-blue"></span>PWA</span></td>
-</tr>
-<tr>
-<td class="n">02</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="8" y="5" width="8" height="11" rx="1" fill="#2559D4"></rect></svg>Mobile first</h3></td>
-<td>Task board, live progress and one-tap answers laid out for a phone, with a taskbar within thumb reach.</td>
-<td><span class="badge"><span class="dot dot-yellow"></span>Phone</span></td>
-</tr>
-<tr>
-<td class="n">03</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" fill="#F4F7FC" stroke="#0F1B33" stroke-width="1.4"></rect><rect x="4" y="5" width="16" height="10" rx="1" fill="#2559D4"></rect><path d="M8 21h8M12 17v4" stroke="#0F1B33" stroke-width="1.4" stroke-linecap="round"></path></svg>Desktop too</h3></td>
-<td>The same app in any browser, with a Start menu sidebar and the task next to the list.</td>
-<td><span class="badge"><span class="dot dot-green"></span>Browser</span></td>
-</tr>
-<tr>
-<td class="n">04</td>
-<td><h3><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H9l-5 4v-4H3z" fill="#FFFFFF" stroke="#0F1B33" stroke-width="1.4" stroke-linejoin="round"></path><path d="M7 8h10M7 11h7" stroke="#2559D4" stroke-width="1.6" stroke-linecap="round"></path></svg>Any coding agent</h3></td>
-<td>Claude Code, OpenAI Codex or Cursor, chosen per project or per task.</td>
-<td><span class="badge"><span class="dot dot-blue"></span>Agents</span></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="win-foot" aria-hidden="true">
-<span>4 object(s)</span>
-<span>3 agents</span>
-</div>
+<section class="block" id="keys" aria-labelledby="keys-h">
+  <div class="wrap">
+    <p class="label">Section 03 · Security</p>
+    <h2 id="keys-h">Your keys stay with you</h2>
+    <table class="spec">
+      <tr><th scope="row">Owner</th><td>One: you. It runs on your own server.</td></tr>
+      <tr><th scope="row">Agent container</th><td>Sealed, with only the code it was asked to change.</td></tr>
+      <tr><th scope="row">GitHub token</th><td>None inside the container.</td></tr>
+      <tr><th scope="row">Docker access</th><td>None inside the container.</td></tr>
+      <tr><th scope="row">Host network</th><td>None inside the container.</td></tr>
+      <tr><th scope="row">Pushes &amp; pull requests</th><td>Done by your server, which keeps every key.</td></tr>
+      <tr><th scope="row">Sign-in</th><td>Password plus a code from your authenticator app.</td></tr>
+    </table>
+  </div>
 </section>
 
-<section id="launch" class="win" aria-labelledby="launch-title">
-<div class="tb">
-<svg width="18" height="18" fill="#FFFFFF" aria-hidden="true"><use href="#fp-logo"></use></svg>
-<span class="tb-t">04 · Weigh anchor</span>
-<span class="tb-b" aria-hidden="true">
-<span class="x"><svg width="12" height="12"><use href="#fp-ctl-x"></use></svg></span>
-</span>
-</div>
-<div class="body launch">
-<div class="cta">
-<svg viewBox="250 260 800 730" width="88" height="80" aria-hidden="true">
-<g fill="#F4F7FC" stroke="#0F1B33" stroke-width="14" stroke-linejoin="round">
-<path d="M 634,414 L 957,303 C 988,292 1014,318 1004,349 L 895,674 C 882,712 845,713 829,680 L 772,559 C 762,538 751,528 730,519 L 624,476 C 594,464 598,430 634,414 Z"></path>
-<path d="M 398,596 L 609,523 C 631,515 650,534 641,556 L 560,748 C 549,774 526,774 517,750 L 490,688 C 487,680 483,676 474,672 L 392,638 C 372,629 374,606 398,596 Z"></path>
-<path d="M 596,749 L 758,674 C 779,664 797,682 789,705 L 733,885 C 725,913 703,914 691,889 L 663,831 C 658,821 654,817 643,813 L 590,790 C 570,782 571,760 596,749 Z"></path>
-</g>
-<path fill="#F5D90A" stroke="#0F1B33" stroke-width="14" stroke-linejoin="round" d="M 307,822 L 446,760 C 464,752 481,768 473,787 L 420,932 C 413,952 393,952 386,933 L 368,884 C 365,875 361,871 353,868 L 304,851 C 288,845 289,829 307,822 Z"></path>
-</svg>
-<span class="eyebrow">Get started</span>
-<h2 id="launch-title" class="h2">Launch your fleet.</h2>
-<p class="lead" style="max-width: 480px">Open source under MIT. Runs on your own server, for one owner: you.</p>
-<div class="actions">
-<a class="btn btn-primary" href="https://github.com/AndrewSl105/FleetOps">Get it on GitHub</a>
-<a class="btn" href="https://github.com/AndrewSl105/FleetOps/blob/main/docs/DEPLOY.md">Read the setup guide</a>
-</div>
-</div>
-
-<div id="github-app" class="panel" role="group" aria-labelledby="github-app-title">
-<span class="eyebrow">GitHub App setup</span>
-<div class="panel-h">
-<h3 id="github-app-title">Bring your own GitHub App.</h3>
-<a href="https://github.com/AndrewSl105/FleetOps/blob/main/docs/DEPLOY.md#5-github-app">Full instructions...</a>
-</div>
-<p>There is no shared FleetOps app: every self-hosted server uses a GitHub App you create on your own account. Below, <code>fleetpocket.example.com</code> stands for your domain.</p>
-<ol class="fp-gh">
-<li><span class="fp-gh-n">01</span><span class="fp-gh-t">Create the App</span><span>Settings → Developer settings → GitHub Apps → New GitHub App, on your personal account. Installable: <b>Only on this account</b>.</span></li>
-<li><span class="fp-gh-n">02</span><span class="fp-gh-t">URLs and permissions</span><span>Homepage <code>https://fleetpocket.example.com</code>, webhook <code>https://fleetpocket.example.com/webhooks/github</code>, secret from <code>openssl rand -hex 32</code>. Contents and Pull requests <i>read &amp; write</i>; Metadata, Checks, Actions <i>read</i>. Events: Pull request, Check suite, Workflow run.</span></li>
-<li><span class="fp-gh-n">03</span><span class="fp-gh-t">Keys on your server</span><span>App ID → <code>GITHUB_APP_ID</code>, webhook secret → <code>GITHUB_WEBHOOK_SECRET</code> in <code>.env</code>. Private key → <code>/srv/fleetpocket/secrets/github-app.pem</code>, owned by uid 1000, <code>chmod 600</code>.</span></li>
-<li><span class="fp-gh-n">04</span><span class="fp-gh-t">Install it</span><span>Install App on the repositories FleetOps may work on. The web app's "add repository" picker lists them.</span></li>
-</ol>
-</div>
-</div>
+<section class="block" aria-labelledby="where-h">
+  <div class="wrap">
+    <p class="label">Section 04 · Terrain</p>
+    <h2 id="where-h">Run it on your phone, desktop or Mac</h2>
+    <div class="cols three">
+      <div><p class="label">Phone</p><h3>Install it as an app</h3><p>A progressive web app: add it to your home screen and it opens full screen. Also works as a Telegram Mini App.</p></div>
+      <div><p class="label">Desktop</p><h3>Any browser</h3><p>Rail, task list and the open task side by side, plus a canvas of live terminals.</p></div>
+      <div><p class="label">Mac</p><h3>Optional runner</h3><p>Add your Mac in Settings → Computers and choose per project or per task where it runs. One login, one task list.</p></div>
+    </div>
+  </div>
 </section>
 
+<section class="block" id="setup" aria-labelledby="setup-h">
+  <div class="wrap">
+    <p class="label">Section 05 · Deployment</p>
+    <h2 id="setup-h">Set it up</h2>
+    <p>Run the installer on your server. It installs Docker if needed, asks for your domain, agents and keys, starts everything and prints a setup link. Run it again later to update.</p>
+    <div class="cmd"><code id="cmd">curl -fsSL https://raw.githubusercontent.com/AndrewSl105/FleetOps/main/deploy/install.sh | sh</code><button type="button" id="copy" aria-label="Copy the install command">Copy</button></div>
+    <ul class="req">
+      <li>A small Linux server (Ubuntu 24.04 with Docker) and a domain</li>
+      <li>A key for at least one agent: a Claude subscription or Anthropic API key, an OpenAI API key for Codex, or a Cursor API key</li>
+      <li>A GitHub account, for your own GitHub App</li>
+      <li>Optional: a Telegram bot, and a Mac for local tasks</li>
+    </ul>
+    <p style="margin-top:20px"><a href="docs/DEPLOY.md">Read the full setup guide →</a></p>
+  </div>
+</section>
 </main>
 
-<footer class="site-foot">
-<svg class="hills" viewBox="0 0 1440 140" preserveAspectRatio="none" aria-hidden="true">
-<path fill="#6FAE4E" d="M0 92C220 30 470 18 730 64c230 40 450 2 710 22v54H0z"></path>
-<path fill="#3F7A2C" d="M0 126c260-50 560-52 860-14 220 28 400 16 580-4v32H0z"></path>
-</svg>
-<div class="foot-band">
-<div class="foot-in">
-<span>FleetOps · MIT License · Heading 045°</span>
-<span>Not affiliated with Anthropic, OpenAI or Cursor</span>
-</div>
-</div>
+<footer>
+  <div class="wrap">
+    <img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="48" height="48" loading="lazy">
+    <nav aria-label="Footer">
+      <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
+      <a href="docs/DEPLOY.md">Setup guide</a>
+      <a href="docs/OPERATIONS.md">Operations</a>
+      <a href="LICENSE">License</a>
+    </nav>
+    <span class="mit">MIT</span>
+  </div>
 </footer>
-
 <script>
-// Hero: the fleet follows the pointer; a click splashes and pushes nearby ships away.
-(function () {
-  var sea = document.getElementById('sea');
-  var seaPar = document.getElementById('seaPar');
-  var pars = [0, 1, 2, 3].map(function (i) { return sea.querySelector('[data-ship="' + i + '"]'); });
-  var ships = [[810, 500], [510, 640], [690, 790], [385, 860]];
-  var depth = [1, 0.62, 0.8, 0.48];
-  var mx = 0, my = 0, kicks = null, raf = 0, kickTimer = 0, next = 0;
-  var splashN = [0, 0, 0];
-  var clamp = function (v) { return Math.max(-1, Math.min(1, v)); };
-
-  function apply() {
-    pars.forEach(function (el, i) {
-      var d = depth[i], k = kicks ? kicks[i] : [0, 0];
-      var x = (mx * 42 * d + k[0]).toFixed(1), y = (my * 30 * d + k[1]).toFixed(1);
-      el.style.transform = 'translate(' + x + 'px, ' + y + 'px) rotate(' + (mx * 3 * d).toFixed(2) + 'deg)';
-    });
-    seaPar.style.transform = 'translate(' + (-mx * 16).toFixed(1) + 'px, ' + (-my * 12).toFixed(1) + 'px)';
-  }
-
-  function toSvg(e) {
-    var r = sea.getBoundingClientRect();
-    var vb = { x: 150, y: 200, w: 1000, h: 900 };
-    var sc = Math.min(r.width / vb.w, r.height / vb.h) || 1;
-    var ox = (r.width - vb.w * sc) / 2, oy = (r.height - vb.h * sc) / 2;
-    var cx = e.clientX, cy = e.clientY;
-    if (!e.detail) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
-    return { x: vb.x + (cx - r.left - ox) / sc, y: vb.y + (cy - r.top - oy) / sc };
-  }
-
-  sea.addEventListener('pointermove', function (e) {
-    var r = sea.getBoundingClientRect();
-    mx = clamp(((e.clientX - r.left) / r.width) * 2 - 1);
-    my = clamp(((e.clientY - r.top) / r.height) * 2 - 1);
-    if (!raf) raf = requestAnimationFrame(function () { raf = 0; apply(); });
-  });
-  sea.addEventListener('pointerleave', function () { mx = 0; my = 0; apply(); });
-  sea.addEventListener('click', function (e) {
-    var p = toSvg(e);
-    var i = next++ % 3;
-    var n = ++splashN[i];
-    // Alternating between two identical keyframes restarts the animation.
-    var cls = n % 2 ? 'fp-splash-a' : 'fp-splash-b';
-    sea.querySelectorAll('[data-splash="' + i + '"]').forEach(function (c) {
-      c.setAttribute('cx', p.x.toFixed(1));
-      c.setAttribute('cy', p.y.toFixed(1));
-      c.setAttribute('class', c.hasAttribute('data-ring2') ? cls + ' fp-ring2' : cls);
-    });
-    kicks = ships.map(function (s) {
-      var dx = s[0] - p.x, dy = s[1] - p.y;
-      var d = Math.hypot(dx, dy) || 1;
-      var f = Math.max(0, 1 - d / 480) * 70;
-      return [dx / d * f, dy / d * f];
-    });
-    apply();
-    clearTimeout(kickTimer);
-    kickTimer = setTimeout(function () { kicks = null; apply(); }, 420);
-  });
-})();
-
-// App demo: a 24.5 s replay of the mobile app, driven by one clock.
-(function () {
-  var $ = function (id) { return document.getElementById(id); };
-  var LOOP = 24500;
-  var STEPS = [
-    { a: 0, b: 6800, title: 'Describe the change', body: 'Pick a project and say what you want, from your phone or any browser.' },
-    { a: 6800, b: 8500, title: 'A fresh container spins up', body: 'Claude Code, Codex or Cursor starts in a new Docker container that holds only a checkout of your repository.' },
-    { a: 8500, b: 10900, title: 'Watch it work', body: 'Every read, edit and command streams to your phone as it happens.' },
-    { a: 10900, b: 13400, title: 'Answer its questions', body: 'When Claude needs a decision, the question comes to you. One tap answers it.' },
-    { a: 13400, b: LOOP, title: 'Get a pull request', body: 'The server commits, pushes and opens the PR. CI results land in the same timeline.' }
-  ];
-  var PROMPT = 'Add a CSV export button to the Tables toolbar. Escape quotes and cover it with tests.';
-  var TONE = {
-    accent: { bg: '#EAF0FD', fg: '#1D4FC4', bd: '#C5D4F5' },
-    amber: { bg: '#FFF8DB', fg: '#8A5A00', bd: '#F0DC8A' },
-    violet: { bg: '#F1EBFE', fg: '#6D28D9', bd: '#D8C8FB' },
-    grey: { bg: '#F4F7FC', fg: '#4A5878', bd: '#DCE4F3' }
-  };
-  var META = {
-    queued: ['Queued', 'grey'], preparing: ['Preparing', 'accent'], running: ['Running', 'accent'],
-    waiting: ['Needs answer', 'amber'], pushing: ['Pushing', 'accent'], pr: ['PR open', 'violet']
-  };
-  var COSTS = [[0, '$0.00'], [8500, '$0.12'], [10200, '$0.31'], [10900, '$0.41'], [14000, '$0.96'], [14600, '$1.28'], [16400, '$1.84']];
-  var SEG = [
-    { a: 1300, m: 1500, p: 1900, h: 2200, from: [250, 600], to: [135, 730] },
-    { a: 5300, m: 5500, p: 6300, h: 6600, from: [270, 680], to: [180, 574] },
-    { a: 11700, m: 11900, p: 12600, h: 12900, from: [230, 660], to: [86, 520] },
-    { a: 18800, m: 19000, p: 19500, h: 19800, from: [140, 220], to: [28, 34] },
-    { a: 20600, m: 20800, p: 21300, h: 21600, from: [250, 320], to: [140, 78] }
-  ];
-
-  var t = 0, last = Date.now(), visible = true, paused = false;
-
-  // Step list
-  var stepEls = STEPS.map(function (st, i) {
-    var li = document.createElement('li');
-    li.innerHTML =
-      '<button type="button" class="fp-step">' +
-      '<span class="fp-step-n">0' + (i + 1) + '</span>' +
-      '<span class="fp-step-t"></span>' +
-      '<span class="fp-step-body"></span>' +
-      '<span class="fp-step-bar"><span></span></span>' +
-      '</button>';
-    var btn = li.firstChild;
-    btn.children[1].textContent = st.title;
-    btn.children[2].textContent = st.body;
-    btn.addEventListener('click', function () { jump(st.a); });
-    $('steps').appendChild(li);
-    return { btn: btn, bar: btn.children[3].firstChild };
-  });
-  var items = Array.prototype.map.call(document.querySelectorAll('[data-it]'), function (el) {
-    var v = el.getAttribute('data-it').split(',');
-    return { el: el, at: +v[0], h: +v[1] };
-  });
-
-  function btw(a, b) { return t >= a && t < b; }
-
-  function render() {
-    STEPS.forEach(function (st, i) {
-      var on = btw(st.a, st.b), s = stepEls[i];
-      if (on) s.btn.setAttribute('aria-current', 'step'); else s.btn.removeAttribute('aria-current');
-      var pct = on ? Math.min(100, ((t - st.a) / (st.b - st.a)) * 100) : 0;
-      s.bar.style.width = pct.toFixed(1) + '%';
-    });
-
-    // Screens
-    var screen = t < 2200 || t >= 19800 ? 'list' : t < 6800 ? 'new' : 'detail';
-    $('scrList').style.opacity = screen === 'list' ? 1 : 0;
-    $('scrList').style.transform = 'translateX(' + (screen === 'list' ? 0 : -24) + 'px)';
-    $('scrNew').style.opacity = screen === 'new' ? 1 : 0;
-    $('scrDet').style.opacity = screen === 'detail' ? 1 : 0;
-    $('scrDet').style.transform = 'translateX(' + (screen === 'detail' ? 0 : 60) + 'px)';
-    $('nav').style.opacity = screen === 'detail' ? 0 : 1;
-    var prTab = t >= 21400;
-    $('tabActive').classList.toggle('on', !prTab);
-    $('tabPr').classList.toggle('on', prTab);
-    $('listActive').style.opacity = prTab ? 0 : 1;
-    $('listPr').style.opacity = prTab ? 1 : 0;
-
-    // New task: typing
-    var typeStart = 2700, typeEnd = 5200;
-    var nChars = t < typeStart ? 0 : Math.min(PROMPT.length, Math.floor(((t - typeStart) / (typeEnd - typeStart)) * PROMPT.length));
-    var focused = btw(2500, 6800);
-    $('taTyped').textContent = screen === 'new' || t >= 6800 ? PROMPT.slice(0, nChars) : '';
-    $('taPh').style.display = nChars === 0 ? 'inline' : 'none';
-    $('caret').style.opacity = focused && (t < typeEnd || Math.floor(t / 450) % 2 === 0) ? 1 : 0;
-    $('ta').classList.toggle('focus', focused);
-    $('startBtn').classList.toggle('on', btw(6300, 6500));
-
-    // Status
-    var status = 'queued';
-    if (t >= 7300) status = 'preparing';
-    if (t >= 8000) status = 'running';
-    if (t >= 10900) status = 'waiting';
-    if (t >= 12900) status = 'running';
-    if (t >= 16000) status = 'pushing';
-    if (t >= 17200) status = 'pr';
-    var tone = TONE[META[status][1]];
-    var badge = $('stBadge');
-    badge.style.background = tone.bg;
-    badge.style.color = tone.fg;
-    badge.style.borderColor = tone.bd;
-    $('stLabel').textContent = META[status][0];
-    $('prChip').style.display = status === 'pr' ? 'inline-flex' : 'none';
-    var cost = '$0.00';
-    COSTS.forEach(function (c) { if (t >= c[0]) cost = c[1]; });
-    $('cost').textContent = cost;
-    $('branch').style.opacity = t >= 7300 ? 1 : 0;
-
-    // Timeline
-    var used = 12;
-    items.forEach(function (it) {
-      var on = t >= it.at;
-      it.el.classList.toggle('on', on);
-      if (on) used += it.h + 8;
-    });
-    $('tl').style.transform = 'translateY(' + -Math.max(0, used + 4 - 478) + 'px)';
-
-    var answered = t >= 12700;
-    $('q').style.borderLeftColor = answered ? '#B9C7E3' : '#E0A400';
-    $('qB1').style.background = answered ? '#2559D4' : '';
-    $('qB1').style.borderColor = answered ? '#173E9E' : '';
-    $('qB1').style.color = answered ? '#FFFFFF' : '';
-    $('qB2').style.color = answered ? '#4A5878' : '';
-    $('qAns').style.opacity = t >= 12900 ? 1 : 0;
-    $('compHint').textContent = status === 'pr' ? '' : 'Claude reads it when this run ends; it then starts the next run.';
-    $('compPh').textContent = status === 'pr' ? 'Follow-up for a new run…' : 'Message for the next run…';
-
-    // Finger
-    var f = { x: 180, y: 400, op: 0, sc: 1, ring: 0 };
-    SEG.forEach(function (g) {
-      if (btw(g.a, g.h)) {
-        var pos = t >= g.m ? g.to : g.from;
-        var pressed = btw(g.p, g.p + 220);
-        f = { x: pos[0], y: pos[1], op: 1, sc: pressed ? 0.78 : 1, ring: pressed ? 14 : 0 };
-      } else if (btw(g.h, g.h + 300)) {
-        f = { x: g.to[0], y: g.to[1], op: 0, sc: 1, ring: 0 };
-      }
-    });
-    var finger = $('finger');
-    finger.style.left = f.x + 'px';
-    finger.style.top = f.y + 'px';
-    finger.style.opacity = f.op;
-    finger.style.transform = 'scale(' + f.sc + ')';
-    finger.style.boxShadow = '0 0 0 ' + f.ring + 'px rgba(15, 27, 51, 0.12)';
-
-    $('navTasks').classList.toggle('on', screen === 'list');
-    $('navPlus').classList.toggle('on', btw(1900, 2100));
-    var toastOn = btw(6900, 8700);
-    $('toast').style.opacity = toastOn ? 1 : 0;
-    $('toast').style.transform = 'translate(-50%, ' + (toastOn ? 0 : -16) + 'px)';
-
-    $('playIcon').style.display = paused ? '' : 'none';
-    $('pauseIcon').style.display = paused ? 'none' : '';
-    $('playLabel').textContent = paused ? 'Play' : 'Pause';
-  }
-
-  function jump(ms) { t = ms; last = Date.now(); render(); }
-
-  function measure() {
-    var w = $('phWrap').clientWidth || 384;
-    var s = Math.min(1, w / 384);
-    $('phone').style.transform = 'scale(' + s.toFixed(4) + ')';
-    $('phSizer').style.width = Math.round(384 * s) + 'px';
-    $('phSizer').style.height = Math.round(784 * s) + 'px';
-  }
-
-  $('playBtn').addEventListener('click', function () { paused = !paused; last = Date.now(); render(); });
-  $('restartBtn').addEventListener('click', function () { paused = false; jump(0); });
-  window.addEventListener('resize', measure);
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }).observe($('phWrap'));
-  }
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    paused = true;
-    t = 17400;
-  }
-  setInterval(function () {
-    var now = Date.now();
-    var dt = Math.min(200, now - last);
-    last = now;
-    if (paused || !visible || document.hidden) return;
-    t = (t + dt) % LOOP;
-    render();
-  }, 50);
-  measure();
-  render();
-})();
+document.getElementById('copy').addEventListener('click', function () {
+  var b = this
+  navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(function () {
+    b.textContent = 'Copied'
+    setTimeout(function () { b.textContent = 'Copy' }, 1600)
+  })
+})
 </script>
 </body>
 </html>

@@ -1,21 +1,43 @@
 {
-  "name": "Fleetpocket",
-  "short_name": "Fleetpocket",
-  "description": "Your fleet of coding agents: tasks on the server and on your own computers.",
+  "name": "Jungle Monkey",
+  "short_name": "JMonkey",
+  "description": "Send a coding agent into your GitHub repo from your phone. Get a pull request back.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
-  "background_color": "#ffffff",
-  "theme_color": "#064BFF",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "background_color": "#F2EFE6",
+  "theme_color": "#F2EFE6",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Canvas", "url": "/canvas" },
-    { "name": "New task", "url": "/new" }
+    {
+      "name": "New task",
+      "url": "/new"
+    },
+    {
+      "name": "Canvas",
+      "url": "/canvas"
+    }
   ]
 }

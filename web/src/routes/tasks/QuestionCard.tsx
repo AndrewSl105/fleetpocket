@@ -31,11 +31,11 @@ export function QuestionCard({ taskId, item, open }: Props) {
     <section
       aria-label={t.task.question.title}
       className={cn(
-        'win-panel px-3.5 py-3',
-        open && !answered && 'outline-2 outline-offset-[-5px] outline-amber-500',
+        'px-3.5 py-3',
+        open && !answered ? 'fm-ask' : 'fm-card',
       )}
     >
-      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+      <div className="fm-label mb-1.5 flex items-center gap-1.5 font-semibold text-signal-text">
         <CircleHelp className="size-3.5" aria-hidden="true" />
         {t.task.question.title}
       </div>

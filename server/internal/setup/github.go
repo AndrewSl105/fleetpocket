@@ -40,7 +40,7 @@ type HookAttributes struct {
 	Active bool   `json:"active"`
 }
 
-// NewManifest describes the App Fleetpocket needs: the permissions and
+// NewManifest describes the App Jungle Monkey needs: the permissions and
 // events of docs/DEPLOY.md section 5, used by internal/githubapp.
 func NewManifest(publicBaseURL string) Manifest {
 	base := strings.TrimRight(publicBaseURL, "/")
@@ -50,7 +50,7 @@ func NewManifest(publicBaseURL string) Manifest {
 		HookAttributes: HookAttributes{URL: base + "/webhooks/github", Active: true},
 		RedirectURL:    base + "/api/v1/setup/github/callback",
 		SetupURL:       base + "/setup?step=repo",
-		Description:    "Fleetpocket: coding agents that open pull requests.",
+		Description:    "Jungle Monkey: coding agents that open pull requests.",
 		Public:         false,
 		DefaultEvents:  []string{"pull_request", "check_suite", "workflow_run"},
 		DefaultPermissions: map[string]string{
@@ -92,7 +92,7 @@ func ManifestFormURL(org, state string) (string, error) {
 	return u + "?state=" + url.QueryEscape(state), nil
 }
 
-// CreatedApp is what Fleetpocket keeps from the manifest conversion.
+// CreatedApp is what Jungle Monkey keeps from the manifest conversion.
 type CreatedApp struct {
 	ID            int64
 	Slug          string

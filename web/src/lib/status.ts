@@ -14,28 +14,20 @@ import {
 import type { TaskStatus } from '@/api/types'
 import { t } from '@/i18n/en'
 
-export type Tone = 'accent' | 'amber' | 'violet' | 'green' | 'red' | 'grey'
+/** Field Manual stamp tones (fm-stamp[data-tone] in src/index.css). */
+export type Tone = 'signal' | 'ask' | 'olive' | 'danger' | 'paused' | 'plain'
 
-export const TONE_CLASSES: Record<Tone, string> = {
-  accent: 'bg-primary/12 text-primary border-primary/25',
-  amber: 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300',
-  violet: 'bg-violet-500/15 text-violet-700 border-violet-500/30 dark:text-violet-300',
-  green: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300',
-  red: 'bg-red-500/15 text-red-700 border-red-500/30 dark:text-red-300',
-  grey: 'bg-muted text-muted-foreground border-border',
-}
-
-export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: LucideIcon; spin?: boolean }> = {
-  queued: { label: t.status.queued, tone: 'grey', icon: CircleDashed },
-  preparing: { label: t.status.preparing, tone: 'accent', icon: Wrench },
-  running: { label: t.status.running, tone: 'accent', icon: Loader, spin: true },
-  waiting_input: { label: t.status.waiting_input, tone: 'amber', icon: CircleHelp },
-  paused: { label: t.status.paused, tone: 'grey', icon: CirclePause },
-  pushing: { label: t.status.pushing, tone: 'accent', icon: Upload },
-  pr_open: { label: t.status.pr_open, tone: 'violet', icon: GitPullRequest },
-  completed: { label: t.status.completed, tone: 'green', icon: CircleCheck },
-  failed: { label: t.status.failed, tone: 'red', icon: CircleX },
-  cancelled: { label: t.status.cancelled, tone: 'grey', icon: CircleSlash },
+export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: LucideIcon; blink?: boolean }> = {
+  queued: { label: t.status.queued, tone: 'plain', icon: CircleDashed },
+  preparing: { label: t.status.preparing, tone: 'signal', icon: Wrench },
+  running: { label: t.status.running, tone: 'signal', icon: Loader, blink: true },
+  waiting_input: { label: t.status.waiting_input, tone: 'ask', icon: CircleHelp },
+  paused: { label: t.status.paused, tone: 'paused', icon: CirclePause },
+  pushing: { label: t.status.pushing, tone: 'signal', icon: Upload },
+  pr_open: { label: t.status.pr_open, tone: 'olive', icon: GitPullRequest },
+  completed: { label: t.status.completed, tone: 'olive', icon: CircleCheck },
+  failed: { label: t.status.failed, tone: 'danger', icon: CircleX },
+  cancelled: { label: t.status.cancelled, tone: 'paused', icon: CircleSlash },
 }
 
 export const ALL_STATUSES = Object.keys(STATUS) as TaskStatus[]

@@ -114,7 +114,7 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
 })
 
 function BarButton({ label, onClick, asLink, close, children }: { label: string; onClick?: () => void; asLink?: string; close?: boolean; children: React.ReactNode }) {
-  const cls = 'win-caption ml-0.5 flex size-[21px] items-center justify-center [&_svg]:size-3 [&_svg]:stroke-[3]'
+  const cls = 'fm-icon-btn ml-0.5 flex size-[21px] items-center justify-center [&_svg]:size-3 [&_svg]:stroke-[3]'
   if (asLink) {
     return (
       <Link to={asLink} className={cls} aria-label={label} title={label}>

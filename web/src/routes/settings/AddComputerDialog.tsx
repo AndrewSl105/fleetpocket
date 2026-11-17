@@ -160,7 +160,7 @@ function Confirm({
       </div>
 
       {p && (
-        <div className={cn('space-y-3 rounded-xl border p-3.5', here ? 'border-emerald-500/40' : 'border-amber-500/40')}>
+        <div className={cn('space-y-3 rounded-xl border p-3.5', here ? 'border-ink' : 'border-ink')}>
           <div className="flex items-start gap-3">
             <Laptop className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="min-w-0 text-sm">
@@ -170,9 +170,9 @@ function Confirm({
                 {p.agents.length > 0 && `, ${p.agents.map((a) => t.agents[a as keyof typeof t.agents] ?? a).join(', ')}`}
               </div>
               {here ? (
-                <div className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">{w.thisComputer}</div>
+                <div className="mt-1 text-xs font-medium text-olive-text">{w.thisComputer}</div>
               ) : (
-                <div className="mt-1 flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+                <div className="mt-1 flex items-start gap-1.5 text-xs text-signal-text">
                   <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
                   <span>
                     {w.otherWarning} {w.from(p.ip)}
@@ -204,11 +204,11 @@ function Paired({ id, name, onDone }: { id: string; name: string; onDone: () => 
   return (
     <div className="space-y-4" aria-live="polite">
       <p className="flex items-center gap-2 font-medium">
-        <Check className="size-5 text-emerald-600" aria-hidden="true" /> {w.connected(name)}
+        <Check className="size-5 text-olive-text" aria-hidden="true" /> {w.connected(name)}
       </p>
       {online ? (
         <p className="flex items-center gap-2 text-sm">
-          <span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" /> {w.online(name)}
+          <span className="size-2 rounded-full bg-olive" aria-hidden="true" /> {w.online(name)}
           {node && node.agents.length > 0 && <span className="text-muted-foreground">({node.agents.map((a) => t.agents[a]).join(', ')})</span>}
         </p>
       ) : (

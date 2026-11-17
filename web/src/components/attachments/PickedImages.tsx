@@ -89,7 +89,7 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
                   // 44 px hit area around a small visible badge.
                   className="absolute -top-3 -right-3 flex size-11 items-center justify-center"
                 >
-                  <span className="flex size-6 items-center justify-center win-raised text-foreground">
+                  <span className="flex size-6 items-center justify-center fm-btn text-foreground">
                     <X className="size-3.5" />
                   </span>
                 </button>
@@ -100,7 +100,7 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
       )}
       {uploading && (
         <div className="space-y-1" role="status" aria-live="polite">
-          <div className="win-field h-3 overflow-hidden rounded-[3px] p-[2px]">
+          <div className="fm-field h-3 overflow-hidden p-[2px]">
             <div className="fp-chunks h-full transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">{t.attachments.uploading(Math.round(progress * 100))}</p>

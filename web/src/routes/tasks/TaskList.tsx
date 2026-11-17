@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Inbox, Search, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
+import { Link } from 'react-router'
+import { Logo } from '@/components/Logo'
 import { useProjects, useTasks } from '@/api/hooks'
 import type { Task } from '@/api/types'
 import { useTasksSubscription } from '@/realtime/RealtimeProvider'
@@ -74,8 +76,16 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
   return (
     <div className="flex h-full flex-col">
       <header className="shrink-0 space-y-3 px-4 pt-4 pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.tasks.title}</h1>
+        <div className="flex items-center justify-between gap-3 border-b-2 border-ink pb-3">
+          <Logo className="size-10 lg:hidden" />
+          <div className="min-w-0 flex-1">
+            <p className="fm-label truncate text-[10px] text-muted-foreground">{t.app.kicker}</p>
+            <h1 className="truncate text-[26px] leading-tight font-bold">{t.tasks.title}</h1>
+          </div>
+          <Link to="/new" className="fm-btn-signal flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-[15px] lg:hidden">
+            <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+            {t.nav.new}
+          </Link>
           <div className="relative hidden w-44 lg:block">
             <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -88,7 +98,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             />
           </div>
         </div>
-        <div role="tablist" aria-label="Filter" className="grid grid-cols-4 gap-1">
+        <div role="tablist" aria-label="Filter" className="grid grid-cols-4 border-[1.5px] border-ink">
           {GROUP_ORDER.map((g) => (
             <button
               key={g}
@@ -96,8 +106,8 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
               aria-selected={group === g}
               onClick={() => setFilter({ filter: g })}
               className={cn(
-                'win-raised h-9 text-xs text-foreground sm:text-sm',
-                group === g && 'win-pressed bg-muted font-bold',
+                'fm-label h-11 border-r border-rule text-[11px] last:border-r-0',
+                group === g ? 'fm-selected font-semibold' : 'text-foreground hover:bg-grid',
               )}
             >
               {t.tasks.filters[g]}
@@ -109,7 +119,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             {project ? (
               <button
                 onClick={() => setFilter({ project: null })}
-                className="win-pressed inline-flex h-8 shrink-0 items-center gap-1 bg-muted px-3 text-xs font-bold text-foreground"
+                className="fm-pressed inline-flex h-9 shrink-0 items-center gap-1 px-3 font-mono text-xs font-semibold"
               >
                 {projectNames.get(project) ?? project}
                 <X className="size-3.5" aria-label="Clear project filter" />
@@ -119,7 +129,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
                 <button
                   key={p.id}
                   onClick={() => setFilter({ project: p.id })}
-                  className="win-raised inline-flex h-8 shrink-0 items-center px-3 text-xs text-foreground active:win-pressed"
+                  className="fm-btn inline-flex h-9 shrink-0 items-center px-3 font-mono text-xs"
                 >
                   {p.name}
                 </button>
@@ -138,7 +148,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
         {tasks.isPending ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-[84px] rounded-xl" />
+              <Skeleton key={i} className="h-[76px] border-b border-rule" />
             ))}
           </div>
         ) : tasks.isError ? (
@@ -149,8 +159,8 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             </Button>
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <Inbox className="size-10 text-muted-foreground/60" aria-hidden="true" />
+          <div className="fm-ground flex flex-col items-center gap-3 border border-rule py-16 text-center">
+            <Logo className="size-16" />
             <p className="font-medium">{t.tasks.emptyTitle}</p>
             <p className="max-w-xs text-sm text-muted-foreground">{t.tasks.emptyBody}</p>
             <Button className="mt-1 h-11" onClick={() => navigate('/new')}>
@@ -158,9 +168,9 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             </Button>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="border-t border-rule">
             {items.map((task) => (
-              <li key={task.id} className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+              <li key={task.id} className="animate-in fade-in-0 border-b border-rule duration-150">
                 <TaskCard task={task} projectName={projectNames.get(task.project_id)} selected={task.id === selectedId} />
               </li>
             ))}

@@ -144,7 +144,7 @@ function ProjectForm({ project }: { project?: Project }) {
   return (
     <div className="h-full overflow-y-auto">
       <form onSubmit={(e) => void submit(e)} className="mx-auto max-w-2xl space-y-8 px-4 pt-4 pb-8">
-        <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{creating ? t.projects.new : project.name}</h1>
+        <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{creating ? t.projects.new : project.name}</h1>
 
         <Section title="General">
           {creating && (
@@ -182,7 +182,7 @@ function ProjectForm({ project }: { project?: Project }) {
               control={form.control}
               name={s}
               render={({ field }) => (
-                <label className="flex min-h-11 items-center justify-between gap-3 win-etched px-3">
+                <label className="flex min-h-11 items-center justify-between gap-3 fm-group px-3">
                   <span className="text-sm font-medium capitalize">{s === 'postgres' ? 'PostgreSQL' : 'Redis'}</span>
                   <Switch checked={field.value} onCheckedChange={field.onChange} />
                 </label>
@@ -248,7 +248,7 @@ function Repositories({ project }: { project: Project }) {
   const remove = useRemoveRepository(project.id)
   return (
     <Section title={f.repositories}>
-      <ul className="divide-y win-field">
+      <ul className="divide-y fm-field">
         {project.repositories.map((r) =>
           editing === r.id ? (
             <li key={r.id} className="px-3 py-2">
@@ -259,7 +259,7 @@ function Repositories({ project }: { project: Project }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 truncate font-mono text-sm">
                   {r.full_name}
-                  {r.is_default && <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-500" aria-label={f.isDefault} />}
+                  {r.is_default && <Star className="size-3.5 shrink-0 fill-signal text-signal-text" aria-label={f.isDefault} />}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {f.baseBranch}: <span className="font-mono">{r.base_branch}</span>
@@ -361,14 +361,14 @@ function AddRepository({ project, onDone }: { project: Project; onDone: () => vo
 
   if (repos.isError) {
     return (
-      <p className="win-etched px-3 py-2 text-sm text-muted-foreground">
+      <p className="fm-group px-3 py-2 text-sm text-muted-foreground">
         {isApiError(repos.error, 'github_disabled') ? t.projects.githubDisabled : t.common.somethingWrong}
       </p>
     )
   }
 
   return (
-    <div className="space-y-4 win-etched p-3">
+    <div className="space-y-4 fm-group p-3">
       <Field id="gh-repo" label={t.projects.pickRepo}>
         <Select value={name} onValueChange={setName} disabled={repos.isPending}>
           <SelectTrigger id="gh-repo" className="h-11 w-full font-mono text-sm">

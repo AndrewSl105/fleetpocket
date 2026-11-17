@@ -243,7 +243,7 @@ export function seed() {
       [repo(1, 'vatary', 'andrewsl105/vatary-server', true), repo(2, 'vatary', 'andrewsl105/vatary-web', false)],
       { services: ['postgres', 'redis'], env: { NODE_ENV: 'test' }, instructions: 'Use pnpm. Run the tests before committing.', max_turns: 80 },
     ),
-    project('fleetpocket', 'Fleetpocket', [repo(3, 'fleetpocket', 'andrewsl105/fleetpocket-server', true, 'main')], { model: 'claude-opus-5-5' }),
+    project('fleetpocket', 'Jungle Monkey', [repo(3, 'fleetpocket', 'andrewsl105/fleetpocket-server', true, 'main')], { model: 'claude-opus-5-5' }),
     project('bioma', 'Bioma', [repo(4, 'bioma', 'andrewsl105/bioma', true)]),
   ]
 

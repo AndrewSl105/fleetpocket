@@ -190,7 +190,7 @@ export function SetupPage() {
   }
 
   return (
-    <main className="win-desktop flex min-h-(--app-height) items-center justify-center px-3 py-10">
+    <main className="fm-ground flex min-h-(--app-height) items-center justify-center px-3 py-10">
       <Window title={t.setup.title} className="w-full max-w-md" bodyClassName="space-y-4 p-3">
         <div className="flex items-center gap-3">
           <Logo className="size-10 shrink-0" />

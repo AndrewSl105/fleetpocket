@@ -1,4 +1,4 @@
-// Fleetpocket service worker: makes the web app installable (PWA) and opens
+// Jungle Monkey service worker: makes the web app installable (PWA) and opens
 // it offline with the last app shell. It never touches the API: /api, the
 // WebSocket and webhooks always go to the network.
 const CACHE = 'fleetpocket-shell-v1'
