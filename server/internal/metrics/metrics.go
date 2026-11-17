@@ -26,6 +26,9 @@ type Metrics struct {
 	mcpCalls     *prometheus.CounterVec
 	mcpDuration  *prometheus.HistogramVec
 	egressBlocks *prometheus.CounterVec
+	budgetHeld   *prometheus.CounterVec
+	budgetAlerts *prometheus.CounterVec
+	budgetOvers  *prometheus.CounterVec
 }
 
 func New(st *store.Store) *Metrics {
@@ -61,9 +64,18 @@ func New(st *store.Store) *Metrics {
 		egressBlocks: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "fleetpocket_egress_blocked_total", Help: "Hosts the egress proxy refused (once per host and run), by project.",
 		}, []string{"project"}),
+		budgetHeld: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_budget_held_total", Help: "Queued tasks a monthly budget held (waiting: budget), by project and scope (global, project).",
+		}, []string{"project", "scope"}),
+		budgetAlerts: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_budget_alerts_total", Help: "Monthly budget notices sent, by scope and level (80, 100).",
+		}, []string{"scope", "level"}),
+		budgetOvers: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "fleetpocket_budget_overrides_total", Help: "Tasks the owner started despite a monthly budget, by project.",
+		}, []string{"project"}),
 	}
 	m.reg.MustRegister(m.runDuration, m.runnerExits, m.telegramErrs, m.githubErrs, m.autofixRuns, m.autofixEnds,
-		m.mcpCalls, m.mcpDuration, m.egressBlocks,
+		m.mcpCalls, m.mcpDuration, m.egressBlocks, m.budgetHeld, m.budgetAlerts, m.budgetOvers,
 		&dbCollector{st: st},
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	return m
@@ -98,13 +110,22 @@ func (m *Metrics) MCPCall(server, outcome string, d time.Duration) {
 // EgressBlocked counts one refused host.
 func (m *Metrics) EgressBlocked(project string) { m.egressBlocks.WithLabelValues(project).Inc() }
 
+// BudgetHeld, BudgetAlert and BudgetOverride count the monthly budget gate.
+func (m *Metrics) BudgetHeld(project, scope string) {
+	m.budgetHeld.WithLabelValues(project, scope).Inc()
+}
+func (m *Metrics) BudgetAlert(scope string, level int) {
+	m.budgetAlerts.WithLabelValues(scope, strconv.Itoa(level)).Inc()
+}
+func (m *Metrics) BudgetOverride(project string) { m.budgetOvers.WithLabelValues(project).Inc() }
+
 // dbCollector reads task counts and costs at scrape time.
 type dbCollector struct{ st *store.Store }
 
 var (
 	tasksDesc = prometheus.NewDesc("fleetpocket_tasks", "Tasks by status.", []string{"status"}, nil)
 	queueDesc = prometheus.NewDesc("fleetpocket_queue_length", "Tasks waiting for a slot.", nil, nil)
-	costDesc  = prometheus.NewDesc("fleetpocket_cost_usd_total", "Total Claude cost by project.", []string{"project"}, nil)
+	costDesc  = prometheus.NewDesc("fleetpocket_cost_usd_total", "Total agent cost by project (estimates included).", []string{"project"}, nil)
 )
 
 func (c *dbCollector) Describe(ch chan<- *prometheus.Desc) {

@@ -95,10 +95,12 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 
 	met := metrics.New(st)
 	hub := events.NewHub()
-	taskSvc := &tasks.Service{Store: st, Hub: hub, Files: files, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled}
+	taskSvc := &tasks.Service{Store: st, Hub: hub, Files: files, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled,
+		OnBudgetOverride: met.BudgetOverride}
 	sched := scheduler.New(&scheduler.Scheduler{
 		Cfg: cfg, Store: st, Hub: hub, Tasks: taskSvc, Hosts: registry, Files: files,
-		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome},
+		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome,
+			BudgetHeld: met.BudgetHeld, BudgetAlert: met.BudgetAlert},
 	})
 	// MCP gateway: off (no servers can be added) without SECRETS_KEY.
 	box, err := secretbox.New(cfg.SecretsKey)
