@@ -1113,6 +1113,241 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the Ideas board is on, and its columns
+         * @description Off by default, with the five default columns (inbox, shaping, ready, in_progress, done).
+         */
+        get: operations["getIdeaSettings"];
+        /**
+         * Turn the board on or off, rename, reorder and add columns
+         * @description `columns` is the whole list in order (omitted: unchanged). The five default ids must stay
+         *     (rename them instead); new columns are sent without `id`; at most 8 columns. Removing an
+         *     added column with cards (archived ones included) is 409.
+         */
+        put: operations["putIdeaSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The board (by column and position) or the archive
+         * @description Every card (at most 1000), with attachments and linked tasks. 409 `ideas_disabled` while the board is off.
+         */
+        get: operations["listIdeas"];
+        put?: never;
+        /**
+         * Add an idea at the top of a column (default Inbox)
+         * @description JSON, or `multipart/form-data` with files in `files[]` (the task attachment rules and limits).
+         *     Without a title, it is the first words of the text, else the first link's title, else the
+         *     first file's name. Links are stored with a preview (page title and og:image thumbnail)
+         *     fetched by the server from public addresses only, within 5 s.
+         */
+        post: operations["createIdea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A voice note becomes a new idea
+         * @description The recording (`audio`, its part Content-Type the recorder's: WebM, Ogg, MP4/M4A, AAC, MP3 or WAV;
+         *     at most 40 MB) is stored and transcribed with STT_PROVIDER. The transcript becomes the text and
+         *     its first sentence (at most eight words) the title. With STT off or failing, the note is saved
+         *     without a transcript and titled "Voice note <time>".
+         */
+        post: operations["createVoiceIdea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        /** One idea */
+        get: operations["getIdea"];
+        put?: never;
+        post?: never;
+        /** Delete an archived idea for good (409 while it is not archived) */
+        delete: operations["deleteIdea"];
+        options?: never;
+        head?: never;
+        /** Change the title, text, project or tags */
+        patch: operations["updateIdea"];
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a card to a column, right after another card (or on top) */
+        post: operations["moveIdea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive an idea (off the board) */
+        post: operations["archiveIdea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bring an archived idea back to the top of its column */
+        post: operations["unarchiveIdea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add files (images, screenshots, any file) to an idea */
+        post: operations["addIdeaFiles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a voice note to an idea; its transcript is appended to the text */
+        post: operations["addIdeaVoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save a link on an idea (with a preview when the page can be fetched) */
+        post: operations["addIdeaLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ideas/{id}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * An idea's file, voice note or thumbnail
+         * @description Images and voice notes are served inline with their type, other files as `application/octet-stream` downloads; `?thumb=1` is the JPEG thumbnail (images and link previews with `has_thumb`).
+         */
+        get: operations["getIdeaAttachment"];
+        put?: never;
+        post?: never;
+        /** Remove a file, voice note or link from an idea */
+        delete: operations["deleteIdeaAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats": {
         parameters: {
             query?: never;
@@ -1624,6 +1859,8 @@ export interface components {
         };
         SessionInfo: {
             ok: boolean;
+            /** @description The Ideas board is on (settings `ideas`) */
+            ideas_enabled: boolean;
             /** @enum {string} */
             kind: "web" | "telegram";
             /**
@@ -2332,7 +2569,7 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["LoopEvent"] | components["schemas"]["ScheduleEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"] | components["schemas"]["BranchReadyEvent"] | components["schemas"]["BranchActionEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckEvent"] | components["schemas"]["LoopEvent"] | components["schemas"]["ScheduleEvent"] | components["schemas"]["IdeaEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"] | components["schemas"]["BranchReadyEvent"] | components["schemas"]["BranchActionEvent"];
         /** @enum {string} */
         EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "check" | "loop" | "schedule" | "checkpoint_restored" | "branch_force_pushed" | "branch_ready" | "branch_action";
         EventBase: {
@@ -3033,6 +3270,140 @@ export interface components {
         CheckpointSettings: {
             enabled: boolean;
         };
+        IdeaColumn: {
+            /** @description Stable id: inbox, shaping, ready, in_progress, done, or one the server gave an added column */
+            id: string;
+            name: string;
+        };
+        IdeaSettings: {
+            enabled: boolean;
+            columns: components["schemas"]["IdeaColumn"][];
+        };
+        IdeaSettingsInput: {
+            enabled: boolean;
+            columns?: {
+                /** @description Omitted for a new column */
+                id?: string;
+                name: string;
+            }[];
+        };
+        IdeaAttachment: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "file" | "voice" | "link";
+            /** @description File name; the host for a link */
+            name: string;
+            /** @description Images: their type; voice: the recording's audio type; other files: detected, informational */
+            mime: string;
+            /** Format: int64 */
+            size: number;
+            width: number;
+            height: number;
+            /** @description Voice notes */
+            duration_ms: number | null;
+            /** @description Voice notes; null without STT or when it failed */
+            transcript: string | null;
+            /** @description Links */
+            url: string | null;
+            /** @description Links: the page title, when it could be fetched */
+            title: string | null;
+            /** @description A JPEG thumbnail exists (images, link previews) */
+            has_thumb: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        IdeaTask: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            status: components["schemas"]["TaskStatus"];
+            pr_url: string | null;
+            pr_number: number | null;
+        };
+        /** @description A card of the Ideas board (SPEC-server, "Ideas board"). */
+        Idea: {
+            /** Format: int64 */
+            id: number;
+            project_id: string | null;
+            title: string;
+            /** @description Markdown */
+            body: string;
+            /** @description An IdeaColumn id */
+            column: string;
+            /**
+             * Format: double
+             * @description Order inside the column, ascending
+             */
+            position: number;
+            tags: string[];
+            /** @description Why the card last moved without the owner ("Moved to Done: task #12, PR merged"); cleared by the owner's next move */
+            auto_note: string | null;
+            /** @enum {string} */
+            source: "web" | "telegram";
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Files and links */
+            attachments: components["schemas"]["IdeaAttachment"][];
+            voice_notes: components["schemas"]["IdeaAttachment"][];
+            linked_task_ids: number[];
+            /** @description Oldest first */
+            linked_tasks: components["schemas"]["IdeaTask"][];
+            /** @description The latest linked task failed (the card's ✕ stamp) */
+            failed: boolean;
+        };
+        IdeaInput: {
+            title?: string;
+            body?: string;
+            project_id?: string | null;
+            /** @description Default inbox */
+            column?: string;
+            tags?: string[];
+            links?: string[];
+        };
+        IdeaPatch: {
+            title?: string;
+            body?: string;
+            /** @description "" clears it */
+            project_id?: string;
+            tags?: string[];
+        };
+        VoiceUpload: {
+            /** Format: binary */
+            audio: string;
+            /** @description Length of the recording (the recorder's timer), capped at one hour */
+            duration_ms?: number;
+            project_id?: string;
+            column?: string;
+        };
+        /** @description An Ideas board card moved because of this task (`started`: linked and moved to In progress; `done`: its PR or local branch merged) or its task failed (`failed`: the card shows ✕). */
+        IdeaEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "idea";
+            seq: null;
+            payload: {
+                /** Format: int64 */
+                idea_id: number;
+                title: string;
+                /** @enum {string} */
+                action: "started" | "done" | "failed";
+                column: string;
+                column_name: string;
+                /** @description false when the card already was in that column */
+                moved: boolean;
+                reason: string;
+            };
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "idea";
+        };
         Checkpoint: {
             /** Format: int64 */
             id: number;
@@ -3405,6 +3776,7 @@ export interface components {
         XRequestedWith: "fleetpocket";
         Limit: number;
         TaskID: number;
+        IdeaID: number;
     };
     requestBodies: never;
     headers: never;
@@ -4473,6 +4845,11 @@ export interface operations {
                     loop?: components["schemas"]["LoopInput"];
                     /** @description `working_tree` only for local repositories (400 otherwise); default `last_commit` */
                     start_from?: components["schemas"]["StartFrom"];
+                    /**
+                     * Format: int64
+                     * @description An Ideas board card the task starts from: it is linked and moved to In progress (an `idea` event). 400 for an unknown idea, 409 when the board is off or the idea is archived
+                     */
+                    idea_id?: number;
                 };
                 "multipart/form-data": {
                     project_id: string;
@@ -4496,6 +4873,8 @@ export interface operations {
                     /** @description LoopInput as JSON */
                     loop?: string;
                     start_from?: components["schemas"]["StartFrom"];
+                    /** Format: int64 */
+                    idea_id?: number;
                     /** @description PNG, JPEG, WebP or GIF (not animated), at most 40 MB each, 100 MB together; type detected from the content */
                     "files[]"?: string[];
                 };
@@ -4513,6 +4892,7 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     getTask: {
@@ -5414,6 +5794,477 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+        };
+    };
+    getIdeaSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The setting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdeaSettings"];
+                };
+            };
+        };
+    };
+    putIdeaSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdeaSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdeaSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    listIdeas: {
+        parameters: {
+            query?: {
+                /** @description true: archived ideas, newest archived first */
+                archived?: boolean;
+                project?: string;
+                tag?: string;
+                /** @description Searches title, text, transcripts, link titles and URLs, file names */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ideas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Idea"][];
+                    };
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    createIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdeaInput"];
+                "multipart/form-data": {
+                    title?: string;
+                    body?: string;
+                    project_id?: string;
+                    column?: string;
+                    /** @description Comma-separated */
+                    tags?: string;
+                    /** @description One URL per line */
+                    links?: string;
+                    "files[]"?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    createVoiceIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["VoiceUpload"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getIdea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdeaPatch"];
+            };
+        };
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    moveIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    column: string;
+                    /**
+                     * Format: int64
+                     * @description The card it goes after, in that column; null or omitted: on top
+                     */
+                    after_id?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    archiveIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    unarchiveIdea: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    addIdeaFiles: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    "files[]": string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    addIdeaVoice: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    audio: string;
+                    duration_ms?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    addIdeaLink: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description http(s) only */
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getIdeaAttachment: {
+        parameters: {
+            query?: {
+                thumb?: "1";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdeaID"];
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            404: components["responses"]["Error"];
+            410: components["responses"]["Error"];
+        };
+    };
+    deleteIdeaAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["IdeaID"];
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The idea */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Idea"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     getStats: {

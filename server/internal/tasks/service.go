@@ -116,8 +116,11 @@ type CreateInput struct {
 	// "working_tree" (with the uncommitted changes).
 	StartFrom string `json:"start_from"`
 	// Loop runs the task until its check command passes (nil: no loop).
-	Loop   *store.LoopConfig `json:"loop"`
-	Source string            `json:"-"`
+	Loop *store.LoopConfig `json:"loop"`
+	// IdeaID links the task to an Ideas board card (the API does that after
+	// creating it); the task service itself ignores it.
+	IdeaID int64  `json:"idea_id"`
+	Source string `json:"-"`
 	// Set by schedules: the schedule, its MCP server names (nil: the
 	// project's), its per-run budget and "PR even without changes".
 	ScheduleID   *int64   `json:"-"`

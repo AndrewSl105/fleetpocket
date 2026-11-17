@@ -23,6 +23,7 @@ tags:
   - name: system
   - name: settings
   - name: schedules
+  - name: ideas
 
 paths:
   /api/v1/setup/status:
@@ -735,6 +736,7 @@ paths:
                 skills_remove: { type: array, items: { type: string }, description: Skill slugs removed from the project's skills for this task }
                 loop: { $ref: '#/components/schemas/LoopInput' }
                 start_from: { $ref: '#/components/schemas/StartFrom', description: '`working_tree` only for local repositories (400 otherwise); default `last_commit`' }
+                idea_id: { type: integer, format: int64, description: 'An Ideas board card the task starts from: it is linked and moved to In progress (an `idea` event). 400 for an unknown idea, 409 when the board is off or the idea is archived' }
           multipart/form-data:
             schema:
               type: object
@@ -752,6 +754,7 @@ paths:
                 skills_remove: { type: string, description: Comma-separated skill slugs }
                 loop: { type: string, description: 'LoopInput as JSON' }
                 start_from: { $ref: '#/components/schemas/StartFrom' }
+                idea_id: { type: integer, format: int64 }
                 'files[]':
                   type: array
                   maxItems: 10
@@ -763,6 +766,7 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 
   /api/v1/tasks/{id}:
     get:
@@ -1335,6 +1339,318 @@ paths:
           description: Saved
           content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
         '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/settings/ideas:
+    get:
+      operationId: getIdeaSettings
+      tags: [settings, ideas]
+      summary: Whether the Ideas board is on, and its columns
+      description: Off by default, with the five default columns (inbox, shaping, ready, in_progress, done).
+      responses:
+        '200':
+          description: The setting
+          content: { application/json: { schema: { $ref: '#/components/schemas/IdeaSettings' } } }
+    put:
+      operationId: putIdeaSettings
+      tags: [settings, ideas]
+      summary: Turn the board on or off, rename, reorder and add columns
+      description: |
+        `columns` is the whole list in order (omitted: unchanged). The five default ids must stay
+        (rename them instead); new columns are sent without `id`; at most 8 columns. Removing an
+        added column with cards (archived ones included) is 409.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IdeaSettingsInput' } } }
+      responses:
+        '200':
+          description: Saved
+          content: { application/json: { schema: { $ref: '#/components/schemas/IdeaSettings' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas:
+    get:
+      operationId: listIdeas
+      tags: [ideas]
+      summary: The board (by column and position) or the archive
+      description: 'Every card (at most 1000), with attachments and linked tasks. 409 `ideas_disabled` while the board is off.'
+      parameters:
+        - { name: archived, in: query, schema: { type: boolean }, description: 'true: archived ideas, newest archived first' }
+        - { name: project, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string }, description: 'Searches title, text, transcripts, link titles and URLs, file names' }
+      responses:
+        '200':
+          description: Ideas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Idea' } }
+        '409': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createIdea
+      tags: [ideas]
+      summary: Add an idea at the top of a column (default Inbox)
+      description: |
+        JSON, or `multipart/form-data` with files in `files[]` (the task attachment rules and limits).
+        Without a title, it is the first words of the text, else the first link's title, else the
+        first file's name. Links are stored with a preview (page title and og:image thumbnail)
+        fetched by the server from public addresses only, within 5 s.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IdeaInput' }
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                title: { type: string }
+                body: { type: string }
+                project_id: { type: string }
+                column: { type: string }
+                tags: { type: string, description: Comma-separated }
+                links: { type: string, description: One URL per line }
+                'files[]':
+                  type: array
+                  maxItems: 10
+                  items: { type: string, format: binary }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/voice:
+    post:
+      operationId: createVoiceIdea
+      tags: [ideas]
+      summary: A voice note becomes a new idea
+      description: |
+        The recording (`audio`, its part Content-Type the recorder's: WebM, Ogg, MP4/M4A, AAC, MP3 or WAV;
+        at most 40 MB) is stored and transcribed with STT_PROVIDER. The transcript becomes the text and
+        its first sentence (at most eight words) the title. With STT off or failing, the note is saved
+        without a transcript and titled "Voice note <time>".
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/VoiceUpload' }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    get:
+      operationId: getIdea
+      tags: [ideas]
+      summary: One idea
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateIdea
+      tags: [ideas]
+      summary: Change the title, text, project or tags
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IdeaPatch' } } }
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteIdea
+      tags: [ideas]
+      summary: Delete an archived idea for good (409 while it is not archived)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '204': { description: Deleted, with its files }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/move:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    post:
+      operationId: moveIdea
+      tags: [ideas]
+      summary: Move a card to a column, right after another card (or on top)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [column]
+              additionalProperties: false
+              properties:
+                column: { type: string }
+                after_id: { type: [integer, 'null'], format: int64, description: 'The card it goes after, in that column; null or omitted: on top' }
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/archive:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    post:
+      operationId: archiveIdea
+      tags: [ideas]
+      summary: Archive an idea (off the board)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/unarchive:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    post:
+      operationId: unarchiveIdea
+      tags: [ideas]
+      summary: Bring an archived idea back to the top of its column
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/attachments:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    post:
+      operationId: addIdeaFiles
+      tags: [ideas]
+      summary: Add files (images, screenshots, any file) to an idea
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: ['files[]']
+              additionalProperties: false
+              properties:
+                'files[]':
+                  type: array
+                  maxItems: 10
+                  items: { type: string, format: binary }
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/voice:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    post:
+      operationId: addIdeaVoice
+      tags: [ideas]
+      summary: Add a voice note to an idea; its transcript is appended to the text
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              additionalProperties: false
+              properties:
+                audio: { type: string, format: binary }
+                duration_ms: { type: integer }
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/links:
+    parameters: [{ $ref: '#/components/parameters/IdeaID' }]
+    post:
+      operationId: addIdeaLink
+      tags: [ideas]
+      summary: Save a link on an idea (with a preview when the page can be fetched)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              additionalProperties: false
+              properties:
+                url: { type: string, description: 'http(s) only' }
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/ideas/{id}/attachments/{attachmentId}:
+    parameters:
+      - { $ref: '#/components/parameters/IdeaID' }
+      - { name: attachmentId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getIdeaAttachment
+      tags: [ideas]
+      summary: An idea's file, voice note or thumbnail
+      description: 'Images and voice notes are served inline with their type, other files as `application/octet-stream` downloads; `?thumb=1` is the JPEG thumbnail (images and link previews with `has_thumb`).'
+      parameters:
+        - { name: thumb, in: query, schema: { type: string, enum: ['1'] } }
+      responses:
+        '200':
+          description: The file
+          content:
+            application/octet-stream: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/Error' }
+        '410': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteIdeaAttachment
+      tags: [ideas]
+      summary: Remove a file, voice note or link from an idea
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200':
+          description: The idea
+          content: { application/json: { schema: { $ref: '#/components/schemas/Idea' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 
   /api/v1/stats:
     get:
@@ -1990,6 +2306,11 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int64 }
+    IdeaID:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
 
   responses:
     Error:
@@ -2026,9 +2347,10 @@ components:
 
     SessionInfo:
       type: object
-      required: [ok, kind, agents, default_agent, mode]
+      required: [ok, kind, agents, default_agent, mode, ideas_enabled]
       properties:
         ok: { type: boolean }
+        ideas_enabled: { type: boolean, description: 'The Ideas board is on (settings `ideas`)' }
         kind: { type: string, enum: [web, telegram] }
         mode: { type: string, enum: [server, local], description: '`local`: `npx jungle-monkey` on the owner''s computer (local repositories, optional GitHub)' }
         agents:
@@ -2686,6 +3008,7 @@ components:
         - $ref: '#/components/schemas/CheckEvent'
         - $ref: '#/components/schemas/LoopEvent'
         - $ref: '#/components/schemas/ScheduleEvent'
+        - $ref: '#/components/schemas/IdeaEvent'
         - $ref: '#/components/schemas/CheckpointRestoredEvent'
         - $ref: '#/components/schemas/BranchForcePushedEvent'
         - $ref: '#/components/schemas/BranchReadyEvent'
@@ -2726,6 +3049,7 @@ components:
           check: '#/components/schemas/CheckEvent'
           loop: '#/components/schemas/LoopEvent'
           schedule: '#/components/schemas/ScheduleEvent'
+          idea: '#/components/schemas/IdeaEvent'
           checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
           branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
           branch_ready: '#/components/schemas/BranchReadyEvent'
@@ -3380,6 +3704,139 @@ components:
       required: [enabled]
       properties:
         enabled: { type: boolean }
+
+    IdeaColumn:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, description: 'Stable id: inbox, shaping, ready, in_progress, done, or one the server gave an added column' }
+        name: { type: string }
+
+    IdeaSettings:
+      type: object
+      required: [enabled, columns]
+      properties:
+        enabled: { type: boolean }
+        columns: { type: array, items: { $ref: '#/components/schemas/IdeaColumn' } }
+
+    IdeaSettingsInput:
+      type: object
+      required: [enabled]
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        columns:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            required: [name]
+            additionalProperties: false
+            properties:
+              id: { type: string, description: Omitted for a new column }
+              name: { type: string, minLength: 1, maxLength: 40 }
+
+    IdeaAttachment:
+      type: object
+      required: [id, kind, name, mime, size, width, height, duration_ms, transcript, url, title, has_thumb, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, enum: [file, voice, link] }
+        name: { type: string, description: 'File name; the host for a link' }
+        mime: { type: string, description: 'Images: their type; voice: the recording''s audio type; other files: detected, informational' }
+        size: { type: integer, format: int64 }
+        width: { type: integer }
+        height: { type: integer }
+        duration_ms: { type: [integer, 'null'], description: Voice notes }
+        transcript: { type: [string, 'null'], description: 'Voice notes; null without STT or when it failed' }
+        url: { type: [string, 'null'], description: Links }
+        title: { type: [string, 'null'], description: 'Links: the page title, when it could be fetched' }
+        has_thumb: { type: boolean, description: 'A JPEG thumbnail exists (images, link previews)' }
+        created_at: { type: string, format: date-time }
+
+    IdeaTask:
+      type: object
+      required: [id, title, status, pr_url, pr_number]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        status: { $ref: '#/components/schemas/TaskStatus' }
+        pr_url: { type: [string, 'null'] }
+        pr_number: { type: [integer, 'null'] }
+
+    Idea:
+      type: object
+      description: 'A card of the Ideas board (SPEC-server, "Ideas board").'
+      required: [id, project_id, title, body, column, position, tags, auto_note, source, archived_at, created_at, updated_at, attachments, voice_notes, linked_task_ids, linked_tasks, failed]
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: [string, 'null'] }
+        title: { type: string }
+        body: { type: string, description: Markdown }
+        column: { type: string, description: An IdeaColumn id }
+        position: { type: number, format: double, description: 'Order inside the column, ascending' }
+        tags: { type: array, items: { type: string } }
+        auto_note: { type: [string, 'null'], description: 'Why the card last moved without the owner ("Moved to Done: task #12, PR merged"); cleared by the owner''s next move' }
+        source: { type: string, enum: [web, telegram] }
+        archived_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        attachments: { type: array, items: { $ref: '#/components/schemas/IdeaAttachment' }, description: Files and links }
+        voice_notes: { type: array, items: { $ref: '#/components/schemas/IdeaAttachment' } }
+        linked_task_ids: { type: array, items: { type: integer, format: int64 } }
+        linked_tasks: { type: array, items: { $ref: '#/components/schemas/IdeaTask' }, description: Oldest first }
+        failed: { type: boolean, description: 'The latest linked task failed (the card''s ✕ stamp)' }
+
+    IdeaInput:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 200 }
+        body: { type: string }
+        project_id: { type: [string, 'null'] }
+        column: { type: string, description: Default inbox }
+        tags: { type: array, items: { type: string } }
+        links: { type: array, items: { type: string } }
+
+    IdeaPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string }
+        body: { type: string }
+        project_id: { type: string, description: '"" clears it' }
+        tags: { type: array, items: { type: string } }
+
+    VoiceUpload:
+      type: object
+      required: [audio]
+      additionalProperties: false
+      properties:
+        audio: { type: string, format: binary }
+        duration_ms: { type: integer, description: 'Length of the recording (the recorder''s timer), capped at one hour' }
+        project_id: { type: string }
+        column: { type: string }
+
+    IdeaEvent:
+      description: 'An Ideas board card moved because of this task (`started`: linked and moved to In progress; `done`: its PR or local branch merged) or its task failed (`failed`: the card shows ✕).'
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [idea] }
+            seq: { type: 'null' }
+            payload:
+              type: object
+              required: [idea_id, title, action, column, column_name, moved, reason]
+              properties:
+                idea_id: { type: integer, format: int64 }
+                title: { type: string }
+                action: { type: string, enum: [started, done, failed] }
+                column: { type: string }
+                column_name: { type: string }
+                moved: { type: boolean, description: false when the card already was in that column }
+                reason: { type: string }
 
     Checkpoint:
       type: object

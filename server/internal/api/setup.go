@@ -118,7 +118,7 @@ func (s *Server) setupOwnerConfirm(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.sessionInfo("web"))
+	writeJSON(w, http.StatusOK, s.sessionInfo(r.Context(), "web"))
 }
 
 // setupGitHubManifest starts the GitHub App manifest flow: the client POSTs

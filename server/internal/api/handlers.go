@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,7 +43,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.sessionInfo("web"))
+	writeJSON(w, http.StatusOK, s.sessionInfo(r.Context(), "web"))
 }
 
 func (s *Server) loginTelegram(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +76,7 @@ func (s *Server) loginTelegram(w http.ResponseWriter, r *http.Request) {
 	// The cookie works where the Mini App is the top-level page (Telegram's
 	// native apps); Telegram Web embeds it cross-site, so the client keeps
 	// this token in memory and sends it as a bearer token instead.
-	info := s.sessionInfo("telegram")
+	info := s.sessionInfo(r.Context(), "telegram")
 	info["token"] = token
 	writeJSON(w, http.StatusOK, info)
 }
@@ -101,11 +102,12 @@ func (s *Server) wsTicket(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	kind, _ := r.Context().Value(sessionKindKey).(string)
-	writeJSON(w, http.StatusOK, s.sessionInfo(kind))
+	writeJSON(w, http.StatusOK, s.sessionInfo(r.Context(), kind))
 }
 
-// sessionInfo is the SessionInfo body: the session kind and the agents tasks may use.
-func (s *Server) sessionInfo(kind string) map[string]any {
+// sessionInfo is the SessionInfo body: the session kind, the agents tasks
+// may use, the mode and whether the Ideas board is on.
+func (s *Server) sessionInfo(ctx context.Context, kind string) map[string]any {
 	def := s.Cfg.DefaultAgent
 	if def == "" {
 		def = "claude"
@@ -114,7 +116,8 @@ func (s *Server) sessionInfo(kind string) map[string]any {
 	if mode == "" {
 		mode = config.ModeServer
 	}
-	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def, "mode": mode}
+	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def, "mode": mode,
+		"ideas_enabled": s.Ideas != nil && s.Ideas.Enabled(ctx)}
 }
 
 // ---- projects ----
@@ -298,7 +301,7 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var in tasks.CreateInput
 	if isMultipart(r) {
-		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove", "loop", "start_from")
+		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove", "loop", "start_from", "idea_id")
 		if !ok {
 			return
 		}
@@ -307,8 +310,13 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
+		ideaID, err := formInt64(f, "idea_id")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid", err.Error())
+			return
+		}
 		in = tasks.CreateInput{ProjectID: f["project_id"], RepositoryID: repoID, Title: f["title"], Prompt: f["prompt"], Agent: f["agent"], Node: f["node"], Images: imgs,
-			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"]), StartFrom: f["start_from"]}
+			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"]), StartFrom: f["start_from"], IdeaID: ideaID}
 		if f["loop"] != "" {
 			if err := json.Unmarshal([]byte(f["loop"]), &in.Loop); err != nil {
 				writeError(w, http.StatusBadRequest, "invalid", "loop: "+err.Error())
@@ -319,10 +327,26 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Source = "web"
+	// A task started from an idea: check the idea first, so a bad idea_id
+	// creates no task; then link it, which moves the card to In progress.
+	if in.IdeaID != 0 {
+		if s.ideasOff(w) {
+			return
+		}
+		if err := s.Ideas.CheckLink(r.Context(), in.IdeaID); err != nil {
+			ideasErr(w, r, err)
+			return
+		}
+	}
 	v, err := s.Tasks.Create(r.Context(), in)
 	if err != nil {
 		writeErr(w, r, err)
 		return
+	}
+	if in.IdeaID != 0 {
+		if err := s.Ideas.LinkTask(r.Context(), in.IdeaID, v.Task); err != nil {
+			slog.WarnContext(r.Context(), "link idea", "idea_id", in.IdeaID, "task_id", v.ID, "err", err)
+		}
 	}
 	writeJSON(w, http.StatusCreated, v)
 }

@@ -36,7 +36,7 @@ Everything a client (the web app / Telegram Mini App) needs. The machine-readabl
 | `POST /setup/owner/confirm` `{code, totp}` | verifies the first TOTP code of the pending owner, saves it, leaves setup mode and logs in like `auth/login`. `409 setup_out_of_order` before `setup/owner` |
 | `POST /setup/github/manifest` `{organization?}` | session required. Returns `{"action_url","manifest"}`: POST the manifest (JSON text, form field `manifest`) to `action_url` (GitHub, personal account or `organizations/<org>`). `409 github_configured` if an App exists |
 | `GET /setup/github/callback?code&state` | GitHub's `redirect_url`. Checks `state` (one use, this session, 1 hour), converts `code` (`POST /app-manifests/{code}/conversions`), saves App ID + webhook secret, writes the key to `GITHUB_APP_PRIVATE_KEY_PATH`, redirects (303) to the App's installation page and restarts the server to enable it. Failures redirect to `/setup?step=github&github_error=<reason>` |
-| `GET /me` | `{"ok":true,"kind":"web"\|"telegram","agents":["claude","codex"],"default_agent":"claude","mode":"server"\|"local"}`; use it as the session check on app start. `mode` is `local` for `npx jungle-monkey` (local repositories, optional GitHub). `agents` are the coding agents with credentials on the server (`claude`, `codex`, `cursor`), the ones a task may use |
+| `GET /me` | `{"ok":true,"kind":"web"\|"telegram","agents":["claude","codex"],"default_agent":"claude","mode":"server"\|"local","ideas_enabled":false}`; use it as the session check on app start. `ideas_enabled`: the [Ideas board](#ideas-board) is on. `mode` is `local` for `npx jungle-monkey` (local repositories, optional GitHub). `agents` are the coding agents with credentials on the server (`claude`, `codex`, `cursor`), the ones a task may use |
 
 **Setup mode.** When no owner login exists (neither `ADMIN_PASSWORD_HASH` + `ADMIN_TOTP_SECRET` in the server configuration nor one saved by the wizard), every route except `/healthz`, `/webhooks/*` and `/api/v1/setup/*` answers `409 setup_required`.
 
@@ -141,7 +141,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | | |
 |---|---|
 | `GET /tasks?project=&status=` | newest first. `status` takes a comma-separated list |
-| `POST /tasks` `{project_id, prompt, repository_id?, title?, agent?, node?, output?, skills_add?, skills_remove?, loop?}` | `loop` (`{check_command, max_iterations?, budget_usd?, timeout_sec?}`; in multipart a JSON string) loops the task until the check passes ([Loops](#loops)). `output` (`pr`, `artifacts`, `pr_and_artifacts`) defaults to the project's `default_output`, else `pr`; values other than `pr` are refused with `400` until diagram collection ships. `skills_add`/`skills_remove` (slugs; comma-separated in multipart) change the project's skills for this task. `repository_id` defaults to the project's default repo; `title` to the first line of the prompt (80 chars); `agent` to the project's agent; `node` (`"server"` or a node id) to the project's host. `400 invalid` when the agent has no credentials on that host (for a node: the agents it reported when it last connected) or the node is unknown. As multipart, add images in `files[]` |
+| `POST /tasks` `{project_id, prompt, repository_id?, title?, agent?, node?, output?, skills_add?, skills_remove?, loop?, idea_id?}` | `idea_id` starts the task from an [Ideas board](#ideas-board) card: the card is linked and moved to In progress (an `idea` event); `400` for an unknown idea, `409` when the board is off or the idea is archived, and then no task is created. `loop` (`{check_command, max_iterations?, budget_usd?, timeout_sec?}`; in multipart a JSON string) loops the task until the check passes ([Loops](#loops)). `output` (`pr`, `artifacts`, `pr_and_artifacts`) defaults to the project's `default_output`, else `pr`; values other than `pr` are refused with `400` until diagram collection ships. `skills_add`/`skills_remove` (slugs; comma-separated in multipart) change the project's skills for this task. `repository_id` defaults to the project's default repo; `title` to the first line of the prompt (80 chars); `agent` to the project's agent; `node` (`"server"` or a node id) to the project's host. `400 invalid` when the agent has no credentials on that host (for a node: the agents it reported when it last connected) or the node is unknown. As multipart, add images in `files[]` |
 | `GET /tasks/{id}` | task view (see above) |
 | `GET /tasks/{id}/events?after_id=` | timeline, oldest first; `after_id` (or `cursor`) is the last event id you have. Heartbeats are not returned |
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
@@ -208,6 +208,7 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `branch_ready` | `{branch, commits, diffstat, updated, previous?}`: the task branch reached the owner's local repository (`updated`: a follow-up fast-forwarded it; `previous`: the update went to a new branch because the old one was checked out or had moved) |
   | `branch_action` | `{action: "merged"\|"checked_out"\|"discarded"\|"pushed", branch, into?, fast_forward?}`: what the owner did with a local task branch |
   | `branch_force_pushed` | `{branch, from, reason: "restore", number}`: the push after a restore rewrote the task branch with `--force-with-lease` (also a PR comment and a Telegram message) |
+  | `idea` | `{idea_id, title, action: "started"\|"done"\|"failed", column, column_name, moved, reason}`: an Ideas board card moved because of this task (`started`: linked, to In progress; `done`: its PR or local branch merged, to Done) or the task failed (`failed`: the card shows ✕) |
 
 ### CI auto-fix
 
@@ -382,6 +383,34 @@ Recurring tasks (SPEC-server, "Schedules"). None exist by default, so nothing fi
 | `GET /schedules/{id}/firings?limit=` | `{items}`, newest first: `{id, schedule_id, scheduled_for, trigger: "cron"\|"manual", outcome, reason, task_id, created_at, task_status, task_cost_usd, task_pr_url, loop_state}` |
 
 Firing outcomes: `started` (a task was created), `queued` (policy `queue` while a task of the schedule is still running, i.e. `queued`, `preparing`, `running`, `waiting_input`, `paused` or `pushing`; it starts when that task leaves those states; at most one waits; a timed one is skipped if the schedule was paused meanwhile), `skipped` (policy `skip`, or a firing already waits), `missed` (the server was down for more than one interval at that time), `failed` (the task could not be created, e.g. the project was archived). The server checks every 20 seconds. After downtime it runs at most one late firing per schedule, and only if it is less than one interval late; then the next run is the first firing after now. Times in DST gaps fire right after the gap; repeated times fire once.
+
+## Ideas board
+
+A kanban of ideas (SPEC-server, "Ideas board"). **Off by default**: while `GET /settings/ideas` says `enabled: false`, every `/ideas*` endpoint answers `409 ideas_disabled` (and so does `POST /tasks` with `idea_id`).
+
+| | |
+|---|---|
+| `GET /settings/ideas` | `{enabled, columns: [{id, name}]}`; default columns `inbox` Inbox, `shaping` Shaping, `ready` Ready, `in_progress` In progress, `done` Done |
+| `PUT /settings/ideas` `{enabled, columns?}` | `columns` is the whole list in order (omitted: unchanged); new columns are sent without `id` and get one. The five default ids must stay (rename them; `400`), at most 8 columns (`400`), and an added column can be removed only when no card, archived ones included, is in it (`409`) |
+| `GET /ideas?archived=&project=&tag=&q=` | `{items}`: the board by column and position (at most 1000), or with `archived=true` the archive (newest archived first). `q` searches title, text, transcripts, link titles and URLs and file names |
+| `POST /ideas` `{title?, body?, project_id?, column?, tags?, links?}` | `201` the idea, at the top of `column` (default `inbox`). Multipart: the same fields (`tags` comma-separated, `links` one per line) plus files in `files[]` with the task attachment rules and limits. Without a title: the first sentence of the text (at most eight words), else the first link's page title, else the first file's name |
+| `POST /ideas/voice` (multipart `audio`, `duration_ms?`, `project_id?`, `column?`) | `201` a new idea from a recording. The `audio` part's Content-Type is the recorder's (`audio/webm`, `audio/ogg`, `audio/mp4`, `audio/aac`, `audio/mpeg`, `audio/wav`; at most 40 MB). It is transcribed with `STT_PROVIDER` (the Telegram bot's speech-to-text); the transcript becomes the text and its first sentence the title. With STT off or failing, the note is kept without a transcript and titled `Voice note <time>` |
+| `GET /ideas/{id}` | the idea |
+| `PATCH /ideas/{id}` `{title?, body?, project_id?, tags?}` | `project_id: ""` clears it |
+| `POST /ideas/{id}/move` `{column, after_id?}` | puts the card right after `after_id` (a card of that column) or on top; clears `auto_note` |
+| `POST /ideas/{id}/archive` · `/unarchive` | off the board / back on top of its column |
+| `DELETE /ideas/{id}` | `204`; only for an archived idea (`409` otherwise); removes its files |
+| `POST /ideas/{id}/attachments` (multipart `files[]`) | adds files |
+| `POST /ideas/{id}/voice` (multipart `audio`, `duration_ms?`) | adds a voice note; its transcript is appended to the text |
+| `POST /ideas/{id}/links` `{url}` | saves an http(s) link with a preview when it can be fetched |
+| `GET /ideas/{id}/attachments/{attachmentId}` | the file: images and voice notes inline with their type (`?thumb=1`: the JPEG thumbnail of an image or link preview), other files as `application/octet-stream` downloads |
+| `DELETE /ideas/{id}/attachments/{attachmentId}` | removes it; returns the idea |
+
+An idea: `{id, project_id, title, body (Markdown), column, position, tags, auto_note, source: "web"\|"telegram", archived_at, created_at, updated_at, attachments, voice_notes, linked_task_ids, linked_tasks: [{id, title, status, pr_url, pr_number}], failed}`. `attachments` (files and links) and `voice_notes` are `{id, kind: "file"\|"link"\|"voice", name, mime, size, width, height, duration_ms, transcript, url, title, has_thumb, created_at}`. `position` orders cards in a column (ascending, fractional). `failed` is true while the latest linked task is `failed` (the ✕ stamp).
+
+**Link previews** are fetched by the server: http(s) on ports 80/443 only, never through a proxy, at most 3 redirects, 5 s and 512 KB of HTML (5 MB for the og:image), and every connection, redirects included, is refused unless the resolved address is public (no loopback, private, link-local, CGNAT, NAT64 or other special ranges). A failed preview keeps the bare URL.
+
+**Automatic moves.** A task created with `idea_id` moves its card to In progress. When that task's PR is merged (the webhook, the poller or `POST /tasks/{id}/merge`), or in local mode its branch is merged into the owner's branch, the card moves to Done. A PR closed without merging, a discarded branch or a cancel leave it where it is; a failure gives it `failed`. Each move sets `auto_note` and writes an `idea` event on the task. Status changes while the server is down are not replayed.
 
 ## Skills
 
