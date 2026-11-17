@@ -4294,6 +4294,8 @@ export interface operations {
                         /** @description No owner exists; every other API route answers 409 setup_required */
                         setup_required: boolean;
                         github_configured: boolean;
+                        /** @description Team mode is on: the login screen asks for an email (empty: the break-glass owner login) */
+                        team_enabled?: boolean;
                     };
                 };
             };

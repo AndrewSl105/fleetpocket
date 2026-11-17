@@ -49,6 +49,7 @@ paths:
                 properties:
                   setup_required: { type: boolean, description: No owner exists; every other API route answers 409 setup_required }
                   github_configured: { type: boolean }
+                  team_enabled: { type: boolean, description: 'Team mode is on: the login screen asks for an email (empty: the break-glass owner login)' }
 
   /api/v1/setup/owner:
     post:
