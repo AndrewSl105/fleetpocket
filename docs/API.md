@@ -133,7 +133,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
 | `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup` or `retry`; `cost_usd` is the run's own cost. Paginated with `limit`/`cursor` |
 | `GET /tasks/{id}/diff` | `{"diff", "truncated", "base", "branch"}`: `git diff base...branch` from the workspace, capped at 1 MB. `409 no_workspace` before cloning or after cleanup; `503 host_offline` while the task's node is offline |
-| `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix-guard`): `Push anyway` pushes the held fix, anything else discards it |
+| `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix_guard`): `Push anyway` pushes the held fix, anything else discards it |
 | `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`completed`: starts a new run right away. Otherwise `409` |
 | `POST /tasks/{id}/interrupt` | `running`/`waiting_input`: stops Claude and **ends the run** ("Interrupted by the user."); what it committed is pushed as for any finished run, and the session is kept. A queued message then starts the next run; otherwise send a follow-up message |
 | `POST /tasks/{id}/cancel` | ends the task (`cancelled`), stops the runner |
@@ -175,7 +175,7 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `ci` | `{status: "pending"\|"success"\|"failure", name, url}` |
   | `diff_rejected` | `{reason}` |
   | `autofix` | `{phase, …}`: one CI auto-fix step, see below |
-  | `question` | only for the CI auto-fix question: `{question_id: "autofix-guard", text, options}` with the attempt's `run_id` |
+  | `question` | only for the CI auto-fix question: `{question_id: "autofix_guard", text, options}` with the attempt's `run_id` |
 
 ### CI auto-fix
 

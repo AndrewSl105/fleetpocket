@@ -45,7 +45,7 @@ type Executor interface {
 
 // GuardQuestionID is the runner-question id of the CI auto-fix diff-guard
 // question (the scheduler asks it; the answer goes to AutoFixer.Resolve).
-const GuardQuestionID = "autofix-guard"
+const GuardQuestionID = "autofix_guard"
 
 // AutoFixer is the CI auto-fix loop (internal/cifix).
 type AutoFixer interface {

@@ -1538,7 +1538,7 @@ components:
           properties:
             type: { type: string, enum: [question] }
             run_id: { type: integer, format: int64 }
-            seq: { type: [integer, 'null'], format: int64, description: 'null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix-guard`)' }
+            seq: { type: [integer, 'null'], format: int64, description: 'null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix_guard`)' }
             payload: { $ref: '#/components/schemas/QuestionPayload' }
 
     QuestionPayload:
