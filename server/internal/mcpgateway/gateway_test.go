@@ -152,7 +152,7 @@ func TestGatewayInjectsCredentialsAndFiltersTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	defer cs.Close()
+	defer func() { _ = cs.Close() }()
 	tools, err := cs.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -290,7 +290,7 @@ func TestPostgresReadOnlyEnforced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cs.Close()
+	defer func() { _ = cs.Close() }()
 	call := func(sql string) (*mcp.CallToolResult, error) {
 		return cs.CallTool(ctx, &mcp.CallToolParams{Name: "query", Arguments: map[string]any{"sql": sql}})
 	}

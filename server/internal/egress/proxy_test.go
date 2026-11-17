@@ -18,7 +18,7 @@ import (
 func testProxy(t *testing.T, allow []string, private []string) (*httptest.Server, string, *[]string) {
 	t.Helper()
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "hello from "+r.Host)
+		_, _ = fmt.Fprint(w, "hello from "+r.Host)
 	}))
 	t.Cleanup(target.Close)
 	_, tport, _ := net.SplitHostPort(target.Listener.Addr().String())
@@ -55,13 +55,13 @@ func TestProxyAllowsAndBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Fprint(conn, "CONNECT localhost:443 HTTP/1.1\r\nHost: localhost:443\r\n\r\n")
+	_, _ = fmt.Fprint(conn, "CONNECT localhost:443 HTTP/1.1\r\nHost: localhost:443\r\n\r\n")
 	br := bufio.NewReader(conn)
 	r, err := http.ReadResponse(br, nil)
 	if err != nil || r.StatusCode != 200 {
 		t.Fatalf("connect: %v %v", r, err)
 	}
-	fmt.Fprint(conn, "GET / HTTP/1.1\r\nHost: tunnel\r\nConnection: close\r\n\r\n")
+	_, _ = fmt.Fprint(conn, "GET / HTTP/1.1\r\nHost: tunnel\r\nConnection: close\r\n\r\n")
 	r2, err := http.ReadResponse(br, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func TestProxyAllowsAndBlocks(t *testing.T) {
 	if !strings.Contains(string(b), "hello from tunnel") {
 		t.Fatalf("tunnel: %s", b)
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	// Not listed: 403 and reported once.
 	for range 2 {
@@ -107,8 +107,8 @@ func viaProxy(t *testing.T, proxyURL, raw string) (*http.Response, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
-	fmt.Fprint(conn, raw)
+	defer func() { _ = conn.Close() }()
+	_, _ = fmt.Fprint(conn, raw)
 	res, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	if err != nil {
 		t.Fatal(err)

@@ -67,7 +67,7 @@ type Server struct {
 	// Gateway is the MCP gateway (also the MCP server registry); its own
 	// endpoints under /api/mcp-gateway/ take the run token, no session.
 	Gateway *mcpgateway.Gateway
-	Now   func() time.Time
+	Now     func() time.Time
 }
 
 func (s *Server) githubConfigured() bool {

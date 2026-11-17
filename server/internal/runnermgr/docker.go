@@ -275,27 +275,27 @@ func (m *Manager) Spec(s RunnerSpec) (*container.Config, *container.HostConfig, 
 	}
 	slices.Sort(env)
 	return &container.Config{
-			Image:        s.Image,
-			Env:          env,
-			Labels:       labels(s.TaskID, s.Project, KindRunner, s.RunID),
-			OpenStdin:    true,
-			StdinOnce:    false,
-			AttachStdin:  true,
-			AttachStdout: true,
-			AttachStderr: true,
-			User:         cmpOr(s.User, "1000:1000"),
-		}, &container.HostConfig{
-			NetworkMode: container.NetworkMode(NetworkName(s.TaskID)),
-			Binds:       binds(s),
-			ExtraHosts:  s.ExtraHosts,
-			Resources: container.Resources{
-				Memory:    memory,
-				NanoCPUs:  int64(s.CPUs * 1e9),
-				PidsLimit: &pids,
-			},
-			CapDrop:     []string{"ALL"},
-			SecurityOpt: []string{"no-new-privileges"},
-		}, nil
+		Image:        s.Image,
+		Env:          env,
+		Labels:       labels(s.TaskID, s.Project, KindRunner, s.RunID),
+		OpenStdin:    true,
+		StdinOnce:    false,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		User:         cmpOr(s.User, "1000:1000"),
+	}, &container.HostConfig{
+		NetworkMode: container.NetworkMode(NetworkName(s.TaskID)),
+		Binds:       binds(s),
+		ExtraHosts:  s.ExtraHosts,
+		Resources: container.Resources{
+			Memory:    memory,
+			NanoCPUs:  int64(s.CPUs * 1e9),
+			PidsLimit: &pids,
+		},
+		CapDrop:     []string{"ALL"},
+		SecurityOpt: []string{"no-new-privileges"},
+	}, nil
 }
 
 // Runner is an attached runner container: its parsed stdout events and its

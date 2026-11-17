@@ -187,10 +187,10 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		UI:      opts.UI,
 		Local:   opts.Local,
 		Gateway: gateway,
-		Hub:   hub,
-		Nodes: nodeSvc,
-		Files: files,
-		Setup: wizard,
+		Hub:     hub,
+		Nodes:   nodeSvc,
+		Files:   files,
+		Setup:   wizard,
 		// Exit after the response is sent; Docker's restart policy starts the
 		// server again with the new GitHub App.
 		Restart: func() {

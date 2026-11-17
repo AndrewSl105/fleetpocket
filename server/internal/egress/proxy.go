@@ -86,18 +86,18 @@ func (p *Proxy) connect(w http.ResponseWriter, r *http.Request) {
 	}
 	hj, ok := w.(http.Hijacker)
 	if !ok {
-		up.Close()
+		_ = up.Close()
 		http.Error(w, "no hijack", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 	client, buf, err := hj.Hijack()
 	if err != nil {
-		up.Close()
+		_ = up.Close()
 		return
 	}
 	if n := buf.Reader.Buffered(); n > 0 {
-		b, _ := buf.Reader.Peek(n)
+		b, _ := buf.Peek(n)
 		_, _ = up.Write(b)
 	}
 	go func() {
@@ -105,8 +105,8 @@ func (p *Proxy) connect(w http.ResponseWriter, r *http.Request) {
 		closeWrite(up)
 	}()
 	_, _ = io.Copy(client, up)
-	client.Close()
-	up.Close()
+	_ = client.Close()
+	_ = up.Close()
 }
 
 func closeWrite(c net.Conn) {
@@ -114,7 +114,7 @@ func closeWrite(c net.Conn) {
 		_ = tc.CloseWrite()
 		return
 	}
-	c.Close()
+	_ = c.Close()
 }
 
 // errDenied: not on the allowlist (reported), unlike network errors.
@@ -189,8 +189,8 @@ func (p *Proxy) dialer() func(ctx context.Context, network, addr string) (net.Co
 }
 
 func publicIP(ip net.IP) bool {
-	return !(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
-		ip.IsUnspecified() || ip.IsMulticast() || ip.IsInterfaceLocalMulticast())
+	return !ip.IsLoopback() && !ip.IsPrivate() && !ip.IsLinkLocalUnicast() && !ip.IsLinkLocalMulticast() &&
+		!ip.IsUnspecified() && !ip.IsMulticast() && !ip.IsInterfaceLocalMulticast()
 }
 
 func splitHostPort(hp, def string) (string, string) {

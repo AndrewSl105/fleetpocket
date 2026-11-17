@@ -32,9 +32,6 @@ type integrations struct {
 	servers   []string
 }
 
-// active reports whether anything differs from a plain run.
-func (in *integrations) active() bool { return in.allowlist || in.mcp != nil }
-
 // prepareIntegrations sets up the task network (internal in allowlist
 // mode), the run's gateway token, the egress proxy and the MCP config sent
 // to the runner. With no MCP servers and egress open it only creates the
