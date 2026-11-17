@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -40,11 +42,27 @@ func newControl(p config.LocalPaths) *control {
 }
 
 func (c *control) call(method, path string, out any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	return c.send(method, path, nil, out)
+}
+
+// send is call with a JSON body.
+func (c *control) send(method, path string, body, out any) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, method, c.base+path, nil)
+	var r io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		r = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, r)
 	if err != nil {
 		return err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("X-Requested-With", "fleetpocket")
@@ -90,11 +108,19 @@ func runOpen(args []string) error {
 	if err != nil {
 		return err
 	}
+	return openAt(c, "")
+}
+
+// openAt opens the web app with a fresh login link, landing on next ("" = home).
+func openAt(c *control, next string) error {
 	var out struct {
 		URL string `json:"url"`
 	}
 	if err := c.call(http.MethodPost, "/api/v1/local/login-code", &out); err != nil {
 		return err
+	}
+	if next != "" {
+		out.URL += "&next=" + url.QueryEscape(next)
 	}
 	if openBrowser(out.URL) != nil {
 		fmt.Println(out.URL)

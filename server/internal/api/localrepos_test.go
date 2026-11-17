@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,6 +57,9 @@ func TestServerModeRejectsLocalRepositories(t *testing.T) {
 		{"GET", "/api/v1/local/fs"},
 		{"GET", "/api/v1/local/repos/1/status"},
 		{"POST", "/api/v1/local/repos/1/locate"},
+		{"GET", "/api/v1/local/github"},
+		{"POST", "/api/v1/local/github/device"},
+		{"POST", "/api/v1/local/github/token"},
 	} {
 		var body any
 		if tc.method == "POST" {
@@ -233,5 +237,30 @@ func TestLocalRepositoriesAPI(t *testing.T) {
 		if code, body := e.do("POST", fmt.Sprintf("/api/v1/tasks/%d/branch/%s", tid, a), nil); code != 409 {
 			t.Errorf("%s on a queued task: %d %v", a, code, body)
 		}
+	}
+}
+
+func TestLocalLoginNext(t *testing.T) {
+	ts, local := localSetup(t)
+	jar, _ := cookiejar.New(nil)
+	c := noRedirect(jar)
+	for next, want := range map[string]string{
+		"/projects/site":   "/projects/site",
+		"//evil.example/x": "/",
+		"https://evil/x":   "/",
+		"/\\evil":          "/",
+	} {
+		code, _ := local.IssueLoginCode()
+		resp, err := c.Get(ts.URL + "/auth/local?code=" + code + "&next=" + url.QueryEscape(next))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if got := resp.Header.Get("Location"); got != want {
+			t.Errorf("next %q: redirect %q, want %q", next, got, want)
+		}
+	}
+	if u := local.LoginURLTo("abc", "/projects/x"); !strings.HasSuffix(u, "code=abc&next=%2Fprojects%2Fx") {
+		t.Errorf("LoginURLTo: %s", u)
 	}
 }

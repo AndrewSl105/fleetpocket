@@ -41,12 +41,23 @@ func runStart(args []string) error {
 	}
 	p := config.LocalPaths{Root: cfg.DataDir}
 	st := cfg.LocalState
+	cwd, _ := os.Getwd()
+	startRepo := workTree(cwd)
 	if c := newControl(p); c != nil && c.ping() {
 		fmt.Fprintf(os.Stderr, "Jungle Monkey is already running at %s\n", c.base)
+		next := ""
+		if startRepo != "" {
+			if a, err := addRepo(c, startRepo); err == nil {
+				printAdded(a)
+				next = "/projects/" + a.Project.ID
+			} else {
+				fmt.Fprintf(os.Stderr, "  %s %v\n", red("Could not add this folder:"), err)
+			}
+		}
 		if f.noOpen {
 			return nil
 		}
-		return runOpen(nil)
+		return openAt(c, next)
 	}
 	if f.port != 0 && f.port != st.Port {
 		st.Port = f.port
@@ -140,7 +151,8 @@ func runStart(args []string) error {
 		return out
 	}
 	var ui = webui.Dist()
-	opts := app.Options{Local: local}
+	home, _ := os.UserHomeDir()
+	opts := app.Options{Local: local, Home: home, StartDir: startRepo, DataDir: cfg.DataDir, Secrets: sec}
 	if ui != nil {
 		opts.UI = webui.Handler(ui)
 	}
@@ -151,7 +163,18 @@ func runStart(args []string) error {
 			slog.Error("login code", "err", err)
 			return
 		}
-		u := local.LoginURL(code)
+		// Started inside a repository: add it (idempotent) and open on it.
+		next := ""
+		if startRepo != "" {
+			c := &control{base: cfg.PublicBaseURL, token: st.ControlToken}
+			if a, err := addRepo(c, startRepo); err == nil {
+				printAdded(a)
+				next = "/projects/" + a.Project.ID
+			} else {
+				fmt.Fprintf(os.Stderr, "  %s %v\n", red("Could not add this folder:"), err)
+			}
+		}
+		u := local.LoginURLTo(code, next)
 		fmt.Fprintf(os.Stderr, "\n  %s %s\n", green("Ready:"), bold(cfg.PublicBaseURL))
 		if ui == nil {
 			fmt.Fprintln(os.Stderr, dim("  (built without the embedweb tag: run the web app with `npm run dev` in web/)"))

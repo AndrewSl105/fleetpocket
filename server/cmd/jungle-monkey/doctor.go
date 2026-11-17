@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/moby/moby/client"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
+	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
 	"github.com/andrewsl105/fleetpocket/server/internal/pgembed"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/secrets"
@@ -89,18 +91,34 @@ func runDoctor(args []string) error {
 	add(check{name: "Agent credentials", ok: len(agents) > 0, info: strings.Join(agents, ", "),
 		fix: "run `claude setup-token` and add the token in the web app (Settings → Agents), or set ANTHROPIC_API_KEY / OPENAI_API_KEY / CURSOR_API_KEY"})
 
-	// GitHub
+	// Local repositories (what the folder picker would suggest).
+	if home, err := os.UserHomeDir(); err == nil {
+		cwd, _ := os.Getwd()
+		lr := &localrepos.Service{Home: home, Start: workTree(cwd)}
+		found, _ := lr.Suggestions(ctx)
+		info := fmt.Sprintf("%d git repositories found in your code folders", len(found))
+		if len(found) == 0 {
+			info = "none found in ~/code, ~/Projects, ~/dev, ~/src, ~/repos… (pick any folder in the web app, or `jungle-monkey add <path>`)"
+		}
+		add(check{name: "Local repos", ok: true, info: info})
+	}
+
+	// GitHub: optional in local mode (push and open PRs).
 	clockChecked := false
 	if tok := sec.Get(secrets.GitHubToken); tok != "" {
 		scopes, date, err := githubWhoami(ctx, tok)
-		add(check{name: "GitHub", ok: err == nil, info: "token scopes: " + orDefault(scopes, "fine-grained"),
-			fix: "reconnect GitHub in the web app (" + errText(err) + ")"})
+		info := "connected, token scopes: " + orDefault(scopes, "fine-grained")
+		if err == nil && scopes != "" && !hasScope(scopes, "repo") {
+			info += " (no `repo` scope: pushing to private repositories will fail)"
+		}
+		add(check{name: "GitHub", ok: err == nil, info: info,
+			fix: "reconnect GitHub in the web app, Settings → GitHub (" + errText(err) + ")"})
 		if !date.IsZero() {
 			clockChecked = true
 			addClock(add, date)
 		}
 	} else {
-		add(check{name: "GitHub", fix: "connect GitHub in the web app (onboarding or Settings → GitHub)"})
+		add(check{name: "GitHub", ok: true, info: "not connected (optional: connect it in the web app to push and open PRs)"})
 	}
 
 	// Keychain
@@ -200,4 +218,14 @@ func errText(err error) string {
 		return "unknown error"
 	}
 	return err.Error()
+}
+
+// hasScope reports whether a comma-separated X-OAuth-Scopes list has scope.
+func hasScope(list, scope string) bool {
+	for _, s := range strings.Split(list, ",") {
+		if strings.TrimSpace(s) == scope {
+			return true
+		}
+	}
+	return false
 }
