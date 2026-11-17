@@ -13,6 +13,7 @@ import {
 import { HostChip } from '@/components/HostChip'
 import { hostInfo } from '@/lib/hosts'
 import { StatusBadge } from '@/components/StatusBadge'
+import { CIBadge } from '@/components/CIBadge'
 import { useConfirm } from '@/components/confirm'
 import { CopyButton, copyText } from '@/components/CopyButton'
 import { can } from '@/lib/status'
@@ -127,6 +128,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
         <StatusBadge status={task.status} />
+        <CIBadge task={task} />
         <span className="truncate">
           {task.project_id}
           {task.repository && <span className="font-mono"> / {task.repository.full_name.split('/').pop()}</span>}

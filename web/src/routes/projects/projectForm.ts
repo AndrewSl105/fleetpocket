@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Agent, Project, ProjectFields } from '@/api/types'
+import type { Agent, CIAutoFixSettings, Project, ProjectFields } from '@/api/types'
 
 const ENV_KEY = /^[A-Z_][A-Z0-9_]*$/
 const numeric = z.string().trim().regex(/^(\d+(\.\d+)?)?$/, 'Number')
@@ -23,6 +23,15 @@ export const projectSchema = z.object({
   max_duration_sec: numeric,
   runner_memory: z.string().trim(),
   runner_cpus: numeric,
+  // CI auto-fix overrides: '' inherits the global default.
+  autofix: z.enum(['', 'on', 'off']),
+  autofix_max_attempts: z
+    .string()
+    .trim()
+    .regex(/^([1-5])?$/, '1 to 5'),
+  autofix_checks: z.string(),
+  autofix_budget_usd: numeric,
+  autofix_allow_ci: z.enum(['', 'yes', 'no']),
 })
 
 export type ProjectFormValues = z.infer<typeof projectSchema>
@@ -44,6 +53,35 @@ export function toFormValues(p?: Project): ProjectFormValues {
     max_duration_sec: s(p?.max_duration_sec),
     runner_memory: s(p?.runner_memory),
     runner_cpus: s(p?.runner_cpus),
+    ...autoFixFormValues(p?.ci_autofix),
+  }
+}
+
+type AutoFixForm = Pick<ProjectFormValues, 'autofix' | 'autofix_max_attempts' | 'autofix_checks' | 'autofix_budget_usd' | 'autofix_allow_ci'>
+
+export function autoFixFormValues(a?: CIAutoFixSettings | null): AutoFixForm {
+  const tri = <T extends string>(v: boolean | null | undefined, yes: T, no: T): '' | T => (v == null ? '' : v ? yes : no)
+  return {
+    autofix: tri(a?.enabled, 'on', 'off'),
+    autofix_max_attempts: a?.max_attempts == null ? '' : String(a.max_attempts),
+    autofix_checks: (a?.checks ?? []).join(', '),
+    autofix_budget_usd: a?.budget_usd ? String(a.budget_usd) : '',
+    autofix_allow_ci: tri(a?.allow_ci_changes, 'yes', 'no'),
+  }
+}
+
+/** The CI auto-fix object; empty fields become null (inherit). */
+export function autoFixSettings(v: AutoFixForm): CIAutoFixSettings {
+  const checks = v.autofix_checks
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean)
+  return {
+    enabled: v.autofix === '' ? null : v.autofix === 'on',
+    max_attempts: v.autofix_max_attempts.trim() ? Number(v.autofix_max_attempts) : null,
+    checks: checks.length ? checks : null,
+    budget_usd: v.autofix_budget_usd.trim() ? Number(v.autofix_budget_usd) : null,
+    allow_ci_changes: v.autofix_allow_ci === '' ? null : v.autofix_allow_ci === 'yes',
   }
 }
 
@@ -56,6 +94,7 @@ type Full = Required<Pick<ProjectFields, 'name' | 'instructions' | 'services' | 
   max_duration_sec: number
   runner_memory: string
   runner_cpus: number
+  ci_autofix: CIAutoFixSettings
 }
 
 /** "" or 0 means "server default" for overrides (docs/API.md). */
@@ -73,6 +112,7 @@ function normalize(v: ProjectFormValues): Full {
     max_duration_sec: Number(v.max_duration_sec || 0),
     runner_memory: v.runner_memory.trim(),
     runner_cpus: Number(v.runner_cpus || 0),
+    ci_autofix: autoFixSettings(v),
   }
 }
 
@@ -84,6 +124,7 @@ export function createBody(v: ProjectFormValues): ProjectFields & { id: string }
   const body: ProjectFields & { id: string } = { id: v.id.trim(), name: n.name, services: n.services, env: n.env }
   if (n.instructions) body.instructions = n.instructions
   for (const k of OVERRIDES) if (n[k]) Object.assign(body, { [k]: n[k] })
+  if (Object.values(n.ci_autofix).some((x) => x !== null)) body.ci_autofix = n.ci_autofix
   return body
 }
 

@@ -1,4 +1,4 @@
-import type { ApiEvent, Attachment, TaskStatus } from '@/api/types'
+import type { ApiEvent, Attachment, AutoFixPayload, TaskStatus } from '@/api/types'
 import { fullQuestionId } from '@/api/events'
 
 export type TimelineItem =
@@ -32,6 +32,21 @@ export type TimelineItem =
   | { kind: 'ci'; key: string; status: string; name: string; url?: string; at: string }
   | { kind: 'done'; key: string; summary: string; noChanges: boolean; at: string }
   | { kind: 'error'; key: string; title: string; message: string; at: string }
+  /** One CI auto-fix step (docs/API.md "CI auto-fix"). */
+  | {
+      kind: 'autofix'
+      key: string
+      phase: AutoFixPayload['phase']
+      attempt: number
+      maxAttempts: number
+      checks: { name: string; url: string; conclusion: string }[]
+      signature?: string
+      attachments: Attachment[]
+      reason?: string
+      reasons: string[]
+      fixes: number
+      at: string
+    }
 
 /**
  * Interrupt ends the run (the backend pushes what it committed): a task whose
@@ -189,6 +204,24 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
       case 'error': {
         const er = e.payload
         items.push({ kind: 'error', key, title: er.code, message: er.message, at })
+        break
+      }
+      case 'autofix': {
+        const a = e.payload
+        items.push({
+          kind: 'autofix',
+          key,
+          phase: a.phase,
+          attempt: a.attempt ?? 0,
+          maxAttempts: a.max_attempts ?? 0,
+          checks: a.checks ?? [],
+          signature: a.signature,
+          attachments: a.attachments ?? [],
+          reason: a.reason,
+          reasons: a.reasons ?? [],
+          fixes: a.fixes ?? 0,
+          at,
+        })
         break
       }
       case 'diff_rejected':

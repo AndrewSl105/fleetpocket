@@ -18,6 +18,7 @@ const project: Project = {
   runner_cpus: null,
   telegram_thread_id: null,
   archived: false,
+  ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
   created_at: '',
   updated_at: '',
   repositories: [],
@@ -61,5 +62,21 @@ describe('createBody', () => {
   it('omits empty overrides', () => {
     const v = { ...toFormValues(), id: 'new', name: 'New' }
     expect(createBody(v)).toEqual({ id: 'new', name: 'New', services: [], env: {} })
+  })
+})
+
+describe('ci_autofix', () => {
+  it('sends the whole object when a setting changes; empty fields inherit (null)', () => {
+    const v = { ...toFormValues(project), autofix: 'on' as const, autofix_checks: 'test, lint ,', autofix_max_attempts: '3' }
+    expect(patchBody(v, project)).toEqual({
+      ci_autofix: { enabled: true, max_attempts: 3, checks: ['test', 'lint'], budget_usd: null, allow_ci_changes: null },
+    })
+  })
+
+  it('round-trips a project override and leaves it out of a create without one', () => {
+    const p = { ...project, ci_autofix: { enabled: false, max_attempts: 2, checks: ['e2e'], budget_usd: 1.5, allow_ci_changes: true } }
+    expect(patchBody(toFormValues(p), p)).toEqual({})
+    expect(toFormValues(p)).toMatchObject({ autofix: 'off', autofix_allow_ci: 'yes', autofix_checks: 'e2e', autofix_budget_usd: '1.5' })
+    expect(createBody({ ...toFormValues(), id: 'n', name: 'N' })).not.toHaveProperty('ci_autofix')
   })
 })

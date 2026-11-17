@@ -22,5 +22,6 @@ export const keys = {
   githubRepos: ['github', 'repositories'] as const,
   me: ['me'] as const,
   stats: ['stats'] as const,
+  autofixDefaults: ['settings', 'ci-autofix'] as const,
   health: ['health'] as const,
 }

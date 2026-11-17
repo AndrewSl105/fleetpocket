@@ -17,7 +17,7 @@ import {
   upsertTask,
   type EventsData,
 } from './cache'
-import type { Agent, ApiEvent, Attachment, Health, HostNode, Project, ProjectFields, Run, TaskView } from './types'
+import type { Agent, ApiEvent, Attachment, CIAutoFixSettings, Health, HostNode, Project, ProjectFields, Run, TaskView } from './types'
 import { isApiError } from './errors'
 import { GROUPS } from '@/lib/status'
 import { t } from '@/i18n/en'
@@ -465,6 +465,22 @@ export function useAgents() {
     queryFn: ({ signal }) => call(api.GET('/api/v1/me', { signal })),
     staleTime: 5 * 60_000,
     select: (s) => ({ agents: s.agents, defaultAgent: s.default_agent }),
+  })
+}
+
+export function useAutoFixDefaults() {
+  return useQuery({
+    queryKey: keys.autofixDefaults,
+    queryFn: ({ signal }) => call(api.GET('/api/v1/settings/ci-autofix', { signal })),
+    staleTime: 60_000,
+  })
+}
+
+export function useSaveAutoFixDefaults() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CIAutoFixSettings) => call(api.PUT('/api/v1/settings/ci-autofix', { params: { header: CSRF }, body })),
+    onSuccess: (data) => qc.setQueryData(keys.autofixDefaults, data),
   })
 }
 

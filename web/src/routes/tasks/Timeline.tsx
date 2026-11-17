@@ -102,7 +102,8 @@ export function Timeline({ task, items: loaded, older, loading, stopping }: Prop
   }
 
   const working = WORKING.includes(task.status) || stopping
-  const answerable = can(task.status, 'answer')
+  // A held CI auto-fix asks on a pr_open task (docs/API.md "CI auto-fix").
+  const answerable = can(task.status, 'answer') || (task.status === 'pr_open' && task.autofix_state === 'held')
 
   return (
     <div className="relative min-h-0 flex-1">

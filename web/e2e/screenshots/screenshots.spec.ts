@@ -95,6 +95,17 @@ test.describe('screens', () => {
     await shot(page, 'task-pr')
   })
 
+  test('task with CI green after 1 fix', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/tasks/10')
+    await expect(page.getByRole('heading', { name: 'Add totals row to the CSV export' })).toBeVisible()
+    await expect(page.getByTestId('ci-badge')).toHaveText('CI ✓')
+    await expect(page.getByText('✓ CI green after 1 fix')).toBeVisible()
+    await shot(page, 'task-ci-green')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

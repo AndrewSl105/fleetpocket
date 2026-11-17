@@ -10,6 +10,7 @@ import {
   GitPullRequestClosed,
   OctagonAlert,
   Sparkles,
+  Wrench,
 } from 'lucide-react'
 import type { TimelineItem } from '@/lib/timeline'
 import { STATUS } from '@/lib/status'
@@ -77,6 +78,87 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
       )}
     </div>
   )
+}
+
+const af = t.autofix
+
+function CheckLinks({ checks }: { checks: Extract<TimelineItem, { kind: 'autofix' }>['checks'] }) {
+  if (!checks.length) return null
+  return (
+    <ul className="mt-1.5 space-y-0.5">
+      {checks.map((c) => (
+        <li key={c.name}>
+          <a
+            href={c.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-8 items-center gap-1.5 font-mono text-xs text-danger underline-offset-2 hover:underline"
+          >
+            <CircleX className="size-3.5 shrink-0" aria-hidden="true" />
+            {c.name}
+            <ExternalLink className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** A CI auto-fix step: the attempt section, its stops and the green stamp. */
+function AutoFixRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'autofix' }>; taskId: number }) {
+  switch (item.phase) {
+    case 'started':
+      return (
+        <section aria-label={af.attempt(item.attempt, item.maxAttempts)} className="fm-card px-3.5 py-3">
+          <div className="fm-label flex items-center gap-1.5 font-semibold">
+            <Wrench className="size-3.5" aria-hidden="true" />
+            {af.attempt(item.attempt, item.maxAttempts)}
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">{af.failingChecks}</div>
+          <CheckLinks checks={item.checks} />
+          {item.signature && (
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              {af.signature} <span className="font-mono text-foreground">{item.signature}</span>
+            </div>
+          )}
+          {item.attachments.length > 0 && (
+            <>
+              <div className="mt-2 mb-1 text-xs text-muted-foreground">{af.logs}</div>
+              <AttachmentGrid taskId={taskId} items={item.attachments} />
+            </>
+          )}
+        </section>
+      )
+    case 'green':
+      return (
+        <div className="fm-group bg-grid px-3 py-2.5 text-sm font-semibold text-olive-text" role="status">
+          {af.green(item.fixes)}
+        </div>
+      )
+    case 'needs_you':
+    case 'held':
+      return (
+        <div className="fm-ask px-3.5 py-3 text-sm">
+          <div className="fm-label font-semibold text-signal-text">{item.phase === 'held' ? af.held : af.stopped}</div>
+          {item.reason && <p className="mt-1 break-words">{item.reason}</p>}
+          {item.reasons.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 font-mono text-xs break-words">
+              {item.reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+          <CheckLinks checks={item.checks} />
+        </div>
+      )
+    case 'pushed':
+      return <Divider>{af.pushed(item.attempt)}</Divider>
+    case 'discarded':
+      return <Divider warn>{af.discarded}</Divider>
+    case 'cancelled':
+      return <Divider warn>{af.cancelled(item.reason ?? '')}</Divider>
+  }
+  return null
 }
 
 function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number }) {
@@ -205,6 +287,8 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
           />
         </div>
       )
+    case 'autofix':
+      return <AutoFixRow item={item} taskId={taskId} />
     case 'question':
       return null
   }

@@ -129,3 +129,24 @@ describe('attachments', () => {
     expect(plain).not.toHaveProperty('attachments')
   })
 })
+
+describe('CI auto-fix', () => {
+  it('maps autofix steps and the backend guard question', () => {
+    const att = { id: 9, name: 'ci-logs-attempt-1.txt', mime: 'text/plain', size: 120, width: 0, height: 0 }
+    const items = buildTimeline([
+      ev(
+        'autofix',
+        { phase: 'started', attempt: 1, max_attempts: 2, checks: [{ name: 'test', url: 'u', conclusion: 'failure' }], signature: 'abc', attachments: [att] },
+        { runner: false },
+      ),
+      ev('question', { question_id: 'autofix_guard', text: 'The fix changes CI or tests. Push anyway?', options: ['Push anyway', 'Discard'] }, { runner: false, run: 4 }),
+      ev('answer', { question_id: '4-autofix_guard', text: 'Push anyway', answered_via: 'web' }, { runner: false }),
+      ev('autofix', { phase: 'green', fixes: 1 }, { runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['autofix', 'question', 'autofix'])
+    const started = items[0] as Extract<(typeof items)[number], { kind: 'autofix' }>
+    expect(started).toMatchObject({ phase: 'started', attempt: 1, maxAttempts: 2, signature: 'abc', attachments: [att] })
+    expect(items[1]).toMatchObject({ questionId: '4-autofix_guard', answer: { text: 'Push anyway' } })
+    expect(items[2]).toMatchObject({ phase: 'green', fixes: 1 })
+  })
+})

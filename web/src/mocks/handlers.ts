@@ -216,6 +216,7 @@ export const handlers = [
       archived: false,
       name: body.id,
       ...body,
+      ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null, ...body.ci_autofix },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       repositories: [],
@@ -414,6 +415,18 @@ export const handlers = [
     await delay(300)
     Object.assign(q, { answer: body.text, answered_via: 'web', answered_at: new Date().toISOString() })
     pushEvent(task.id, addEvent(task.id, 'answer', { question_id: q.id, text: body.text, answered_via: 'web' }))
+    if (q.id.endsWith('-autofix_guard')) {
+      // CI auto-fix diff guard: push the held fix or discard it (no runner).
+      const push = body.text.trim().toLowerCase() === 'push anyway'
+      task.autofix_state = push ? 'waiting' : 'needs_you'
+      if (push) task.ci_status = 'pending'
+      const payload = push
+        ? { phase: 'pushed', attempt: task.autofix_attempts, max_attempts: task.autofix_max_attempts }
+        : { phase: 'discarded', attempt: task.autofix_attempts }
+      pushEvent(task.id, addEvent(task.id, 'autofix', payload))
+      pushTask(task)
+      return HttpResponse.json(taskView(task))
+    }
     resumeAfterAnswer(task)
     return HttpResponse.json(taskView(task))
   }),
@@ -435,6 +448,12 @@ export const handlers = [
       task.id,
       addEvent(task.id, 'message', { text: body.text, delivery: queue ? 'queued' : 'new_run', ...(attachments.length ? { attachments } : {}) }),
     )
+    // A manual follow-up cancels an active CI auto-fix loop.
+    if (task.autofix_state && ['fixing', 'held', 'approved', 'waiting'].includes(task.autofix_state)) {
+      task.autofix_state = 'cancelled'
+      for (const q of db.questions.get(task.id) ?? []) if (!q.answer) Object.assign(q, { answer: '', answered_via: 'expired' })
+      pushEvent(task.id, addEvent(task.id, 'autofix', { phase: 'cancelled', reason: 'the owner sent a follow-up' }))
+    }
     if (queue) {
       task.queued_message = task.queued_message ? `${task.queued_message}\n\n${body.text}` : body.text
       pushTask(task)
@@ -564,6 +583,19 @@ export const handlers = [
     db.nodes = db.nodes.filter((x) => x.id !== params.id)
     for (const p of db.projects) if (p.node === params.id) p.node = null
     return HttpResponse.json({ ok: true })
+  }),
+  http.get(`${API}/settings/ci-autofix`, ({ request }) => {
+    const denied = guard(request)
+    if (denied) return denied
+    return HttpResponse.json(db.autofixDefaults)
+  }),
+  http.put(`${API}/settings/ci-autofix`, async ({ request }) => {
+    const denied = guard(request)
+    if (denied) return denied
+    const body = (await request.json()) as typeof db.autofixDefaults
+    if (body.max_attempts != null && (body.max_attempts < 1 || body.max_attempts > 5)) return err(400, 'invalid', 'ci_autofix.max_attempts must be 1 to 5')
+    db.autofixDefaults = body
+    return HttpResponse.json(body)
   }),
   http.get(`${API}/stats`, ({ request }) => {
     const denied = guard(request)

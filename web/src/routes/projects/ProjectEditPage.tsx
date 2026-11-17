@@ -10,6 +10,7 @@ import {
   useArchiveProject,
   useCreateProject,
   useAgents,
+  useAutoFixDefaults,
   useNodes,
   useGitHubRepos,
   useProject,
@@ -75,6 +76,41 @@ function AgentSelect({ value, onChange }: { value: ProjectFormValues['agent']; o
   )
 }
 
+const af = t.autofix
+
+/** A setting that is on, off or inherits the global default. */
+function TriSelect<V extends string>({
+  id,
+  value,
+  onChange,
+  options,
+  inherit,
+}: {
+  id: string
+  value: '' | V
+  onChange: (v: '' | V) => void
+  options: Array<[V, string]>
+  inherit: string
+}) {
+  return (
+    <Select value={value || DEFAULT} onValueChange={(v) => onChange(v === DEFAULT ? '' : (v as V))}>
+      <SelectTrigger id={id} className="h-11 w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={DEFAULT} className="h-10">
+          {inherit}
+        </SelectItem>
+        {options.map(([v, label]) => (
+          <SelectItem key={v} value={v} className="h-10">
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-4">
@@ -101,6 +137,7 @@ function ProjectForm({ project }: { project?: Project }) {
   const update = useUpdateProject(project?.id ?? '')
   const archive = useArchiveProject(project?.id ?? '')
   const nodes = useNodes()
+  const defaults = useAutoFixDefaults().data
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -226,6 +263,75 @@ function ProjectForm({ project }: { project?: Project }) {
               <Input id="runner_memory" placeholder={t.common.serverDefault} className="h-11 font-mono" {...form.register('runner_memory')} />
             </Field>
           </div>
+        </Section>
+
+        <Section title={af.title}>
+          <p className="-mt-2 text-xs text-muted-foreground">{af.hint}</p>
+          <Field id="autofix" label={af.enabled}>
+            <Controller
+              control={form.control}
+              name="autofix"
+              render={({ field }) => (
+                <TriSelect
+                  id="autofix"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    ['on', af.on],
+                    ['off', af.off],
+                  ]}
+                  inherit={af.inherit(defaults?.enabled ?? false)}
+                />
+              )}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field id="autofix_max_attempts" label={af.maxAttempts} error={errors.autofix_max_attempts?.message}>
+              <Input
+                id="autofix_max_attempts"
+                inputMode="numeric"
+                placeholder={af.inheritValue(String(defaults?.max_attempts ?? 2))}
+                className="h-11"
+                {...form.register('autofix_max_attempts')}
+              />
+            </Field>
+            <Field id="autofix_budget_usd" label={af.budget} error={errors.autofix_budget_usd?.message}>
+              <Input
+                id="autofix_budget_usd"
+                inputMode="decimal"
+                placeholder={defaults?.budget_usd ? af.inheritValue(String(defaults.budget_usd)) : af.halfBudget}
+                className="h-11"
+                {...form.register('autofix_budget_usd')}
+              />
+            </Field>
+          </div>
+          <Field id="autofix_checks" label={af.checks} hint={af.checksHint}>
+            <Input
+              id="autofix_checks"
+              autoCapitalize="none"
+              placeholder={af.inheritValue(defaults?.checks?.length ? defaults.checks.join(', ') : af.all)}
+              className="h-11 font-mono"
+              {...form.register('autofix_checks')}
+            />
+          </Field>
+          <Field id="autofix_allow_ci" label={af.allowCI} hint={af.allowCIHint}>
+            <Controller
+              control={form.control}
+              name="autofix_allow_ci"
+              render={({ field }) => (
+                <TriSelect
+                  id="autofix_allow_ci"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    ['yes', af.yes],
+                    ['no', af.no],
+                  ]}
+                  inherit={af.inheritValue(defaults?.allow_ci_changes ? af.yes : af.no)}
+                />
+              )}
+            />
+          </Field>
         </Section>
 
         <PrimaryAction label={creating ? t.projects.new : t.common.save} onClick={() => void submit()} loading={busy} />

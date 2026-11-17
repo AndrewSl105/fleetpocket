@@ -1178,7 +1178,7 @@ export interface components {
             run_id: number;
             /**
              * Format: int64
-             * @description null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix-guard`)
+             * @description null for the CI auto-fix diff-guard question, which the server asks (question_id `autofix_guard`)
              */
             seq: number | null;
             payload: components["schemas"]["QuestionPayload"];

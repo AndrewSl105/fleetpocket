@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { ComputersSection } from './settings/ComputersSection'
+import { AutoFixSection } from './settings/AutoFixSection'
 
 const s = t.settings
 const version = import.meta.env.VITE_APP_VERSION || 'dev'
@@ -85,6 +86,8 @@ export default function SettingsPage() {
         )}
 
         <ComputersSection />
+
+        <AutoFixSection />
 
         <section>
           <h2 className="mb-3 text-sm font-bold">{s.about}</h2>
