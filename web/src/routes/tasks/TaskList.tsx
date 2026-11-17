@@ -96,10 +96,12 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             </Link>
           )}
           <CaptureTrigger className="lg:hidden" />
-          <Link to="/new" className="fm-btn-signal flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-[15px] lg:hidden">
-            <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
-            {t.nav.new}
-          </Link>
+          {me?.role !== 'viewer' && (
+            <Link to="/new" className="fm-btn-signal flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-[15px] lg:hidden">
+              <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+              {t.nav.new}
+            </Link>
+          )}
           <div className="relative hidden w-44 lg:block">
             <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
             <Input

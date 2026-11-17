@@ -81,10 +81,12 @@ export function AppShell() {
         )}
         <div className="border-b border-rule p-3">
           <div className="flex gap-2">
-            <NavLink to="/new" className="fm-btn-signal flex h-11 flex-1 items-center justify-center gap-2 text-sm">
-              <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
-              {t.nav.new}
-            </NavLink>
+            {user?.role !== 'viewer' && (
+              <NavLink to="/new" className="fm-btn-signal flex h-11 flex-1 items-center justify-center gap-2 text-sm">
+                <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+                {t.nav.new}
+              </NavLink>
+            )}
             <CaptureTrigger />
           </div>
         </div>

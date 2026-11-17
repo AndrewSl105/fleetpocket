@@ -29,7 +29,7 @@ import { BranchPanel } from './BranchPanel'
 import { Link } from 'react-router'
 import { KeyRound } from 'lucide-react'
 import { UserBadge } from '@/components/UserBadge'
-import { useCanActOn } from '@/api/team'
+import { useCanActOn, useRole } from '@/api/team'
 import { tm } from '@/i18n/team'
 
 /** Team mode: the creator has no key for the agent, so no runner started. */
@@ -71,18 +71,22 @@ function HostWaiting({ task }: { task: TaskView }) {
 /** A queued task that a monthly cap holds: say so, with the owner's override. */
 function BudgetWaiting({ task }: { task: TaskView }) {
   const override = useBudgetOverride(task.id)
+  // Starting despite a budget is an admin decision (the server refuses others).
+  const admin = useRole().isAdmin
   if (task.status !== 'queued' || !task.budget_wait) return null
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
       <p className="min-w-0 flex-1">{c.waitingBudget(task.budget_wait)}</p>
-      <button
-        type="button"
-        onClick={() => override.mutate()}
-        disabled={override.isPending}
-        className="fm-btn inline-flex h-11 items-center px-3 font-semibold disabled:opacity-60"
-      >
-        {c.startAnyway}
-      </button>
+      {admin && (
+        <button
+          type="button"
+          onClick={() => override.mutate()}
+          disabled={override.isPending}
+          className="fm-btn inline-flex h-11 items-center px-3 font-semibold disabled:opacity-60"
+        >
+          {c.startAnyway}
+        </button>
+      )}
     </div>
   )
 }

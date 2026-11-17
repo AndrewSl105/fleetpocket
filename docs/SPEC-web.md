@@ -182,6 +182,7 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 - **`needs_key`**: its own stamp (Needs key, ask tone) everywhere a status shows; the task header says "Add your Claude key in My keys" with **Open My keys** (`/settings#keys`) for its creator; Retry queues it again.
 - Task actions (answer, message, interrupt, cancel, retry, merge) are hidden unless the person may act on the task (own, or admin); viewers see no composer.
 - **Costs**: a **By person** section when the report has `people`.
+- **Skills**: a `personal` stamp and the owner's initials; admins get **Make it a team skill** in the row menu (`POST /skills/{id}/promote`).
 
 **Copy.** English UI text, short and plain; keep all strings in one `src/i18n/en.ts` file so a Ukrainian translation can be added later.
 
