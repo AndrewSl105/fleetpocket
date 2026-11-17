@@ -153,7 +153,7 @@ ol.steps li.cur b{color:var(--signal-text)}
 .fl{font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
 .tl{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
 .tl p{margin:0}
-.ln{font:400 13px/1.45 var(--mono);color:var(--ink2);animation:slide .3s ease-out;overflow-wrap:anywhere}
+p.ln{font:400 13px/1.45 var(--mono);color:var(--ink2);animation:slide .3s ease-out;overflow-wrap:anywhere}
 .ln b{font-weight:600;color:var(--ink)}
 .ln.out{color:var(--muted);padding-left:16px}
 .ln.sys{color:var(--muted);text-align:center;border-top:1px solid var(--rule);padding-top:6px;font-size:12px}
@@ -238,15 +238,15 @@ ol.steps li.cur b{color:var(--signal-text)}
 .map .srv{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:5 4}
 .map .t{fill:var(--ink);font:600 10.5px var(--mono);letter-spacing:.5px}
 .map .s{fill:var(--muted);font:400 9.5px var(--mono)}
-.map .ln{fill:none;stroke:var(--rule);stroke-width:2}
-.map .ln.on{stroke:var(--ink);stroke-width:2.5}
+.map path.ln{fill:none;stroke:var(--rule);stroke-width:2}
+.map path.ln.on{stroke:var(--ink);stroke-width:2.5}
 .map .hot .bx{fill:var(--signal)}
 .map .hot .t,.map .hot .s{fill:#1B1F1A}
 .map .pk{fill:var(--signal);stroke:var(--ink);stroke-width:1.5}
 .map .blk-x{opacity:0}
 .map .blk-x.show{opacity:1}
 .map .blk-x text{fill:var(--danger);font:700 10px var(--mono)}
-.map .proxy.deny .bx{fill:var(--danger);transition:fill .1s}
+.map .proxy.deny .bx{fill:#A12A1C;transition:fill .1s}
 .map .proxy.deny .t,.map .proxy.deny .s{fill:#FFF}
 ol.hops{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
 ol.hops li{border-bottom:1px solid var(--rule)}
@@ -524,7 +524,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
           <div class="nfoot"><span id="n-step">STEP 0</span><span id="n-cost">$0.00</span><span id="n-time">0s</span></div>
         </div>
       </section>
-      <div class="term" id="term" hidden role="log" aria-label="Terminal view of task #0042"></div>
+      <div class="term" id="term" hidden aria-live="off" aria-label="Terminal view of task #0042"></div>
     </div>
   </div>
 </section>
@@ -821,7 +821,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
     mode = m
     endGh.setAttribute('aria-pressed', m === 'gh'); endLocal.setAttribute('aria-pressed', m === 'local')
     from.hidden = m !== 'local'
-    $('ph-proj').textContent = m === 'gh' ? 'acme/hooks · GitHub · Claude Code' : '~/code/hooks · local · Claude Code'
+    $('ph-proj').textContent = m === 'gh' ? 'acme/hooks · GitHub · Claude Code' : '~/code/hooks · origin: GitHub (connected) · Claude Code'
     branch.textContent = brName()
     if (phase === 'end') { var c = tl.querySelector('.card.end'); if (c) c.remove(); ending() }
   }
@@ -916,7 +916,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
       c.appendChild(el('p', null, 'jm/0042-retry-webhook-deliveries in ~/code/hooks. 4 files, +186 −12.'))
       var mm = action('Merge into current branch', function () { merged(c, 'Merged into main (your current branch)') }); mm.className = 'ob p'; o.appendChild(mm)
       o.appendChild(action('Check out the branch', function () { line(null, 'Switched to branch jm/0042-retry-webhook-deliveries', 'out') }))
-      o.appendChild(action('Discard', function () { c.remove(); line(null, 'Branch discarded', 'sys'); status('', 'Cancelled', 'Branch discarded') }))
+      o.appendChild(action('Discard', function () { c.remove(); line(null, 'Branch discarded', 'sys'); live('Branch discarded') }))
       o.appendChild(action('Push & open PR', function () {
         line(null, '● Pushed jm/0042-retry-webhook-deliveries · PR #57 opened', '')
         c.remove(); mode = 'gh'; endGh.setAttribute('aria-pressed', true); endLocal.setAttribute('aria-pressed', false); ending()
