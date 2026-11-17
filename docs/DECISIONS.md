@@ -377,6 +377,7 @@ One line each. "Backend ask" marks something Fleetpocket should add.
 - 2026-11-17 — The Schedules rail item uses lucide's `Clock` (not `CalendarClock`): after main also took the local-repositories work the initial JS sat 19 bytes over the 180 KB budget, and `Clock`'s shorter path brings it back under (179.9 KB).
 - 2026-11-17 — Phones reach Schedules from Settings only: the Projects header has no room for a fourth button at 375 px. The next run is shown in the viewer's time zone (the cron and its zone are shown next to it); the editor's presets are plain cron expressions and a custom field takes any other; the end date is its last second in UTC.
 - 2026-11-17 — Loop iterations are flat header rows ("ITERATION 2/3") built from `loop` events rather than nested groups, so the virtualized timeline keeps one row per item; the check stamp reads `iteration`/`max_iterations` from the `check` event the server annotates.
+- 2026-11-17 — The Integrations strings moved from `en.ts` to `src/i18n/integrations.ts` (only lazy screens use them), freeing 1.3 KB of the 180 KB initial-JS budget (179.9 → 178.6 KB) for the Ideas board's nav entry and header trigger instead of raising the budget.
 
 ### Integration with the real backend
 

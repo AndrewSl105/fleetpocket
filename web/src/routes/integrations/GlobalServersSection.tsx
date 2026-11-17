@@ -1,9 +1,9 @@
 import { useGlobalMCPServers } from '@/api/hooks'
 import { Skeleton } from '@/components/ui/skeleton'
-import { t } from '@/i18n/en'
+import { ti } from '@/i18n/integrations'
 import { ServerList } from './ServerList'
 
-const it = t.integrations
+const it = ti
 
 /** Settings: shared MCP servers that projects turn on in Integrations. */
 export function GlobalServersSection() {

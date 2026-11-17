@@ -14,10 +14,11 @@ import { NotFound } from '@/routes/NotFound'
 import { cn } from '@/lib/utils'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
+import { ti } from '@/i18n/integrations'
 import { invalidHosts, parseHosts } from './form'
 import { ServerList } from './ServerList'
 
-const it = t.integrations
+const it = ti
 const eg = it.egress
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {

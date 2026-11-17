@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
+import { ti } from '@/i18n/integrations'
 import { emptyForm, secretsForKind, toForm, toInput, validate, type Kind, type ServerForm } from './form'
 
-const it = t.integrations
+const it = ti
 const f = it.fields
 
 function Choice<V extends string>({ id, value, onChange, options }: { id: string; value: V; onChange: (v: V) => void; options: Record<V, string> }) {
