@@ -17,6 +17,7 @@ import { CIBadge } from '@/components/CIBadge'
 import { useConfirm } from '@/components/confirm'
 import { CopyButton, copyText } from '@/components/CopyButton'
 import { can } from '@/lib/status'
+import { cn } from '@/lib/utils'
 import { Cost } from '@/components/Cost'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
@@ -195,7 +196,13 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
       <BudgetWaiting task={task} />
       <BranchPanel task={task} />
       {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused' || task.status === 'branch_ready') && (
-        <div className="mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs text-danger">
+        // branch_ready: a failed Push & open PR is an error; a run limit noted at delivery is not.
+        <div
+          className={cn(
+            'mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs',
+            task.status !== 'branch_ready' || task.status_reason.startsWith('push failed') ? 'text-danger' : 'text-muted-foreground',
+          )}
+        >
           <p className="min-w-0 flex-1 py-1 break-words">{task.status_reason}</p>
           <CopyButton text={task.status_reason} label={t.task.copyError} className="-my-0.5" />
         </div>
