@@ -35,6 +35,7 @@ import { PrimaryAction } from '@/telegram/controls'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
 import { c } from '@/i18n/costs'
+import { ProjectSkillsSection } from '@/routes/skills/ProjectSkillsSection'
 import { createBody, patchBody, projectSchema, toFormValues, type ProjectFormValues } from './projectForm'
 
 const f = t.projects.fields
@@ -238,6 +239,14 @@ function ProjectForm({ project }: { project?: Project }) {
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </Link>
+        )}
+
+        {project && (
+          <Controller
+            control={form.control}
+            name="skills"
+            render={({ field }) => <ProjectSkillsSection value={field.value} onChange={field.onChange} />}
+          />
         )}
 
         <Section title={f.env}>

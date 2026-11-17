@@ -1,6 +1,7 @@
 import { seedIntegrations } from './integrations'
 import { seedCosts } from './costs'
 import { seedCheckpoints } from './checkpoints'
+import { seedSkills } from './skills'
 import type {
   Agent,
   ApiEvent,
@@ -49,6 +50,8 @@ function project(id: string, name: string, repositories: Repository[], extra: Pa
     archived: false,
     ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
     budget: null,
+    default_output: null,
+    skills: [],
     month_cost_usd: 0,
     month_cost_unknown: false,
     created_at: ago(60 * 24 * 30),
@@ -398,6 +401,7 @@ export function seed() {
   seedIntegrations()
   seedCosts()
   seedCheckpoints()
+  seedSkills()
 }
 
 /** CI auto-fix: a PR that went green after one fix, and one whose fix waits for the owner. */

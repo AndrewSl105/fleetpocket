@@ -21,6 +21,7 @@ import { haptic } from '@/telegram/haptics'
 import { storage } from '@/lib/storage'
 import { t } from '@/i18n/en'
 import { IntegrationsLine } from '@/routes/integrations/IntegrationsLine'
+import { ComposerSkills } from '@/routes/skills/ComposerSkills'
 
 const LAST_PROJECT = 'fleetpocket.lastProject'
 const PROJECT_AGENT = 'project' // Radix Select items cannot have an empty value
@@ -35,6 +36,9 @@ const schema = z.object({
   agent: z.enum(['', 'claude', 'codex', 'cursor']),
   // '' runs on the project's host; else 'server' or a node id.
   node: z.string(),
+  // Changes to the project's skills for this task (slugs).
+  skills_add: z.array(z.string()),
+  skills_remove: z.array(z.string()),
 })
 type Values = z.infer<typeof schema>
 
@@ -47,6 +51,8 @@ export function toCreateBody(v: Values) {
     ...(v.title?.trim() ? { title: v.title.trim() } : {}),
     ...(v.agent ? { agent: v.agent } : {}),
     ...(v.node ? { node: v.node } : {}),
+    ...(v.skills_add.length ? { skills_add: v.skills_add } : {}),
+    ...(v.skills_remove.length ? { skills_remove: v.skills_remove } : {}),
   }
 }
 
@@ -57,7 +63,7 @@ export default function NewTaskPage() {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '' },
+    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '', skills_add: [], skills_remove: [] },
   })
   const projectId = form.watch('project_id')
   const prompt = form.watch('prompt')
@@ -90,6 +96,8 @@ export default function NewTaskPage() {
     form.setValue('repository_id', def ? String(def.id) : '')
     form.setValue('agent', '')
     form.setValue('node', '')
+    form.setValue('skills_add', [])
+    form.setValue('skills_remove', [])
   }, [projectId, project, form])
 
   useEffect(() => {
@@ -269,6 +277,16 @@ export default function NewTaskPage() {
             </div>
           </div>
         </div>
+
+        <ComposerSkills
+          project={project}
+          add={form.watch('skills_add')}
+          remove={form.watch('skills_remove')}
+          onChange={({ add, remove }) => {
+            form.setValue('skills_add', add)
+            form.setValue('skills_remove', remove)
+          }}
+        />
 
         <div className="space-y-2">
           <Label htmlFor="title">{t.newTask.titleLabel}</Label>

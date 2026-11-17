@@ -34,6 +34,8 @@ export const projectSchema = z.object({
   autofix_allow_ci: z.enum(['', 'yes', 'no']),
   // Monthly cap in USD: '' is none.
   monthly_budget_usd: numeric,
+  // Skill slugs the project's tasks get (PATCH only: POST /projects has no skills).
+  skills: z.array(z.string()),
 })
 
 export type ProjectFormValues = z.infer<typeof projectSchema>
@@ -57,6 +59,7 @@ export function toFormValues(p?: Project): ProjectFormValues {
     runner_cpus: s(p?.runner_cpus),
     ...autoFixFormValues(p?.ci_autofix),
     monthly_budget_usd: s(p?.budget?.monthly_usd),
+    skills: p?.skills ?? [],
   }
 }
 
@@ -99,6 +102,7 @@ type Full = Required<Pick<ProjectFields, 'name' | 'instructions' | 'services' | 
   runner_cpus: number
   ci_autofix: CIAutoFixSettings
   budget: { monthly_usd: number | null }
+  skills: string[]
 }
 
 /** "" or 0 means "server default" for overrides (docs/API.md). */
@@ -118,6 +122,7 @@ function normalize(v: ProjectFormValues): Full {
     runner_cpus: Number(v.runner_cpus || 0),
     ci_autofix: autoFixSettings(v),
     budget: { monthly_usd: Number(v.monthly_budget_usd || 0) || null },
+    skills: [...v.skills].sort(),
   }
 }
 
