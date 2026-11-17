@@ -4,7 +4,7 @@
 
 ## 0. Modes
 
-`MODE=server` (default) is everything below. `MODE=local` is the `jungle-monkey` CLI on one user's computer ([LOCAL.md](LOCAL.md)): the same service and scheduler with `hosts.Local`, plus an embedded Postgres and web UI, loopback-only binding, a one-time login link instead of password + TOTP, and computed settings in the data directory. The agent-container properties of sections 3 and 5 are identical in both modes. Details and what is not built yet: DECISIONS.md, Server.
+`MODE=server` (default) is everything below. `MODE=local` is the `jungle-monkey` CLI on one user's computer ([LOCAL.md](LOCAL.md)): the same service and scheduler with `hosts.Local`, plus an embedded Postgres and web UI, loopback-only binding, a one-time login link instead of password + TOTP, and computed settings in the data directory. The agent-container properties of sections 3 and 5 are identical in both modes. Local mode adds local repositories as its default (section 3, "Repository sources") and an optional GitHub connection with the owner's own token. Details: DECISIONS.md, Server.
 
 ## 1. Context and goal
 
@@ -128,9 +128,23 @@ Clients reach only Fleetpocket; Fleetpocket alone holds credentials and starts c
 5. `paused`: no answer within the question timeout, runner exited with code 3. Containers removed, workspace and Claude state volume kept. An answer or a follow-up message resumes it as a new run with `resume_session_id`.
 6. `pushing`: runner finished with commits. Validate the diff (section 5), push with a fresh token, open or update the PR.
 7. `pr_open`: PR exists. Webhooks update its CI status. A follow-up message starts a new run on the same branch.
-8. Terminal: `completed` (PR merged or closed, or finished with no changes), `failed` (with reason), `cancelled`.
+7b. `branch_ready` (local repositories only, instead of 6–7): the task branch was delivered into the owner's repository as `jm/<task_id>-<slug>`. It mirrors `pr_open`: a follow-up starts a new run on the same branch and re-delivers; Merge or Discard completes the task; "Push & open PR" goes through `pushing` to `pr_open`.
+8. Terminal: `completed` (PR merged or closed, branch merged or discarded, or finished with no changes), `failed` (with reason), `cancelled`.
 
 After every run, remove the runner container. The task network and sidecars live until the task is terminal or paused for longer than `SIDECAR_IDLE_TTL` (default 30 min).
+
+**Repository sources**
+
+A repository has `source` `github` (everything above) or `local` (local mode only; the API refuses it in server mode with `400 local_mode_only`). A local repository is a folder on the owner's disk: `path` (absolute work tree), `base_branch` (the branch checked out when it was added) and `remote_url` (its `origin`, informational).
+
+- **Add**: `POST /local/repos {path}` checks a top-level, non-bare work tree with a commit, outside the data directory, and creates the repository and a project for it (idempotent). The CLI adds the repository it is started in and `jungle-monkey add [path]`. Suggestions scan the usual code folders (max depth 3, 200 results, 2 s, cached 60 s); the folder browser is confined to the home directory by real path.
+- **Prepare** (`hosts.Local`): `git clone --local --no-hardlinks <path>` into `WORKSPACES_DIR/<task_id>`; the task branch `agent/<task_id>-<slug>` starts from `origin/<base>` or, with `start_from: working_tree`, from the checked-out commit plus `git diff HEAD` and the untracked files that `.gitignore` does not exclude, committed as `WIP: working tree at start`. The original folder is only read and is never mounted into a runner; the runner sees the copy exactly as it sees a GitHub clone.
+- **Local publisher** (in `afterRun`, instead of the GitHub publisher while the task has no PR): the same diff validation and secrets scan (`SECRETS_SCAN`), then `git fetch <workspace> <task branch>:jm/<task_id>-<slug>` inside the owner's repository (`-2`, `-3`… when the name exists). It never touches the owner's checked-out branch, index or working tree. The task becomes `branch_ready` with a `branch_ready` event `{branch, commits, diffstat}`. A follow-up re-delivers by fast-forwarding the branch, or delivers to a new name when it is checked out or has the owner's commits.
+- **Actions** on `branch_ready`: merge into the current branch (refused on a dirty tree or a detached HEAD; fast-forward or a merge commit; a conflict is aborted and listed), check out (refused on a dirty tree), discard, and "Push & open PR" (GitHub `origin` and GitHub connected): the server process pushes with the owner's token and opens the PR, and the task joins the PR/CI flow.
+- A missing folder keeps the delivery waiting in `pushing` ("repository folder not found"); `POST /local/repos/{id}/locate` resumes it.
+- Nodes (`hosts.Remote`) refuse local repositories.
+
+**GitHub in local mode** is optional. `githubapp.Client` has two implementations: the GitHub App (server mode, unchanged) and the owner's token (OAuth device flow with scope `repo`, `gh auth token` after asking, or a fine-grained PAT), stored in the OS keychain (0600 file fallback) and used only by the server process. Webhooks are replaced by polling the PRs of `pr_open` tasks (60 s, ETags, backoff), feeding the same code paths as `POST /webhooks/github`, including CI auto-fix.
 
 ## 4. Runner (`runner/`)
 
@@ -335,8 +349,13 @@ CREATE TABLE repositories (
   base_branch     text NOT NULL DEFAULT 'dev',
   installation_id bigint NOT NULL,
   is_default      boolean NOT NULL DEFAULT false,
+  source          text NOT NULL DEFAULT 'github', -- 'github' | 'local' (00017, local mode)
+  path            text NOT NULL DEFAULT '',        -- local: absolute work tree
+  remote_url      text NOT NULL DEFAULT '',        -- local: origin, informational
   UNIQUE (project_id, full_name)
 );
+-- tasks (00017): local_branch text (the delivered jm/... branch),
+-- start_from text NOT NULL DEFAULT 'last_commit' ('last_commit' | 'working_tree').
 
 CREATE TABLE tasks (
   id              bigserial PRIMARY KEY,       -- short numbers read well in Telegram
@@ -440,7 +459,7 @@ The web client is built later from `docs/API.md` and `docs/openapi.yaml` alone, 
 | `POST /webhooks/github` | GitHub (signature auth, no session) |
 | `GET /healthz` · `GET /metrics` | unauthenticated, `/metrics` only from the internal network |
 
-`message` decides by state: while `running` it is injected into the session; in `paused`, `pr_open` or `completed` it starts a new run on the same branch with the saved session; otherwise `409`.
+`message` decides by state: while `running` it is injected into the session; in `paused`, `pr_open`, `branch_ready` or `completed` it starts a new run on the same branch with the saved session; otherwise `409`.
 
 **WebSocket.** After connect, the client sends `{"op":"subscribe","task_id":123}` or `{"op":"subscribe","scope":"tasks"}` (status changes of all tasks, for the list view). Server pushes `{"op":"event","task_id","event":{…}}` and `{"op":"task","task":{…}}`. On reconnect the client reloads missed events through `GET …/events?after_id=`. Ping every 30 s.
 

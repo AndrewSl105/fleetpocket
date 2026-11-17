@@ -21,28 +21,65 @@ from the phone, use the server installer or a self-hosted setup
 curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh
 ```
 
-## Status of this first version
+## Your repositories
 
-Working: start/stop, embedded Postgres and web UI, one-time login link,
-Docker discovery, runner image pull, agent keys from the keychain (including
-the ones `fleetpocket-node` stored), `doctor`, `service`, `logs`.
+Local mode works on folders on your disk; GitHub is optional.
 
-Not yet (docs/DECISIONS.md, Server): local repositories (picking a folder on
-disk and getting a `jm/...` branch back in it, the `branch_ready` status and
-its Merge / Check out / Discard actions, `jungle-monkey add`), connecting
-GitHub (device flow, `gh` token or PAT), PR/CI polling, the web onboarding
-steps and Settings → Remote access. Until then, task commits stay in the local
-workspace.
+1. **Pick a folder.** Run `jungle-monkey` inside a git repository and it is
+   added and opened right away. Otherwise the web app suggests the
+   repositories it finds in `~/code`, `~/Projects`, `~/projects`, `~/dev`,
+   `~/src`, `~/repos`, `~/Documents/GitHub` and `~/work` (3 levels deep), has
+   a folder browser limited to your home directory, and
+   `jungle-monkey add [path]` adds one from the terminal. Each folder gets a
+   project named after it.
+2. **Describe a change.** The agent works in a copy of the repository
+   (`git clone --local --no-hardlinks` into the data directory). The original
+   folder is never mounted into the agent's container. "Start from" picks the
+   last commit of the base branch (default) or your current commit plus your
+   uncommitted changes and untracked files (committed in the copy as
+   `WIP: working tree at start`).
+3. **Get a branch back.** When the run ends with commits, they are fetched
+   into your repository as `jm/<task id>-<slug>` (`-2`, `-3`… if the name is
+   taken) and the task shows `⎇ BRANCH READY`. Your checked-out branch, index
+   and working tree are never touched. Then:
+   - **Merge into current branch**: a fast-forward when possible, else a merge
+     commit. Refused while you have uncommitted changes to tracked files or a
+     detached HEAD; a conflict is aborted and the files are listed.
+   - **Check out the branch** (refused with uncommitted changes).
+   - **Discard**: deletes the `jm/...` branch.
+   - **Push & open PR**: when the repository has a GitHub `origin` and GitHub
+     is connected. The task then follows the normal PR flow: CI status, CI
+     auto-fix if enabled, Merge.
+   A follow-up message continues the same branch and updates `jm/...` (or a
+   new `-2` branch if you checked it out or committed on it meanwhile).
+4. **Moved the folder?** The task says "repository folder not found";
+   "Locate…" points it at the new place and a waiting delivery continues.
+
+### GitHub (optional)
+
+Connect GitHub to push and open PRs, from the onboarding or Settings → GitHub:
+
+- **Sign in with GitHub** (OAuth device flow, scope `repo`): enter the code
+  shown at github.com/login/device.
+- **Use GitHub CLI login**: imports `gh auth token` (asked first).
+- **Paste a token**: a fine-grained personal access token with Contents and
+  Pull requests read/write (and Checks read for CI status).
+
+The token is kept in the OS keychain (service `jungle-monkey`, a 0600 file
+without one), used only by the jungle-monkey process, never given to the
+agent's container. Without webhooks, open PRs are checked every minute
+(conditional requests; backing off when GitHub fails).
 
 ## Commands
 
 | Command | |
 |---|---|
-| `jungle-monkey` / `start` | start everything, print the URL, open the browser. `--no-open`, `--port N` (remembered), `--data-dir DIR`, `--verbose`. Ctrl-C stops cleanly. |
+| `jungle-monkey` / `start` | start everything, print the URL, open the browser; inside a git repository, add it and open its project. `--no-open`, `--port N` (remembered), `--data-dir DIR`, `--verbose`. Ctrl-C stops cleanly. |
+| `add [path]` | add a folder (default: the current one; any folder inside a git repository adds its top level) as a local repository of the running instance, in a new project named after it. Idempotent |
 | `open` | open the web app with a fresh one-time login link (60 s, single use) |
 | `status` | running?, URL, version, task counts, Docker and Postgres state (exit 3 when not running) |
 | `stop` | stop a running instance (e.g. the background service) |
-| `doctor` | ✓/✕ checks with a fix line: Docker, disk, agent image, Postgres, agent credentials, GitHub, keychain, port, clock |
+| `doctor` | ✓/✕ checks with a fix line: Docker, disk, agent image, Postgres, agent credentials, local repositories found, GitHub (connection and scopes; "not connected" is fine), keychain, port, clock |
 | `service install` / `uninstall` | start at login: launchd user agent (macOS), `systemd --user` (Linux), Task Scheduler (Windows) |
 | `logs [-f]` | print (and follow) the log |
 | `--version`, `help` | |
@@ -98,10 +135,13 @@ not built yet (DECISIONS.md). Until then use the server install for phone access
 ## Backup, uninstall, moving to a server
 
 - **Backup**: `jungle-monkey stop`, then copy the data directory.
-- **Uninstall**: `jungle-monkey service uninstall`; delete the data directory;
+- **Uninstall**: `jungle-monkey stop`; `jungle-monkey service uninstall`; delete the data directory;
   remove the keychain entries of service `jungle-monkey` (Keychain Access on
   macOS, Credential Manager on Windows, `secret-tool clear service jungle-monkey`
-  on Linux); `docker image rm ghcr.io/andrewsl105/fleetpocket-agent:<version>`.
+  on Linux); `docker image rm ghcr.io/andrewsl105/fleetpocket-agent:<version>`;
+  `npm uninstall -g jungle-monkey` if you installed it globally (`npx` keeps
+  only a cache). Your repositories keep the `jm/...` branches you did not
+  merge or discard: `git branch --list 'jm/*'`.
 - **Move to a server**: install the server (docs/DEPLOY.md). To keep history,
   dump the local database while jungle-monkey runs:
   `pg_dump -h 127.0.0.1 -p <port> -U fleetpocket fleetpocket` (the Postgres
@@ -112,27 +152,25 @@ not built yet (DECISIONS.md). Until then use the server install for phone access
 
 ## Owner checklist
 
-0. Enable GitHub Pages for the site: Settings → Pages → Source: **GitHub
-   Actions** (the Pages workflow is still to be added, see DECISIONS.md).
-
-1. Create the GitHub OAuth App "Jungle Monkey" with **Device Flow enabled**
-   (callback URL is unused by the device flow). Put its client id in
-   `server/internal/config` `DefaultGitHubClientID`, or pass it at build time
-   with `-ldflags "-X github.com/andrewsl105/fleetpocket/server/internal/config.DefaultGitHubClientID=<id>"`.
-   No client secret is needed.
-2. Create the npm org `jungle-monkey` (scope `@jungle-monkey`) and reserve the package `jungle-monkey`.
-3. Configure npm trusted publishing for the five platform packages and the
-   main package (or add an `NPM_TOKEN` secret).
-4. Add the release workflow (not in this PR, see DECISIONS.md) on a `v*` tag:
-   `make jungle-monkey-all JM_VERSION=$TAG` (web build + 5 `CGO_ENABLED=0`
-   binaries with `embedweb`), build and push `fleetpocket-agent:$TAG`,
-   `node npm/build.mjs $TAG bin`, attach `bin/jungle-monkey-*` and
-   `bin/checksums.txt` to the Release, then `npm publish --provenance` each
-   `npm/dist/<platform>` and `npm/dist/jungle-monkey` last. Add a PR job that
-   runs `npm pack` on them and installs from the tarballs, and a smoke job on
-   ubuntu and macOS: install → `jungle-monkey start --no-open` with
-   `FLEETPOCKET_RUNNER_FAKE=true` → `/healthz` and `/` → `jungle-monkey stop`.
-   On the macOS runner, check the npm-installed binary runs without a
-   Gatekeeper prompt (npm does not set the quarantine attribute; the Go linker
-   ad-hoc signs darwin/arm64).
-5. Push a `vX.Y.Z` tag once the release workflow exists.
+1. **GitHub Pages**: Settings → Pages → Source: **GitHub Actions**
+   (`.github/workflows/pages.yml` deploys `index.html` and `docs/brand/`).
+2. **npm org**: create the npm organization `jungle-monkey` (scope
+   `@jungle-monkey`, for the platform packages) and make sure the package
+   name `jungle-monkey` is yours.
+3. **Publishing**: either configure npm trusted publishing for the six
+   packages (workflow `release.yml`, this repository) and set the repository
+   variable `NPM_TRUSTED_PUBLISHING=true`, or add an `NPM_TOKEN` secret
+   (automation token). Without either the release skips npm publish.
+4. **GitHub OAuth App** "Jungle Monkey" with **Device Flow enabled**
+   (Settings → Developer settings → OAuth Apps; the callback URL is unused by
+   the device flow, no client secret is needed). Put its client id in
+   `server/internal/config` `DefaultGitHubClientID`, or build with
+   `-ldflags "-X github.com/andrewsl105/fleetpocket/server/internal/config.DefaultGitHubClientID=<id>"`;
+   `JM_GITHUB_CLIENT_ID` overrides it at run time. Without it, "Sign in with
+   GitHub" is hidden and the `gh` and token options remain.
+5. **Release**: push a `vX.Y.Z` tag. `release.yml` builds the binaries for
+   every target in `npm/platforms.json`, pushes
+   `ghcr.io/andrewsl105/fleetpocket-agent:vX.Y.Z`, creates the GitHub Release
+   with the binaries and `checksums.txt`, and publishes the platform packages,
+   then `jungle-monkey`. The PR job `npm-smoke` (`npm/smoke.sh`) is the same
+   flow as a dry run.
