@@ -77,6 +77,22 @@ func (l *Local) Push(ctx context.Context, taskID int64, repo workspace.Repo, bra
 	return l.Workspace.Push(ctx, taskID, repo, branch)
 }
 
+func (l *Local) CheckpointDiff(ctx context.Context, taskID int64, ref, sha string, limit int) (string, bool, error) {
+	return l.Workspace.CheckpointDiff(ctx, taskID, ref, sha, limit)
+}
+
+func (l *Local) RestoreCheckpoint(ctx context.Context, taskID int64, ref, sha string) error {
+	return l.Workspace.RestoreCheckpoint(ctx, taskID, ref, sha)
+}
+
+func (l *Local) Diverged(ctx context.Context, taskID int64, branch string) (bool, error) {
+	return l.Workspace.Diverged(ctx, taskID, branch)
+}
+
+func (l *Local) ForcePush(ctx context.Context, taskID int64, repo workspace.Repo, branch string) (string, error) {
+	return l.Workspace.ForcePush(ctx, taskID, repo, branch)
+}
+
 func (l *Local) RemoveWorkspace(_ context.Context, taskID int64) error {
 	return l.Workspace.Remove(taskID)
 }

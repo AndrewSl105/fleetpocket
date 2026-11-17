@@ -2,10 +2,14 @@ package hosts
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
 
 // fakeConn answers calls through a handler (nil: never answers).
@@ -133,5 +137,36 @@ func TestRemoteEventLogPages(t *testing.T) {
 	lines, err := r.EventLog(context.Background(), 1, 0)
 	if err != nil || len(lines) != EventLogPage+5 || calls != 2 {
 		t.Fatalf("lines %d calls %d err %v", len(lines), calls, err)
+	}
+}
+
+// Checkpoint calls carry ref and sha, and a node's checkpoint_gone error
+// comes back as workspace.ErrCheckpointGone.
+func TestRemoteCheckpointCalls(t *testing.T) {
+	r := NewRemote("mac")
+	var got []Message
+	var mu sync.Mutex
+	c := &fakeConn{r: r, answer: func(m Message) *Message {
+		mu.Lock()
+		got = append(got, m)
+		mu.Unlock()
+		if m.Method == MRestoreCheckpoint {
+			return &Message{Op: OpResult, ID: m.ID, Error: "gone", ErrorKind: ErrKindCheckpointGone}
+		}
+		return &Message{Op: OpResult, ID: m.ID, Result: []byte(`true`)}
+	}}
+	r.Install(c, &Hello{})
+	ctx := context.Background()
+	err := r.RestoreCheckpoint(ctx, 3, "refs/jm/checkpoints/5/1", "abc")
+	if !errors.Is(err, workspace.ErrCheckpointGone) {
+		t.Fatalf("restore: %v", err)
+	}
+	if d, err := r.Diverged(ctx, 3, "agent/3"); err != nil || !d {
+		t.Fatalf("diverged: %v %v", d, err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(got) != 2 || !strings.Contains(string(got[0].Params), `"ref":"refs/jm/checkpoints/5/1","sha":"abc"`) {
+		t.Fatalf("%+v", got)
 	}
 }

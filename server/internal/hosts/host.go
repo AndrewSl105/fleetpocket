@@ -63,6 +63,16 @@ type Host interface {
 	// host's secrets scanner); rejections wrap workspace.ErrInvalidDiff.
 	Validate(ctx context.Context, taskID int64, base string, requireScanner bool) error
 	Push(ctx context.Context, taskID int64, repo workspace.Repo, branch string) error
+	// Checkpoints (SPEC-server, "Checkpoints"): ref is
+	// refs/jm/checkpoints/<run>/<n>, sha the commit it must point at; a
+	// missing or moved ref wraps workspace.ErrCheckpointGone.
+	CheckpointDiff(ctx context.Context, taskID int64, ref, sha string, limit int) (string, bool, error)
+	RestoreCheckpoint(ctx context.Context, taskID int64, ref, sha string) error
+	// Diverged: origin/<branch> is not an ancestor of HEAD (a restore rewrote it).
+	Diverged(ctx context.Context, taskID int64, branch string) (bool, error)
+	// ForcePush pushes with --force-with-lease, only to branches Jungle
+	// Monkey created; it returns the replaced remote commit.
+	ForcePush(ctx context.Context, taskID int64, repo workspace.Repo, branch string) (string, error)
 	RemoveWorkspace(ctx context.Context, taskID int64) error
 	// EventLog returns the lines of <workspace>/.fleetpocket/events.jsonl
 	// whose seq is greater than afterSeq (nil when there is no log).

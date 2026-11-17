@@ -47,6 +47,11 @@ const (
 	MListRunners      = "list_runners"
 	MTaskIDs          = "task_ids"
 	MPing             = "ping"
+	// Checkpoints (newer nodes; an older node answers "unknown method").
+	MCheckpointDiff    = "checkpoint_diff"
+	MRestoreCheckpoint = "restore_checkpoint"
+	MDiverged          = "diverged"
+	MForcePush         = "force_push"
 )
 
 // EventLogPage is the most event_log lines one call returns.
@@ -54,6 +59,9 @@ const EventLogPage = 2000
 
 // ErrKindInvalidDiff marks a Validate rejection (workspace.ErrInvalidDiff).
 const ErrKindInvalidDiff = "invalid_diff"
+
+// ErrKindCheckpointGone marks workspace.ErrCheckpointGone.
+const ErrKindCheckpointGone = "checkpoint_gone"
 
 // Message is every frame in both directions; unused fields are omitted.
 type Message struct {
@@ -108,6 +116,9 @@ type TaskParams struct {
 	After   int64    `json:"after_seq,omitempty"`
 	Strict  bool     `json:"require_scanner,omitempty"`
 	Service []string `json:"services,omitempty"`
+	// Ref and SHA name a checkpoint (checkpoint_diff, restore_checkpoint).
+	Ref string `json:"ref,omitempty"`
+	SHA string `json:"sha,omitempty"`
 	RepoParams
 }
 
