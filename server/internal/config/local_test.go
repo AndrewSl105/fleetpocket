@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -144,5 +145,39 @@ func TestGitHubDefaultsPerMode(t *testing.T) {
 	l, _ = Load()
 	if l.GitHubClientID != "Iv1.override" || l.SecretsScan != "gitleaks" {
 		t.Fatalf("overrides: %q %q", l.GitHubClientID, l.SecretsScan)
+	}
+}
+
+// Local mode on Linux runs runners as the owner of the bind-mounted
+// workspace; Docker Desktop keeps the image's user; server mode is unchanged.
+func TestLocalRunnerUser(t *testing.T) {
+	for _, c := range []struct {
+		goos     string
+		uid, gid int
+		want     string
+	}{
+		{"linux", 1001, 118, "1001:118"},
+		{"linux", 1000, 1000, "1000:1000"},
+		{"darwin", 501, 20, "1000:1000"},
+		{"windows", -1, -1, "1000:1000"},
+		{"linux", -1, -1, "1000:1000"},
+	} {
+		if got := LocalRunnerUser(c.goos, c.uid, c.gid); got != c.want {
+			t.Errorf("%s %d:%d = %s, want %s", c.goos, c.uid, c.gid, got, c.want)
+		}
+	}
+	t.Setenv("MODE", "")
+	t.Setenv("RUNNER_USER", "")
+	if s, _ := Load(); s.RunnerUser != "1000:1000" {
+		t.Fatalf("server mode runner user %q", s.RunnerUser)
+	}
+	t.Setenv("MODE", "local")
+	t.Setenv("JM_DATA_DIR", t.TempDir())
+	if l, _ := Load(); l.RunnerUser != LocalRunnerUser(runtime.GOOS, os.Getuid(), os.Getgid()) {
+		t.Fatalf("local mode runner user %q", l.RunnerUser)
+	}
+	t.Setenv("RUNNER_USER", "2000:2000")
+	if l, _ := Load(); l.RunnerUser != "2000:2000" {
+		t.Fatalf("RUNNER_USER must win: %q", l.RunnerUser)
 	}
 }

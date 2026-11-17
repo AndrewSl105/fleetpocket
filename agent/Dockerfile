@@ -18,13 +18,18 @@ RUN apt-get update \
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xz
 ENV PATH=/usr/local/go/bin:/home/runner/go/bin:$PATH
 
-# The runner user must be uid 1000 so workspaces are shared with Fleetpocket.
+# The runner user is uid 1000, which shares workspaces with Fleetpocket in
+# server mode. Local mode on Linux runs the container as the host user's
+# uid:gid instead (bind-mounted workspaces keep their owner there), so HOME
+# and ~/.claude are writable by any uid (sticky, like /tmp) and HOME is set
+# explicitly: an uid without a passwd entry would get HOME=/.
 # ~/.claude is the per-task state volume; Cursor's ~/.cursor lives inside it.
 RUN if getent passwd 1000 >/dev/null; then userdel -r "$(getent passwd 1000 | cut -d: -f1)"; fi \
  && useradd -m -u 1000 -s /bin/bash runner \
  && mkdir -p /home/runner/.claude /workspace \
  && ln -s /home/runner/.claude/cursor /home/runner/.cursor \
  && chown -R runner:runner /home/runner /workspace \
+ && chmod 1777 /home/runner /home/runner/.claude \
  && git config --system --add safe.directory '*'
 
 COPY --from=build /app/node_modules /app/node_modules
@@ -33,5 +38,5 @@ COPY package.json /app/package.json
 
 USER runner
 WORKDIR /workspace
-ENV NODE_ENV=production
+ENV NODE_ENV=production HOME=/home/runner
 ENTRYPOINT ["node", "/app/dist/main.js"]
