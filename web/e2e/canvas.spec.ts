@@ -93,7 +93,7 @@ test('register a computer and see its token once', async ({ page }) => {
   await page.getByRole('button', { name: 'Add computer' }).click()
   await page.getByRole('button', { name: 'Set up by hand with a token' }).click()
   await page.getByLabel('Name').fill('Studio Mac')
-  await expect(page.getByLabel('Id')).toHaveValue('studio-mac')
+  await expect(page.getByLabel('Id', { exact: true })).toHaveValue('studio-mac')
   await page.getByRole('button', { name: 'Create and show token' }).click()
   await expect(page.getByRole('heading', { name: 'Connect this computer' })).toBeVisible()
   await expect(page.getByText(/^fpn_studio-mac\./)).toBeVisible()

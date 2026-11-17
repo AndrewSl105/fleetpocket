@@ -1,7 +1,7 @@
 // All UI strings. Add a uk.ts with the same shape to translate.
 export const en = {
   app: { name: 'Jungle Monkey', kicker: 'Jungle Monkey · Field log' },
-  nav: { tasks: 'Tasks', new: 'New', canvas: 'Canvas', projects: 'Projects', skills: 'Skills', schedules: 'Schedules', costs: 'Costs', settings: 'Settings' },
+  nav: { tasks: 'Tasks', new: 'New', canvas: 'Canvas', projects: 'Projects', skills: 'Skills', schedules: 'Schedules', ideas: 'Ideas', record: 'Record an idea', costs: 'Costs', settings: 'Settings' },
   common: {
     cancel: 'Cancel',
     save: 'Save',

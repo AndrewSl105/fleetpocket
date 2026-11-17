@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { BookOpen, Clock, FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
+import { BookOpen, Clock, FolderGit2, Lightbulb, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
@@ -9,6 +9,8 @@ import { DeepLink } from '@/telegram/DeepLinkHandler'
 import { Logo } from './Logo'
 import { OfflineBanner } from './OfflineBanner'
 import { useLocalOnboardingRedirect } from '@/local/onboarding'
+import { useMe } from '@/api/hooks'
+import { CaptureTrigger } from './CaptureTrigger'
 
 const DebugPanel = import.meta.env.VITE_DEBUG === '1' ? lazy(() => import('@/telegram/DebugPanel')) : null
 
@@ -28,6 +30,7 @@ const SIDEBAR_NAV = [
   ...NAV.slice(1, 3),
   { to: '/skills', label: t.nav.skills, icon: BookOpen, end: false },
   { to: '/schedules', label: t.nav.schedules, icon: Clock, end: false },
+  { to: '/ideas', label: t.nav.ideas, icon: Lightbulb, end: false },
   { to: '/costs', label: t.nav.costs, icon: Receipt, end: true },
   NAV[3],
 ] as const
@@ -41,6 +44,7 @@ export function parentPath(pathname: string): string {
   if (pathname.startsWith('/projects/')) return '/projects'
   if (pathname.startsWith('/skills/')) return '/skills'
   if (pathname.startsWith('/schedules/')) return '/schedules'
+  if (pathname.startsWith('/ideas/')) return '/ideas'
   return '/'
 }
 
@@ -48,6 +52,7 @@ export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const deep = !TAB_ROOTS.includes(pathname)
+  const ideas = useMe().data?.ideas_enabled
   useLocalOnboardingRedirect()
 
   useBackButton(deep, () => {
@@ -66,13 +71,16 @@ export function AppShell() {
           <span className="fm-label leading-tight font-semibold">{t.app.name}</span>
         </div>
         <div className="border-b border-rule p-3">
-          <NavLink to="/new" className="fm-btn-signal flex h-11 items-center justify-center gap-2 text-sm">
-            <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
-            {t.nav.new}
-          </NavLink>
+          <div className="flex gap-2">
+            <NavLink to="/new" className="fm-btn-signal flex h-11 flex-1 items-center justify-center gap-2 text-sm">
+              <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+              {t.nav.new}
+            </NavLink>
+            <CaptureTrigger />
+          </div>
         </div>
         <nav className="flex min-h-0 flex-1 flex-col" aria-label="Main">
-          {SIDEBAR_NAV.filter((item) => !('primary' in item)).map((item) => (
+          {SIDEBAR_NAV.filter((item) => !('primary' in item) && (ideas || item.to !== '/ideas')).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

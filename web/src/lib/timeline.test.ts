@@ -230,3 +230,16 @@ describe('loops in the timeline', () => {
     expect(items.at(-1)).toMatchObject({ kind: 'loop_end', state: 'passed' })
   })
 })
+
+describe('idea events', () => {
+  it('shows a card move as a divider and a failure as a warning', () => {
+    const items = buildTimeline([
+      ev('idea', { idea_id: 4, title: 'Dark mode', action: 'started', column: 'in_progress', column_name: 'In progress', moved: true, reason: 'task #1 started from it' }, { runner: false }),
+      ev('idea', { idea_id: 4, title: 'Dark mode', action: 'failed', column: 'in_progress', column_name: '', moved: false, reason: 'task #1 failed' }, { runner: false }),
+    ])
+    expect(items.map((i) => (i.kind === 'divider' ? [i.text, i.tone] : i.kind))).toEqual([
+      ['Started from the idea “Dark mode” · card moved to In progress', 'muted'],
+      ['Idea “Dark mode”: task #1 failed', 'warn'],
+    ])
+  })
+})

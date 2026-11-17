@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { errorMessage, useAgents, useIntegrations, useProjects } from '@/api/hooks'
@@ -19,6 +19,7 @@ import { t } from '@/i18n/en'
 import { sc } from '@/i18n/schedules'
 import { lp } from '@/i18n/loops'
 import { LoopFields } from '@/routes/loops/LoopFields'
+import type { IdeaPrefill } from '@/routes/ideas/IdeaDetailPage'
 import { baseSkills } from '@/routes/skills/ComposerSkills'
 import { emptyValues, parseMoney, presetCron, toInput, toValues, zones, type Preset, type ScheduleValues } from './scheduleForm'
 
@@ -28,12 +29,20 @@ const PRESETS: Preset[] = ['daily', 'weekdays', 'weekly', 'custom']
 /** New or edit schedule: what to run, when (presets or cron, in a time zone), budgets, policy and loop. */
 export default function ScheduleEditPage() {
   const params = useParams()
+  const location = useLocation()
   const id = params.id ? Number(params.id) : undefined
   const existing = useSchedule(id)
   const projects = useProjects()
   if (projects.isPending || (id !== undefined && existing.isPending)) return <PageSpinner />
   if (id !== undefined && existing.isError) return <p className="py-10 text-center text-sm text-muted-foreground">{errorMessage(existing.error) || sc.notFound}</p>
-  const initial = existing.data ? toValues(existing.data) : emptyValues(projects.data?.[0]?.id ?? '')
+  // "Schedule" on an Ideas board card: its title and text prefill a new schedule.
+  const idea = id === undefined ? (location.state as { idea?: IdeaPrefill } | null)?.idea : undefined
+  const first = projects.data?.find((p) => p.id === idea?.projectId)?.id ?? projects.data?.[0]?.id ?? ''
+  const initial = existing.data
+    ? toValues(existing.data)
+    : idea
+      ? { ...emptyValues(first), name: idea.title.slice(0, 80), prompt: idea.prompt }
+      : emptyValues(first)
   return <Editor key={id ?? 'new'} id={id} initial={initial} projects={projects.data ?? []} />
 }
 

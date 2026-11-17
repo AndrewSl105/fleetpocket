@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { CaptureTrigger } from '@/components/CaptureTrigger'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Plus, Search, X } from 'lucide-react'
 import { Link } from 'react-router'
@@ -82,6 +83,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             <p className="fm-label truncate text-[10px] text-muted-foreground">{t.app.kicker}</p>
             <h1 className="truncate text-[26px] leading-tight font-bold">{t.tasks.title}</h1>
           </div>
+          <CaptureTrigger className="lg:hidden" />
           <Link to="/new" className="fm-btn-signal flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-[15px] lg:hidden">
             <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
             {t.nav.new}

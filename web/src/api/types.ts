@@ -58,3 +58,12 @@ export type LocalSuggestions = paths['/api/v1/local/repos/suggestions']['get']['
 export type DevicePoll = paths['/api/v1/local/github/device/poll']['post']['responses'][200]['content']['application/json']
 
 export type Page<T> = { items: T[]; next_cursor: string }
+
+export type Idea = S['Idea']
+export type IdeaAttachment = S['IdeaAttachment']
+export type IdeaColumn = S['IdeaColumn']
+export type IdeaSettings = S['IdeaSettings']
+export type IdeaSettingsInput = S['IdeaSettingsInput']
+export type IdeaInput = S['IdeaInput']
+export type IdeaPatch = S['IdeaPatch']
+export type IdeaEventPayload = S['IdeaEvent']['payload']
