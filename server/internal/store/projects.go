@@ -17,18 +17,20 @@ type Project struct {
 	RunnerImage  *string           `json:"runner_image"`
 	Agent        *string           `json:"agent"`
 	// Node runs the project's tasks unless a task picks a host; nil: the server.
-	Node             *string      `json:"node"`
-	Model            *string      `json:"model"`
-	MaxTurns         *int         `json:"max_turns"`
-	MaxBudgetUSD     *float64     `json:"max_budget_usd"`
-	MaxDurationSec   *int64       `json:"max_duration_sec"`
-	RunnerMemory     *string      `json:"runner_memory"`
-	RunnerCPUs       *float64     `json:"runner_cpus"`
-	TelegramThreadID *int64       `json:"telegram_thread_id"`
-	Archived         bool         `json:"archived"`
-	CreatedAt        time.Time    `json:"created_at"`
-	UpdatedAt        time.Time    `json:"updated_at"`
-	Repositories     []Repository `json:"repositories"`
+	Node             *string  `json:"node"`
+	Model            *string  `json:"model"`
+	MaxTurns         *int     `json:"max_turns"`
+	MaxBudgetUSD     *float64 `json:"max_budget_usd"`
+	MaxDurationSec   *int64   `json:"max_duration_sec"`
+	RunnerMemory     *string  `json:"runner_memory"`
+	RunnerCPUs       *float64 `json:"runner_cpus"`
+	TelegramThreadID *int64   `json:"telegram_thread_id"`
+	// CIAutoFix overrides the global CI auto-fix default; nil fields inherit it.
+	CIAutoFix    AutoFixOverrides `json:"ci_autofix"`
+	Archived     bool             `json:"archived"`
+	CreatedAt    time.Time        `json:"created_at"`
+	UpdatedAt    time.Time        `json:"updated_at"`
+	Repositories []Repository     `json:"repositories"`
 }
 
 type Repository struct {
@@ -42,16 +44,21 @@ type Repository struct {
 
 const projectCols = `id, name, instructions, services, env, runner_image, model, max_turns,
 	max_budget_usd::float8, EXTRACT(EPOCH FROM max_duration)::bigint, runner_memory, runner_cpus::float8,
-	telegram_thread_id, archived, created_at, updated_at, agent, node`
+	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix`
 
 func scanProject(row interface{ Scan(...any) error }) (*Project, error) {
 	var p Project
-	var env []byte
+	var env, autofix []byte
 	err := row.Scan(&p.ID, &p.Name, &p.Instructions, &p.Services, &env, &p.RunnerImage, &p.Model, &p.MaxTurns,
 		&p.MaxBudgetUSD, &p.MaxDurationSec, &p.RunnerMemory, &p.RunnerCPUs,
-		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node)
+		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix)
 	if err != nil {
 		return nil, err
+	}
+	if len(autofix) > 0 {
+		if err := json.Unmarshal(autofix, &p.CIAutoFix); err != nil {
+			return nil, fmt.Errorf("project %s ci_autofix: %w", p.ID, err)
+		}
 	}
 	p.Env = map[string]string{}
 	if len(env) > 0 {
@@ -84,6 +91,8 @@ type ProjectFields struct {
 	RunnerCPUs       *float64           `json:"runner_cpus"`
 	TelegramThreadID *int64             `json:"telegram_thread_id"`
 	Archived         *bool              `json:"archived"`
+	// CIAutoFix replaces the project's CI auto-fix overrides as a whole.
+	CIAutoFix *AutoFixOverrides `json:"ci_autofix"`
 }
 
 func (s *Store) CreateProject(ctx context.Context, id string, f ProjectFields) (*Project, error) {
@@ -164,6 +173,14 @@ func (s *Store) UpdateProject(ctx context.Context, id string, f ProjectFields) (
 	}
 	if f.Archived != nil {
 		add("archived", *f.Archived)
+	}
+	if f.CIAutoFix != nil {
+		if f.CIAutoFix.IsZero() {
+			add("ci_autofix", nil)
+		} else {
+			b, _ := json.Marshal(*f.CIAutoFix)
+			add("ci_autofix", b)
+		}
 	}
 	tag, err := s.Pool.Exec(ctx, `UPDATE projects SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)
 	if err != nil {

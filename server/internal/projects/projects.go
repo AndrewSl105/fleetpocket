@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/autofix"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 )
@@ -106,6 +107,25 @@ func validate(f store.ProjectFields) error {
 	if f.MaxTurns != nil && *f.MaxTurns < 0 || f.MaxBudgetUSD != nil && *f.MaxBudgetUSD < 0 ||
 		f.MaxDurationSec != nil && *f.MaxDurationSec < 0 || f.RunnerCPUs != nil && *f.RunnerCPUs < 0 {
 		return fmt.Errorf("%w: limits must not be negative", ErrInvalid)
+	}
+	if f.CIAutoFix != nil {
+		if err := ValidateAutoFix(*f.CIAutoFix); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateAutoFix checks CI auto-fix overrides (project or global default).
+func ValidateAutoFix(o store.AutoFixOverrides) error {
+	if o.MaxAttempts != nil && (*o.MaxAttempts < 1 || *o.MaxAttempts > autofix.MaxMaxAttempts) {
+		return fmt.Errorf("%w: ci_autofix.max_attempts must be 1 to %d", ErrInvalid, autofix.MaxMaxAttempts)
+	}
+	if o.BudgetUSD != nil && *o.BudgetUSD < 0 {
+		return fmt.Errorf("%w: ci_autofix.budget_usd must not be negative", ErrInvalid)
+	}
+	if o.Checks != nil && len(*o.Checks) > 50 {
+		return fmt.Errorf("%w: ci_autofix.checks lists at most 50 check names", ErrInvalid)
 	}
 	return nil
 }

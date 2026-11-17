@@ -44,6 +44,15 @@ type Task struct {
 	// input of the next run when the current one ends.
 	QueuedMessage *string `json:"queued_message"`
 
+	// CI auto-fix (docs/SPEC-server.md "CI auto-fix"). LastPushedSHA is the
+	// last commit Jungle Monkey pushed to the branch.
+	LastPushedSHA      *string `json:"-"`
+	AutoFixState       *string `json:"autofix_state"`
+	AutoFixAttempts    int     `json:"autofix_attempts"`
+	AutoFixMaxAttempts *int    `json:"autofix_max_attempts"`
+	AutoFixSignature   *string `json:"-"`
+	AutoFixHandledSHA  *string `json:"-"`
+
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
 	StatusEvents []*Event `json:"-"`
@@ -51,16 +60,20 @@ type Task struct {
 
 const taskCols = `id, project_id, repository_id, title, prompt, status, status_reason, branch, session_id,
 	pr_number, pr_url, ci_status, cost_usd_total::float8, turns, source, created_at, updated_at, finished_at, paused_at, cleaned_at,
-	last_activity, last_activity_at, queued_message, agent, node`
+	last_activity, last_activity_at, queued_message, agent, node,
+	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
+	var attempts *int
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
-		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node)
+		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
+		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA)
 	if err != nil {
 		return nil, err
 	}
+	t.AutoFixAttempts = deref(attempts, 0)
 	return &t, nil
 }
 
@@ -445,13 +458,19 @@ type Run struct {
 	Turns       int        `json:"turns"`
 	StartedAt   *time.Time `json:"started_at"`
 	FinishedAt  *time.Time `json:"finished_at"`
+	// AutoFixAttempt is set on runs started by CI auto-fix; MaxBudgetUSD
+	// then overrides the project's budget for the run.
+	AutoFixAttempt *int     `json:"autofix_attempt"`
+	MaxBudgetUSD   *float64 `json:"-"`
 }
 
-const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at`
+const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at,
+	autofix_attempt, max_budget_usd::float8`
 
 func scanRun(row interface{ Scan(...any) error }) (*Run, error) {
 	var r Run
-	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt,
+		&r.AutoFixAttempt, &r.MaxBudgetUSD); err != nil {
 		return nil, err
 	}
 	return &r, nil
