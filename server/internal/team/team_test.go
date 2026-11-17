@@ -257,11 +257,12 @@ func TestDisableUserSideEffects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The API cancels these through the task service (status events, cleanup).
 	if len(res.Cancelled) != 1 || res.Cancelled[0] != queued.ID || len(res.Live) != 1 || res.Live[0] != running.ID {
 		t.Fatalf("tasks: %+v", res)
 	}
-	if tk, _ := f.st.GetTask(f.ctx, queued.ID); tk.Status != "cancelled" {
-		t.Fatalf("queued task: %s", tk.Status)
+	if len(res.Nodes) != 1 || res.Nodes[0] != "bobs-mac" {
+		t.Fatalf("nodes to disconnect: %v", res.Nodes)
 	}
 	if _, err := f.st.TouchSession(f.ctx, "bobsess", time.Hour); err == nil {
 		t.Fatal("session survived")

@@ -154,6 +154,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	teamSvc := &team.Service{Store: st, Box: box, Cfg: cfg, Owner: authMgr}
 	sched.Team = teamSvc
 	taskSvc.TeamOn = teamSvc.Enabled
+	taskSvc.NodeAllowed = teamSvc.NodeAllowed
 	taskSvc.NeedsKey = func(ctx context.Context, t *store.Task) string {
 		if _, err := teamSvc.AgentEnv(ctx, t); errors.Is(err, team.ErrNeedsKey) {
 			return team.NeedsKeyReason(t.Agent)

@@ -24,6 +24,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/secretbox"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
+	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 )
 
 var (
@@ -498,10 +499,13 @@ func (s *Service) SetBudget(ctx context.Context, actor, id int64, usd *float64) 
 	return u, err
 }
 
-// DisableResult lists what disabling a user did.
+// DisableResult lists what disabling a user left for the caller: the
+// waiting tasks to cancel, the live ones (finish or cancel, as the admin
+// chose) and the computers to disconnect.
 type DisableResult struct {
-	Cancelled []int64 `json:"cancelled_tasks"`
-	Live      []int64 `json:"live_tasks"`
+	Cancelled []int64  `json:"cancelled_tasks"`
+	Live      []int64  `json:"live_tasks"`
+	Nodes     []string `json:"-"`
 }
 
 // DisableUser applies the side effects (store.DisableUser); the caller
@@ -517,13 +521,13 @@ func (s *Service) DisableUser(ctx context.Context, actor, id int64, liveAction s
 	if err := s.lastAdminGuard(ctx, u); err != nil {
 		return nil, err
 	}
-	live, cancelled, err := s.Store.DisableUser(ctx, id)
+	waiting, live, nodes, err := s.Store.DisableUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	s.audit(ctx, &actor, "user.disable", "user", strconv.FormatInt(id, 10),
-		map[string]any{"cancelled_tasks": cancelled, "live_tasks": live, "live_action": liveAction})
-	return &DisableResult{Cancelled: cancelled, Live: live}, nil
+		map[string]any{"cancelled_tasks": waiting, "live_tasks": live, "live_action": liveAction})
+	return &DisableResult{Cancelled: waiting, Live: live, Nodes: nodes}, nil
 }
 
 func (s *Service) EnableUser(ctx context.Context, actor, id int64) error {
@@ -845,4 +849,21 @@ func CanActOn(role string, actor int64, owner *int64) bool {
 		return true
 	}
 	return role == store.RoleMember && owner != nil && *owner == actor
+}
+
+// NodeAllowed: in team mode a member's (or viewer's) task may run only on
+// their own computers and on computers an admin shared; admins anywhere.
+// Nil-safe; single-owner mode allows everything.
+func (s *Service) NodeAllowed(ctx context.Context, n *store.Node, by *int64) error {
+	if s == nil || !s.Enabled(ctx) || by == nil || n == nil {
+		return nil
+	}
+	u, err := s.Store.GetUser(ctx, *by)
+	if err != nil {
+		return err
+	}
+	if u.Role == store.RoleAdmin || n.Shared || n.OwnerUserID != nil && *n.OwnerUserID == u.ID {
+		return nil
+	}
+	return fmt.Errorf("%w: computer %s belongs to someone else and is not shared with the team", tasks.ErrForbidden, n.Name)
 }

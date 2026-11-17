@@ -349,14 +349,19 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 				s.teamErr(w, r, err)
 				return
 			}
+			// Through the task service: status events, runner cleanup, pushes.
 			for _, tid := range res.Cancelled {
-				if t, err := s.Store.GetTask(ctx, tid); err == nil && s.Hub != nil {
-					s.Hub.PublishTask(t)
-				}
+				_, _ = s.Tasks.Cancel(ctx, tid)
 			}
 			if in.LiveTasks == "cancel" {
 				for _, tid := range res.Live {
 					_, _ = s.Tasks.Cancel(ctx, tid)
+				}
+			}
+			// Their computers' tokens are void; drop connections still open.
+			if s.Nodes != nil && s.Nodes.Registry != nil {
+				for _, id := range res.Nodes {
+					s.Nodes.Registry.Kick(id)
 				}
 			}
 			result = res
@@ -670,35 +675,6 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---- nodes and skills in team mode ----
-
-// nodeAllowed: a member's task may target their own computers and shared
-// ones (admins: any). The node is the override or the project's.
-func (s *Server) nodeAllowed(w http.ResponseWriter, r *http.Request, projectID, override string) bool {
-	a := actorOf(r)
-	if !a.Team || a.admin() {
-		return true
-	}
-	id := override
-	if id == "" {
-		p, err := s.Store.GetProject(r.Context(), projectID)
-		if err != nil || p.Node == nil {
-			return true // the task service answers a bad project
-		}
-		id = *p.Node
-	}
-	if id == "" || id == "server" {
-		return true
-	}
-	n, err := s.Store.GetNode(r.Context(), id)
-	if err != nil {
-		return true
-	}
-	if n.Shared || n.OwnerUserID != nil && *n.OwnerUserID == a.UserID {
-		return true
-	}
-	forbid(w, "this computer belongs to someone else and is not shared with the team")
-	return false
-}
 
 // ownNode: admins manage any computer, members their own.
 func (s *Server) ownNode(w http.ResponseWriter, r *http.Request) bool {

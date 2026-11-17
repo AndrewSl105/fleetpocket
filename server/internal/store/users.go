@@ -310,11 +310,13 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, f UserFields) (*User, 
 	return u, err
 }
 
-// DisableUser marks the user disabled and applies the side effects in one
-// transaction: sessions revoked, owned node tokens invalidated, personal
-// keys deleted, queued tasks cancelled. It returns the ids of the user's
-// live tasks (the caller finishes or cancels them) and of cancelled ones.
-func (s *Store) DisableUser(ctx context.Context, id int64) (live, cancelled []int64, err error) {
+// DisableUser marks the user disabled and applies the side effects that
+// belong in one transaction: sessions revoked, owned computers' tokens
+// invalidated (and unshared), personal keys and the Telegram link deleted,
+// schedules paused. It returns the user's waiting tasks (queued, needs_key,
+// paused: the caller cancels them through the task service, so the timeline
+// and Telegram see it), their live tasks and their computers (to disconnect).
+func (s *Store) DisableUser(ctx context.Context, id int64) (waiting, live []int64, nodes []string, err error) {
 	err = s.Tx(ctx, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE users SET disabled_at = now(), telegram_user_id = NULL WHERE id = $1 AND disabled_at IS NULL`, id)
 		if err != nil {
@@ -323,25 +325,23 @@ func (s *Store) DisableUser(ctx context.Context, id int64) (live, cancelled []in
 		if tag.RowsAffected() == 0 {
 			return ErrNotFound
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM auth_sessions WHERE user_id = $1`, id); err != nil {
-			return err
-		}
-		// A random hash no token can match: the node must be paired again.
-		if _, err := tx.Exec(ctx, `UPDATE nodes SET token_hash = gen_random_uuid()::text::bytea, shared = false WHERE owner_user_id = $1`, id); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM user_credentials WHERE user_id = $1`, id); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM telegram_link_codes WHERE user_id = $1`, id); err != nil {
-			return err
+		for _, stmt := range []string{
+			`DELETE FROM auth_sessions WHERE user_id = $1`,
+			// A random hash no token can match: the computer must be paired again.
+			`UPDATE nodes SET token_hash = gen_random_uuid()::text::bytea, shared = false WHERE owner_user_id = $1`,
+			`DELETE FROM user_credentials WHERE user_id = $1`,
+			`DELETE FROM telegram_link_codes WHERE user_id = $1`,
+			`UPDATE schedules SET enabled = false WHERE created_by = $1`,
+		} {
+			if _, err := tx.Exec(ctx, stmt, id); err != nil {
+				return err
+			}
 		}
 		rows, err := tx.Query(ctx, `SELECT id, status FROM tasks WHERE created_by = $1
-			AND status IN ('queued', 'needs_key', 'paused', 'preparing', 'running', 'waiting_input')`, id)
+			AND status IN ('queued', 'needs_key', 'paused', 'preparing', 'running', 'waiting_input', 'pushing') ORDER BY id`, id)
 		if err != nil {
 			return err
 		}
-		var queued []int64
 		for rows.Next() {
 			var tid int64
 			var st string
@@ -350,7 +350,7 @@ func (s *Store) DisableUser(ctx context.Context, id int64) (live, cancelled []in
 				return err
 			}
 			if st == "queued" || st == "needs_key" || st == "paused" {
-				queued = append(queued, tid)
+				waiting = append(waiting, tid)
 			} else {
 				live = append(live, tid)
 			}
@@ -359,20 +359,21 @@ func (s *Store) DisableUser(ctx context.Context, id int64) (live, cancelled []in
 		if err := rows.Err(); err != nil {
 			return err
 		}
-		if len(queued) > 0 {
-			if _, err := tx.Exec(ctx, `UPDATE tasks SET status = 'cancelled', status_reason = 'the user who created it was disabled',
-				finished_at = now(), updated_at = now() WHERE id = ANY($1)`, queued); err != nil {
-				return err
-			}
-			if _, err := tx.Exec(ctx, `UPDATE runs SET finished_at = now(), exit_code = -1 WHERE task_id = ANY($1) AND finished_at IS NULL AND started_at IS NULL`, queued); err != nil {
-				return err
-			}
-			cancelled = queued
+		nrows, err := tx.Query(ctx, `SELECT id FROM nodes WHERE owner_user_id = $1 ORDER BY id`, id)
+		if err != nil {
+			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE schedules SET enabled = false WHERE created_by = $1`, id)
-		return err
+		defer nrows.Close()
+		for nrows.Next() {
+			var nid string
+			if err := nrows.Scan(&nid); err != nil {
+				return err
+			}
+			nodes = append(nodes, nid)
+		}
+		return nrows.Err()
 	})
-	return live, cancelled, err
+	return waiting, live, nodes, err
 }
 
 // EnableUser clears disabled_at.

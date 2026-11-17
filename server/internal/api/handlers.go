@@ -407,9 +407,6 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	}
 	in.Source = "web"
 	in.CreatedBy = actorOf(r).uid()
-	if !s.nodeAllowed(w, r, in.ProjectID, in.Node) {
-		return
-	}
 	// A task started from an idea: check the idea first, so a bad idea_id
 	// creates no task; then link it, which moves the card to In progress.
 	if in.IdeaID != 0 {

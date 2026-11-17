@@ -59,7 +59,7 @@ func setupTeam(t *testing.T, mode string) *teamEnv {
 	am := &auth.Manager{Store: st, PasswordHash: hash, TOTPSecret: secret, SessionSecret: []byte("s"), CookieInsecure: true}
 	ts := &team.Service{Store: st, Box: box, Cfg: cfg, Owner: am}
 	taskSvc := &tasks.Service{Store: st, Hub: hub, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled,
-		TeamOn: ts.Enabled, NeedsKey: func(ctx context.Context, tk *store.Task) string {
+		TeamOn: ts.Enabled, NodeAllowed: ts.NodeAllowed, NeedsKey: func(ctx context.Context, tk *store.Task) string {
 			if _, err := ts.AgentEnv(ctx, tk); err != nil {
 				return team.NeedsKeyReason(tk.Agent)
 			}
@@ -359,5 +359,111 @@ func TestRoleMatrix(t *testing.T) {
 	}
 	if st, _ := member.do("GET", "/api/v1/me", nil); st != 401 {
 		t.Fatalf("disabled member still signed in: %d", st)
+	}
+}
+
+// Disabling a user cancels their waiting tasks through the task service,
+// so the timeline gets a status event.
+func TestDisableCancelsWithStatusEvent(t *testing.T) {
+	e := setupTeam(t, "")
+	ctx := context.Background()
+	admin := e.ownerLogin()
+	admin.do("POST", "/api/v1/projects", map[string]any{"id": "demo", "name": "Demo"})
+	admin.do("POST", "/api/v1/projects/demo/repositories", map[string]any{"full_name": "o/r", "installation_id": 1, "base_branch": "main"})
+	admin.do("POST", "/api/v1/team/enable", map[string]any{"email": "ann@example.com", "name": "Ann"})
+	member := e.join(admin, "member", "mia@example.com")
+	_, task := member.do("POST", "/api/v1/tasks", map[string]any{"project_id": "demo", "prompt": "waits for a key"})
+	id := int64(task["id"].(float64))
+	_, users := admin.do("GET", "/api/v1/users", nil)
+	var mia any
+	for _, it := range users["items"].([]any) {
+		if it.(map[string]any)["email"] == "mia@example.com" {
+			mia = it.(map[string]any)["id"]
+		}
+	}
+	if st, b := admin.do("PATCH", fmt.Sprintf("/api/v1/users/%v", mia), map[string]any{"disabled": true}); st != 200 {
+		t.Fatalf("disable: %d %v", st, b)
+	}
+	tk, _ := e.st.GetTask(ctx, id)
+	if tk.Status != tasks.Cancelled {
+		t.Fatalf("status: %s", tk.Status)
+	}
+	evs, _ := e.st.ListEvents(ctx, id, 0, 100)
+	found := false
+	for _, ev := range evs {
+		if ev.Type == "status" && strings.Contains(string(ev.Payload), `"cancelled"`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("no status event for the cancel")
+	}
+}
+
+// A member's task cannot run on someone else's computer through any path:
+// the web, and a schedule firing (Run now).
+func TestNodePermissionEveryPath(t *testing.T) {
+	e := setupTeam(t, "")
+	ctx := context.Background()
+	admin := e.ownerLogin()
+	admin.do("POST", "/api/v1/projects", map[string]any{"id": "demo", "name": "Demo"})
+	admin.do("POST", "/api/v1/projects/demo/repositories", map[string]any{"full_name": "o/r", "installation_id": 1, "base_branch": "main"})
+	admin.do("POST", "/api/v1/team/enable", map[string]any{"email": "ann@example.com", "name": "Ann"})
+	_, _ = admin.do("PATCH", "/api/v1/team", map[string]any{"shared_key_fallback": true})
+	if _, err := e.st.CreateNode(ctx, "anns-mac", "Ann's Mac", []byte("h")); err != nil {
+		t.Fatal(err)
+	}
+	owner, _ := e.st.OwnerUser(ctx)
+	_ = e.st.SetNodeOwner(ctx, "anns-mac", owner.ID)
+	_ = e.st.Pool.QueryRow(ctx, `UPDATE nodes SET agents = '{claude}' WHERE id = 'anns-mac' RETURNING id`).Scan(new(string))
+	member := e.join(admin, "member", "mia@example.com")
+	if st, b := member.do("POST", "/api/v1/tasks", map[string]any{"project_id": "demo", "prompt": "x", "node": "anns-mac"}); st != 403 {
+		t.Fatalf("web path: %d %v", st, b)
+	}
+	// The project runs on Ann's computer: a member's schedule firing fails.
+	if st, b := admin.do("PATCH", "/api/v1/projects/demo", map[string]any{"node": "anns-mac"}); st != 200 {
+		t.Fatalf("project node: %d %v", st, b)
+	}
+	_, sc := member.do("POST", "/api/v1/schedules", map[string]any{"name": "n", "project_id": "demo", "prompt": "p", "cron": "@daily", "timezone": "UTC"})
+	st, f := member.do("POST", fmt.Sprintf("/api/v1/schedules/%v/run", sc["id"]), nil)
+	if st != 201 || f["outcome"] != "failed" || !strings.Contains(fmt.Sprint(f["reason"]), "not shared") {
+		t.Fatalf("schedule path: %d %v", st, f)
+	}
+	// Shared: now it runs there.
+	if st, _ := admin.do("PUT", "/api/v1/nodes/anns-mac/shared", map[string]any{"shared": true}); st != 200 {
+		t.Fatalf("share: %d", st)
+	}
+	if st, b := member.do("POST", "/api/v1/tasks", map[string]any{"project_id": "demo", "prompt": "x", "node": "anns-mac"}); st != 201 {
+		t.Fatalf("shared node: %d %v", st, b)
+	}
+}
+
+// Personal skills stay with their owner: hidden, not exportable or
+// duplicable by others, never enabled for everyone.
+func TestPersonalSkills(t *testing.T) {
+	e := setupTeam(t, "")
+	admin := e.ownerLogin()
+	admin.do("POST", "/api/v1/team/enable", map[string]any{"email": "ann@example.com", "name": "Ann"})
+	member := e.join(admin, "member", "mia@example.com")
+	other := e.join(admin, "member", "oli@example.com")
+	body := "---\nname: mine\ndescription: d\n---\nbody"
+	st, sk := member.do("POST", "/api/v1/skills", map[string]any{"slug": "mine", "body": body, "files": []any{}, "enabled_by_default": true})
+	if st != 201 || sk["personal"] != true || sk["enabled_by_default"] != false {
+		t.Fatalf("create: %d %v", st, sk)
+	}
+	id := sk["id"]
+	for _, p := range []string{"", "/export"} {
+		if st, _ := other.do("GET", fmt.Sprintf("/api/v1/skills/%v%s", id, p), nil); st != 404 {
+			t.Fatalf("other GET %s: %d", p, st)
+		}
+	}
+	if st, _ := other.do("POST", fmt.Sprintf("/api/v1/skills/%v/duplicate", id), nil); st != 404 {
+		t.Fatalf("other duplicate: %d", st)
+	}
+	if st, b := admin.do("POST", fmt.Sprintf("/api/v1/skills/%v/promote", id), nil); st != 200 || b["personal"] != false {
+		t.Fatalf("promote: %d %v", st, b)
+	}
+	if st, _ := other.do("GET", fmt.Sprintf("/api/v1/skills/%v", id), nil); st != 200 {
+		t.Fatalf("promoted skill hidden: %d", st)
 	}
 }

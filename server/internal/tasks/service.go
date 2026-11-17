@@ -26,6 +26,8 @@ var (
 	// checks or reviews, head moved); the message says why.
 	ErrNotMergeable   = errors.New("pull request is not mergeable")
 	ErrGitHubDisabled = errors.New("GitHub App is not configured")
+	// ErrForbidden: team mode refuses the action for this person.
+	ErrForbidden = errors.New("forbidden")
 )
 
 // Merger merges a task's PR on GitHub (githubapp.App). Nil when the GitHub
@@ -91,6 +93,10 @@ type Service struct {
 	// NeedsKey (team mode) returns the needs_key reason when the task's
 	// creator has no usable key for its agent, "" when a run can start.
 	NeedsKey func(ctx context.Context, t *store.Task) string
+	// NodeAllowed (team mode) refuses a computer the creator may not use:
+	// a member's tasks run on their own computers and shared ones. Every
+	// creation path (web, Telegram, schedules) goes through Create.
+	NodeAllowed func(ctx context.Context, n *store.Node, createdBy *int64) error
 }
 
 // ServerNode is the placement value for the server itself.
@@ -184,6 +190,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	node, err := s.nodeFor(ctx, p, in.Node)
 	if err != nil {
 		return nil, err
+	}
+	if node != nil && s.NodeAllowed != nil {
+		if err := s.NodeAllowed(ctx, node, in.CreatedBy); err != nil {
+			return nil, err
+		}
 	}
 	agent, err := s.agentFor(ctx, p, in.Agent, node)
 	if err != nil {

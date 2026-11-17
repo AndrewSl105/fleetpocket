@@ -47,6 +47,8 @@ func writeErr(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, tasks.ErrInvalid), errors.Is(err, projects.ErrInvalid), errors.Is(err, nodes.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "invalid", err.Error())
+	case errors.Is(err, tasks.ErrForbidden):
+		writeError(w, http.StatusForbidden, "forbidden", err.Error())
 	case errors.Is(err, tasks.ErrNotRunning):
 		writeError(w, http.StatusConflict, "not_running", err.Error())
 	case errors.Is(err, tasks.ErrNotMergeable):
