@@ -14,7 +14,6 @@ import { TasksLayout } from '@/routes/tasks/TasksLayout'
 import { NoTaskSelected } from '@/routes/tasks/NoTaskSelected'
 import { NotFound } from '@/routes/NotFound'
 import { PageSpinner } from '@/components/PageSpinner'
-import { SetupPage } from '@/setup/SetupPage'
 
 const TaskDetailPage = lazy(() => import('@/routes/tasks/TaskDetailPage'))
 const NewTaskPage = lazy(() => import('@/routes/NewTaskPage'))
@@ -22,6 +21,8 @@ const ProjectsPage = lazy(() => import('@/routes/projects/ProjectsPage'))
 const ProjectEditPage = lazy(() => import('@/routes/projects/ProjectEditPage'))
 const SettingsPage = lazy(() => import('@/routes/SettingsPage'))
 const CanvasPage = lazy(() => import('@/routes/canvas/CanvasPage'))
+// Only the first-run wizard needs it (and its QR code library); keep it out of the initial bundle.
+const SetupPage = lazy(() => import('@/setup/SetupPage').then((m) => ({ default: m.SetupPage })))
 
 function lazyPage(Page: React.ComponentType) {
   return (
@@ -80,7 +81,9 @@ export function App({ runtime }: { runtime: Runtime }) {
             <ConfirmProvider>
               {/* The first-run wizard runs before an owner (and so a session) exists. */}
               {runtime.mode === 'browser' && window.location.pathname === '/setup' ? (
-                <SetupPage />
+                <Suspense fallback={<PageSpinner />}>
+                  <SetupPage />
+                </Suspense>
               ) : (
                 <AuthGate>
                   <RealtimeProvider>
