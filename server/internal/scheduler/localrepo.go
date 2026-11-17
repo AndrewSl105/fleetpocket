@@ -153,6 +153,7 @@ func (s *Scheduler) PushLocal(ctx context.Context, taskID int64) error {
 	res, err := pub.Publish(ctx, PublishInput{
 		Host: s.host(t), Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
 		Summary: s.lastSummary(ctx, t.ID), CostUSD: t.CostUSDTotal, Turns: t.Turns,
+		RequestedBy: s.requestedBy(ctx, t),
 	})
 	if err != nil {
 		if errors.Is(err, ErrRejected) {

@@ -16,11 +16,16 @@ const (
 	Completed   = "completed"
 	Failed      = "failed"
 	Cancelled   = "cancelled"
+	// NeedsKey (team mode): the task creator has no key for the task's
+	// agent and the shared-key fallback is off; no runner starts. Retry
+	// queues it again once the key is added.
+	NeedsKey = "needs_key"
 )
 
 var transitions = map[string][]string{
-	Queued:       {Preparing, Cancelled, Failed},
-	Preparing:    {Running, Failed, Cancelled, Queued},
+	Queued:       {Preparing, Cancelled, Failed, NeedsKey},
+	Preparing:    {Running, Failed, Cancelled, Queued, NeedsKey},
+	NeedsKey:     {Queued, Cancelled, Failed},
 	Running:      {WaitingInput, Paused, Pushing, PROpen, BranchReady, Completed, Failed, Cancelled},
 	WaitingInput: {Running, Paused, Pushing, PROpen, BranchReady, Completed, Failed, Cancelled},
 	Paused:       {Queued, Cancelled, Failed},

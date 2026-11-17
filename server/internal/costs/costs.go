@@ -152,6 +152,8 @@ const (
 	ScopeGlobal   = "global"
 	ScopeProject  = "project"
 	ScopeSchedule = "schedule"
+	// ScopeUser is a person's monthly budget (team mode).
+	ScopeUser = "user"
 )
 
 // Alert levels, in percent of a cap.

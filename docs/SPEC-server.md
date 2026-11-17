@@ -501,6 +501,49 @@ The web client is built later from `docs/API.md` and `docs/openapi.yaml` alone, 
 
 **Same origin.** The reverse proxy serves the web client at `/` and routes `/api`, `/webhooks`, `/healthz` to Fleetpocket on the same domain, so no CORS is needed. Keep `CORS_ORIGINS` for local development.
 
+## Teams (self-hosted, off by default)
+
+One install is one team: no tenants, no accounts across installs, nothing sent to an outside service. Single-owner mode is the default and is unchanged until an admin turns team mode on (Settings → Team → "Create a team"); team mode is the `team` row of `settings`. Local mode (`MODE=local`) never has a team: team endpoints answer `400 not_available_in_local_mode`.
+
+**Users and roles.** `users` (email unique and lower-cased, name, role `admin|member|viewer`, bcrypt password, TOTP secret sealed with `SECRETS_KEY`, optional GitHub login, commit email, linked Telegram id, optional monthly budget), `invites` (hashed token, role, optional email lock, expiry, single use), `audit_log`, `user_credentials`, `telegram_link_codes`; `auth_sessions.user_id`; nullable authorship columns on tasks, schedules, ideas, skills, MCP servers, nodes and runs (the run's cost is charged to the task creator).
+
+| Action | admin | member | viewer |
+|---|---|---|---|
+| See projects, tasks, timelines, diffs, PRs, canvas, costs | ✓ | ✓ | ✓ |
+| Create tasks, schedules, ideas, personal skills; add computers | ✓ | ✓ | – |
+| Answer, follow up, pause, cancel, merge, restore on **own** tasks (and own schedules, own ideas: delete/archive) | ✓ | ✓ | – |
+| The same on **anyone's** | ✓ (audit-logged) | – | – |
+| Projects, repositories, MCP servers, egress, team skills, budgets, sharing computers, GitHub/Telegram setup, users, invites, team mode, audit log | ✓ | – | – |
+
+Every session route declares one policy (`read`, `self`, `write`, `own task|schedule|idea`, `admin`) where it is registered; the API refuses with `403 forbidden`, and a table-driven test checks every route against every role. The web only hides what the server refuses.
+
+**Turning team mode on** needs `SECRETS_KEY`. The owner becomes user #1 (`is_owner`, admin) with their email and name and the current password hash and TOTP secret, so they sign in as before; existing sessions, tasks, runs, schedules, ideas, skills, MCP servers and nodes get them as author; `TELEGRAM_ALLOWED_USER_ID` becomes their Telegram link. The owner credentials (env or wizard) keep working as the **break-glass admin login**: `POST /auth/login` without an email signs in as user #1, who cannot be demoted, disabled or removed. **Turning it off** is allowed with one active user left; their credentials become the single owner's (saved in `settings` unless they equal the current ones; `ADMIN_*` env vars still win after a restart).
+
+**Invites and signup.** Admins create a link with a role, an optional email lock and an expiry (default 7 days, at most 90). The token is shown once and stored as a SHA-256 hash. Signup is two calls: `POST /signup/start` returns a TOTP secret to enrol (nothing stored), `POST /signup` with name, email, password (≥ 12 characters) and a code from that secret creates the active user and uses the invite in one transaction. Failed tokens and codes count toward the login rate limit.
+
+**Last admin and disabling.** The last active admin cannot be demoted, disabled or removed. Disabling a user revokes their sessions, invalidates their computers' tokens (and unshares them), deletes their personal keys and Telegram link, cancels their queued, `needs_key` and paused tasks (history kept), pauses their schedules, and lets their running tasks finish or cancels them, as the admin chose. Removing needs a disabled user; their history keeps a NULL author.
+
+**Personal agent keys.** One row per user and provider (`claude`: `oauth_token` or `api_key`; `codex`, `cursor`: `api_key`), sealed with `SECRETS_KEY` (aad binds user and provider). Write-only: the API returns provider, kind, label, the last 4 characters and last use. "Test" runs the provider's cheapest authenticated call from the server (Anthropic/OpenAI list models, Cursor API key info); a subscription token has no such check and reports `not_testable`.
+
+**Which key a run uses** (`team.Resolve`, one function with a test table; the scheduler calls it where `config.AgentEnv` was used):
+
+1. Single-owner mode: the env keys, unchanged (the host adds them as before).
+2. Node task: the computer's own logins, as before.
+3. Team mode: the task creator's personal key for the task's agent.
+4. No personal key: the env key, only when "Allow the server's shared keys as a fallback" is on (default off).
+5. Otherwise `needs_key`: the task stops before any runner starts, with the reason "Add your <provider> key in My keys". Create checks it at queue time; the scheduler checks again before each run. `POST /retry` queues it again.
+
+Follow-ups, auto-fix and loop runs use the task creator's key; a schedule's tasks are created as its creator. The resolved key reaches the runner only as that run's provider environment variable (`StartSpec.AgentEnv`, replacing the host's keys, never serialised to nodes); it is never logged, stored in events or returned by the API.
+
+**Ownership across the app.** Tasks, ideas, schedules, nodes and skills carry `created_by {id, name, initials}`. A PR body adds "Requested by <name> (@login)"; commits add `Co-authored-by: <name> <commit_email>` when the creator set one. `GET /tasks?created_by=me|<id>` backs the Mine and person filters. A member's tasks may target their own computers and computers an admin shared. Costs report "by person"; an admin can give a user a monthly budget, a fourth scope (`user`) of the existing budget gate, notices and Start anyway (the person's notices also go to the admins). Skills created by admins are team skills; members' are personal (visible to them and admins) until an admin promotes them (audit-logged).
+
+**Questions and notices.** A question, PR, CI and completion notices go to the task creator's linked Telegram chat (there is no web push in this codebase; the web shows them live). An open question still unanswered after `QUESTION_TIMEOUT` is also sent to every linked admin, once.
+
+**Telegram per user.** Settings → Telegram shows a one-time `/link 123456` (10 minutes). The bot then accepts linked users only; every command acts as that user with their role (a viewer reads and gets notices; `/new`, plain-text drafts, `/msg`, `/cancel`, `/retry`, `/idea` and buttons are refused), and replies go to that user's chat. Unlinked accounts get "ask your admin for an invite".
+
+**Audit log.** Team on/off, invites, signups, role changes, disables and removals, key add/remove (never values), the fallback toggle, node sharing, skill promotion, MCP/integrations/egress/budget changes, break-glass logins and task actions an admin took on someone else's task. `GET /audit` (admins), newest first, filter by actor and action.
+
+
 ## 8. Telegram bot
 
 The bot runs as a goroutine in the same process, uses long polling (no public webhook needed) and calls the same task service as the REST API, never the HTTP endpoints. It answers only `TELEGRAM_ALLOWED_USER_ID`; every other update is dropped silently and logged.

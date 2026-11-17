@@ -413,7 +413,8 @@ func (s *Service) startQueued(ctx context.Context) {
 // startTask creates the firing's task and records who started it.
 func (s *Service) startTask(ctx context.Context, sc *store.Schedule, trigger string, at time.Time, via string) (*tasks.View, error) {
 	in := tasks.CreateInput{ProjectID: sc.ProjectID, Title: sc.Name, Prompt: sc.Prompt, SkillsAdd: sc.Skills, Source: "schedule",
-		ScheduleID: &sc.ID, MCPServers: sc.MCPServers, RunBudgetUSD: sc.RunBudgetUSD, PRAlways: !sc.PROnlyIfChanges, Loop: sc.Loop}
+		ScheduleID: &sc.ID, MCPServers: sc.MCPServers, RunBudgetUSD: sc.RunBudgetUSD, PRAlways: !sc.PROnlyIfChanges, Loop: sc.Loop,
+		CreatedBy: sc.CreatedByID} // the schedule's creator's task (and key)
 	if sc.RepositoryID != nil {
 		in.RepositoryID = *sc.RepositoryID
 	}

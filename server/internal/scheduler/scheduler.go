@@ -24,6 +24,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
+	"github.com/andrewsl105/fleetpocket/server/internal/team"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
 
@@ -53,6 +54,9 @@ type PublishInput struct {
 	// Force rewrites the branch with --force-with-lease (a restore
 	// discarded commits that were already pushed).
 	Force bool
+	// RequestedBy (team mode) is "<name>" or "<name> (@login)" of the task
+	// creator, for the PR body; "" in single-owner mode.
+	RequestedBy string
 }
 
 type PublishResult struct {
@@ -115,6 +119,9 @@ type Scheduler struct {
 	EgressBinds  []string
 	// Now is the clock of the monthly budgets; nil: time.Now (tests set it).
 	Now func() time.Time
+	// Team resolves which agent key a run gets (team mode); nil: the
+	// host's env keys, as in single-owner mode.
+	Team *team.Service
 
 	wake chan struct{}
 	mu   sync.Mutex
@@ -291,6 +298,21 @@ func (s *Scheduler) failOrRequeue(ctx context.Context, t *store.Task, run *store
 
 // execute runs one claimed task (status preparing).
 func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
+	// Team mode: the run's key is resolved before anything is prepared; a
+	// task without one moves to needs_key and no runner starts.
+	agentEnv, err := s.Team.AgentEnv(ctx, t)
+	if errors.Is(err, team.ErrNeedsKey) {
+		s.log(t, 0).Info("task needs a key", "agent", t.Agent)
+		if nt, err := s.Store.SetStatus(ctx, t.ID, []string{tasks.Preparing}, tasks.NeedsKey, team.NeedsKeyReason(t.Agent), false); err == nil {
+			s.Hub.PublishTask(nt)
+		}
+		s.Wake()
+		return
+	}
+	if err != nil {
+		s.fail(ctx, t, "agent key: "+err.Error())
+		return
+	}
 	run, err := s.Store.PendingRun(ctx, t.ID)
 	if err != nil {
 		s.fail(ctx, t, "no pending run")
@@ -361,6 +383,9 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 
 	cmd := s.runCommand(t, run, project, repo, branch)
 	cmd.MCP = integ.mcp
+	if trailer := s.coAuthor(ctx, t); trailer != "" {
+		cmd.Commit.Message += "\n\n" + trailer
+	}
 	if err := s.attachSkills(ctx, t, &cmd); err != nil {
 		s.failOrRequeue(ctx, t, run, "skills", err)
 		return
@@ -389,11 +414,13 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		s.fail(ctx, t, err.Error())
 		return
 	}
+	// The run's cost is charged to the task creator (team mode).
+	_ = s.Store.SetRunUser(ctx, run.ID)
 	// The host adds the agent's credentials: the server's own, or the
 	// node's (docs/design/remote-nodes.md, section 4).
 	r, err := h.StartRunner(ctx, hosts.StartSpec{
 		TaskID: t.ID, RunID: run.ID, Project: t.ProjectID, Image: image, Agent: t.Agent,
-		Env: env, Attachments: hasAtt,
+		Env: env, AgentEnv: agentEnv, Attachments: hasAtt,
 		Memory:     deref(project.RunnerMemory, s.Cfg.RunnerMemory),
 		CPUs:       deref(project.RunnerCPUs, s.Cfg.RunnerCPUs),
 		User:       s.Cfg.RunnerUser,
@@ -1043,6 +1070,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	res, err := s.publisher().Publish(ctx, PublishInput{
 		Host: h, Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
 		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit, Force: force,
+		RequestedBy: s.requestedBy(ctx, t),
 	})
 	if err != nil {
 		if hosts.IsOffline(err) {
@@ -1088,4 +1116,38 @@ func deref[T any](p *T, def T) T {
 		return def
 	}
 	return *p
+}
+
+// creator returns the task creator in team mode (nil otherwise).
+func (s *Scheduler) creator(ctx context.Context, t *store.Task) *store.User {
+	if t.CreatedByID == nil || !s.Team.Enabled(ctx) {
+		return nil
+	}
+	u, err := s.Store.GetUser(ctx, *t.CreatedByID)
+	if err != nil {
+		return nil
+	}
+	return u
+}
+
+// coAuthor is the Co-authored-by trailer for the task creator's commit
+// email (team mode, when set).
+func (s *Scheduler) coAuthor(ctx context.Context, t *store.Task) string {
+	u := s.creator(ctx, t)
+	if u == nil || u.CommitEmail == nil || *u.CommitEmail == "" {
+		return ""
+	}
+	return fmt.Sprintf("Co-authored-by: %s <%s>", u.Name, *u.CommitEmail)
+}
+
+// requestedBy names the task creator for the PR body (team mode).
+func (s *Scheduler) requestedBy(ctx context.Context, t *store.Task) string {
+	u := s.creator(ctx, t)
+	if u == nil {
+		return ""
+	}
+	if u.GitHubLogin != nil && *u.GitHubLogin != "" {
+		return fmt.Sprintf("%s (@%s)", u.Name, *u.GitHubLogin)
+	}
+	return u.Name
 }

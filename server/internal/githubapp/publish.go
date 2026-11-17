@@ -85,6 +85,9 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "### Task\n\n%s\n\n", quote(in.Task.Prompt))
+	if in.RequestedBy != "" {
+		fmt.Fprintf(&b, "Requested by %s\n\n", in.RequestedBy)
+	}
 	if in.Summary != "" {
 		fmt.Fprintf(&b, "### Summary\n\n%s\n\n", in.Summary)
 	}

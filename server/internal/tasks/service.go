@@ -85,6 +85,12 @@ type Service struct {
 	// PushLocal pushes a branch_ready task to GitHub and opens its PR
 	// (scheduler.PushLocal); nil when GitHub is not connected.
 	PushLocal func(ctx context.Context, taskID int64) error
+	// TeamOn reports team mode (nil: off): agents are then enabled per
+	// person (personal keys), not by the server's env keys.
+	TeamOn func(ctx context.Context) bool
+	// NeedsKey (team mode) returns the needs_key reason when the task's
+	// creator has no usable key for its agent, "" when a run can start.
+	NeedsKey func(ctx context.Context, t *store.Task) string
 }
 
 // ServerNode is the placement value for the server itself.
@@ -121,6 +127,8 @@ type CreateInput struct {
 	// creating it); the task service itself ignores it.
 	IdeaID int64  `json:"idea_id"`
 	Source string `json:"-"`
+	// CreatedBy is the user creating the task (team mode; nil otherwise).
+	CreatedBy *int64 `json:"-"`
 	// Set by schedules: the schedule, its MCP server names (nil: the
 	// project's), its per-run budget and "PR even without changes".
 	ScheduleID   *int64   `json:"-"`
@@ -177,7 +185,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
-	agent, err := s.agentFor(p, in.Agent, node)
+	agent, err := s.agentFor(ctx, p, in.Agent, node)
 	if err != nil {
 		return nil, err
 	}
@@ -219,12 +227,22 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	}
 	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
 		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove, Loop: loop, StartFrom: in.StartFrom,
-		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways}, up)
+		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways,
+		CreatedByID: in.CreatedBy}, up)
 	release()
 	if err != nil {
 		return nil, err
 	}
 	s.publishTask(t)
+	// Team mode: fail fast at queue time when there is no key for the run.
+	if s.NeedsKey != nil {
+		if reason := s.NeedsKey(ctx, t); reason != "" {
+			if nt, err := s.Store.SetStatus(ctx, t.ID, []string{Queued}, NeedsKey, reason, false); err == nil {
+				s.publishTask(nt)
+			}
+			return s.Get(ctx, t.ID)
+		}
+	}
 	s.wake()
 	return s.Get(ctx, t.ID)
 }
@@ -278,7 +296,7 @@ func nodeID(n *store.Node) *string {
 // agentFor resolves a new task's agent and checks that it can run: on the
 // server it needs the server's credentials, on a node the node must have
 // reported it (the node uses its own credentials).
-func (s *Service) agentFor(p *store.Project, override string, node *store.Node) (string, error) {
+func (s *Service) agentFor(ctx context.Context, p *store.Project, override string, node *store.Node) (string, error) {
 	agent := strings.TrimSpace(override)
 	if agent == "" {
 		agent = ProjectAgent(p, s.DefaultAgent)
@@ -291,6 +309,9 @@ func (s *Service) agentFor(p *store.Project, override string, node *store.Node) 
 			return "", fmt.Errorf("%w: agent %s has no credentials on %s (set %s there)", ErrInvalid, agent, node.Name, config.AgentKeyHint(agent))
 		}
 		return agent, nil
+	}
+	if s.TeamOn != nil && s.TeamOn(ctx) {
+		return agent, nil // the creator's key decides (needs_key)
 	}
 	if s.AgentEnabled != nil && !s.AgentEnabled(agent) {
 		return "", fmt.Errorf("%w: agent %s is not configured (set %s)", ErrInvalid, agent, config.AgentKeyHint(agent))
@@ -534,6 +555,17 @@ func (s *Service) Retry(ctx context.Context, taskID int64) (*View, error) {
 	t, err := s.Store.GetTask(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if t.Status == NeedsKey {
+		// The pending run never started: queue it again (the scheduler
+		// checks the key once more before any runner starts).
+		nt, err := s.Store.SetStatus(ctx, taskID, []string{NeedsKey}, Queued, "", false)
+		if err != nil {
+			return nil, err
+		}
+		s.publishTask(nt)
+		s.wake()
+		return s.Get(ctx, taskID)
 	}
 	if t.Status != Failed && t.Status != Cancelled {
 		return nil, fmt.Errorf("%w: only failed or cancelled tasks can be retried (task is %s)", ErrConflict, t.Status)

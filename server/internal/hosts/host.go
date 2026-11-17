@@ -51,6 +51,10 @@ type StartSpec struct {
 	// ExtraHosts are added to the runner's /etc/hosts (local mode: the
 	// gateway at host.docker.internal). Not sent to nodes.
 	ExtraHosts []string `json:"-"`
+	// AgentEnv (team mode) replaces the host's own agent credentials with
+	// the run's resolved key: the task creator's, or the shared fallback.
+	// Nil keeps today's behaviour. Never sent to nodes (they use their own).
+	AgentEnv map[string]string `json:"-"`
 }
 
 // LocalDelivery is what DeliverLocal needs: the owner's repository, the

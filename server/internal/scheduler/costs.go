@@ -130,6 +130,12 @@ func (s *Scheduler) markBudgetWaits(ctx context.Context, gate store.BudgetGate) 
 		if scope == costs.ScopeGlobal {
 			return total, gate.GlobalUSD
 		}
+		if scope == costs.ScopeUser && t.CreatedByID != nil {
+			if u, err := s.Store.GetUser(ctx, *t.CreatedByID); err == nil {
+				v, _ := s.Store.UserMonthSpend(ctx, u.ID, gate.MonthStart)
+				return v, deref(u.MonthlyBudgetUSD, 0)
+			}
+		}
 		if scope == costs.ScopeSchedule && t.ScheduleID != nil {
 			if sc, err := s.Store.GetSchedule(ctx, *t.ScheduleID, gate.MonthStart); err == nil {
 				return sc.MonthSpendUSD, deref(sc.MonthlyBudgetUSD, 0)
@@ -180,7 +186,14 @@ func (s *Scheduler) checkBudgetAlerts(ctx context.Context, t *store.Task) {
 			sched = sc
 		}
 	}
-	if cs.GlobalCap() <= 0 && p.Budget.Cap() <= 0 && sched == nil {
+	// Team mode: the task creator's monthly budget.
+	var person *store.User
+	if t.CreatedByID != nil {
+		if u, err := s.Store.GetUser(ctx, *t.CreatedByID); err == nil && deref(u.MonthlyBudgetUSD, 0) > 0 {
+			person = u
+		}
+	}
+	if cs.GlobalCap() <= 0 && p.Budget.Cap() <= 0 && sched == nil && person == nil {
 		return
 	}
 	total, by, err := s.Store.MonthSpend(ctx, month)
@@ -197,6 +210,10 @@ func (s *Scheduler) checkBudgetAlerts(ctx context.Context, t *store.Task) {
 	}
 	if sched != nil {
 		scopes = append(scopes, scope{costs.ScopeSchedule, strconv.FormatInt(sched.ID, 10), sched.MonthSpendUSD, *sched.MonthlyBudgetUSD})
+	}
+	if person != nil {
+		spent, _ := s.Store.UserMonthSpend(ctx, person.ID, month)
+		scopes = append(scopes, scope{costs.ScopeUser, strconv.FormatInt(person.ID, 10), spent, *person.MonthlyBudgetUSD})
 	}
 	for _, sc := range scopes {
 		level := costs.Level(sc.spent, sc.limit)
@@ -227,6 +244,10 @@ func (s *Scheduler) checkBudgetAlerts(ctx context.Context, t *store.Task) {
 		}
 		if sc.kind == costs.ScopeSchedule {
 			payload["schedule_id"], payload["schedule"] = sched.ID, sched.Name
+		}
+		if sc.kind == costs.ScopeUser {
+			// The person and the admins get it (web, Telegram routing).
+			payload["user_id"], payload["user"] = person.ID, person.Name
 		}
 		s.addEvent(ctx, t.ID, nil, "budget", payload)
 		if s.Hooks.BudgetAlert != nil {
