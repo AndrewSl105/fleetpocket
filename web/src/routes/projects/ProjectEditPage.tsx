@@ -1,3 +1,4 @@
+import { pj } from '@/i18n/projects'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useFieldArray, useForm, Controller } from 'react-hook-form'
@@ -44,7 +45,7 @@ import { lc } from '@/i18n/local'
 import { ProjectSkillsSection } from '@/routes/skills/ProjectSkillsSection'
 import { createBody, patchBody, projectSchema, toFormValues, type ProjectFormValues } from './projectForm'
 
-const f = t.projects.fields
+const f = pj.fields
 
 function Field({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error?: string; children: ReactNode }) {
   return (
@@ -159,12 +160,12 @@ function ProjectForm({ project }: { project?: Project }) {
     try {
       if (creating) {
         const p = await create.mutateAsync(createBody(values))
-        toast.success(t.projects.created)
+        toast.success(pj.created)
         void navigate(`/projects/${p.id}`, { replace: true })
       } else {
         const body = patchBody(values, project)
         if (Object.keys(body).length) await update.mutateAsync(body)
-        toast.success(t.projects.saved)
+        toast.success(pj.saved)
       }
       haptic.success()
     } catch (e) {
@@ -174,9 +175,9 @@ function ProjectForm({ project }: { project?: Project }) {
   })
 
   async function onArchive() {
-    if (!(await confirm(t.projects.confirmArchive, t.projects.archive))) return
+    if (!(await confirm(pj.confirmArchive, pj.archive))) return
     await archive.mutateAsync()
-    toast.success(t.projects.archived)
+    toast.success(pj.archived)
     void navigate('/projects', { replace: true })
   }
 
@@ -189,7 +190,7 @@ function ProjectForm({ project }: { project?: Project }) {
   return (
     <div className="h-full overflow-y-auto">
       <form onSubmit={(e) => void submit(e)} className="mx-auto max-w-2xl space-y-8 px-4 pt-4 pb-8">
-        <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{creating ? t.projects.new : project.name}</h1>
+        <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{creating ? pj.new : project.name}</h1>
 
         <Section title="General">
           {creating && (
@@ -289,7 +290,7 @@ function ProjectForm({ project }: { project?: Project }) {
             </div>
           ))}
           <Button type="button" variant="outline" className="h-10" onClick={() => env.append({ key: '', value: '' })}>
-            <Plus /> {t.projects.addVar}
+            <Plus /> {pj.addVar}
           </Button>
         </Section>
 
@@ -377,13 +378,13 @@ function ProjectForm({ project }: { project?: Project }) {
           </Field>
         </Section>
 
-        <PrimaryAction label={creating ? t.projects.new : t.common.save} onClick={() => void submit()} loading={busy} />
+        <PrimaryAction label={creating ? pj.new : t.common.save} onClick={() => void submit()} loading={busy} />
 
         {project && <Repositories project={project} />}
 
         {project && (
           <Button type="button" variant="outline" className="h-11 w-full text-destructive" onClick={() => void onArchive()} disabled={archive.isPending}>
-            <Archive /> {t.projects.archive}
+            <Archive /> {pj.archive}
           </Button>
         )}
       </form>
@@ -426,7 +427,7 @@ function Repositories({ project }: { project: Project }) {
                 variant="ghost"
                 size="icon"
                 className="size-11"
-                aria-label={`${t.projects.editRepo} ${r.full_name}`}
+                aria-label={`${pj.editRepo} ${r.full_name}`}
                 onClick={() => setEditing(r.id)}
               >
                 <Pencil />
@@ -438,7 +439,7 @@ function Repositories({ project }: { project: Project }) {
                 className="size-11"
                 aria-label={`${t.common.remove} ${r.full_name}`}
                 disabled={remove.isPending}
-                onClick={() => remove.mutate(r.id, { onSuccess: () => toast.success(t.projects.repoRemoved) })}
+                onClick={() => remove.mutate(r.id, { onSuccess: () => toast.success(pj.repoRemoved) })}
               >
                 <Trash2 />
               </Button>
@@ -454,7 +455,7 @@ function Repositories({ project }: { project: Project }) {
         )
       ) : (
         <Button type="button" variant="outline" className="h-10" onClick={() => setAdding(true)}>
-          <Plus /> {local ? lc.repo.addFolder : t.projects.addRepo}
+          <Plus /> {local ? lc.repo.addFolder : pj.addRepo}
         </Button>
       )}
     </Section>
@@ -473,7 +474,7 @@ function AddLocalFolder({ project, onDone }: { project: Project; onDone: () => v
             { path, project_id: project.id },
             {
               onSuccess: () => {
-                toast.success(t.projects.repoAdded)
+                toast.success(pj.repoAdded)
                 onDone()
               },
               onError: (e) => toast.error(errorMessage(e)),
@@ -522,7 +523,7 @@ function EditRepository({ projectId, repo, onDone }: { projectId: string; repo: 
               { repoId: repo.id, ...body },
               {
                 onSuccess: () => {
-                  toast.success(t.projects.repoSaved)
+                  toast.success(pj.repoSaved)
                   onDone()
                 },
               },
@@ -549,17 +550,17 @@ function AddRepository({ project, onDone }: { project: Project; onDone: () => vo
   if (repos.isError) {
     return (
       <p className="fm-group px-3 py-2 text-sm text-muted-foreground">
-        {isApiError(repos.error, 'github_disabled') ? t.projects.githubDisabled : t.common.somethingWrong}
+        {isApiError(repos.error, 'github_disabled') ? pj.githubDisabled : t.common.somethingWrong}
       </p>
     )
   }
 
   return (
     <div className="space-y-4 fm-group p-3">
-      <Field id="gh-repo" label={t.projects.pickRepo}>
+      <Field id="gh-repo" label={pj.pickRepo}>
         <Select value={name} onValueChange={setName} disabled={repos.isPending}>
           <SelectTrigger id="gh-repo" className="h-11 w-full font-mono text-sm">
-            <SelectValue placeholder={repos.isPending ? t.common.loading : t.projects.pickRepo} />
+            <SelectValue placeholder={repos.isPending ? t.common.loading : pj.pickRepo} />
           </SelectTrigger>
           <SelectContent>
             {options.map((r) => (
@@ -597,7 +598,7 @@ function AddRepository({ project, onDone }: { project: Project; onDone: () => vo
               },
               {
                 onSuccess: () => {
-                  toast.success(t.projects.repoAdded)
+                  toast.success(pj.repoAdded)
                   onDone()
                 },
               },

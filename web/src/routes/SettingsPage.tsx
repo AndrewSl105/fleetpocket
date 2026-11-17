@@ -1,3 +1,4 @@
+import { ss } from '@/i18n/settings'
 import { useEffect, type ReactNode } from 'react'
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { useHealth, useMode, useStats } from '@/api/hooks'
@@ -29,7 +30,7 @@ import { c } from '@/i18n/costs'
 import { sk } from '@/i18n/skills'
 import { sc } from '@/i18n/schedules'
 
-const s = t.settings
+const s = ss
 const version = import.meta.env.VITE_APP_VERSION || 'dev'
 
 function Stat({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
