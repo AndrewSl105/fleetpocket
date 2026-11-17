@@ -23,6 +23,7 @@ var commandList = []telego.BotCommand{
 	{Command: "retry", Description: "Retry a failed task"},
 	{Command: "projects", Description: "List projects"},
 	{Command: "schedules", Description: "Scheduled tasks: run now, pause"},
+	{Command: "idea", Description: "Save an idea to the Ideas board"},
 	{Command: "bind", Description: "Bind this topic"},
 	{Command: "app", Description: "Open Jungle Monkey"},
 }
@@ -37,6 +38,7 @@ Reply to any task card or notification to talk to that task.
 /msg &lt;id&gt; &lt;text&gt; — message a task
 /cancel &lt;id&gt; · /retry &lt;id&gt;
 /schedules — scheduled tasks (run now, pause)
+/idea &lt;text&gt; — save an idea (or reply /idea to a message or voice note)
 /projects · /bind &lt;project&gt; · /app`
 
 func ParseCommand(text string) (cmd, args string, ok bool) {
@@ -193,6 +195,8 @@ func (b *Bot) handleCommand(ctx context.Context, m *telego.Message, cmd, args st
 	case "schedules":
 		b.listSchedules(ctx, m)
 		return nil
+	case "idea":
+		return b.newIdea(ctx, m, args)
 	case "bind":
 		if m.MessageThreadID == 0 {
 			_, err := b.reply(ctx, m, "Use /bind inside a forum topic.", nil)
@@ -231,6 +235,18 @@ func (b *Bot) handlePromptReply(ctx context.Context, m *telego.Message, p store.
 			return fmt.Errorf("the attachments are no longer here (the bot restarted or a day passed); send them again with a caption")
 		}
 		return b.sendToTask(ctx, m, p.TaskID, text, append(waiting, media...))
+	}
+	if p.Kind == "idea" {
+		cfg, off := b.ideasSettings(ctx)
+		if off != "" {
+			_, err := b.reply(ctx, m, off, nil)
+			return err
+		}
+		text := strings.TrimSpace(m.Text)
+		if text == "" {
+			text = strings.TrimSpace(m.Caption)
+		}
+		return b.saveIdea(ctx, cfg, m, m, text, append(messageMedia(m), albumMedia(ctx)...))
 	}
 	text, _, err := b.incomingContent(ctx, m)
 	if err != nil {
@@ -477,6 +493,11 @@ func (b *Bot) draftButtons(ctx context.Context, d *store.TelegramDraft) *telego.
 			tu.InlineKeyboardButton("✏️ Edit text").WithCallbackData(b.callback(ctx, store.TelegramCallback{Action: "draft_edit", DraftID: d.ID})),
 			tu.InlineKeyboardButton("✖ Cancel").WithCallbackData(b.callback(ctx, store.TelegramCallback{Action: "draft_cancel", DraftID: d.ID})),
 		),
+	}
+	if b.ideaButtonShown(ctx) {
+		rows = append(rows, tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton("💡 Save as an idea").WithCallbackData(b.callback(ctx, store.TelegramCallback{Action: "draft_idea", DraftID: d.ID})),
+		))
 	}
 	// Only worth a choice when the server has keys for more than one agent.
 	if len(b.Tasks.EnabledAgents()) > 1 {

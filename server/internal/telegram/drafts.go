@@ -20,6 +20,8 @@ func (b *Bot) handleDraftCallback(ctx context.Context, cq *telego.CallbackQuery,
 		return
 	}
 	switch c.Action {
+	case "draft_idea":
+		b.ideaFromDraft(ctx, d, answer)
 	case "draft_cancel":
 		if d.CardMessageID != 0 {
 			b.edit(ctx, d.ChatID, int(d.CardMessageID), "✖ Draft cancelled", nil)

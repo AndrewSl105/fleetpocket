@@ -208,7 +208,7 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `branch_ready` | `{branch, commits, diffstat, updated, previous?}`: the task branch reached the owner's local repository (`updated`: a follow-up fast-forwarded it; `previous`: the update went to a new branch because the old one was checked out or had moved) |
   | `branch_action` | `{action: "merged"\|"checked_out"\|"discarded"\|"pushed", branch, into?, fast_forward?}`: what the owner did with a local task branch |
   | `branch_force_pushed` | `{branch, from, reason: "restore", number}`: the push after a restore rewrote the task branch with `--force-with-lease` (also a PR comment and a Telegram message) |
-  | `idea` | `{idea_id, title, action: "started"\|"done"\|"failed", column, column_name, moved, reason}`: an Ideas board card moved because of this task (`started`: linked, to In progress; `done`: its PR or local branch merged, to Done) or the task failed (`failed`: the card shows ✕) |
+  | `idea` | `{idea_id, title, action: "started"\|"done"\|"failed", column, column_name, moved, reason}`: an Ideas board card moved because of this task (`started`: linked, to In progress; `done`: its PR or local branch merged, to Done) or the task failed (`failed`: the card shows ✕). Also a silent Telegram message |
 
 ### CI auto-fix
 
@@ -410,7 +410,9 @@ An idea: `{id, project_id, title, body (Markdown), column, position, tags, auto_
 
 **Link previews** are fetched by the server: http(s) on ports 80/443 only, never through a proxy, at most 3 redirects, 5 s and 512 KB of HTML (5 MB for the og:image), and every connection, redirects included, is refused unless the resolved address is public (no loopback, private, link-local, CGNAT, NAT64 or other special ranges). A failed preview keeps the bare URL.
 
-**Automatic moves.** A task created with `idea_id` moves its card to In progress. When that task's PR is merged (the webhook, the poller or `POST /tasks/{id}/merge`), or in local mode its branch is merged into the owner's branch, the card moves to Done. A PR closed without merging, a discarded branch or a cancel leave it where it is; a failure gives it `failed`. Each move sets `auto_note` and writes an `idea` event on the task. Status changes while the server is down are not replayed.
+**Automatic moves.** A task created with `idea_id` moves its card to In progress. When that task's PR is merged (the webhook, the poller or `POST /tasks/{id}/merge`), or in local mode its branch is merged into the owner's branch, the card moves to Done. A PR closed without merging, a discarded branch or a cancel leave it where it is; a failure gives it `failed`. Each move sets `auto_note` and writes an `idea` event on the task (a silent Telegram message). Status changes while the server is down are not replayed.
+
+**Telegram.** `/idea <text>` creates an Inbox card; `/idea` as the caption of a voice message, photo or file, or sent in reply to such a message (or to text), saves it with its media (a voice note is stored and transcribed as on the web, and kept without a transcript when STT is off). A bare `/idea` asks for the idea. The task draft card of an ordinary message gets a **💡 Save as an idea** button while the board is on. With the board off the bot says so.
 
 ## Skills
 

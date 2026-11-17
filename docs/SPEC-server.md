@@ -338,7 +338,7 @@ Project-level settings override defaults (section 6).
 - *Cards* (`ideas`): title, Markdown body, optional project, column, fractional position, tags, archive; attachments (`idea_attachments`: files with the task attachment rules and limits, voice notes, links), and the tasks started from it (`idea_tasks`). Columns are in the setting with stable ids: Inbox, Shaping, Ready, In progress, Done (renamable and reorderable, not removable) plus up to three added ones. Archive takes a card off the board; only archived cards can be deleted.
 - *Voice.* `POST /api/v1/ideas/voice` stores the recording and transcribes it with the same `STT_PROVIDER` client the Telegram bot uses (built once at start). The transcript becomes the body and its first sentence, cut to eight words, the title; without STT (or when it fails) the note is kept and titled "Voice note <time>".
 - *Links.* Saved with a preview fetched by the server (title and og:image thumbnail): http(s) on 80/443, no proxy, at most 3 redirects, 5 s, 512 KB of HTML; the dialer refuses every connection whose resolved address is not public, so redirects and DNS rebinding cannot reach internal hosts.
-- *From idea to task.* `POST /api/v1/tasks` with `idea_id` links the task and moves the card to In progress. A watcher on the event hub moves the card to Done when that task completes with "PR merged" (webhook, poller or the merge button) or "branch merged into …" (local repositories), and the card shows ✕ while its latest task is `failed`. Every automatic move sets the card's `auto_note` and writes an `idea` event on the task.
+- *From idea to task.* `POST /api/v1/tasks` with `idea_id` links the task and moves the card to In progress. A watcher on the event hub moves the card to Done when that task completes with "PR merged" (webhook, poller or the merge button) or "branch merged into …" (local repositories), and the card shows ✕ while its latest task is `failed`. Every automatic move sets the card's `auto_note` and writes an `idea` event on the task, which the bot sends as a silent message.
 
 **Workspace cleanup.** Delete the workspace and the Claude state volume 7 days after the task becomes terminal.
 
@@ -521,12 +521,13 @@ The bot runs as a goroutine in the same process, uses long polling (no public we
 | `/cancel <id>` · `/retry <id>` | control |
 | `/projects` | list projects |
 | `/schedules` | schedules with their next run and last result; **Run** and **Pause**/**Resume** buttons |
+| `/idea <text>` | save an idea to the Ideas board's Inbox; as a caption of (or a reply to) a voice message, photo or file it saves that, a voice note transcribed with `STT_PROVIDER`; the task draft card has a **Save as an idea** button. With the board off it says so |
 | `/app` | button that opens the Mini App (`WEB_APP_URL`) |
 
 **Messages**
 
 - One status message per task, edited in place as it moves through states, with the latest one-line activity ("Editing src/tables/export.ts"). Throttle edits to one per 3 s per message and coalesce.
-- Separate messages, which notify, only for: a question, PR opened, task failed, CI failed, budget or time limit hit. Silent messages for automatic steps: a schedule firing (started, skipped, missed, failed), a loop's next iteration and its end, CI auto-fix steps.
+- Separate messages, which notify, only for: a question, PR opened, task failed, CI failed, budget or time limit hit. Silent messages for automatic steps: a schedule firing (started, skipped, missed, failed), a loop's next iteration and its end, CI auto-fix steps, Ideas board moves (`idea` events).
 - A question shows its text plus inline buttons for `options` and a "Reply with text" hint; a reply to the question message is taken as the answer. After answering, edit the message to show the answer and who answered (web or Telegram).
 - Every task message has buttons: Open in app (Mini App deep link to the task), Cancel, and PR (when it exists).
 - Never send diffs or long logs to Telegram; link to the app instead. Respect Telegram's 4096-character limit and escape text for the chosen parse mode.

@@ -308,7 +308,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			return fmt.Errorf("telegram: %w", err)
 		}
 		bot := &telegram.Bot{
-			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
+			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Ideas: ideaSvc, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
 			WebAppURL: cfg.WebAppURL, MiniAppLink: cfg.TelegramMiniAppLink, OnError: met.TelegramError,
 			STTEnabled: cfg.STTProvider != "off",
 		}
