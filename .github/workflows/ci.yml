@@ -155,3 +155,12 @@ jobs:
           docker run --rm -e FLEETPOCKET_DOMAIN=fleetpocket.example.com
           -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro"
           caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  links:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config lychee.toml --no-progress README.md index.html 'docs/**/*.md'
+          fail: true
