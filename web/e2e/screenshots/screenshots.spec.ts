@@ -116,6 +116,15 @@ test.describe('screens', () => {
     await shot(page, 'integrations')
   })
 
+  test('costs', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/costs')
+    await expect(page.getByRole('heading', { name: 'By project' })).toBeVisible()
+    await shot(page, 'costs')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')
