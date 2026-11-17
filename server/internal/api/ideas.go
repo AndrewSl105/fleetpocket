@@ -110,6 +110,9 @@ func (s *Server) createIdea(w http.ResponseWriter, r *http.Request) {
 	}
 	in.Source = "web"
 	idea, err := s.Ideas.Create(r.Context(), in, imgs)
+	if err == nil {
+		idea, err = s.authorIdea(r, idea)
+	}
 	if err != nil {
 		ideasErr(w, r, err)
 		return
@@ -197,6 +200,9 @@ func (s *Server) createVoiceIdea(w http.ResponseWriter, r *http.Request) {
 		in.ProjectID = &p
 	}
 	idea, err := s.Ideas.CreateVoice(r.Context(), in, v)
+	if err == nil {
+		idea, err = s.authorIdea(r, idea)
+	}
 	if err != nil {
 		ideasErr(w, r, err)
 		return
@@ -370,4 +376,20 @@ func (s *Server) ideaAttachment(w http.ResponseWriter, r *http.Request, id int64
 	h.Set("Content-Disposition", disposition+"; filename*=UTF-8''"+url.PathEscape(name))
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	http.ServeContent(w, r, "", st.ModTime(), f)
+}
+
+// authorIdea records the actor as the idea's creator (team mode).
+func (s *Server) authorIdea(r *http.Request, idea *store.Idea) (*store.Idea, error) {
+	uid := actorOf(r).uid()
+	if uid == nil {
+		return idea, nil
+	}
+	if err := s.Store.SetAuthor(r.Context(), "ideas", idea.ID, *uid); err != nil {
+		return nil, err
+	}
+	idea.CreatedByID = uid
+	if u := actorOf(r).User; u != nil {
+		idea.CreatedBy = u.Ref()
+	}
+	return idea, nil
 }

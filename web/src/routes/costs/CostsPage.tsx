@@ -211,6 +211,27 @@ export default function CostsPage() {
               )}
             </Section>
 
+            {data.people && (
+              // Team mode: cost by person (the task creator of each run).
+              <Section title={c.byPerson}>
+                {data.people.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{c.empty}</p>
+                ) : (
+                  <ul className="divide-y fm-field">
+                    {data.people.map((p) => (
+                      <BarRow
+                        key={p.user_id ?? 'none'}
+                        label={p.name}
+                        sub={`${c.runs(p.runs)}${p.monthly_budget_usd != null ? ` · ${c.personBudget(p.monthly_budget_usd)}` : ''}`}
+                        value={p.cost_usd}
+                        max={Math.max(...data.people!.map((x) => x.cost_usd), 0)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </Section>
+            )}
+
             <Section
               title={period === 'week' ? c.byWeek : period === 'month' ? c.byMonth : c.byDay}
               action={

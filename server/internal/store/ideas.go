@@ -178,6 +178,9 @@ type Idea struct {
 	// Failed: the latest linked task failed (the card's ✕ stamp). Derived
 	// from the task, so it is right even for changes the server missed.
 	Failed bool `json:"failed"`
+	// Teams: who created it (nil in single-owner mode).
+	CreatedByID *int64   `json:"-"`
+	CreatedBy   *UserRef `json:"created_by"`
 }
 
 // IdeaFields are the editable fields of a new idea.
@@ -207,13 +210,18 @@ type IdeaFilter struct {
 	Limit     int
 }
 
-const ideaCols = `id, project_id, title, body, column_id, position, tags, auto_note, source, archived_at, created_at, updated_at`
+const ideaCols = `id, project_id, title, body, column_id, position, tags, auto_note, source, archived_at, created_at, updated_at,
+	created_by, (SELECT u.name FROM users u WHERE u.id = ideas.created_by)`
 
 func scanIdea(row interface{ Scan(...any) error }) (*Idea, error) {
 	var i Idea
+	var creator *string
 	if err := row.Scan(&i.ID, &i.ProjectID, &i.Title, &i.Body, &i.Column, &i.Position, &i.Tags, &i.AutoNote, &i.Source,
-		&i.ArchivedAt, &i.CreatedAt, &i.UpdatedAt); err != nil {
+		&i.ArchivedAt, &i.CreatedAt, &i.UpdatedAt, &i.CreatedByID, &creator); err != nil {
 		return nil, err
+	}
+	if i.CreatedByID != nil && creator != nil {
+		i.CreatedBy = &UserRef{ID: *i.CreatedByID, Name: *creator, Initials: Initials(*creator)}
 	}
 	if i.Tags == nil {
 		i.Tags = []string{}

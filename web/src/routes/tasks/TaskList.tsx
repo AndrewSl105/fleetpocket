@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { CaptureTrigger } from '@/components/CaptureTrigger'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Plus, Search, X } from 'lucide-react'
 import { Link } from 'react-router'
 import { Logo } from '@/components/Logo'
-import { useProjects, useTasks } from '@/api/hooks'
+import { useMe, useProjects, useTasks } from '@/api/hooks'
 import type { Task } from '@/api/types'
 import { useTasksSubscription } from '@/realtime/RealtimeProvider'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,11 @@ import type { TaskGroup } from '@/lib/status'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
 import { TaskCard } from './TaskCard'
+import { usePeopleScope } from '@/lib/people'
+
+// Team mode only: kept out of the initial bundle.
+const PeopleFilter = lazy(() => import('@/components/PeopleFilter').then((m) => ({ default: m.PeopleFilter })))
+import { UserBadge } from '@/components/UserBadge'
 import { usePullToRefresh } from './usePullToRefresh'
 
 const GROUP_ORDER: TaskGroup[] = ['active', 'pr_open', 'done', 'failed']
@@ -34,7 +39,9 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
   const navigate = useNavigate()
 
   useTasksSubscription()
-  const tasks = useTasks({ group, project })
+  const people = usePeopleScope()
+  const me = useMe().data?.user
+  const tasks = useTasks({ group, project, createdBy: people.createdBy })
   const projects = useProjects()
   const scrollRef = useRef<HTMLDivElement>(null)
   const pull = usePullToRefresh(scrollRef, () => tasks.refetch())
@@ -83,11 +90,18 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             <p className="fm-label truncate text-[10px] text-muted-foreground">{t.app.kicker}</p>
             <h1 className="truncate text-[26px] leading-tight font-bold">{t.tasks.title}</h1>
           </div>
+          {people.team && me && (
+            <Link to="/settings#profile" className="lg:hidden" aria-label={t.team.signedInAs(me.name)}>
+              <UserBadge user={{ id: me.id, name: me.name, initials: me.initials }} />
+            </Link>
+          )}
           <CaptureTrigger className="lg:hidden" />
-          <Link to="/new" className="fm-btn-signal flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-[15px] lg:hidden">
-            <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
-            {t.nav.new}
-          </Link>
+          {me?.role !== 'viewer' && (
+            <Link to="/new" className="fm-btn-signal flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-[15px] lg:hidden">
+              <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+              {t.nav.new}
+            </Link>
+          )}
           <div className="relative hidden w-44 lg:block">
             <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -116,6 +130,11 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             </button>
           ))}
         </div>
+        {people.team && (
+          <Suspense fallback={null}>
+            <PeopleFilter people={people} />
+          </Suspense>
+        )}
         {(projects.data?.length ?? 0) > 1 && (
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none]">
             {project ? (

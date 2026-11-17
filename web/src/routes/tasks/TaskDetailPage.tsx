@@ -14,6 +14,7 @@ import { TaskHeader } from './TaskHeader'
 import { Timeline } from './Timeline'
 import { Composer } from './Composer'
 import { InfoTab } from './InfoTab'
+import { useCanActOn } from '@/api/team'
 
 const DiffTab = lazy(() => import('./DiffTab'))
 
@@ -32,6 +33,8 @@ function TaskDetail({ id }: { id: number }) {
   const events = useTaskEvents(id)
   useTaskSubscription(id)
   useDisableVerticalSwipes()
+  // Team mode: own tasks (or admin); viewers read only.
+  const mayAct = useCanActOn(task.data?.created_by)
 
   const items = useMemo(() => buildTimeline(events.data?.items ?? [], events.data?.local ?? []), [events.data])
 
@@ -69,7 +72,7 @@ function TaskDetail({ id }: { id: number }) {
         {tab === 'activity' && (
           <>
             <Timeline task={view} items={items} older={events.data?.older ?? ''} loading={events.isPending} stopping={stopping} />
-            <Composer task={view} />
+            {mayAct && <Composer task={view} />}
           </>
         )}
         {tab === 'diff' && (

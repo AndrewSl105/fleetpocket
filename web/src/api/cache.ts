@@ -77,7 +77,11 @@ export function removeLocalEvent(qc: QueryClient, taskId: number, id: number) {
 }
 
 export function matchesFilter(task: Task, filter: TaskFilter): boolean {
-  return GROUPS[filter.group].includes(task.status) && (!filter.project || filter.project === task.project_id)
+  return (
+    GROUPS[filter.group].includes(task.status) &&
+    (!filter.project || filter.project === task.project_id) &&
+    (!filter.createdBy || filter.createdBy === task.created_by?.id)
+  )
 }
 
 /** A `task` push or mutation result replaces the task in every list and the detail cache. */

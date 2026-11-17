@@ -32,11 +32,16 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
 
 const NO_REAUTH = ['/api/v1/auth/', '/api/v1/me']
 
+/** /api/v1/me itself is the session check; /api/v1/me/… (keys, Telegram) re-authenticates. */
+function noReauth(path: string): boolean {
+  return NO_REAUTH.some((p) => (p.endsWith('/') ? path.startsWith(p) : path === p))
+}
+
 async function authFetch(request: Request): Promise<Response> {
   const retry = request.clone()
   const response = await fetch(request)
   const path = new URL(request.url).pathname
-  if (response.status !== 401 || !onUnauthorized || NO_REAUTH.some((p) => path.startsWith(p))) {
+  if (response.status !== 401 || !onUnauthorized || noReauth(path)) {
     return response
   }
   // One re-auth for all concurrent 401s, then one retry per request (with the
@@ -82,7 +87,7 @@ export type UploadProgress = (fraction: number) => void
  */
 export async function uploadForm<T>(path: string, form: FormData, onProgress?: UploadProgress): Promise<T> {
   let res = await sendForm(path, form, onProgress)
-  if (res.status === 401 && onUnauthorized && !NO_REAUTH.some((p) => path.startsWith(p))) {
+  if (res.status === 401 && onUnauthorized && !noReauth(path)) {
     reauth ??= onUnauthorized().finally(() => {
       reauth = null
     })

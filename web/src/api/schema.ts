@@ -157,7 +157,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change my profile or password (team mode) */
+        patch: operations["updateMe"];
         trace?: never;
     };
     "/api/v1/projects": {
@@ -1754,6 +1755,356 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/signup/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open an invite link
+         * @description Checks the invite and returns a fresh TOTP secret to enrol. Nothing is stored until `POST /signup`.
+         */
+        post: operations["signupStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create the account from an invite
+         * @description Needs a code from the enrolled TOTP secret; the invite is used up and a session starts.
+         */
+        post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team mode status (admin) */
+        get: operations["getTeam"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change team settings (admin) */
+        patch: operations["updateTeam"];
+        trace?: never;
+    };
+    "/api/v1/team/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a team (admin)
+         * @description The owner becomes user
+         */
+        post: operations["enableTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn team mode off (admin)
+         * @description Allowed only with one active user left; their credentials become the single owner's.
+         */
+        post: operations["disableTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users
+         * @description Admins see everything; members and viewers see names and roles (for the person filter).
+         */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a disabled user (admin) */
+        delete: operations["removeUser"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a user's role, budget or disable them (admin)
+         * @description The last active admin and user
+         */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/v1/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List invites (admin) */
+        get: operations["listInvites"];
+        put?: never;
+        /**
+         * Create an invite link (admin)
+         * @description The token is shown once and stored hashed; single use.
+         */
+        post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an unused invite (admin) */
+        delete: operations["revokeInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit log (admin), newest first */
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a TOTP reset (team mode) */
+        post: operations["startTotpReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Store the new TOTP secret once a code from it works */
+        post: operations["confirmTotpReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My agent keys (team mode)
+         * @description Values are write-only; only the last 4 characters come back.
+         */
+        get: operations["listCredentials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credentials/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: components["schemas"]["Agent"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Add or replace my key for a provider */
+        put: operations["putCredential"];
+        post?: never;
+        /** Remove my key for a provider */
+        delete: operations["deleteCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credentials/{provider}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: components["schemas"]["Agent"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the provider's cheapest authenticated check with my key
+         * @description Anthropic and OpenAI: list models; Cursor: API key info. A Claude subscription token is `not_testable`.
+         */
+        post: operations["testCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get a one-time /link code (10 minutes) */
+        post: operations["telegramLinkCode"];
+        /** Unlink my Telegram account */
+        delete: operations["telegramUnlink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/{id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make a personal skill a team skill (admin) */
+        post: operations["promoteSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/shared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Share a computer with the team (admin) */
+        put: operations["shareNode"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ws/ticket": {
         parameters: {
             query?: never;
@@ -1845,10 +2196,404 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest version of each artifact the task produced (.fleetpocket/out) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Artifacts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["TaskArtifact"][];
+                        };
+                    };
+                };
+                /** @description Unknown task */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipeline-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipeline templates and the plan.json JSON Schema */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Templates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["PipelineTemplate"][];
+                            plan_schema: Record<string, never>;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipelines, newest first (without stages) */
+        get: {
+            parameters: {
+                query?: {
+                    project?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Pipelines */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Pipeline"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Start a pipeline from a template */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        template: string;
+                        project_id: string;
+                        /**
+                         * Format: int64
+                         * @description Defaults to the project's default repository
+                         */
+                        repository_id?: number;
+                        title?: string;
+                        prompt: string;
+                        /** @description Sum of the pipeline's task costs at which no new stage starts */
+                        budget_usd?: number;
+                        /** @description Default 3 */
+                        max_parallel?: number;
+                        /** @description Per-stage overrides by stage key */
+                        stages?: {
+                            [key: string]: {
+                                /** @enum {string} */
+                                provider?: "claude" | "codex" | "cursor";
+                                model?: string;
+                                node?: string;
+                            };
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pipeline"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pipeline with its stages */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Pipeline */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pipeline"];
+                    };
+                };
+                /** @description Unknown pipeline */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/{id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner actions (approve, plan, redesign, retry, skip, cancel, budget) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    action: "approve" | "plan" | "redesign" | "retry" | "skip" | "cancel" | "budget";
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: int64
+                         * @description retry and skip
+                         */
+                        stage_id?: number;
+                        /** @description retry and redesign */
+                        note?: string;
+                        /** @description budget */
+                        budget_usd?: number;
+                        /** @description plan: the edited plan.json (re-validated) */
+                        plan?: Record<string, never>;
+                    };
+                };
+            };
+            responses: {
+                /** @description The pipeline after the action */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pipeline"];
+                    };
+                };
+                /** @description Invalid input or plan (code invalid_plan with errors) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not allowed in the pipeline's or stage's state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TaskArtifact: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            task_id: number;
+            /** Format: int64 */
+            run_id?: number | null;
+            /** @description Relative to .fleetpocket/out */
+            path: string;
+            /** @enum {string} */
+            kind: "mermaid" | "dbml" | "d2" | "plantuml" | "svg" | "markdown" | "sql" | "json";
+            title: string;
+            summary: string;
+            /** @enum {string} */
+            confidence: "exact" | "derived";
+            sources: string[];
+            content: string;
+            sha256: string;
+            version: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        PipelineTemplate: {
+            key: string;
+            version: number;
+            title: string;
+            description: string;
+            approval: boolean;
+            fan_out: boolean;
+            stages: {
+                key: string;
+                kind: components["schemas"]["PipelineStageKind"];
+                title: string;
+                depends_on: string[] | null;
+                /** @enum {string} */
+                tier: "cheap" | "strong";
+                /** @enum {string} */
+                output: "pr" | "artifacts" | "branch";
+                skills?: string[];
+                inputs?: string[];
+            }[];
+        };
+        /** @enum {string} */
+        PipelineStageKind: "scout" | "design" | "build" | "integrate" | "review" | "report";
+        Pipeline: {
+            /** Format: int64 */
+            id: number;
+            project_id: string;
+            /** Format: int64 */
+            repository_id: number;
+            template: string;
+            title: string;
+            prompt: string;
+            /** @enum {string} */
+            status: "running" | "awaiting_approval" | "needs_you" | "completed" | "failed" | "cancelled";
+            status_reason?: string | null;
+            budget_usd?: number | null;
+            max_parallel: number;
+            base_branch: string;
+            pipeline_branch?: string | null;
+            /** @description The validated plan.json (null until the design stage produced a valid one) */
+            plan?: unknown;
+            plan_attempts: number;
+            /** Format: int64 */
+            created_by?: number | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description Sum of the pipeline's task costs */
+            cost_usd: number;
+            /** @description Only on GET /pipelines/{id} and actions */
+            stages?: components["schemas"]["PipelineStage"][];
+        };
+        PipelineStage: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            pipeline_id: number;
+            key: string;
+            kind: components["schemas"]["PipelineStageKind"];
+            title: string;
+            depends_on: string[];
+            provider: string;
+            model?: string | null;
+            /** @enum {string} */
+            output: "pr" | "artifacts" | "pr_and_artifacts" | "branch";
+            skills: string[];
+            /** @description Owned globs of a build stage */
+            files: string[];
+            prompt: string;
+            done_when: string;
+            node?: string | null;
+            /** Format: int64 */
+            task_id?: number | null;
+            /** @enum {string} */
+            status: "waiting" | "ready" | "running" | "done" | "failed" | "skipped" | "cancelled";
+            status_reason?: string | null;
+            position: number;
+        };
         Error: {
             error: {
                 code: string;
@@ -1859,6 +2604,10 @@ export interface components {
         };
         SessionInfo: {
             ok: boolean;
+            /** @description Team mode is on (settings `team`); always false in local mode */
+            team_enabled: boolean;
+            /** @description Team mode only: the signed-in user */
+            user?: components["schemas"]["Me"];
             /** @description The Ideas board is on (settings `ideas`) */
             ideas_enabled: boolean;
             /** @enum {string} */
@@ -1871,6 +2620,128 @@ export interface components {
             /** @description Agents with credentials on the server, which tasks may use */
             agents: components["schemas"]["Agent"][];
             default_agent: components["schemas"]["Agent"];
+        };
+        /** @enum {string} */
+        Role: "admin" | "member" | "viewer";
+        UserRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @example AL */
+            initials: string;
+        };
+        UserRefOrNull: components["schemas"]["UserRef"] | null;
+        Me: {
+            /** Format: int64 */
+            id: number;
+            email: string;
+            name: string;
+            role: components["schemas"]["Role"];
+            /** @description User #1, the break-glass admin (ADMIN_* credentials) */
+            is_owner: boolean;
+            github_login: string | null;
+            commit_email: string | null;
+            /** Format: int64 */
+            telegram_user_id: number | null;
+            monthly_budget_usd: number | null;
+            /**
+             * @description null: by role (admins everyone, others mine)
+             * @enum {string|null}
+             */
+            task_scope: "mine" | "everyone" | null;
+            /** Format: date-time */
+            disabled_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_login_at: string | null;
+            initials: string;
+            telegram_linked: boolean;
+        };
+        TeamUser: components["schemas"]["Me"] & {
+            /** @description Enrolled and not disabled */
+            active: boolean;
+        };
+        TeamStatus: {
+            enabled: boolean;
+            shared_key_fallback: boolean;
+            /** @description SECRETS_KEY is set (team mode needs it) */
+            secrets_key: boolean;
+            /** @description Agents with an env key on the server */
+            server_keys: components["schemas"]["Agent"][];
+            active_users?: number;
+            active_admins?: number;
+        };
+        Invite: {
+            /** Format: int64 */
+            id: number;
+            role: components["schemas"]["Role"];
+            email: string | null;
+            /** Format: int64 */
+            created_by: number | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            used_at: string | null;
+            /** Format: int64 */
+            used_by: number | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        Enrollment: {
+            enrollment_id: string;
+            role: components["schemas"]["Role"];
+            /** @description The invite's email lock */
+            email: string | null;
+            totp_secret: string;
+            otpauth_uri: string;
+        };
+        Credential: {
+            provider: components["schemas"]["Agent"];
+            /** @enum {string} */
+            kind: "oauth_token" | "api_key";
+            /** @example …4321 */
+            last4: string;
+            label: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at: string | null;
+        };
+        KeyTestResult: {
+            /** @enum {string} */
+            status: "ok" | "invalid" | "not_testable" | "error";
+            message: string;
+        };
+        DisableResult: {
+            cancelled_tasks: number[] | null;
+            live_tasks: number[] | null;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            actor_user_id: number | null;
+            /** @example user.role */
+            action: string;
+            target_type: string;
+            target_id: string;
+            meta: {
+                [key: string]: unknown;
+            };
+        };
+        PersonCost: {
+            /** Format: int64 */
+            user_id: number | null;
+            name: string;
+            initials: string;
+            cost_usd: number;
+            runs: number;
+            monthly_budget_usd: number | null;
         };
         /**
          * @description Coding agent that runs a task (Claude Code, OpenAI Codex, Cursor)
@@ -1912,6 +2783,8 @@ export interface components {
              * @enum {string|null}
              */
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | "" | null;
+            /** @description Claude runs get the default subagents (explorer */
+            subagents?: boolean;
             /** @description Replaces the project's enabled skills (slugs; unknown slugs are ignored) */
             skills?: string[];
         };
@@ -1988,6 +2861,8 @@ export interface components {
             })[];
             total: components["schemas"]["CostSum"];
             by_project: components["schemas"]["KeyedCostSum"][];
+            /** @description Team mode only: cost by person (the task creator of each run) in the range */
+            people?: components["schemas"]["PersonCost"][];
             by_agent: components["schemas"]["KeyedCostSum"][];
             /** @description Every day, week (from Monday) or month of the range, empty ones included */
             by_period: (components["schemas"]["CostSum"] & {
@@ -2049,6 +2924,8 @@ export interface components {
              * @enum {string|null}
              */
             default_output?: "pr" | "artifacts" | "pr_and_artifacts" | null;
+            /** @description Claude runs get the default subagents (explorer */
+            subagents?: boolean;
             /** @description Slugs of the skills enabled for the project's tasks */
             skills?: string[];
             /** Format: date-time */
@@ -2134,6 +3011,8 @@ export interface components {
             /** @description A task of it has not reached a PR or an end yet */
             busy: boolean;
             last_firing: components["schemas"]["ScheduleFiring"] | null;
+            /** @description Team mode: its creator; its tasks are created as them and use their key */
+            created_by?: components["schemas"]["UserRefOrNull"];
         };
         ScheduleInput: {
             name: string;
@@ -2230,6 +3109,9 @@ export interface components {
             updated_at: string;
             /** @description Ids of the projects that enable the skill */
             projects: string[];
+            /** @description Team mode: visible to its owner (and admins) only, until an admin promotes it */
+            personal?: boolean;
+            created_by?: components["schemas"]["UserRefOrNull"];
         };
         Repository: {
             /** Format: int64 */
@@ -2344,6 +3226,10 @@ export interface components {
             online: boolean;
             /** @description Tasks preparing */
             active_tasks: number;
+            /** @description Team mode: the computer's owner */
+            created_by?: components["schemas"]["UserRefOrNull"];
+            /** @description Team mode: an admin shared it, so members' tasks may run on it */
+            shared?: boolean;
         };
         PendingPairing: {
             code: string;
@@ -2356,10 +3242,10 @@ export interface components {
             expires_at: string;
         };
         /**
-         * @description `branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`
+         * @description `branch_ready`: a local repository received the task branch (`local_branch`); it mirrors `pr_open`. `needs_key` (team mode): the creator has no key for the task's agent and the shared-key fallback is off; no runner started. `POST /retry` queues it again once the key is added
          * @enum {string}
          */
-        TaskStatus: "queued" | "preparing" | "running" | "waiting_input" | "paused" | "pushing" | "pr_open" | "branch_ready" | "completed" | "failed" | "cancelled";
+        TaskStatus: "queued" | "preparing" | "running" | "waiting_input" | "paused" | "pushing" | "pr_open" | "branch_ready" | "completed" | "failed" | "cancelled" | "needs_key";
         Task: {
             /** Format: int64 */
             id: number;
@@ -2425,15 +3311,17 @@ export interface components {
             /** @description Some run has tokens but no price (cost_source unknown): cost_usd_total is a lower bound. Show `$?` (nothing known) or `$0.84+?` */
             cost_unknown: boolean;
             /**
-             * @description Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.
+             * @description `user` (team mode): its creator's monthly budget. Set on a queued task that a monthly cap holds (status_reason "waiting: budget"): the scope whose cap is used up. POST /tasks/{id}/budget-override starts it anyway.
              * @enum {string|null}
              */
-            budget_wait: "global" | "project" | "schedule" | null;
+            budget_wait: "global" | "project" | "schedule" | "user" | null;
             /**
              * Format: date-time
              * @description When the owner let it start despite the monthly caps (good for that calendar month)
              */
             budget_override_at: string | null;
+            /** @description Team mode: who created the task (null in single-owner mode) */
+            created_by?: components["schemas"]["UserRefOrNull"];
             /**
              * Format: int64
              * @description The schedule that fired the task (null once the schedule is deleted
@@ -2653,6 +3541,8 @@ export interface components {
             /** @enum {string} */
             type: "assistant_text";
             text: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         ToolUseEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -2675,6 +3565,8 @@ export interface components {
             tool: string;
             /** @description Short, human-readable, e.g. "Edit src/tables/export.ts" */
             summary: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         ToolResultEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -2698,6 +3590,8 @@ export interface components {
             ok: boolean;
             /** @description Only when ok is false; first line of the error */
             summary?: string;
+            /** @description The subagent that produced the event (Claude); absent for the lead agent */
+            subagent?: string;
         };
         QuestionEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -3355,6 +4249,7 @@ export interface components {
             linked_tasks: components["schemas"]["IdeaTask"][];
             /** @description The latest linked task failed (the card's ✕ stamp) */
             failed: boolean;
+            created_by?: components["schemas"]["UserRefOrNull"];
         };
         IdeaInput: {
             title?: string;
@@ -3803,6 +4698,8 @@ export interface operations {
                         /** @description No owner exists; every other API route answers 409 setup_required */
                         setup_required: boolean;
                         github_configured: boolean;
+                        /** @description Team mode is on: the login screen asks for an email (empty: the break-glass owner login) */
+                        team_enabled?: boolean;
                     };
                 };
             };
@@ -3958,6 +4855,12 @@ export interface operations {
                     password: string;
                     /** @description Current 6-digit code */
                     totp: string;
+                    /**
+                     * @description Team mode: the user's email. Without it, the owner credentials
+                     *     (ADMIN_PASSWORD_HASH/ADMIN_TOTP_SECRET or the setup wizard's) sign in
+                     *     as user #1, the break-glass admin.
+                     */
+                    email?: string;
                 };
             };
         };
@@ -4050,6 +4953,50 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** Format: email */
+                    email?: string;
+                    /** @description "" clears */
+                    github_login?: string;
+                    /** @description Adds Co-authored-by to commits made for you; "" clears */
+                    commit_email?: string;
+                    /**
+                     * @description Default of the Mine | Everyone filters
+                     * @enum {string}
+                     */
+                    task_scope?: "mine" | "everyone";
+                    current_password?: string;
+                    /** @description Needs current_password; signs out your other sessions */
+                    new_password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Me */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     listProjects: {
@@ -4787,6 +5734,8 @@ export interface operations {
                 project?: string;
                 /** @description Comma-separated statuses */
                 status?: string;
+                /** @description Team mode: `me` or a user id (the Mine and person filters) */
+                created_by?: string;
                 limit?: components["parameters"]["Limit"];
                 cursor?: string;
             };
@@ -7029,6 +7978,641 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    signupStart: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Enrol this secret */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            410: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+        };
+    };
+    signup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                    enrollment_id: string;
+                    name: string;
+                    /** Format: email */
+                    email: string;
+                    password: string;
+                    totp: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Signed in */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionInfo"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            410: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+        };
+    };
+    getTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    updateTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Allow the server's shared keys as a fallback (default off) */
+                    shared_key_fallback?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    enableTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Team mode is on */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        enabled: boolean;
+                        user: components["schemas"]["Me"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    disableTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Off */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        enabled: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["TeamUser"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    removeUser: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role?: components["schemas"]["Role"];
+                    monthly_budget_usd?: number;
+                    clear_budget?: boolean;
+                    disabled?: boolean;
+                    /**
+                     * @description Disabling: what happens to the user's running tasks (default finish)
+                     * @enum {string}
+                     */
+                    live_tasks?: "finish" | "cancel";
+                };
+            };
+        };
+        responses: {
+            /** @description The user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["TeamUser"];
+                        disable?: components["schemas"]["DisableResult"] | null;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    listInvites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invites, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Invite"][];
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    createInvite: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role: components["schemas"]["Role"];
+                    /** @description Only this address may use it */
+                    email?: string | null;
+                    /** @description Default 168 (7 days), at most 90 days */
+                    expires_in_hours?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The invite and its link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invite: components["schemas"]["Invite"];
+                        token: string;
+                        url: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    revokeInvite: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listAudit: {
+        parameters: {
+            query?: {
+                actor?: number;
+                action?: string;
+                limit?: components["parameters"]["Limit"];
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AuditEntry"][];
+                        next_cursor: string;
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    startTotpReset: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enrol this secret */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    confirmTotpReset: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enrollment_id: string;
+                    password: string;
+                    totp: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["OK"];
+            400: components["responses"]["Error"];
+        };
+    };
+    listCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Credential"][];
+                        shared_key_fallback: boolean;
+                    };
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    putCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                provider: components["schemas"]["Agent"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description `oauth_token` (CLAUDE_CODE_OAUTH_TOKEN) is for claude only
+                     * @enum {string}
+                     */
+                    kind: "oauth_token" | "api_key";
+                    value: string;
+                    label?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The key (without its value) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                provider: components["schemas"]["Agent"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+            404: components["responses"]["Error"];
+        };
+    };
+    testCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                provider: components["schemas"]["Agent"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyTestResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    telegramLinkCode: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Send `command` to the bot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: string;
+                        /** @example /link 123456 */
+                        command: string;
+                        /** Format: date-time */
+                        expires_at: string;
+                        bot_enabled: boolean;
+                    };
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    telegramUnlink: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+        };
+    };
+    promoteSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The skill */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    shareNode: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    shared: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The node */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Node"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     createWebSocketTicket: {

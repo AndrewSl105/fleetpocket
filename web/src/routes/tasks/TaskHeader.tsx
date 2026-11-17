@@ -26,6 +26,27 @@ import { useBudgetOverride } from '@/api/costs'
 import { c } from '@/i18n/costs'
 import { isLocalRepo, shownBranch } from '@/lib/local'
 import { BranchPanel } from './BranchPanel'
+import { Link } from 'react-router'
+import { KeyRound } from 'lucide-react'
+import { UserBadge } from '@/components/UserBadge'
+import { useCanActOn, useRole } from '@/api/team'
+import { tm } from '@/i18n/team'
+
+/** Team mode: the creator has no key for the agent, so no runner started. */
+function NeedsKey({ task, mine }: { task: TaskView; mine: boolean }) {
+  if (task.status !== 'needs_key') return null
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
+      <KeyRound className="size-3.5 shrink-0" aria-hidden="true" />
+      <p className="min-w-0 flex-1">{task.status_reason ?? tm.needsKey(tm.providers[task.agent])}</p>
+      {mine && (
+        <Link to="/settings#keys" className="fm-btn inline-flex h-7 items-center px-2.5 font-semibold">
+          {tm.openKeys}
+        </Link>
+      )}
+    </div>
+  )
+}
 
 export function githubUrl(task: TaskView): string | null {
   if (task.pr_url) return task.pr_url
@@ -50,18 +71,22 @@ function HostWaiting({ task }: { task: TaskView }) {
 /** A queued task that a monthly cap holds: say so, with the owner's override. */
 function BudgetWaiting({ task }: { task: TaskView }) {
   const override = useBudgetOverride(task.id)
+  // Starting despite a budget is an admin decision (the server refuses others).
+  const admin = useRole().isAdmin
   if (task.status !== 'queued' || !task.budget_wait) return null
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
       <p className="min-w-0 flex-1">{c.waitingBudget(task.budget_wait)}</p>
-      <button
-        type="button"
-        onClick={() => override.mutate()}
-        disabled={override.isPending}
-        className="fm-btn inline-flex h-11 items-center px-3 font-semibold disabled:opacity-60"
-      >
-        {c.startAnyway}
-      </button>
+      {admin && (
+        <button
+          type="button"
+          onClick={() => override.mutate()}
+          disabled={override.isPending}
+          className="fm-btn inline-flex h-11 items-center px-3 font-semibold disabled:opacity-60"
+        >
+          {c.startAnyway}
+        </button>
+      )}
     </div>
   )
 }
@@ -72,6 +97,8 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
   const confirm = useConfirm()
   const action = useTaskAction(task.id)
   const gh = githubUrl(task)
+  // Team mode: members act on their own tasks, viewers on none (the server refuses the rest).
+  const mayAct = useCanActOn(task.created_by)
 
   async function cancel() {
     if (await confirm(t.task.confirmCancel, t.task.actions.cancel)) action.mutate('cancel')
@@ -115,17 +142,17 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-48">
-            {can(task.status, 'interrupt') && !stopping && (
+            {mayAct && can(task.status, 'interrupt') && !stopping && (
               <DropdownMenuItem className="h-10" onSelect={() => action.mutate('interrupt')}>
                 <OctagonPause /> {t.task.actions.interrupt}
               </DropdownMenuItem>
             )}
-            {canMerge && (
+            {mayAct && canMerge && (
               <DropdownMenuItem className="h-10" disabled={action.isPending} onSelect={merge}>
                 <GitMerge /> {t.task.actions.mergePr(task.pr_number!)}
               </DropdownMenuItem>
             )}
-            {can(task.status, 'retry') && (
+            {mayAct && can(task.status, 'retry') && (
               <DropdownMenuItem className="h-10" onSelect={() => action.mutate('retry')}>
                 <RotateCcw /> {t.task.actions.retry}
               </DropdownMenuItem>
@@ -142,7 +169,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
                 </a>
               </DropdownMenuItem>
             )}
-            {can(task.status, 'cancel') && (
+            {mayAct && can(task.status, 'cancel') && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="h-10" variant="destructive" onSelect={cancel}>
@@ -162,6 +189,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
           {task.repository && <span className="font-mono"> / {task.repository.full_name.split('/').pop()}</span>}
         </span>
         <HostChip node={task.node} />
+        <UserBadge user={task.created_by} withName />
         <span className="tabular-nums" title={task.cost_api_equivalent ? c.apiEquivalentHint : undefined}>
           <Cost value={task.cost_usd_total} estimated={task.cost_estimated} unknown={task.cost_unknown} />
           {task.cost_api_equivalent && <span className="fm-label ml-1">{c.apiEquivalent}</span>}
@@ -179,7 +207,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
             {t.task.actions.openPr(task.pr_number)}
           </a>
         )}
-        {canMerge && (
+        {mayAct && canMerge && (
           <button
             type="button"
             onClick={merge}
@@ -193,6 +221,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
       </div>
       {branch && task.status !== 'branch_ready' && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{branch}</p>}
       <HostWaiting task={task} />
+      <NeedsKey task={task} mine={mayAct} />
       <BudgetWaiting task={task} />
       <BranchPanel task={task} />
       {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused' || task.status === 'branch_ready') && (

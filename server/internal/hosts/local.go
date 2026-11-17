@@ -10,6 +10,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/artifacts"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -109,6 +110,10 @@ func (l *Local) EventLog(_ context.Context, taskID int64, afterSeq int64) ([][]b
 	return FilterEventLog(f, afterSeq)
 }
 
+func (l *Local) CollectOutputs(_ context.Context, taskID int64) ([]artifacts.File, error) {
+	return ReadOutputs(l.Workspace.Path(taskID))
+}
+
 func (l *Local) PrepareAttachments(_ context.Context, taskID int64, files []AttachmentFile) error {
 	dir := l.AttachmentsDir(taskID)
 	if !l.WriteAttachments {
@@ -194,17 +199,28 @@ func (l *Local) EnsureSidecars(ctx context.Context, taskID int64, project string
 	return l.Docker.EnsureSidecars(ctx, taskID, project, services)
 }
 
-func (l *Local) StartRunner(ctx context.Context, s StartSpec) (*runnermgr.Runner, error) {
+// RunnerEnv is the runner container's environment: the spec's env plus the
+// agent credentials. Only the task's agent gets credentials, and only its
+// own: the run's resolved key (team mode, StartSpec.AgentEnv) or this host's.
+func (l *Local) RunnerEnv(s StartSpec) map[string]string {
 	env := map[string]string{}
 	for k, v := range s.Env {
 		env[k] = v
 	}
-	// Only the task's agent gets credentials, and only its own.
-	if l.AgentEnv != nil {
+	if s.AgentEnv != nil {
+		for k, v := range s.AgentEnv {
+			env[k] = v
+		}
+	} else if l.AgentEnv != nil {
 		for k, v := range l.AgentEnv(s.Agent) {
 			env[k] = v
 		}
 	}
+	return env
+}
+
+func (l *Local) StartRunner(ctx context.Context, s StartSpec) (*runnermgr.Runner, error) {
+	env := l.RunnerEnv(s)
 	att := ""
 	if s.Attachments {
 		att = l.AttachmentsDir(s.TaskID)

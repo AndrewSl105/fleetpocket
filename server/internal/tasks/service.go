@@ -26,6 +26,8 @@ var (
 	// checks or reviews, head moved); the message says why.
 	ErrNotMergeable   = errors.New("pull request is not mergeable")
 	ErrGitHubDisabled = errors.New("GitHub App is not configured")
+	// ErrForbidden: team mode refuses the action for this person.
+	ErrForbidden = errors.New("forbidden")
 )
 
 // Merger merges a task's PR on GitHub (githubapp.App). Nil when the GitHub
@@ -85,6 +87,16 @@ type Service struct {
 	// PushLocal pushes a branch_ready task to GitHub and opens its PR
 	// (scheduler.PushLocal); nil when GitHub is not connected.
 	PushLocal func(ctx context.Context, taskID int64) error
+	// TeamOn reports team mode (nil: off): agents are then enabled per
+	// person (personal keys), not by the server's env keys.
+	TeamOn func(ctx context.Context) bool
+	// NeedsKey (team mode) returns the needs_key reason when the task's
+	// creator has no usable key for its agent, "" when a run can start.
+	NeedsKey func(ctx context.Context, t *store.Task) string
+	// NodeAllowed (team mode) refuses a computer the creator may not use:
+	// a member's tasks run on their own computers and shared ones. Every
+	// creation path (web, Telegram, schedules) goes through Create.
+	NodeAllowed func(ctx context.Context, n *store.Node, createdBy *int64) error
 }
 
 // ServerNode is the placement value for the server itself.
@@ -121,6 +133,8 @@ type CreateInput struct {
 	// creating it); the task service itself ignores it.
 	IdeaID int64  `json:"idea_id"`
 	Source string `json:"-"`
+	// CreatedBy is the user creating the task (team mode; nil otherwise).
+	CreatedBy *int64 `json:"-"`
 	// Set by schedules: the schedule, its MCP server names (nil: the
 	// project's), its per-run budget and "PR even without changes".
 	ScheduleID   *int64   `json:"-"`
@@ -129,6 +143,12 @@ type CreateInput struct {
 	PRAlways     bool     `json:"-"`
 	// Images are validated uploads (attachments.Process).
 	Images []*attachments.Image `json:"-"`
+	// Pipeline stages (internal/pipelinerun): output "branch" needs PushBranch.
+	PipelineID *int64 `json:"-"`
+	StageID    *int64 `json:"-"`
+	BaseRef    string `json:"-"`
+	PushBranch string `json:"-"`
+	Model      string `json:"-"`
 }
 
 // Outputs are the valid task outputs; "pr" is today's behaviour.
@@ -136,7 +156,7 @@ var Outputs = []string{"pr", "artifacts", "pr_and_artifacts"}
 
 // ArtifactsEnabled gates the "artifacts" outputs until the server collects
 // .fleetpocket/out/ and enforces "never push" for them (docs/DECISIONS.md).
-var ArtifactsEnabled = false
+var ArtifactsEnabled = true
 
 // ValidOutput reports whether o is a task output.
 func ValidOutput(o string) bool { return slices.Contains(Outputs, o) }
@@ -177,7 +197,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
-	agent, err := s.agentFor(p, in.Agent, node)
+	if node != nil && s.NodeAllowed != nil {
+		if err := s.NodeAllowed(ctx, node, in.CreatedBy); err != nil {
+			return nil, err
+		}
+	}
+	agent, err := s.agentFor(ctx, p, in.Agent, node)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +213,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if output == "" {
 		output = "pr"
 	}
-	if !ValidOutput(output) {
+	if output == "branch" && in.PushBranch == "" {
+		return nil, fmt.Errorf("%w: output branch is only for pipeline stages", ErrInvalid)
+	}
+	if !ValidOutput(output) && output != "branch" {
 		return nil, fmt.Errorf("%w: output must be one of %s", ErrInvalid, strings.Join(Outputs, ", "))
 	}
 	if in.StartFrom != "" && in.StartFrom != workspace.StartLastCommit && in.StartFrom != workspace.StartWorkingTree {
@@ -219,12 +247,23 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	}
 	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
 		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove, Loop: loop, StartFrom: in.StartFrom,
-		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways}, up)
+		ScheduleID: in.ScheduleID, MCPServers: in.MCPServers, RunBudgetUSD: in.RunBudgetUSD, PRAlways: in.PRAlways,
+		PipelineID: in.PipelineID, StageID: in.StageID, BaseRef: nilIfEmpty(in.BaseRef), PushBranch: nilIfEmpty(in.PushBranch),
+		Model: nilIfEmpty(in.Model), CreatedByID: in.CreatedBy}, up)
 	release()
 	if err != nil {
 		return nil, err
 	}
 	s.publishTask(t)
+	// Team mode: fail fast at queue time when there is no key for the run.
+	if s.NeedsKey != nil {
+		if reason := s.NeedsKey(ctx, t); reason != "" {
+			if nt, err := s.Store.SetStatus(ctx, t.ID, []string{Queued}, NeedsKey, reason, false); err == nil {
+				s.publishTask(nt)
+			}
+			return s.Get(ctx, t.ID)
+		}
+	}
 	s.wake()
 	return s.Get(ctx, t.ID)
 }
@@ -278,7 +317,7 @@ func nodeID(n *store.Node) *string {
 // agentFor resolves a new task's agent and checks that it can run: on the
 // server it needs the server's credentials, on a node the node must have
 // reported it (the node uses its own credentials).
-func (s *Service) agentFor(p *store.Project, override string, node *store.Node) (string, error) {
+func (s *Service) agentFor(ctx context.Context, p *store.Project, override string, node *store.Node) (string, error) {
 	agent := strings.TrimSpace(override)
 	if agent == "" {
 		agent = ProjectAgent(p, s.DefaultAgent)
@@ -291,6 +330,9 @@ func (s *Service) agentFor(p *store.Project, override string, node *store.Node) 
 			return "", fmt.Errorf("%w: agent %s has no credentials on %s (set %s there)", ErrInvalid, agent, node.Name, config.AgentKeyHint(agent))
 		}
 		return agent, nil
+	}
+	if s.TeamOn != nil && s.TeamOn(ctx) {
+		return agent, nil // the creator's key decides (needs_key)
 	}
 	if s.AgentEnabled != nil && !s.AgentEnabled(agent) {
 		return "", fmt.Errorf("%w: agent %s is not configured (set %s)", ErrInvalid, agent, config.AgentKeyHint(agent))
@@ -535,6 +577,17 @@ func (s *Service) Retry(ctx context.Context, taskID int64) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
+	if t.Status == NeedsKey {
+		// The pending run never started: queue it again (the scheduler
+		// checks the key once more before any runner starts).
+		nt, err := s.Store.SetStatus(ctx, taskID, []string{NeedsKey}, Queued, "", false)
+		if err != nil {
+			return nil, err
+		}
+		s.publishTask(nt)
+		s.wake()
+		return s.Get(ctx, taskID)
+	}
 	if t.Status != Failed && t.Status != Cancelled {
 		return nil, fmt.Errorf("%w: only failed or cancelled tasks can be retried (task is %s)", ErrConflict, t.Status)
 	}
@@ -658,4 +711,11 @@ func RunnerQuestionID(id string) string {
 // timed out: the original tool call is gone, so the answer is restated.
 func ResumeInput(question, answer string) string {
 	return fmt.Sprintf("Answer to your earlier question %q: %s", question, answer)
+}
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

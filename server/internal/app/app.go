@@ -29,6 +29,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/metrics"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
+	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
@@ -38,6 +39,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
+	"github.com/andrewsl105/fleetpocket/server/internal/team"
 	"github.com/andrewsl105/fleetpocket/server/internal/telegram"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
@@ -125,6 +127,19 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome,
 			BudgetHeld: met.BudgetHeld, BudgetAlert: met.BudgetAlert, LoopEnded: met.LoopEnded},
 	})
+	// Pipelines: every stage is an ordinary task of this scheduler.
+	pipes := &pipelinerun.Driver{Store: st, Tasks: taskSvc,
+		CheapModel: func(provider string) string {
+			if provider == "claude" {
+				return cfg.CheapModelClaude
+			}
+			return "" // Codex and Cursor: their own default
+		}}
+	sched.BeforePush = pipes.OwnershipCheck
+	sched.StageFiles = func(ctx context.Context, stageID int64) []string {
+		files, _ := st.StageFiles(ctx, stageID)
+		return files
+	}
 	// MCP gateway: off (no servers can be added) without SECRETS_KEY.
 	box, err := secretbox.New(cfg.SecretsKey)
 	if err != nil {
@@ -144,6 +159,22 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	}
 	sched.Gateway = gateway
 	taskSvc.Executor = sched
+	authMgr := &auth.Manager{
+		Store: st, PasswordHash: owner.PasswordHash, TOTPSecret: owner.TOTPSecret,
+		SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
+		SameSiteStrict: cfg.Local(),
+	}
+	// Team mode (off until an admin turns it on; never in local mode).
+	teamSvc := &team.Service{Store: st, Box: box, Cfg: cfg, Owner: authMgr}
+	sched.Team = teamSvc
+	taskSvc.TeamOn = teamSvc.Enabled
+	taskSvc.NodeAllowed = teamSvc.NodeAllowed
+	taskSvc.NeedsKey = func(ctx context.Context, t *store.Task) string {
+		if _, err := teamSvc.AgentEnv(ctx, t); errors.Is(err, team.ErrNeedsKey) {
+			return team.NeedsKeyReason(t.Agent)
+		}
+		return ""
+	}
 	nodeSvc := &nodes.Service{Store: st, Hub: hub, Registry: registry, RunnerImage: cfg.RunnerImage}
 	registry.OnChange = func(id string, online bool) {
 		nodeSvc.Changed(id, online)
@@ -215,6 +246,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	}
 	ideaSvc := &ideas.Service{Store: st, Files: files, Hub: hub, STT: stt}
 	srv := &api.Server{
+		Pipelines:    pipes,
 		Schedules:    scheds,
 		Ideas:        ideaSvc,
 		SkillScanner: skillScan,
@@ -224,18 +256,15 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		Store:        st,
 		Tasks:        taskSvc,
 		Projects:     &projects.Service{Store: st},
-		Auth: &auth.Manager{
-			Store: st, PasswordHash: owner.PasswordHash, TOTPSecret: owner.TOTPSecret,
-			SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
-			SameSiteStrict: cfg.Local(),
-		},
-		UI:      opts.UI,
-		Local:   opts.Local,
-		Gateway: gateway,
-		Hub:     hub,
-		Nodes:   nodeSvc,
-		Files:   files,
-		Setup:   wizard,
+		Auth:         authMgr,
+		Team:         teamSvc,
+		UI:           opts.UI,
+		Local:        opts.Local,
+		Gateway:      gateway,
+		Hub:          hub,
+		Nodes:        nodeSvc,
+		Files:        files,
+		Setup:        wizard,
 		// Exit after the response is sent; Docker's restart policy starts the
 		// server again with the new GitHub App.
 		Restart: func() {
@@ -311,6 +340,7 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			API: tg, Store: st, Tasks: taskSvc, Schedules: scheds, Ideas: ideaSvc, Hub: hub, OwnerID: cfg.TelegramAllowedUserID,
 			WebAppURL: cfg.WebAppURL, MiniAppLink: cfg.TelegramMiniAppLink, OnError: met.TelegramError,
 			STTEnabled: cfg.STTProvider != "off",
+			Team:       teamSvc, QuestionTimeout: cfg.QuestionTimeout,
 		}
 		scheds.Notify = bot
 		if stt != nil {
@@ -348,6 +378,11 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	go func() {
 		defer wg.Done()
 		scheds.Run(ctx)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		pipes.Run(ctx, 5*time.Second, nil)
 	}()
 	wg.Add(1)
 	go func() {

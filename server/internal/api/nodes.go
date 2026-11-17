@@ -26,6 +26,9 @@ func (s *Server) createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, tok, err := s.Nodes.Create(r.Context(), in)
+	if err == nil {
+		n, err = s.ownedNode(r, n)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -34,6 +37,9 @@ func (s *Server) createNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateNode(w http.ResponseWriter, r *http.Request) {
+	if !s.ownNode(w, r) {
+		return
+	}
 	var in store.NodeFields
 	if !decode(w, r, &in) {
 		return
@@ -47,6 +53,9 @@ func (s *Server) updateNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) rotateNodeToken(w http.ResponseWriter, r *http.Request) {
+	if !s.ownNode(w, r) {
+		return
+	}
 	tok, err := s.Nodes.RotateToken(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeErr(w, r, err)
@@ -56,6 +65,9 @@ func (s *Server) rotateNodeToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteNode(w http.ResponseWriter, r *http.Request) {
+	if !s.ownNode(w, r) {
+		return
+	}
 	if err := s.Nodes.Delete(r.Context(), r.PathValue("id")); err != nil {
 		writeErr(w, r, err)
 		return
@@ -126,6 +138,9 @@ func (s *Server) approvePairing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, err := s.Nodes.ApprovePairing(r.Context(), in.Code, in.Name)
+	if err == nil {
+		n, err = s.ownedNode(r, n)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -159,4 +174,16 @@ func (s *Server) publicURL(r *http.Request) string {
 		scheme = "http"
 	}
 	return scheme + "://" + r.Host
+}
+
+// ownedNode makes a new computer the actor's (team mode).
+func (s *Server) ownedNode(r *http.Request, n *store.NodeView) (*store.NodeView, error) {
+	uid := actorOf(r).uid()
+	if uid == nil {
+		return n, nil
+	}
+	if err := s.Store.SetNodeOwner(r.Context(), n.ID, *uid); err != nil {
+		return nil, err
+	}
+	return s.Nodes.Get(r.Context(), n.ID)
 }

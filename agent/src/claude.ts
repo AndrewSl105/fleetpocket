@@ -1,17 +1,53 @@
 // Real Claude Code session via @anthropic-ai/claude-agent-sdk.
-import { query, type CanUseTool, type HookCallback, type SDKResultMessage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { query, type AgentDefinition, type CanUseTool, type HookCallback, type SDKResultMessage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { ATTACHMENTS_DIR, hasAttachments } from "./attachments.ts";
 import { claudeSessionRef, parseClaudeSessionRef } from "./checkpoint.ts";
 import { QuestionTimeout } from "./control.ts";
 import { ASK_TOOL, Mapper, classifyResult, resultText } from "./mapper.ts";
 import { claudeMcp } from "./mcp.ts";
-import { checkTool } from "./policy.ts";
-import { RUNNER_VERSION, type RunCommand } from "./protocol.ts";
+import { checkTool, type PolicyOptions } from "./policy.ts";
+import { RUNNER_VERSION, type RunCommand, type Subagent } from "./protocol.ts";
 import type { Session, SessionOutcome } from "./session.ts";
 
 // Pre-approved tools. AskUserQuestion is available but deliberately NOT
 // pre-approved, so every use reaches canUseTool, where it becomes a `question`.
 export const ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebSearch", "WebFetch", "TodoWrite"];
+
+// The SDK's subagent tool (installed SDK: "Agent", formerly "Task"); its
+// input names the subagent in subagent_type.
+export const SUBAGENT_TOOL = "Agent";
+
+// subagentOptions builds the SDK's `agents` option from the run's list. A
+// subagent gets only tools the lead agent has pre-approved (ALLOWED_TOOLS and
+// the run's MCP servers); never AskUserQuestion (only the lead agent asks)
+// and never the subagent tool itself. null: no subagents.
+export function subagentOptions(list: Subagent[] | undefined, mcpTools: string[] = []): Record<string, AgentDefinition> | null {
+  if (!list || list.length === 0) return null;
+  const permitted = (t: string) => ALLOWED_TOOLS.includes(t) || mcpTools.some((m) => t === m || t.startsWith(`${m}__`));
+  const agents: Record<string, AgentDefinition> = {};
+  for (const a of list) {
+    agents[a.name] = {
+      description: a.description,
+      prompt: a.prompt,
+      tools: a.tools.filter(permitted),
+      disallowedTools: [ASK_TOOL, SUBAGENT_TOOL],
+      ...(a.model ? { model: a.model } : {}),
+    };
+  }
+  return agents;
+}
+
+// policyHook is the PreToolUse hook. The SDK runs it for the lead agent's
+// tool calls and for every subagent's (those carry agent_id), so the same
+// policy holds for both.
+export function policyHook(workspace: string, opts: PolicyOptions): HookCallback {
+  return async (hookInput) => {
+    if (hookInput.hook_event_name !== "PreToolUse") return {};
+    const d = checkTool(hookInput.tool_name, hookInput.tool_input, workspace, opts);
+    if (d.allow) return {};
+    return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason } };
+  };
+}
 
 function userMessage(text: string): SDKUserMessage {
   return { type: "user", message: { role: "user", content: text }, parent_tool_use_id: null };
@@ -56,7 +92,7 @@ export class SessionPoint {
 export const claudeSession: Session = async ({ cmd, workspace, emitter, control, checkpointer }) => {
   const point = new SessionPoint();
   if (checkpointer) checkpointer.sessionRef = () => point.ref();
-  const policyOpts = { artifactsOnly: cmd.output === "artifacts" };
+  const policyOpts = { artifactsOnly: cmd.output === "artifacts", ownedPaths: cmd.owned_paths };
   const mapper = new Mapper(workspace);
   // queryAbort ends the SDK session: on cancel (control.abort) and on pause.
   const queryAbort = new AbortController();
@@ -110,14 +146,11 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control,
     return { behavior: "allow", updatedInput: { ...toolInput, answers } };
   };
 
-  const preToolUse: HookCallback = async (hookInput) => {
-    if (hookInput.hook_event_name !== "PreToolUse") return {};
-    const d = checkTool(hookInput.tool_name, hookInput.tool_input, workspace, policyOpts);
-    if (d.allow) return {};
-    return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason } };
-  };
+  const preToolUse = policyHook(workspace, policyOpts);
 
   const mcp = claudeMcp(cmd.mcp);
+  const agents = subagentOptions(cmd.subagents, mcp?.allowedTools);
+  const allowed = [...ALLOWED_TOOLS, ...(mcp ? mcp.allowedTools : []), ...(agents ? [SUBAGENT_TOOL] : [])];
   const q = query({
     prompt: input(),
     options: {
@@ -130,9 +163,10 @@ export const claudeSession: Session = async ({ cmd, workspace, emitter, control,
       maxBudgetUsd: cmd.limits.max_budget_usd,
       systemPrompt: { type: "preset", preset: "claude_code", ...(cmd.append_system_prompt ? { append: cmd.append_system_prompt } : {}) },
       settingSources: ["project"],
-      tools: [...ALLOWED_TOOLS, ASK_TOOL],
-      allowedTools: mcp ? [...ALLOWED_TOOLS, ...mcp.allowedTools] : ALLOWED_TOOLS,
+      tools: [...ALLOWED_TOOLS, ASK_TOOL, ...(agents ? [SUBAGENT_TOOL] : [])],
+      allowedTools: allowed,
       ...(mcp ? { mcpServers: mcp.mcpServers } : {}),
+      ...(agents ? { agents } : {}),
       permissionMode: "acceptEdits",
       canUseTool,
       hooks: { PreToolUse: [{ hooks: [preToolUse] }] },

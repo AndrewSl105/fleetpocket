@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
+	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
@@ -59,7 +60,7 @@ func (s *Scheduler) deliverLocal(ctx context.Context, h hosts.Host, t *store.Tas
 	}
 	d, err := h.DeliverLocal(ctx, t.ID, hosts.LocalDelivery{
 		Path: repo.Path, Base: repo.BaseBranch, Branch: branch,
-		Want: workspace.LocalBranch(t.ID, t.Title), Current: deref(t.LocalBranch, ""), Force: force,
+		Want: localWant(t), Current: deref(t.LocalBranch, ""), Force: force,
 	})
 	if errors.Is(err, workspace.ErrRepoMissing) {
 		s.log(t, 0).Warn("local repository folder missing; delivery waits", "path", repo.Path)
@@ -153,6 +154,7 @@ func (s *Scheduler) PushLocal(ctx context.Context, taskID int64) error {
 	res, err := pub.Publish(ctx, PublishInput{
 		Host: s.host(t), Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
 		Summary: s.lastSummary(ctx, t.ID), CostUSD: t.CostUSDTotal, Turns: t.Turns,
+		RequestedBy: s.requestedBy(ctx, t),
 	})
 	if err != nil {
 		if errors.Is(err, ErrRejected) {
@@ -175,4 +177,13 @@ func (s *Scheduler) PushLocal(ctx context.Context, taskID int64) error {
 	s.afterPush(ctx, t, nil)
 	_, err = s.Tasks.SetStatus(ctx, t.ID, tasks.PROpen, "")
 	return err
+}
+
+// localWant is the branch a delivery creates: a pipeline stage's push branch
+// (output "branch"), else jm/<id>-<slug>.
+func localWant(t *store.Task) string {
+	if t.Output == runnermgr.OutputBranch && t.PushBranch != nil {
+		return *t.PushBranch
+	}
+	return workspace.LocalBranch(t.ID, t.Title)
 }

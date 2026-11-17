@@ -53,6 +53,9 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 	} else if err := h.Push(ctx, t.ID, wsRepo, in.Branch); err != nil {
 		return nil, fmt.Errorf("push: %w", err)
 	}
+	if in.NoPR {
+		return &scheduler.PublishResult{ForcedFrom: forcedFrom}, nil
+	}
 	stat, _ := h.DiffStat(ctx, t.ID, repo.BaseBranch)
 
 	number := 0
@@ -85,6 +88,9 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "### Task\n\n%s\n\n", quote(in.Task.Prompt))
+	if in.RequestedBy != "" {
+		fmt.Fprintf(&b, "Requested by %s\n\n", in.RequestedBy)
+	}
 	if in.Summary != "" {
 		fmt.Fprintf(&b, "### Summary\n\n%s\n\n", in.Summary)
 	}

@@ -31,6 +31,8 @@ export const STATUS: Record<TaskStatus, { label: string; tone: Tone; icon: Lucid
   completed: { label: t.status.completed, tone: 'olive', icon: CircleCheck },
   failed: { label: t.status.failed, tone: 'danger', icon: CircleX },
   cancelled: { label: t.status.cancelled, tone: 'paused', icon: CircleSlash },
+  // Team mode: the creator has no key for the agent; no runner started.
+  needs_key: { label: t.status.needs_key, tone: 'ask', icon: CircleHelp },
 }
 
 export const ALL_STATUSES = Object.keys(STATUS) as TaskStatus[]
@@ -38,7 +40,7 @@ export const ALL_STATUSES = Object.keys(STATUS) as TaskStatus[]
 export type TaskGroup = 'active' | 'pr_open' | 'done' | 'failed'
 
 export const GROUPS: Record<TaskGroup, TaskStatus[]> = {
-  active: ['queued', 'preparing', 'running', 'waiting_input', 'paused', 'pushing'],
+  active: ['queued', 'needs_key', 'preparing', 'running', 'waiting_input', 'paused', 'pushing'],
   pr_open: ['pr_open', 'branch_ready'],
   done: ['completed'],
   failed: ['failed', 'cancelled'],
@@ -61,6 +63,7 @@ const ACTIONS: Record<TaskStatus, TaskAction[]> = {
   completed: ['message'],
   failed: ['retry'],
   cancelled: ['retry'],
+  needs_key: ['retry', 'cancel'],
 }
 
 export function can(status: TaskStatus, action: TaskAction): boolean {

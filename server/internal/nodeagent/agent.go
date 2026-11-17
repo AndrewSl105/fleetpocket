@@ -245,7 +245,7 @@ func (a *Agent) dispatch(ctx context.Context, method string, raw json.RawMessage
 	case hosts.MPrepareWorkspace, hosts.MUnpushed, hosts.MDiff, hosts.MDiffStat, hosts.MValidate, hosts.MPush,
 		hosts.MRemoveWorkspace, hosts.MEventLog, hosts.MEnsureNetwork, hosts.MEnsureVolume, hosts.MEnsureSidecars,
 		hosts.MRemoveAll, hosts.MRemoveSidecars, hosts.MRemoveVolume,
-		hosts.MCheckpointDiff, hosts.MRestoreCheckpoint, hosts.MDiverged, hosts.MForcePush:
+		hosts.MCheckpointDiff, hosts.MRestoreCheckpoint, hosts.MDiverged, hosts.MForcePush, hosts.MOutputs:
 		if err := json.Unmarshal(raw, &tp); err != nil {
 			return nil, err
 		}
@@ -281,6 +281,8 @@ func (a *Agent) dispatch(ctx context.Context, method string, raw json.RawMessage
 		return a.Local.Git(tp.Token).ForcePush(ctx, tp.TaskID, tp.Repo, tp.Branch)
 	case hosts.MRemoveWorkspace:
 		return nil, l.RemoveWorkspace(ctx, tp.TaskID)
+	case hosts.MOutputs:
+		return l.CollectOutputs(ctx, tp.TaskID)
 	case hosts.MEventLog:
 		lines, err := l.EventLog(ctx, tp.TaskID, tp.After)
 		if tp.Limit > 0 && len(lines) > tp.Limit {

@@ -11,6 +11,7 @@ import { OfflineBanner } from './OfflineBanner'
 import { useLocalOnboardingRedirect } from '@/local/onboarding'
 import { useMe } from '@/api/hooks'
 import { CaptureTrigger } from './CaptureTrigger'
+import { UserBadge } from './UserBadge'
 
 const DebugPanel = import.meta.env.VITE_DEBUG === '1' ? lazy(() => import('@/telegram/DebugPanel')) : null
 
@@ -52,7 +53,10 @@ export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const deep = !TAB_ROOTS.includes(pathname)
-  const ideas = useMe().data?.ideas_enabled
+  const me = useMe().data
+  const ideas = me?.ideas_enabled
+  // Team mode: who is signed in, in the rail (phones: the task list header and Settings).
+  const user = me?.team_enabled ? me.user : undefined
   useLocalOnboardingRedirect()
 
   useBackButton(deep, () => {
@@ -70,12 +74,19 @@ export function AppShell() {
           <Logo className="size-9" />
           <span className="fm-label leading-tight font-semibold">{t.app.name}</span>
         </div>
+        {user && (
+          <NavLink to="/settings#profile" className="flex min-h-11 items-center gap-2 border-b border-rule px-3 text-xs hover:bg-grid" title={t.team.signedInAs(user.name)}>
+            <UserBadge user={{ id: user.id, name: user.name, initials: user.initials }} withName />
+          </NavLink>
+        )}
         <div className="border-b border-rule p-3">
           <div className="flex gap-2">
-            <NavLink to="/new" className="fm-btn-signal flex h-11 flex-1 items-center justify-center gap-2 text-sm">
-              <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
-              {t.nav.new}
-            </NavLink>
+            {user?.role !== 'viewer' && (
+              <NavLink to="/new" className="fm-btn-signal flex h-11 flex-1 items-center justify-center gap-2 text-sm">
+                <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+                {t.nav.new}
+              </NavLink>
+            )}
             <CaptureTrigger />
           </div>
         </div>

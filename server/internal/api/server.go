@@ -15,12 +15,14 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/ideas"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
+	"github.com/andrewsl105/fleetpocket/server/internal/pipelinerun"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
 	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
+	"github.com/andrewsl105/fleetpocket/server/internal/team"
 )
 
 var errGitHubDisabled = errors.New("GitHub App is not configured")
@@ -42,10 +44,12 @@ type GitHub interface {
 type DiffFunc func(ctx context.Context, t *store.Task, repo *store.Repository, limit int) (diff string, truncated bool, err error)
 
 type Server struct {
-	Cfg      *config.Config
-	Store    *store.Store
-	Tasks    *tasks.Service
-	Projects *projects.Service
+	// Pipelines drives pipelines; nil disables the pipeline endpoints.
+	Pipelines *pipelinerun.Driver
+	Cfg       *config.Config
+	Store     *store.Store
+	Tasks     *tasks.Service
+	Projects  *projects.Service
 	// SkillScanner is the secrets scan for skill files; nil skips it (SECRETS_SCAN=off).
 	SkillScanner skills.SecretsScanner
 	Auth         *auth.Manager
@@ -84,7 +88,13 @@ type Server struct {
 	Schedules *schedules.Service
 	// Ideas is the Ideas board; nil answers its endpoints 409 ideas_disabled.
 	Ideas *ideas.Service
-	Now   func() time.Time
+	// Team is team mode (users, roles, invites, keys); nil or off is
+	// single-owner mode, unchanged.
+	Team *team.Service
+	// KeyTester runs the "Test" button of My keys (nil: team.DefaultTester).
+	KeyTester team.KeyTester
+	routes    []Route
+	Now       func() time.Time
 }
 
 func (s *Server) githubConfigured() bool {
@@ -106,122 +116,137 @@ func (s *Server) Handler() http.Handler {
 		s.Tickets = auth.NewTickets()
 	}
 	mux := http.NewServeMux()
-	a := s.requireSession
+	s.routes = nil
+	// Every session route names the role it needs (Policy); in single-owner
+	// mode every policy passes.
+	route := func(pattern string, p Policy, h http.HandlerFunc) {
+		s.routes = append(s.routes, Route{Pattern: pattern, Policy: p})
+		if action, ok := auditedRoutes[pattern]; ok {
+			h = s.audited(action, h)
+		}
+		mux.HandleFunc(pattern, s.requireSession(s.policy(p, h)))
+	}
 
 	mux.HandleFunc("GET /api/v1/setup/status", s.setupStatus)
 	mux.HandleFunc("POST /api/v1/setup/owner", s.setupOwner)
 	mux.HandleFunc("POST /api/v1/setup/owner/confirm", s.setupOwnerConfirm)
-	mux.HandleFunc("POST /api/v1/setup/github/manifest", a(s.setupGitHubManifest))
-	mux.HandleFunc("GET /api/v1/setup/github/callback", a(s.setupGitHubCallback))
+	route("POST /api/v1/setup/github/manifest", PolicyAdmin, s.setupGitHubManifest)
+	route("GET /api/v1/setup/github/callback", PolicyAdmin, s.setupGitHubCallback)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/telegram", s.loginTelegram)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
-	mux.HandleFunc("GET /api/v1/me", a(s.me))
+	route("GET /api/v1/me", PolicySelf, s.me)
 
-	mux.HandleFunc("GET /api/v1/projects", a(s.listProjects))
-	mux.HandleFunc("POST /api/v1/projects", a(s.createProject))
-	mux.HandleFunc("GET /api/v1/projects/{id}", a(s.getProject))
-	mux.HandleFunc("PATCH /api/v1/projects/{id}", a(s.updateProject))
-	mux.HandleFunc("DELETE /api/v1/projects/{id}", a(s.archiveProject))
-	mux.HandleFunc("POST /api/v1/projects/{id}/repositories", a(s.addRepository))
-	mux.HandleFunc("PATCH /api/v1/projects/{id}/repositories/{repoId}", a(s.updateRepository))
-	mux.HandleFunc("DELETE /api/v1/projects/{id}/repositories/{repoId}", a(s.deleteRepository))
-	mux.HandleFunc("GET /api/v1/github/repositories", a(s.githubRepositories))
+	route("GET /api/v1/projects", PolicyRead, s.listProjects)
+	route("POST /api/v1/projects", PolicyAdmin, s.createProject)
+	route("GET /api/v1/projects/{id}", PolicyRead, s.getProject)
+	route("PATCH /api/v1/projects/{id}", PolicyAdmin, s.updateProject)
+	route("DELETE /api/v1/projects/{id}", PolicyAdmin, s.archiveProject)
+	route("POST /api/v1/projects/{id}/repositories", PolicyAdmin, s.addRepository)
+	route("PATCH /api/v1/projects/{id}/repositories/{repoId}", PolicyAdmin, s.updateRepository)
+	route("DELETE /api/v1/projects/{id}/repositories/{repoId}", PolicyAdmin, s.deleteRepository)
+	route("GET /api/v1/github/repositories", PolicyAdmin, s.githubRepositories)
 
-	mux.HandleFunc("GET /api/v1/skills", a(s.listSkills))
-	mux.HandleFunc("POST /api/v1/skills", a(s.createSkill))
-	mux.HandleFunc("POST /api/v1/skills/import", a(s.importSkill))
-	mux.HandleFunc("GET /api/v1/skills/{id}", a(s.getSkill))
-	mux.HandleFunc("PUT /api/v1/skills/{id}", a(s.updateSkill))
-	mux.HandleFunc("DELETE /api/v1/skills/{id}", a(s.deleteSkill))
-	mux.HandleFunc("POST /api/v1/skills/{id}/duplicate", a(s.duplicateSkill))
-	mux.HandleFunc("GET /api/v1/skills/{id}/export", a(s.exportSkill))
+	route("GET /api/v1/skills", PolicyRead, s.listSkills)
+	route("POST /api/v1/skills", PolicyWrite, s.createSkill)
+	route("POST /api/v1/skills/import", PolicyWrite, s.importSkill)
+	route("GET /api/v1/skills/{id}", PolicyRead, s.getSkill)
+	route("PUT /api/v1/skills/{id}", PolicyWrite, s.updateSkill)
+	route("DELETE /api/v1/skills/{id}", PolicyWrite, s.deleteSkill)
+	route("POST /api/v1/skills/{id}/duplicate", PolicyWrite, s.duplicateSkill)
+	route("GET /api/v1/skills/{id}/export", PolicyRead, s.exportSkill)
 
-	mux.HandleFunc("GET /api/v1/schedules", a(s.listSchedules))
-	mux.HandleFunc("POST /api/v1/schedules", a(s.createSchedule))
-	mux.HandleFunc("GET /api/v1/schedules/{id}", a(s.getSchedule))
-	mux.HandleFunc("PUT /api/v1/schedules/{id}", a(s.updateSchedule))
-	mux.HandleFunc("DELETE /api/v1/schedules/{id}", a(s.deleteSchedule))
-	mux.HandleFunc("POST /api/v1/schedules/{id}/enable", a(s.setScheduleEnabled(true)))
-	mux.HandleFunc("POST /api/v1/schedules/{id}/disable", a(s.setScheduleEnabled(false)))
-	mux.HandleFunc("POST /api/v1/schedules/{id}/run", a(s.runSchedule))
-	mux.HandleFunc("POST /api/v1/schedules/{id}/duplicate", a(s.duplicateSchedule))
-	mux.HandleFunc("GET /api/v1/schedules/{id}/firings", a(s.scheduleFirings))
+	route("GET /api/v1/schedules", PolicyRead, s.listSchedules)
+	route("POST /api/v1/schedules", PolicyWrite, s.createSchedule)
+	route("GET /api/v1/schedules/{id}", PolicyRead, s.getSchedule)
+	route("PUT /api/v1/schedules/{id}", PolicyOwnSchedule, s.updateSchedule)
+	route("DELETE /api/v1/schedules/{id}", PolicyOwnSchedule, s.deleteSchedule)
+	route("POST /api/v1/schedules/{id}/enable", PolicyOwnSchedule, s.setScheduleEnabled(true))
+	route("POST /api/v1/schedules/{id}/disable", PolicyOwnSchedule, s.setScheduleEnabled(false))
+	route("POST /api/v1/schedules/{id}/run", PolicyOwnSchedule, s.runSchedule)
+	route("POST /api/v1/schedules/{id}/duplicate", PolicyWrite, s.duplicateSchedule)
+	route("GET /api/v1/schedules/{id}/firings", PolicyRead, s.scheduleFirings)
 
-	mux.HandleFunc("GET /api/v1/settings/ideas", a(s.getIdeaSettings))
-	mux.HandleFunc("PUT /api/v1/settings/ideas", a(s.putIdeaSettings))
-	mux.HandleFunc("GET /api/v1/ideas", a(s.listIdeas))
-	mux.HandleFunc("POST /api/v1/ideas", a(s.createIdea))
-	mux.HandleFunc("POST /api/v1/ideas/voice", a(s.createVoiceIdea))
-	mux.HandleFunc("GET /api/v1/ideas/{id}", a(s.ideaHandler(s.getIdea)))
-	mux.HandleFunc("PATCH /api/v1/ideas/{id}", a(s.ideaHandler(s.updateIdea)))
-	mux.HandleFunc("DELETE /api/v1/ideas/{id}", a(s.ideaHandler(s.deleteIdea)))
-	mux.HandleFunc("POST /api/v1/ideas/{id}/move", a(s.ideaHandler(s.moveIdea)))
-	mux.HandleFunc("POST /api/v1/ideas/{id}/archive", a(s.ideaHandler(s.archiveIdea(true))))
-	mux.HandleFunc("POST /api/v1/ideas/{id}/unarchive", a(s.ideaHandler(s.archiveIdea(false))))
-	mux.HandleFunc("POST /api/v1/ideas/{id}/attachments", a(s.ideaHandler(s.addIdeaFiles)))
-	mux.HandleFunc("POST /api/v1/ideas/{id}/voice", a(s.ideaHandler(s.addIdeaVoice)))
-	mux.HandleFunc("POST /api/v1/ideas/{id}/links", a(s.ideaHandler(s.addIdeaLink)))
-	mux.HandleFunc("GET /api/v1/ideas/{id}/attachments/{attachmentId}", a(s.ideaHandler(s.ideaAttachment)))
-	mux.HandleFunc("DELETE /api/v1/ideas/{id}/attachments/{attachmentId}", a(s.ideaHandler(s.deleteIdeaAttachment)))
+	route("GET /api/v1/settings/ideas", PolicyRead, s.getIdeaSettings)
+	route("PUT /api/v1/settings/ideas", PolicyAdmin, s.putIdeaSettings)
+	route("GET /api/v1/ideas", PolicyRead, s.listIdeas)
+	route("POST /api/v1/ideas", PolicyWrite, s.createIdea)
+	route("POST /api/v1/ideas/voice", PolicyWrite, s.createVoiceIdea)
+	route("GET /api/v1/ideas/{id}", PolicyRead, s.ideaHandler(s.getIdea))
+	route("PATCH /api/v1/ideas/{id}", PolicyWrite, s.ideaHandler(s.updateIdea))
+	route("DELETE /api/v1/ideas/{id}", PolicyOwnIdea, s.ideaHandler(s.deleteIdea))
+	route("POST /api/v1/ideas/{id}/move", PolicyWrite, s.ideaHandler(s.moveIdea))
+	route("POST /api/v1/ideas/{id}/archive", PolicyOwnIdea, s.ideaHandler(s.archiveIdea(true)))
+	route("POST /api/v1/ideas/{id}/unarchive", PolicyOwnIdea, s.ideaHandler(s.archiveIdea(false)))
+	route("POST /api/v1/ideas/{id}/attachments", PolicyWrite, s.ideaHandler(s.addIdeaFiles))
+	route("POST /api/v1/ideas/{id}/voice", PolicyWrite, s.ideaHandler(s.addIdeaVoice))
+	route("POST /api/v1/ideas/{id}/links", PolicyWrite, s.ideaHandler(s.addIdeaLink))
+	route("GET /api/v1/ideas/{id}/attachments/{attachmentId}", PolicyRead, s.ideaHandler(s.ideaAttachment))
+	route("DELETE /api/v1/ideas/{id}/attachments/{attachmentId}", PolicyWrite, s.ideaHandler(s.deleteIdeaAttachment))
 
-	mux.HandleFunc("GET /api/v1/tasks", a(s.listTasks))
-	mux.HandleFunc("POST /api/v1/tasks", a(s.createTask))
-	mux.HandleFunc("GET /api/v1/tasks/{id}", a(s.getTask))
-	mux.HandleFunc("GET /api/v1/tasks/{id}/events", a(s.taskEvents))
-	mux.HandleFunc("GET /api/v1/tasks/{id}/runs", a(s.taskRuns))
-	mux.HandleFunc("GET /api/v1/tasks/{id}/diff", a(s.taskDiff))
-	mux.HandleFunc("GET /api/v1/tasks/{id}/attachments/{attachmentId}", a(s.attachment))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/answer", a(s.answer))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/message", a(s.message))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/interrupt", a(s.control(s.Tasks.Interrupt)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/cancel", a(s.control(s.Tasks.Cancel)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/retry", a(s.control(s.Tasks.Retry)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/merge", a(s.control(s.Tasks.Merge)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/merge", a(s.control(s.Tasks.MergeBranch)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/checkout", a(s.control(s.Tasks.CheckoutBranch)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/discard", a(s.control(s.Tasks.DiscardBranch)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/push", a(s.control(s.Tasks.PushBranch)))
-	mux.HandleFunc("GET /api/v1/local/repos/suggestions", a(s.localRepos(s.localSuggestions)))
-	mux.HandleFunc("GET /api/v1/local/fs", a(s.localRepos(s.localBrowse)))
-	mux.HandleFunc("POST /api/v1/local/repos", s.sessionOrControl(s.localRepos(s.addLocalRepo)))
-	mux.HandleFunc("GET /api/v1/local/repos/{id}/status", a(s.localRepos(s.localRepoStatus)))
-	mux.HandleFunc("POST /api/v1/local/repos/{id}/locate", a(s.localRepos(s.locateLocalRepo)))
-	mux.HandleFunc("GET /api/v1/local/github", a(s.localGitHub(s.githubStatus)))
-	mux.HandleFunc("DELETE /api/v1/local/github", a(s.localGitHub(s.githubDisconnect)))
-	mux.HandleFunc("POST /api/v1/local/github/device", a(s.localGitHub(s.githubDeviceStart)))
-	mux.HandleFunc("POST /api/v1/local/github/device/poll", a(s.localGitHub(s.githubDevicePoll)))
-	mux.HandleFunc("POST /api/v1/local/github/gh", a(s.localGitHub(s.githubImportGH)))
-	mux.HandleFunc("POST /api/v1/local/github/token", a(s.localGitHub(s.githubSetToken)))
-	mux.HandleFunc("GET /api/v1/stats", a(s.stats))
-	mux.HandleFunc("GET /api/v1/mcp-servers", a(s.listMCPServers))
-	mux.HandleFunc("POST /api/v1/mcp-servers", a(s.createMCPServer))
-	mux.HandleFunc("GET /api/v1/mcp-servers/{id}", a(s.getMCPServer))
-	mux.HandleFunc("PUT /api/v1/mcp-servers/{id}", a(s.updateMCPServer))
-	mux.HandleFunc("DELETE /api/v1/mcp-servers/{id}", a(s.deleteMCPServer))
-	mux.HandleFunc("POST /api/v1/mcp-servers/{id}/test", a(s.testMCPServer))
-	mux.HandleFunc("GET /api/v1/projects/{id}/integrations", a(s.getIntegrations))
-	mux.HandleFunc("PUT /api/v1/projects/{id}/integrations", a(s.putIntegrations))
-	mux.HandleFunc("POST /api/v1/projects/{id}/egress/allow", a(s.allowEgress))
-	mux.HandleFunc("GET /api/v1/settings/ci-autofix", a(s.getAutoFixDefaults))
-	mux.HandleFunc("PUT /api/v1/settings/ci-autofix", a(s.putAutoFixDefaults))
-	mux.HandleFunc("GET /api/v1/settings/costs", a(s.getCostSettings))
-	mux.HandleFunc("PUT /api/v1/settings/costs", a(s.putCostSettings))
-	mux.HandleFunc("GET /api/v1/costs", a(s.getCosts))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/budget-override", a(s.budgetOverride))
-	mux.HandleFunc("GET /api/v1/settings/checkpoints", a(s.getCheckpointSettings))
-	mux.HandleFunc("PUT /api/v1/settings/checkpoints", a(s.putCheckpointSettings))
-	mux.HandleFunc("GET /api/v1/tasks/{id}/checkpoints", a(s.listCheckpoints))
-	mux.HandleFunc("GET /api/v1/tasks/{id}/checkpoints/{checkpointId}", a(s.previewCheckpoint))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/checkpoints/{checkpointId}/restore", a(s.restoreCheckpoint))
+	route("GET /api/v1/tasks", PolicyRead, s.listTasks)
+	route("POST /api/v1/tasks", PolicyWrite, s.createTask)
+	route("GET /api/v1/tasks/{id}", PolicyRead, s.getTask)
+	route("GET /api/v1/tasks/{id}/events", PolicyRead, s.taskEvents)
+	route("GET /api/v1/tasks/{id}/runs", PolicyRead, s.taskRuns)
+	route("GET /api/v1/tasks/{id}/diff", PolicyRead, s.taskDiff)
+	route("GET /api/v1/tasks/{id}/artifacts", PolicyRead, s.listArtifacts)
+	route("GET /api/v1/pipeline-templates", PolicyRead, s.listPipelineTemplates)
+	route("GET /api/v1/pipelines", PolicyRead, s.listPipelines)
+	route("POST /api/v1/pipelines", PolicyWrite, s.createPipeline)
+	route("GET /api/v1/pipelines/{id}", PolicyRead, s.getPipeline)
+	route("POST /api/v1/pipelines/{id}/{action}", PolicyOwnPipeline, s.pipelineAction)
+	route("GET /api/v1/tasks/{id}/attachments/{attachmentId}", PolicyRead, s.attachment)
+	route("POST /api/v1/tasks/{id}/answer", PolicyOwnTask, s.answer)
+	route("POST /api/v1/tasks/{id}/message", PolicyOwnTask, s.message)
+	route("POST /api/v1/tasks/{id}/interrupt", PolicyOwnTask, s.control(s.Tasks.Interrupt))
+	route("POST /api/v1/tasks/{id}/cancel", PolicyOwnTask, s.control(s.Tasks.Cancel))
+	route("POST /api/v1/tasks/{id}/retry", PolicyOwnTask, s.control(s.Tasks.Retry))
+	route("POST /api/v1/tasks/{id}/merge", PolicyOwnTask, s.control(s.Tasks.Merge))
+	route("POST /api/v1/tasks/{id}/branch/merge", PolicyOwnTask, s.control(s.Tasks.MergeBranch))
+	route("POST /api/v1/tasks/{id}/branch/checkout", PolicyOwnTask, s.control(s.Tasks.CheckoutBranch))
+	route("POST /api/v1/tasks/{id}/branch/discard", PolicyOwnTask, s.control(s.Tasks.DiscardBranch))
+	route("POST /api/v1/tasks/{id}/branch/push", PolicyOwnTask, s.control(s.Tasks.PushBranch))
+	route("GET /api/v1/local/repos/suggestions", PolicyAdmin, s.localRepos(s.localSuggestions))
+	route("GET /api/v1/local/fs", PolicyAdmin, s.localRepos(s.localBrowse))
+	mux.HandleFunc("POST /api/v1/local/repos", s.sessionOrControl(s.policy(PolicyAdmin, s.localRepos(s.addLocalRepo))))
+	route("GET /api/v1/local/repos/{id}/status", PolicyAdmin, s.localRepos(s.localRepoStatus))
+	route("POST /api/v1/local/repos/{id}/locate", PolicyAdmin, s.localRepos(s.locateLocalRepo))
+	route("GET /api/v1/local/github", PolicyAdmin, s.localGitHub(s.githubStatus))
+	route("DELETE /api/v1/local/github", PolicyAdmin, s.localGitHub(s.githubDisconnect))
+	route("POST /api/v1/local/github/device", PolicyAdmin, s.localGitHub(s.githubDeviceStart))
+	route("POST /api/v1/local/github/device/poll", PolicyAdmin, s.localGitHub(s.githubDevicePoll))
+	route("POST /api/v1/local/github/gh", PolicyAdmin, s.localGitHub(s.githubImportGH))
+	route("POST /api/v1/local/github/token", PolicyAdmin, s.localGitHub(s.githubSetToken))
+	route("GET /api/v1/stats", PolicyRead, s.stats)
+	route("GET /api/v1/mcp-servers", PolicyRead, s.listMCPServers)
+	route("POST /api/v1/mcp-servers", PolicyAdmin, s.createMCPServer)
+	route("GET /api/v1/mcp-servers/{id}", PolicyRead, s.getMCPServer)
+	route("PUT /api/v1/mcp-servers/{id}", PolicyAdmin, s.updateMCPServer)
+	route("DELETE /api/v1/mcp-servers/{id}", PolicyAdmin, s.deleteMCPServer)
+	route("POST /api/v1/mcp-servers/{id}/test", PolicyAdmin, s.testMCPServer)
+	route("GET /api/v1/projects/{id}/integrations", PolicyRead, s.getIntegrations)
+	route("PUT /api/v1/projects/{id}/integrations", PolicyAdmin, s.putIntegrations)
+	route("POST /api/v1/projects/{id}/egress/allow", PolicyAdmin, s.allowEgress)
+	route("GET /api/v1/settings/ci-autofix", PolicyRead, s.getAutoFixDefaults)
+	route("PUT /api/v1/settings/ci-autofix", PolicyAdmin, s.putAutoFixDefaults)
+	route("GET /api/v1/settings/costs", PolicyRead, s.getCostSettings)
+	route("PUT /api/v1/settings/costs", PolicyAdmin, s.putCostSettings)
+	route("GET /api/v1/costs", PolicyRead, s.getCosts)
+	route("POST /api/v1/tasks/{id}/budget-override", PolicyAdmin, s.budgetOverride)
+	route("GET /api/v1/settings/checkpoints", PolicyRead, s.getCheckpointSettings)
+	route("PUT /api/v1/settings/checkpoints", PolicyAdmin, s.putCheckpointSettings)
+	route("GET /api/v1/tasks/{id}/checkpoints", PolicyRead, s.listCheckpoints)
+	route("GET /api/v1/tasks/{id}/checkpoints/{checkpointId}", PolicyRead, s.previewCheckpoint)
+	route("POST /api/v1/tasks/{id}/checkpoints/{checkpointId}/restore", PolicyOwnTask, s.restoreCheckpoint)
 	if s.Nodes != nil {
-		mux.HandleFunc("GET /api/v1/nodes", a(s.listNodes))
-		mux.HandleFunc("POST /api/v1/nodes", a(s.createNode))
-		mux.HandleFunc("PATCH /api/v1/nodes/{id}", a(s.updateNode))
-		mux.HandleFunc("POST /api/v1/nodes/{id}/token", a(s.rotateNodeToken))
-		mux.HandleFunc("DELETE /api/v1/nodes/{id}", a(s.deleteNode))
-		mux.HandleFunc("POST /api/v1/nodes/pair", a(s.approvePairing))
-		mux.HandleFunc("GET /api/v1/nodes/pair/{code}", a(s.lookupPairing))
+		route("GET /api/v1/nodes", PolicyRead, s.listNodes)
+		route("POST /api/v1/nodes", PolicyWrite, s.createNode)
+		route("PATCH /api/v1/nodes/{id}", PolicyWrite, s.updateNode)
+		route("POST /api/v1/nodes/{id}/token", PolicyWrite, s.rotateNodeToken)
+		route("DELETE /api/v1/nodes/{id}", PolicyWrite, s.deleteNode)
+		route("POST /api/v1/nodes/pair", PolicyWrite, s.approvePairing)
+		route("GET /api/v1/nodes/pair/{code}", PolicyWrite, s.lookupPairing)
 		// fleetpocket-node setup: no session (see nodes/pairing.go).
 		mux.HandleFunc("POST /api/v1/node/pair", s.startPairing)
 		mux.HandleFunc("GET /api/v1/node/pair/{id}", s.pollPairing)
@@ -235,8 +260,36 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /api/v1/local/status", s.requireControl(s.localStatus))
 		mux.HandleFunc("POST /api/v1/local/shutdown", s.requireControl(s.localShutdown))
 	}
-	mux.HandleFunc("POST /api/v1/ws/ticket", a(s.wsTicket))
-	mux.HandleFunc("GET /api/v1/ws", s.requireSessionOrTicket(s.websocket))
+	route("POST /api/v1/ws/ticket", PolicySelf, s.wsTicket)
+	mux.HandleFunc("GET /api/v1/ws", s.requireSessionOrTicket(s.policy(PolicyRead, s.websocket)))
+
+	// Teams (docs/SPEC-server.md "Teams"): 400 not_available_in_local_mode
+	// in local mode.
+	tg := s.teamGuard
+	mux.HandleFunc("POST /api/v1/signup/start", tg(s.signupStart))
+	mux.HandleFunc("POST /api/v1/signup", tg(s.signup))
+	route("GET /api/v1/team", PolicyAdmin, tg(s.teamStatus))
+	route("POST /api/v1/team/enable", PolicyAdmin, tg(s.teamEnable))
+	route("POST /api/v1/team/disable", PolicyAdmin, tg(s.teamDisable))
+	route("PATCH /api/v1/team", PolicyAdmin, tg(s.teamSettings))
+	route("GET /api/v1/users", PolicyRead, tg(s.listUsers))
+	route("PATCH /api/v1/users/{id}", PolicyAdmin, tg(s.updateUser))
+	route("DELETE /api/v1/users/{id}", PolicyAdmin, tg(s.removeUser))
+	route("GET /api/v1/invites", PolicyAdmin, tg(s.listInvites))
+	route("POST /api/v1/invites", PolicyAdmin, tg(s.createInvite))
+	route("DELETE /api/v1/invites/{id}", PolicyAdmin, tg(s.revokeInvite))
+	route("GET /api/v1/audit", PolicyAdmin, tg(s.listAudit))
+	route("PATCH /api/v1/me", PolicySelf, tg(s.updateMe))
+	route("POST /api/v1/me/totp", PolicySelf, tg(s.totpResetStart))
+	route("POST /api/v1/me/totp/confirm", PolicySelf, tg(s.totpResetFinish))
+	route("GET /api/v1/me/credentials", PolicySelf, tg(s.listCredentials))
+	route("PUT /api/v1/me/credentials/{provider}", PolicySelf, tg(s.putCredential))
+	route("DELETE /api/v1/me/credentials/{provider}", PolicySelf, tg(s.deleteCredential))
+	route("POST /api/v1/me/credentials/{provider}/test", PolicySelf, tg(s.testCredential))
+	route("POST /api/v1/me/telegram/link", PolicySelf, tg(s.telegramLink))
+	route("DELETE /api/v1/me/telegram/link", PolicySelf, tg(s.telegramUnlink))
+	route("POST /api/v1/skills/{id}/promote", PolicyAdmin, s.promoteSkill)
+	route("PUT /api/v1/nodes/{id}/shared", PolicyAdmin, s.shareNode)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such endpoint")

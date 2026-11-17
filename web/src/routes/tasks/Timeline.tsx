@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { t } from '@/i18n/en'
 import { TimelineRow } from './TimelineRow'
 import { QuestionCard } from './QuestionCard'
+import { useCanActOn } from '@/api/team'
 
 const NEAR_BOTTOM_PX = 80
 const NEAR_TOP_PX = 300
@@ -103,7 +104,8 @@ export function Timeline({ task, items: loaded, older, loading, stopping }: Prop
 
   const working = WORKING.includes(task.status) || stopping
   // A held CI auto-fix asks on a pr_open task (docs/API.md "CI auto-fix").
-  const answerable = can(task.status, 'answer') || (task.status === 'pr_open' && task.autofix_state === 'held')
+  const mayAct = useCanActOn(task.created_by)
+  const answerable = mayAct && (can(task.status, 'answer') || (task.status === 'pr_open' && task.autofix_state === 'held'))
 
   return (
     <div className="relative min-h-0 flex-1">

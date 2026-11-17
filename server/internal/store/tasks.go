@@ -91,10 +91,23 @@ type Task struct {
 	// or "working_tree").
 	LocalBranch *string `json:"local_branch"`
 	StartFrom   string  `json:"start_from"`
+	// Pipelines: the pipeline and stage the task runs (nil outside one), the
+	// branch it starts from (nil: the repository's base branch) and, for
+	// output "branch", where it pushes without a PR.
+	PipelineID *int64  `json:"pipeline_id"`
+	StageID    *int64  `json:"stage_id"`
+	BaseRef    *string `json:"base_ref"`
+	PushBranch *string `json:"push_branch"`
+	// Model overrides the project's model (a pipeline stage's).
+	Model *string `json:"model"`
 
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
 	StatusEvents []*Event `json:"-"`
+
+	// Teams: who created the task (nil in single-owner mode).
+	CreatedByID *int64   `json:"-"`
+	CreatedBy   *UserRef `json:"created_by"`
 }
 
 const taskCols = `id, project_id, repository_id, title, prompt, status, status_reason, branch, session_id,
@@ -104,7 +117,7 @@ const taskCols = `id, project_id, repository_id, title, prompt, status, status_r
 	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at, cost_unknown,
 	output, skills, skills_add, skills_remove,
 	schedule_id, mcp_servers, run_budget_usd::float8, pr_always, loop, loop_state, loop_iteration, loop_idle,
-	local_branch, start_from`
+	local_branch, start_from, pipeline_id, stage_id, base_ref, push_branch, model, created_by, (SELECT u.name FROM users u WHERE u.id = tasks.created_by)`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
@@ -113,6 +126,7 @@ func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var estimated, apiEq, unknown, prAlways *bool
 	var loop []byte
 	var loopIter, loopIdle *int
+	var creator *string
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
 		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
@@ -120,9 +134,12 @@ func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt, &unknown,
 		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove,
 		&t.ScheduleID, &t.MCPServers, &t.RunBudgetUSD, &prAlways, &loop, &t.LoopState, &loopIter, &loopIdle,
-		&t.LocalBranch, &t.StartFrom)
+		&t.LocalBranch, &t.StartFrom, &t.PipelineID, &t.StageID, &t.BaseRef, &t.PushBranch, &t.Model, &t.CreatedByID, &creator)
 	if err != nil {
 		return nil, err
+	}
+	if t.CreatedByID != nil && creator != nil {
+		t.CreatedBy = &UserRef{ID: *t.CreatedByID, Name: *creator, Initials: Initials(*creator)}
 	}
 	t.PRAlways = deref(prAlways, false)
 	t.LoopIteration, t.LoopIdle = deref(loopIter, 0), deref(loopIdle, 0)
@@ -145,14 +162,16 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 		var err error
 		out, err = scanTask(tx.QueryRow(ctx, `INSERT INTO tasks (project_id, repository_id, title, prompt, status, source,
 				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove,
-				schedule_id, mcp_servers, run_budget_usd, pr_always, loop, loop_state, loop_iteration, loop_idle, start_from)
+				schedule_id, mcp_servers, run_budget_usd, pr_always, loop, loop_state, loop_iteration, loop_idle, start_from,
+				pipeline_id, stage_id, base_ref, push_branch, model, created_by)
 			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7,
 				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}'),
 				$11, $12, $13, nullif($14, false), $15, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 'running' END,
 				CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 1 END, CASE WHEN $15::jsonb IS NULL THEN NULL ELSE 0 END,
-				coalesce(nullif($16, ''), 'last_commit')) RETURNING `+taskCols,
+				coalesce(nullif($16, ''), 'last_commit'), $17, $18, $19, $20, $21, $22) RETURNING `+taskCols,
 			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove,
-			t.ScheduleID, t.MCPServers, t.RunBudgetUSD, t.PRAlways, loopJSON(t.Loop), t.StartFrom))
+			t.ScheduleID, t.MCPServers, t.RunBudgetUSD, t.PRAlways, loopJSON(t.Loop), t.StartFrom,
+			t.PipelineID, t.StageID, t.BaseRef, t.PushBranch, t.Model, t.CreatedByID))
 		if err != nil {
 			return err
 		}
@@ -192,6 +211,8 @@ func (s *Store) GetTask(ctx context.Context, id int64) (*Task, error) {
 type TaskFilter struct {
 	ProjectID string
 	Statuses  []string
+	// CreatedBy keeps one person's tasks (teams); 0: everyone.
+	CreatedBy int64
 	Cursor    int64 // id; list is newest first
 	Limit     int
 }
@@ -199,7 +220,7 @@ type TaskFilter struct {
 func (s *Store) ListTasks(ctx context.Context, f TaskFilter) ([]*Task, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT `+taskCols+` FROM tasks
 		WHERE ($1 = '' OR project_id = $1) AND (coalesce(cardinality($2::text[]), 0) = 0 OR status = ANY($2))
-		AND ($3 = 0 OR id < $3) ORDER BY id DESC LIMIT $4`, f.ProjectID, f.Statuses, f.Cursor, f.Limit)
+		AND ($3 = 0 OR id < $3) AND ($5 = 0 OR created_by = $5) ORDER BY id DESC LIMIT $4`, f.ProjectID, f.Statuses, f.Cursor, f.Limit, f.CreatedBy)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +515,8 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string, gate Bu
 			WHERE t.status = 'queued' AND coalesce(t.node, '') IN (SELECT host FROM room)
 			  AND (t.budget_override_at >= $3 OR (NOT (SELECT b FROM global_blocked)
 			       AND t.project_id NOT IN (SELECT id FROM blocked_projects)
-			       AND (t.schedule_id IS NULL OR t.schedule_id NOT IN (SELECT id FROM blocked_schedules))))
+			       AND (t.schedule_id IS NULL OR t.schedule_id NOT IN (SELECT id FROM blocked_schedules))
+			       AND (t.created_by IS NULL OR t.created_by NOT IN (SELECT id FROM blocked_users))))
 			ORDER BY t.updated_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED`, max, online, gate.MonthStart, gate.GlobalUSD).Scan(&id)
 		if err == pgx.ErrNoRows {
 			return nil
@@ -509,12 +531,16 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string, gate Bu
 }
 
 func prefixed(p, cols string) string {
+	// The creator-name subquery names its table itself.
+	cols = strings.ReplaceAll(cols, "tasks.created_by)", p+"created_by)")
 	out := []byte{}
 	start := true
 	for i := 0; i < len(cols); i++ {
 		c := cols[i]
 		if start && c != ' ' && c != '\n' && c != '\t' {
-			out = append(out, p...)
+			if c != '(' {
+				out = append(out, p...)
+			}
 			start = false
 		}
 		out = append(out, c)
@@ -790,5 +816,11 @@ func (s *Store) PreviousRun(ctx context.Context, taskID, runID int64) (*Run, err
 // (nil clears it: the owner discarded it).
 func (s *Store) SetLocalBranch(ctx context.Context, taskID int64, branch *string) error {
 	_, err := s.Pool.Exec(ctx, `UPDATE tasks SET local_branch = $2, updated_at = now() WHERE id = $1`, taskID, branch)
+	return err
+}
+
+// SetRunUser charges a run to its task's creator (NULL in single-owner mode).
+func (s *Store) SetRunUser(ctx context.Context, runID int64) error {
+	_, err := s.Pool.Exec(ctx, `UPDATE runs SET user_id = (SELECT created_by FROM tasks WHERE tasks.id = runs.task_id) WHERE id = $1`, runID)
 	return err
 }

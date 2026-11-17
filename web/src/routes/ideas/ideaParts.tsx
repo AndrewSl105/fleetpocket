@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { UserBadge } from '@/components/UserBadge'
 import { ImageOff, Mic } from 'lucide-react'
 import { useIdeaFile } from '@/api/ideas'
 import type { Idea, IdeaAttachment, IdeaColumn } from '@/api/types'
@@ -60,6 +61,7 @@ export function IdeaCardBody({ idea }: { idea: Idea }) {
     <div className="min-w-0 space-y-1.5">
       <div className="flex items-start gap-2">
         <span className="min-w-0 flex-1 font-medium break-words">{idea.title}</span>
+        <UserBadge user={idea.created_by} className="shrink-0" />
         {idea.failed && (
           <span className="fm-stamp" data-tone="danger" title={tx.failedStamp}>
             ✕ <span className="sr-only">{tx.failedStamp}</span>

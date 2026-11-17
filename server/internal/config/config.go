@@ -78,7 +78,9 @@ type Config struct {
 	// user is not uid 1000 override it).
 	RunnerUser string
 
-	DefaultModel        string
+	DefaultModel string
+	// CheapModelClaude is the model of the cheap Claude subagents (explorer, test-runner).
+	CheapModelClaude    string
 	DefaultMaxTurns     int
 	DefaultMaxBudgetUSD float64
 	DefaultMaxDuration  time.Duration
@@ -154,6 +156,7 @@ func Load() (*Config, error) {
 		RunnerUser:         e.str("RUNNER_USER", "1000:1000"),
 
 		DefaultModel:        e.str("DEFAULT_MODEL", ""),
+		CheapModelClaude:    e.str("CHEAP_MODEL_CLAUDE", "haiku"),
 		DefaultMaxTurns:     e.int("DEFAULT_MAX_TURNS", 150),
 		DefaultMaxBudgetUSD: e.float("DEFAULT_MAX_BUDGET_USD", 5),
 		DefaultMaxDuration:  e.dur("DEFAULT_MAX_DURATION", 2*time.Hour),

@@ -33,6 +33,8 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"setup_required":    s.Setup != nil && s.Setup.Active(),
 		"github_configured": s.githubConfigured(),
+		// The login screen asks for an email only in team mode.
+		"team_enabled": s.Team.Enabled(r.Context()),
 	})
 }
 

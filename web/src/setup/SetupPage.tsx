@@ -10,15 +10,16 @@ import { Window } from '@/components/Window'
 import { CopyButton } from '@/components/CopyButton'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
+import { st } from '@/i18n/setup'
 import { GitHubStep } from './GitHubStep'
 
 export type SetupStep = 'password' | 'totp' | 'github' | 'repo'
 const STEPS: SetupStep[] = ['password', 'totp', 'github', 'repo']
 
 export function setupErrorMessage(e: unknown): string {
-  if (isApiError(e, 'bad_setup_code')) return t.setup.badCode
-  if (isApiError(e, 'setup_done')) return t.setup.done
-  if (isApiError(e, 'bad_credentials')) return t.setup.badTotp
+  if (isApiError(e, 'bad_setup_code')) return st.badCode
+  if (isApiError(e, 'setup_done')) return st.done
+  if (isApiError(e, 'bad_credentials')) return st.badTotp
   if (isApiError(e, 'rate_limited')) return t.auth.tooMany(15)
   if (isApiError(e) && e.status === 400) return e.message
   return t.common.somethingWrong
@@ -33,7 +34,7 @@ export function initialStep(search: URLSearchParams): SetupStep {
 function StepIndicator({ step }: { step: SetupStep }) {
   const current = STEPS.indexOf(step)
   return (
-    <ol className="flex gap-1 text-xs" aria-label={t.setup.progress}>
+    <ol className="flex gap-1 text-xs" aria-label={st.progress}>
       {STEPS.map((s, i) => (
         <li
           key={s}
@@ -43,7 +44,7 @@ function StepIndicator({ step }: { step: SetupStep }) {
             i === current ? 'border-primary bg-primary text-primary-foreground' : i < current ? 'opacity-70' : 'opacity-50',
           )}
         >
-          {i + 1}. {t.setup.steps[s]}
+          {i + 1}. {st.steps[s]}
         </li>
       ))}
     </ol>
@@ -67,7 +68,7 @@ function QR({ uri }: { uri: string }) {
       live = false
     }
   }, [uri])
-  return src ? <img src={src} alt={t.setup.qrAlt} width={200} height={200} className="mx-auto bg-white" /> : null
+  return src ? <img src={src} alt={st.qrAlt} width={200} height={200} className="mx-auto bg-white" /> : null
 }
 
 export function SetupPage() {
@@ -96,8 +97,8 @@ export function SetupPage() {
 
   function submitPassword(e: FormEvent) {
     e.preventDefault()
-    if (password.length < 12) return setError(t.setup.passwordShort)
-    if (password !== repeat) return setError(t.setup.passwordMismatch)
+    if (password.length < 12) return setError(st.passwordShort)
+    if (password !== repeat) return setError(st.passwordMismatch)
     void run(async () => {
       setOtp(await call(api.POST('/api/v1/setup/owner', { params: { header: CSRF }, body: { code: code.trim(), password } })))
       setStep('totp')
@@ -117,9 +118,9 @@ export function SetupPage() {
     case 'password':
       body = (
         <form onSubmit={submitPassword} className="space-y-3" noValidate>
-          <p className="text-sm">{t.setup.passwordIntro}</p>
+          <p className="text-sm">{st.passwordIntro}</p>
           <div className="space-y-1">
-            <Label htmlFor="setup-code">{t.setup.code}</Label>
+            <Label htmlFor="setup-code">{st.code}</Label>
             <Input id="setup-code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" className="h-10 font-mono" />
           </div>
           <div className="space-y-1">
@@ -127,13 +128,13 @@ export function SetupPage() {
             <Input id="setup-password" type="password" autoComplete="new-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} className="h-10" />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="setup-repeat">{t.setup.repeat}</Label>
+            <Label htmlFor="setup-repeat">{st.repeat}</Label>
             <Input id="setup-repeat" type="password" autoComplete="new-password" value={repeat} onChange={(e) => setRepeat(e.target.value)} className="h-10" />
           </div>
           <ErrorText error={error} />
           <div className="flex justify-end">
             <Button type="submit" className="h-10 min-w-28" disabled={busy || !code || !password}>
-              {t.setup.next}
+              {st.next}
             </Button>
           </div>
         </form>
@@ -142,7 +143,7 @@ export function SetupPage() {
     case 'totp':
       body = (
         <form onSubmit={submitTotp} className="space-y-3" noValidate>
-          <p className="text-sm">{t.setup.totpIntro}</p>
+          <p className="text-sm">{st.totpIntro}</p>
           {otp && <QR uri={otp.otpauth_uri} />}
           {otp && (
             <div className="flex items-center gap-2 text-xs">
@@ -166,7 +167,7 @@ export function SetupPage() {
           <ErrorText error={error} />
           <div className="flex justify-end">
             <Button type="submit" className="h-10 min-w-28" disabled={busy || totp.length !== 6}>
-              {t.setup.confirm}
+              {st.confirm}
             </Button>
           </div>
         </form>
@@ -178,10 +179,10 @@ export function SetupPage() {
     case 'repo':
       body = (
         <div className="space-y-3">
-          <p className="text-sm">{t.setup.repoIntro}</p>
+          <p className="text-sm">{st.repoIntro}</p>
           <div className="flex justify-end">
             <Button asChild className="h-10 min-w-28">
-              <a href="/projects/new">{t.setup.addRepo}</a>
+              <a href="/projects/new">{st.addRepo}</a>
             </Button>
           </div>
         </div>
@@ -191,10 +192,10 @@ export function SetupPage() {
 
   return (
     <main className="fm-ground flex min-h-(--app-height) items-center justify-center px-3 py-10">
-      <Window title={t.setup.title} className="w-full max-w-md" bodyClassName="space-y-4 p-3">
+      <Window title={st.title} className="w-full max-w-md" bodyClassName="space-y-4 p-3">
         <div className="flex items-center gap-3">
           <Logo className="size-10 shrink-0" />
-          <h1 className="text-sm">{t.setup.title}</h1>
+          <h1 className="text-sm">{st.title}</h1>
         </div>
         <StepIndicator step={step} />
         {body}

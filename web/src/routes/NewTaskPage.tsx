@@ -1,3 +1,4 @@
+import { pj } from '@/i18n/projects'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router'
 import { useForm, Controller } from 'react-hook-form'
@@ -183,7 +184,7 @@ export default function NewTaskPage() {
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <p className="text-muted-foreground">{t.newTask.noProjects}</p>
         <Button asChild className="h-11">
-          <Link to="/projects/new">{t.projects.new}</Link>
+          <Link to="/projects/new">{pj.new}</Link>
         </Button>
       </div>
     )

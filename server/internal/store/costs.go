@@ -177,6 +177,10 @@ func budgetCTE(m, g int) string {
 		SELECT sc.id FROM schedules sc
 		WHERE sc.monthly_budget_usd > 0 AND sc.monthly_budget_usd <= (SELECT coalesce(sum(r.cost_usd), 0) FROM runs r
 			JOIN tasks t ON t.id = r.task_id WHERE t.schedule_id = sc.id AND r.started_at >= $%[1]d)
+	), blocked_users AS (
+		SELECT u.id FROM users u
+		WHERE u.monthly_budget_usd > 0 AND u.monthly_budget_usd <= (SELECT coalesce(sum(r.cost_usd), 0) FROM runs r
+			WHERE r.user_id = u.id AND r.started_at >= $%[1]d)
 	), global_blocked AS (
 		SELECT $%[2]d::numeric > 0 AND coalesce((SELECT sum(usd) FROM spent), 0) >= $%[2]d::numeric AS b
 	)`, m, g)
@@ -201,6 +205,7 @@ func (s *Store) MarkBudgetWaits(ctx context.Context, gate BudgetGate, spentFor f
 					WHEN t.status <> 'queued' OR t.budget_override_at >= $1 THEN NULL
 					WHEN t.project_id IN (SELECT id FROM blocked_projects) THEN 'project'
 					WHEN t.schedule_id IN (SELECT id FROM blocked_schedules) THEN 'schedule'
+					WHEN t.created_by IN (SELECT id FROM blocked_users) THEN 'user'
 					WHEN (SELECT b FROM global_blocked) THEN 'global'
 				END AS scope
 				FROM tasks t WHERE t.status = 'queued' OR t.budget_wait IS NOT NULL
@@ -232,6 +237,9 @@ func (s *Store) MarkBudgetWaits(ctx context.Context, gate BudgetGate, spentFor f
 				}
 				if *t.BudgetWait == costs.ScopeSchedule && t.ScheduleID != nil {
 					payload["schedule_id"] = *t.ScheduleID
+				}
+				if *t.BudgetWait == costs.ScopeUser && t.CreatedByID != nil {
+					payload["user_id"] = *t.CreatedByID
 				}
 				if c.Event, err = insertBackendEvent(ctx, tx, t.ID, nil, "budget", payload); err != nil {
 					return err
@@ -349,6 +357,51 @@ func (s *Store) RunCosts(ctx context.Context, from, to time.Time) ([]costs.RunCo
 			return nil, err
 		}
 		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// UserMonthSpend is the cost of a person's runs started since monthStart.
+func (s *Store) UserMonthSpend(ctx context.Context, userID int64, monthStart time.Time) (float64, error) {
+	var v float64
+	err := s.Pool.QueryRow(ctx, `SELECT coalesce(sum(cost_usd), 0)::float8 FROM runs WHERE user_id = $1 AND started_at >= $2`,
+		userID, monthStart).Scan(&v)
+	return v, err
+}
+
+// PersonCost is one row of the Costs screen's "by person".
+type PersonCost struct {
+	UserID   *int64  `json:"user_id"`
+	Name     string  `json:"name"`
+	Initials string  `json:"initials"`
+	CostUSD  float64 `json:"cost_usd"`
+	Runs     int     `json:"runs"`
+	// BudgetUSD is the person's monthly budget (nil: none).
+	BudgetUSD *float64 `json:"monthly_budget_usd"`
+}
+
+// CostsByPerson sums run costs per person (runs.user_id) in [from, to).
+func (s *Store) CostsByPerson(ctx context.Context, from, to time.Time) ([]PersonCost, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT r.user_id, coalesce(u.name, ''), coalesce(sum(r.cost_usd), 0)::float8, count(*),
+			u.monthly_budget_usd::float8
+		FROM runs r LEFT JOIN users u ON u.id = r.user_id
+		WHERE r.started_at >= $1 AND r.started_at < $2
+		GROUP BY r.user_id, u.name, u.monthly_budget_usd ORDER BY 3 DESC`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PersonCost{}
+	for rows.Next() {
+		var p PersonCost
+		if err := rows.Scan(&p.UserID, &p.Name, &p.CostUSD, &p.Runs, &p.BudgetUSD); err != nil {
+			return nil, err
+		}
+		if p.UserID == nil {
+			p.Name = "Unattributed"
+		}
+		p.Initials = Initials(p.Name)
+		out = append(out, p)
 	}
 	return out, rows.Err()
 }

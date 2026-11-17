@@ -1,3 +1,4 @@
+import { pj } from '@/i18n/projects'
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, FolderGit2, FolderPlus, Plus } from 'lucide-react'
@@ -5,7 +6,6 @@ import { useMode, useProjects, useTasks } from '@/api/hooks'
 import { lc } from '@/i18n/local'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { t } from '@/i18n/en'
 import { c } from '@/i18n/costs'
 import { sk } from '@/i18n/skills'
 import { CostBar } from '@/components/CostBar'
@@ -25,7 +25,7 @@ export default function ProjectsPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.projects.title}</h1>
+          <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{pj.title}</h1>
           <Button asChild variant="outline" className="ml-2 h-10 px-3">
             <Link to="/skills">{sk.open}</Link>
           </Button>
@@ -42,8 +42,8 @@ export default function ProjectsPage() {
           ) : (
             /* Three header buttons fit a 375 px phone only with this one as an icon. */
             <Button asChild variant="outline" className="ml-2 h-10 max-sm:w-11 max-sm:px-0">
-              <Link to="/projects/new" aria-label={t.projects.new}>
-                <Plus /> <span className="max-sm:hidden">{t.projects.new}</span>
+              <Link to="/projects/new" aria-label={pj.new}>
+                <Plus /> <span className="max-sm:hidden">{pj.new}</span>
               </Link>
             </Button>
           )}
@@ -55,7 +55,7 @@ export default function ProjectsPage() {
             ))}
           </div>
         ) : !projects.data?.length ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">{t.projects.empty}</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">{pj.empty}</p>
         ) : (
           <ul className="divide-y fm-field">
             {projects.data.map((p) => {
@@ -67,8 +67,8 @@ export default function ProjectsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{p.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        <span className="font-mono">{p.id}</span> · {t.projects.repos(p.repositories.length)}
-                        {n > 0 && <span className="text-primary"> · {t.projects.active(n)}</span>}
+                        <span className="font-mono">{p.id}</span> · {pj.repos(p.repositories.length)}
+                        {n > 0 && <span className="text-primary"> · {pj.active(n)}</span>}
                       </div>
                       <MonthCost spent={p.month_cost_usd} unknown={p.month_cost_unknown} cap={p.budget?.monthly_usd ?? null} />
                     </div>

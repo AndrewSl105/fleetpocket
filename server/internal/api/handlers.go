@@ -30,8 +30,43 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Password string `json:"password"`
 		TOTP     string `json:"totp"`
+		// Email signs in a team member (team mode). Without it the owner
+		// credentials (env or setup wizard) sign in as user #1: the
+		// break-glass admin login.
+		Email string `json:"email"`
 	}
 	if !decode(w, r, &in) {
+		return
+	}
+	ctx := r.Context()
+	if s.Team.Enabled(ctx) {
+		var u *store.User
+		var err error
+		if in.Email != "" {
+			u, err = s.Team.Login(ctx, in.Email, in.Password, in.TOTP)
+			if err != nil {
+				// The owner may type their email with the owner credentials.
+				if owner, oerr := s.Store.OwnerUser(ctx); oerr == nil && owner.Email == store.NormalizeEmail(in.Email) &&
+					s.Auth.CheckLogin(in.Password, in.TOTP) == nil {
+					u, err = owner, nil
+				}
+			}
+		} else if err = s.Auth.CheckLogin(in.Password, in.TOTP); err == nil {
+			u, err = s.Store.OwnerUser(ctx)
+			if err == nil {
+				_ = s.Team.Store.Audit(ctx, &u.ID, "auth.break_glass", "user", strconv.FormatInt(u.ID, 10), nil)
+			}
+		}
+		if err != nil || u == nil {
+			s.Limiter.Fail(ip)
+			writeError(w, http.StatusUnauthorized, "bad_credentials", "invalid email, password or code")
+			return
+		}
+		_, _ = s.Store.UpdateUser(ctx, u.ID, store.UserFields{Touch: true})
+		if !s.startUserSession(w, r, u, "web") {
+			return
+		}
+		writeJSON(w, http.StatusOK, s.sessionInfoFor(ctx, "web", u))
 		return
 	}
 	if err := s.Auth.CheckLogin(in.Password, in.TOTP); err != nil {
@@ -39,11 +74,11 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "bad_credentials", "invalid password or code")
 		return
 	}
-	if _, err := s.Auth.StartSession(r.Context(), w, "web"); err != nil {
+	if _, err := s.Auth.StartSession(ctx, w, "web"); err != nil {
 		writeErr(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.sessionInfo(r.Context(), "web"))
+	writeJSON(w, http.StatusOK, s.sessionInfo(ctx, "web"))
 }
 
 func (s *Server) loginTelegram(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +98,14 @@ func (s *Server) loginTelegram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, err := auth.VerifyInitData(in.InitData, s.Cfg.TelegramBotToken, time.Hour, s.now())
-	if err != nil || u.ID != s.Cfg.TelegramAllowedUserID {
+	// Team mode: any linked, active user; otherwise the one allowed id.
+	var member *store.User
+	if err == nil && s.Team.Enabled(r.Context()) {
+		member, err = s.Team.TelegramUser(r.Context(), u.ID)
+	} else if err == nil && u.ID != s.Cfg.TelegramAllowedUserID {
+		err = auth.ErrBadCredentials
+	}
+	if err != nil {
 		s.Limiter.Fail(ip)
 		writeError(w, http.StatusUnauthorized, "bad_credentials", "invalid Telegram init data")
 		return
@@ -73,10 +115,18 @@ func (s *Server) loginTelegram(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, err)
 		return
 	}
+	info := s.sessionInfo(r.Context(), "telegram")
+	if member != nil {
+		id, _, _ := cutDot(token)
+		if err := s.Store.SetSessionUser(r.Context(), id, member.ID); err != nil {
+			writeErr(w, r, err)
+			return
+		}
+		info = s.sessionInfoFor(r.Context(), "telegram", member)
+	}
 	// The cookie works where the Mini App is the top-level page (Telegram's
 	// native apps); Telegram Web embeds it cross-site, so the client keeps
 	// this token in memory and sends it as a bearer token instead.
-	info := s.sessionInfo(r.Context(), "telegram")
 	info["token"] = token
 	writeJSON(w, http.StatusOK, info)
 }
@@ -102,7 +152,20 @@ func (s *Server) wsTicket(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	kind, _ := r.Context().Value(sessionKindKey).(string)
+	if a := actorOf(r); a.Team {
+		writeJSON(w, http.StatusOK, s.sessionInfoFor(r.Context(), kind, a.User))
+		return
+	}
 	writeJSON(w, http.StatusOK, s.sessionInfo(r.Context(), kind))
+}
+
+// sessionInfoFor is SessionInfo in team mode: every agent can be used (the
+// person's key decides), plus the signed-in user.
+func (s *Server) sessionInfoFor(ctx context.Context, kind string, u *store.User) map[string]any {
+	info := s.sessionInfo(ctx, kind)
+	info["agents"] = config.Agents
+	info["user"] = meView{User: u, Initials: store.Initials(u.Name), Telegram: u.TelegramUserID != nil}
+	return info
 }
 
 // sessionInfo is the SessionInfo body: the session kind, the agents tasks
@@ -117,7 +180,7 @@ func (s *Server) sessionInfo(ctx context.Context, kind string) map[string]any {
 		mode = config.ModeServer
 	}
 	return map[string]any{"ok": true, "kind": kind, "agents": s.Cfg.EnabledAgents(), "default_agent": def, "mode": mode,
-		"ideas_enabled": s.Ideas != nil && s.Ideas.Enabled(ctx)}
+		"ideas_enabled": s.Ideas != nil && s.Ideas.Enabled(ctx), "team_enabled": s.Team.Enabled(ctx)}
 }
 
 // ---- projects ----
@@ -277,6 +340,22 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 	if st := qs.Get("status"); st != "" {
 		f.Statuses = strings.Split(st, ",")
 	}
+	// Teams: ?created_by=me or a user id (the Mine | person filters).
+	switch v := qs.Get("created_by"); v {
+	case "":
+	case "me":
+		f.CreatedBy = actorOf(r).UserID
+		if f.CreatedBy == 0 {
+			f.CreatedBy = -1 // single-owner mode: nobody is "me"
+		}
+	default:
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid", "created_by must be me or a user id")
+			return
+		}
+		f.CreatedBy = n
+	}
 	if c := qs.Get("cursor"); c != "" {
 		n, err := strconv.ParseInt(c, 10, 64)
 		if err != nil {
@@ -327,6 +406,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Source = "web"
+	in.CreatedBy = actorOf(r).uid()
 	// A task started from an idea: check the idea first, so a bad idea_id
 	// creates no task; then link it, which moves the card to In progress.
 	if in.IdeaID != 0 {

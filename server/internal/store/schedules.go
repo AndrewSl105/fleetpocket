@@ -58,6 +58,9 @@ type Schedule struct {
 	MonthSpendUSD float64         `json:"month_spend_usd"`
 	Busy          bool            `json:"busy"`
 	LastFiring    *ScheduleFiring `json:"last_firing"`
+	// Teams: who created it; its tasks are created (and keyed) as them.
+	CreatedByID *int64   `json:"-"`
+	CreatedBy   *UserRef `json:"created_by"`
 }
 
 // ScheduleFiring is one row of a schedule's history, with its task.
@@ -81,15 +84,20 @@ const scheduleCols = `s.id, s.name, s.project_id, s.repository_id, s.prompt, s.a
 	s.run_budget_usd::float8, s.monthly_budget_usd::float8, s.concurrency, s.pr_only_if_changes, s.ends_at, s.loop, s.enabled,
 	s.next_run_at, s.created_at, s.updated_at,
 	coalesce((SELECT sum(r.cost_usd) FROM runs r JOIN tasks t ON t.id = r.task_id WHERE t.schedule_id = s.id AND r.started_at >= $1), 0)::float8,
-	EXISTS (SELECT 1 FROM tasks t WHERE t.schedule_id = s.id AND t.status = ANY($2))`
+	EXISTS (SELECT 1 FROM tasks t WHERE t.schedule_id = s.id AND t.status = ANY($2)),
+	s.created_by, (SELECT u.name FROM users u WHERE u.id = s.created_by)`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	var sc Schedule
 	var loop []byte
+	var creator *string
 	if err := row.Scan(&sc.ID, &sc.Name, &sc.ProjectID, &sc.RepositoryID, &sc.Prompt, &sc.Agent, &sc.Skills, &sc.MCPServers,
 		&sc.Cron, &sc.Timezone, &sc.RunBudgetUSD, &sc.MonthlyBudgetUSD, &sc.Concurrency, &sc.PROnlyIfChanges, &sc.EndsAt, &loop,
-		&sc.Enabled, &sc.NextRunAt, &sc.CreatedAt, &sc.UpdatedAt, &sc.MonthSpendUSD, &sc.Busy); err != nil {
+		&sc.Enabled, &sc.NextRunAt, &sc.CreatedAt, &sc.UpdatedAt, &sc.MonthSpendUSD, &sc.Busy, &sc.CreatedByID, &creator); err != nil {
 		return nil, err
+	}
+	if sc.CreatedByID != nil && creator != nil {
+		sc.CreatedBy = &UserRef{ID: *sc.CreatedByID, Name: *creator, Initials: Initials(*creator)}
 	}
 	if sc.Skills == nil {
 		sc.Skills = []string{}

@@ -74,6 +74,13 @@ func (m *Manager) SetOwner(hash, secret string) {
 	m.PasswordHash, m.TOTPSecret = hash, secret
 }
 
+// Owner returns the single owner's password hash and TOTP secret.
+func (m *Manager) Owner() (hash, secret string) {
+	m.ownerMu.RLock()
+	defer m.ownerMu.RUnlock()
+	return m.PasswordHash, m.TOTPSecret
+}
+
 // ValidTOTP checks a 6-digit code with one period of clock skew.
 func ValidTOTP(code, secret string, now time.Time) bool {
 	ok, _ := totp.ValidateCustom(strings.TrimSpace(code), secret, now, totp.ValidateOpts{

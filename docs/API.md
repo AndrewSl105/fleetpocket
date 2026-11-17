@@ -28,15 +28,15 @@ Everything a client (the web app / Telegram Mini App) needs. The machine-readabl
 
 | | |
 |---|---|
-| `POST /auth/login` `{password, totp}` | password **and** current 6-digit TOTP code → sets the cookie. `{"ok":true,"kind":"web"}` |
+| `POST /auth/login` `{password, totp, email?}` | password **and** current 6-digit TOTP code → sets the cookie. `{"ok":true,"kind":"web"}`. Team mode: members add `email`; without `email` the owner credentials sign in as user #1 (break-glass admin) |
 | `POST /auth/telegram` `{init_data}` | Mini App: pass `Telegram.WebApp.initData` verbatim. Valid for 1 hour after `auth_date`, only for the owner's Telegram user id → sets the cookie and returns `{"ok":true,"kind":"telegram","token":"…"}`. Keep `token` in memory only (never `localStorage`) and send it as `Authorization: Bearer`; it is the same session as the cookie |
 | `POST /auth/logout` | deletes the session (cookie or bearer token) and clears the cookie |
-| `GET /setup/status` | `{"setup_required":bool,"github_configured":bool}`, no session needed |
+| `GET /setup/status` | `{"setup_required":bool,"github_configured":bool,"team_enabled":bool}`, no session needed; `team_enabled` tells the login screen to ask for an email |
 | `POST /setup/owner` `{code, password}` | setup mode only. `code` is the one-time setup code the server logs at WARN on start (with the link `${PUBLIC_BASE_URL}/setup?code=…`; a restart makes a new one); `password` ≥ 12 characters. Returns `{"otpauth_uri","secret"}`; nothing is saved yet. Wrong code → `403 bad_setup_code` (counts toward the login rate limit); owner exists → `409 setup_done` |
 | `POST /setup/owner/confirm` `{code, totp}` | verifies the first TOTP code of the pending owner, saves it, leaves setup mode and logs in like `auth/login`. `409 setup_out_of_order` before `setup/owner` |
 | `POST /setup/github/manifest` `{organization?}` | session required. Returns `{"action_url","manifest"}`: POST the manifest (JSON text, form field `manifest`) to `action_url` (GitHub, personal account or `organizations/<org>`). `409 github_configured` if an App exists |
 | `GET /setup/github/callback?code&state` | GitHub's `redirect_url`. Checks `state` (one use, this session, 1 hour), converts `code` (`POST /app-manifests/{code}/conversions`), saves App ID + webhook secret, writes the key to `GITHUB_APP_PRIVATE_KEY_PATH`, redirects (303) to the App's installation page and restarts the server to enable it. Failures redirect to `/setup?step=github&github_error=<reason>` |
-| `GET /me` | `{"ok":true,"kind":"web"\|"telegram","agents":["claude","codex"],"default_agent":"claude","mode":"server"\|"local","ideas_enabled":false}`; use it as the session check on app start. `ideas_enabled`: the [Ideas board](#ideas-board) is on. `mode` is `local` for `npx jungle-monkey` (local repositories, optional GitHub). `agents` are the coding agents with credentials on the server (`claude`, `codex`, `cursor`), the ones a task may use |
+| `GET /me` | `{"ok":true,"kind":"web"\|"telegram","agents":["claude","codex"],"default_agent":"claude","mode":"server"\|"local","ideas_enabled":false}`; use it as the session check on app start. `ideas_enabled`: the [Ideas board](#ideas-board) is on. `mode` is `local` for `npx jungle-monkey` (local repositories, optional GitHub). `agents` are the coding agents with credentials on the server (`claude`, `codex`, `cursor`), the ones a task may use. `team_enabled`: [team mode](#teams) is on; then `user` is the signed-in user (`Me`) and `agents` lists every agent (each person's key decides) |
 
 **Setup mode.** When no owner login exists (neither `ADMIN_PASSWORD_HASH` + `ADMIN_TOTP_SECRET` in the server configuration nor one saved by the wizard), every route except `/healthz`, `/webhooks/*` and `/api/v1/setup/*` answers `409 setup_required`.
 
@@ -135,6 +135,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `completed` | PR merged/closed, branch merged or discarded, or finished with no changes | message (new run) |
 | `failed` | see `status_reason` | retry |
 | `cancelled` | | retry |
+| `needs_key` | team mode: the creator has no key for the task's agent and the shared-key fallback is off; no runner started (`status_reason` "Add your Claude key in My keys") | retry (once the key is added), cancel |
 
 ### Endpoints
 
@@ -437,7 +438,45 @@ A **skill** is a `SKILL.md` folder (Claude Agent Skills format) the runner write
 
 Projects: `PATCH /projects/{id}` takes `skills` (slugs; replaces the list, unknown slugs ignored) and `default_output`; `Project` returns both.
 
+`subagents` (boolean, default `true`) on `Project` and in `POST`/`PATCH /projects`: Claude runs of the project get the default subagents (`explorer`, `test-runner`, `reviewer`; SPEC-server "Subagents"). It has no effect on Codex or Cursor. Runner events from a subagent (`assistant_text`, `tool_use`, `tool_result`) carry `subagent: "<name>"` in their payload.
+
 Seeded once on first start (deletable, off by default): `db-schema`, `system-design-c4`, `sequence-flow`, `infra-map`.
+
+## Teams
+
+Off by default (SPEC-server "Teams"). In local mode every endpoint below answers `400 not_available_in_local_mode`; while team mode is off the user, invite, key, link and audit endpoints answer `409 team_off`.
+
+**Roles.** Every session route needs a role: viewers read; members also create tasks, schedules, ideas, personal skills and computers and act on their own tasks, schedules and ideas; admins do everything. Refused: `403 forbidden`. Responses for tasks, ideas, schedules, nodes and skills include `created_by: {id, name, initials}` (null in single-owner mode).
+
+| | |
+|---|---|
+| `GET /team` | admin. `{enabled, shared_key_fallback, secrets_key, server_keys, active_users?, active_admins?}` |
+| `POST /team/enable` `{email, name}` | admin. The owner becomes user #1; `409 secrets_key_missing` without `SECRETS_KEY` |
+| `POST /team/disable` | admin. `409` while more than one active user remains |
+| `PATCH /team` `{shared_key_fallback}` | admin. "Allow the server's shared keys as a fallback" (default off) |
+| `GET /users` | everyone (members and viewers get names and roles only) |
+| `PATCH /users/{id}` `{role?, monthly_budget_usd?, clear_budget?, disabled?, live_tasks?: finish\|cancel}` | admin. Last active admin and user #1: `409` |
+| `DELETE /users/{id}` | admin; the user must be disabled first |
+| `GET /invites` · `POST /invites` `{role, email?, expires_in_hours?}` · `DELETE /invites/{id}` | admin. Create returns `{invite, token, url}` once |
+| `POST /signup/start` `{token}` | no session. `{enrollment_id, role, email, totp_secret, otpauth_uri}`; `410 invite_gone` |
+| `POST /signup` `{token, enrollment_id, name, email, password, totp}` | no session. Creates the user and signs in (`201`, SessionInfo); `400 bad_code` without a valid TOTP code |
+| `PATCH /me` `{name?, email?, github_login?, commit_email?, task_scope?, current_password?, new_password?}` | profile; a new password signs out your other sessions |
+| `POST /me/totp` · `POST /me/totp/confirm` `{enrollment_id, password, totp}` | TOTP reset |
+| `GET /me/credentials` | `{items: [{provider, kind, last4, label, created_at, last_used_at}], shared_key_fallback}`; values never come back |
+| `PUT /me/credentials/{provider}` `{kind, value, label?}` · `DELETE` | `claude`: `oauth_token` or `api_key`; `codex`, `cursor`: `api_key` |
+| `POST /me/credentials/{provider}/test` | `{status: ok\|invalid\|not_testable\|error, message}` |
+| `POST /me/telegram/link` · `DELETE` | `{code, command: "/link 123456", expires_at, bot_enabled}` (10 minutes); unlink |
+| `GET /audit?actor=&action=&cursor=&limit=` | admin, newest first |
+| `POST /skills/{id}/promote` | admin: a personal skill becomes a team skill |
+| `PUT /nodes/{id}/shared` `{shared}` | admin: members' tasks may run on it |
+
+`GET /tasks?created_by=me|<user id>` filters by creator. `GET /costs` adds `people` (cost by person) in team mode. `budget_wait` can be `user` (the creator's monthly budget).
+
+## Artifacts and pipelines
+
+`GET /tasks/{id}/artifacts` → `{items: TaskArtifact[]}`: the latest version of each file the task's runs left in `.fleetpocket/out/` (listed in `manifest.json`, or any `.md .mmd .json .sql .dbml .d2 .puml .svg`; ≤ 50 files, ≤ 1 MiB each). Output `artifacts` tasks never push: they end `completed` with reason "n artifacts". The timeline gets an `artifacts_collected` event `{count, added, warnings}`.
+
+Pipelines (SPEC-server "Pipelines"): `GET /pipeline-templates` → `{items, plan_schema}`; `POST /pipelines {template, project_id, repository_id?, title?, prompt, budget_usd?, max_parallel?, stages?: {<key>: {provider?, model?, node?}}}` → `201 Pipeline`; `GET /pipelines?project=` (without stages); `GET /pipelines/{id}` (with stages and `cost_usd`); `POST /pipelines/{id}/{action}` with `approve`, `plan {plan}` (edit while `awaiting_approval`; `400 invalid_plan` with `errors[]`), `redesign {note}`, `retry {stage_id, note?}`, `skip {stage_id}`, `cancel`, `budget {budget_usd}`; `409` when the pipeline or stage is not in a state that allows it. A stage's task has `pipeline_id`, `stage_id`, `base_ref`, `push_branch` and `model`; output `branch` (stage tasks only) pushes without a PR and ends `branch_ready`.
 
 ## WebSocket
 

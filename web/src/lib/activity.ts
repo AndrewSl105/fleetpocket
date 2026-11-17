@@ -5,7 +5,8 @@ import { t } from '@/i18n/en'
 /** What a task is doing, for the canvas node view. Pure. */
 export type ActivityKind = 'read' | 'web' | 'edit' | 'shell' | 'test' | 'think' | 'ask' | 'git' | 'done' | 'failed' | 'idle'
 export type Lane = 'read' | 'web' | 'edit' | 'shell' | 'git'
-export type Activity = { kind: ActivityKind; verb: string; target: string; path?: string; mode?: 'R' | 'W' }
+/** via: the subagent doing the work (Claude), absent for the lead agent. */
+export type Activity = { kind: ActivityKind; verb: string; target: string; path?: string; mode?: 'R' | 'W'; via?: string }
 
 export const LANES: Lane[] = ['read', 'web', 'edit', 'shell', 'git']
 /** Blocks drawn per lane. */
@@ -17,7 +18,8 @@ const v = t.canvas.node.verbs
 // and agent/src/cursor-mapper.ts translate Codex and Cursor tools to.
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead'])
 const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Delete'])
-const THINK_TOOLS = new Set(['TodoWrite', 'Task'])
+// Agent (formerly Task) starts a subagent.
+const THINK_TOOLS = new Set(['TodoWrite', 'Task', 'Agent'])
 
 const TEST_RE = /\b(go test|npm (run )?test|pnpm (run )?test|yarn (run )?test|vitest|jest|pytest|cargo test|make test|playwright)\b/
 
@@ -84,8 +86,10 @@ export function classifyTool(tool: string, summary: string): Activity {
 /** One timeline item as an activity; null for items that are not work (user messages, dividers…). */
 export function classify(item: TimelineItem): Activity | null {
   switch (item.kind) {
-    case 'tool':
-      return classifyTool(item.tool, item.summary)
+    case 'tool': {
+      const a = classifyTool(item.tool, item.summary)
+      return item.subagent ? { ...a, via: item.subagent } : a
+    }
     case 'claude':
       return { kind: 'think', verb: v.think, target: firstLine(item.text) }
     case 'question':

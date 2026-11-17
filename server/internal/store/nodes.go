@@ -19,6 +19,10 @@ type Node struct {
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 	TokenHash     []byte     `json:"-"`
+	// Teams: the node's owner and whether an admin shared it with the team.
+	OwnerUserID *int64   `json:"-"`
+	Shared      bool     `json:"shared"`
+	CreatedBy   *UserRef `json:"created_by"`
 }
 
 // NodeView is a node as clients see it.
@@ -28,13 +32,18 @@ type NodeView struct {
 	ActiveTasks int  `json:"active_tasks"`
 }
 
-const nodeCols = `id, name, max_concurrent, agents, platform, version, last_seen_at, created_at, updated_at, token_hash`
+const nodeCols = `id, name, max_concurrent, agents, platform, version, last_seen_at, created_at, updated_at, token_hash,
+	owner_user_id, shared, (SELECT u.name FROM users u WHERE u.id = nodes.owner_user_id)`
 
 func scanNode(row interface{ Scan(...any) error }) (*Node, error) {
 	var n Node
+	var owner *string
 	if err := row.Scan(&n.ID, &n.Name, &n.MaxConcurrent, &n.Agents, &n.Platform, &n.Version, &n.LastSeenAt,
-		&n.CreatedAt, &n.UpdatedAt, &n.TokenHash); err != nil {
+		&n.CreatedAt, &n.UpdatedAt, &n.TokenHash, &n.OwnerUserID, &n.Shared, &owner); err != nil {
 		return nil, err
+	}
+	if n.OwnerUserID != nil && owner != nil {
+		n.CreatedBy = &UserRef{ID: *n.OwnerUserID, Name: *owner, Initials: Initials(*owner)}
 	}
 	if n.Agents == nil {
 		n.Agents = []string{}
@@ -158,4 +167,19 @@ func (s *Store) ActiveTasksByNode(ctx context.Context) (map[string]int, error) {
 		out[host] = n
 	}
 	return out, rows.Err()
+}
+
+// SetNodeOwner sets a node's owner (teams: "Add computer" by a user).
+func (s *Store) SetNodeOwner(ctx context.Context, id string, userID int64) error {
+	_, err := s.Pool.Exec(ctx, `UPDATE nodes SET owner_user_id = $2 WHERE id = $1`, id, userID)
+	return err
+}
+
+// SetNodeShared marks a node shared with the team (admins).
+func (s *Store) SetNodeShared(ctx context.Context, id string, shared bool) error {
+	tag, err := s.Pool.Exec(ctx, `UPDATE nodes SET shared = $2, updated_at = now() WHERE id = $1`, id, shared)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
 }

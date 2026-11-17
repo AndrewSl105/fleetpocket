@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/schedules"
+	"github.com/andrewsl105/fleetpocket/server/internal/store"
 )
 
 // GET /api/v1/schedules
@@ -36,6 +37,9 @@ func (s *Server) createSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sc, err := s.Schedules.Create(r.Context(), in)
+	if err == nil {
+		sc, err = s.authorSchedule(r, sc.ID)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -108,6 +112,9 @@ func (s *Server) duplicateSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sc, err := s.Schedules.Duplicate(r.Context(), id)
+	if err == nil {
+		sc, err = s.authorSchedule(r, sc.ID)
+	}
 	if err != nil {
 		writeErr(w, r, err)
 		return
@@ -131,4 +138,14 @@ func (s *Server) scheduleFirings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": list})
+}
+
+// authorSchedule records the actor as the schedule's creator (team mode).
+func (s *Server) authorSchedule(r *http.Request, id int64) (*store.Schedule, error) {
+	if uid := actorOf(r).uid(); uid != nil {
+		if err := s.Store.SetAuthor(r.Context(), "schedules", id, *uid); err != nil {
+			return nil, err
+		}
+	}
+	return s.Schedules.Get(r.Context(), id)
 }

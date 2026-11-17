@@ -18,6 +18,8 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ideaKeys, useArchiveIdea, useCreateIdea, useIdeas, useIdeaSettings, useMoveIdea, useVoiceIdea, type Recording } from '@/api/ideas'
+import { usePeopleScope } from '@/lib/people'
+import { PeopleFilter } from '@/components/PeopleFilter'
 import { errorMessage, useProjects } from '@/api/hooks'
 import type { Idea, IdeaColumn } from '@/api/types'
 import { Button } from '@/components/ui/button'
@@ -54,6 +56,12 @@ export default function IdeasPage() {
   const list = useIdeas(filter, on)
   const all = useIdeas({}, on && !!(filter.q || filter.project || filter.tag))
   const projects = useProjects()
+  // Team mode: Mine | Everyone and the person filter (client-side; the board is small).
+  const people = usePeopleScope()
+  const shown = useMemo(
+    () => (people.createdBy && list.data ? list.data.filter((i) => i.created_by?.id === people.createdBy) : list.data),
+    [people.createdBy, list.data],
+  )
   const [columnsOpen, setColumnsOpen] = useState(false)
   const setParam = (k: string, v: string) => {
     const p = new URLSearchParams(params)
@@ -90,6 +98,7 @@ export default function IdeasPage() {
           </Button>
         </div>
         <Capture project={filter.project} />
+        <PeopleFilter people={people} />
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-40 flex-1">
             <Search className="pointer-events-none absolute top-3.5 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
@@ -117,7 +126,7 @@ export default function IdeasPage() {
         ) : list.isError ? (
           <p className="py-10 text-center text-sm text-muted-foreground">{errorMessage(list.error) || tx.loadError}</p>
         ) : (
-          <Board ideas={list.data} columns={columns} listKey={ideaKeys.list(filter)} />
+          <Board ideas={shown ?? []} columns={columns} listKey={ideaKeys.list(filter)} />
         )}
       </div>
       {columnsOpen && settings.data && <ColumnsDialog settings={settings.data} onClose={() => setColumnsOpen(false)} />}

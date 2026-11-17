@@ -73,6 +73,7 @@ export function useTasks(filter: TaskFilter) {
             query: {
               status: GROUPS[filter.group].join(','),
               project: filter.project || undefined,
+              created_by: filter.createdBy ? String(filter.createdBy) : undefined,
               limit: 50,
               cursor: pageParam,
             },

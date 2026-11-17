@@ -1,12 +1,14 @@
 import { useRef } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Copy, Download, MoreVertical, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, MoreVertical, Pencil, Plus, Trash2, Upload, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { skillError, useDeleteSkill, useDuplicateSkill, useExportSkill, useImportSkill, useSkills } from '@/api/skills'
 import type { Skill } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { UserBadge } from '@/components/UserBadge'
+import { usePromoteSkill, useRole } from '@/api/team'
 import { useConfirm } from '@/components/confirm'
 import { haptic } from '@/telegram/haptics'
 import { sk } from '@/i18n/skills'
@@ -94,6 +96,9 @@ function SkillRow({ skill: s }: { skill: Skill }) {
   const dup = useDuplicateSkill()
   const del = useDeleteSkill()
   const exp = useExportSkill()
+  // Team mode: admins promote a member's personal skill to the team.
+  const role = useRole()
+  const promote = usePromoteSkill()
 
   async function remove() {
     if (!(await confirm(sk.deleteConfirm(s.slug, s.projects.length), sk.delete))) return
@@ -115,6 +120,12 @@ function SkillRow({ skill: s }: { skill: Skill }) {
               {sk.defaultStamp}
             </span>
           )}
+          {s.personal && (
+            <span className="fm-stamp" data-tone="plain">
+              {sk.personalStamp}
+            </span>
+          )}
+          <UserBadge user={s.created_by} />
         </div>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{s.description}</p>
         <div className="mt-1 text-xs text-muted-foreground">
@@ -146,6 +157,15 @@ function SkillRow({ skill: s }: { skill: Skill }) {
           <DropdownMenuItem className="h-10" disabled={exp.isPending} onSelect={() => exp.mutate(s, { onError: (e) => toast.error(skillError(e) || sk.exportFailed) })}>
             <Download /> {sk.export}
           </DropdownMenuItem>
+          {s.personal && role.isAdmin && (
+            <DropdownMenuItem
+              className="h-10"
+              disabled={promote.isPending}
+              onSelect={() => promote.mutate(s.id, { onSuccess: () => toast.success(sk.promoted(s.slug)), onError: (e) => toast.error(skillError(e)) })}
+            >
+              <Users /> {sk.promote}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem className="h-10 text-destructive" disabled={del.isPending} onSelect={() => void remove()}>
             <Trash2 /> {sk.delete}
