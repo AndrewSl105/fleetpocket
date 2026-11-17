@@ -1,6 +1,6 @@
 # Development
 
-Local setup for working on Fleetpocket. Back to the [README](../README.md).
+Local setup for working on Jungle Monkey. Back to the [README](../README.md).
 
 
 Requirements: Go 1.27+, Node 24, Docker, git, gitleaks (`brew install gitleaks`), golangci-lint 2.14.

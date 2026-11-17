@@ -53,12 +53,16 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'teleg
   }
 
   return (
-    <main className="win-desktop flex min-h-(--app-height) items-center justify-center px-3 py-10">
+    <main className="fm-ground flex min-h-(--app-height) items-center justify-center px-3 py-10">
       <Window title={t.auth.title} className="w-full max-w-sm" bodyClassName="p-3">
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
-          <div className="flex items-start gap-3">
-            <Logo className="size-10 shrink-0" />
-            <h1 className="text-sm">{t.auth.title}</h1>
+          <img src="/brand/hero.webp" alt="" width={800} height={800} className="block aspect-square w-full border-[1.5px] border-ink" />
+          <div className="flex items-center gap-3">
+            <Logo className="size-10" />
+            <div>
+              <p className="fm-label text-muted-foreground">{t.app.kicker}</p>
+              <h1 className="text-[18px] font-bold">{t.auth.title}</h1>
+            </div>
           </div>
           <div className="space-y-1">
             <Label htmlFor="password">{t.auth.password}</Label>

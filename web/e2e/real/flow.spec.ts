@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { totp } from './totp'
 
-// Runs against a real Fleetpocket with the fake runner (FLEETPOCKET_RUNNER_FAKE): every
+// Runs against a real Jungle Monkey with the fake runner (FLEETPOCKET_RUNNER_FAKE): every
 // run asks "Which greeting should I write?" (hello / hi), commits and finishes.
 // Without a GitHub App the task ends "completed" (committed locally).
 

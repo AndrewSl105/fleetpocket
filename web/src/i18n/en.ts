@@ -1,6 +1,6 @@
 // All UI strings. Add a uk.ts with the same shape to translate.
 export const en = {
-  app: { name: 'Fleetpocket' },
+  app: { name: 'Jungle Monkey', kicker: 'Jungle Monkey · Field log' },
   nav: { tasks: 'Tasks', new: 'New', canvas: 'Canvas', projects: 'Projects', settings: 'Settings' },
   common: {
     cancel: 'Cancel',
@@ -63,7 +63,7 @@ export const en = {
     saved: 'Saved',
     wizard: {
       title: 'Add a computer',
-      intro: 'Run this in Terminal on the computer you want to add. It installs Fleetpocket for that computer, starts Docker (or installs OrbStack), connects Claude and pairs it with your account.',
+      intro: 'Run this in Terminal on the computer you want to add. It installs the Jungle Monkey node for that computer, starts Docker (or installs OrbStack), connects Claude and pairs it with your account.',
       copied: 'Command copied',
       waiting: 'Waiting for the computer…',
       waitingHint: 'This window connects it as soon as setup shows a code. On another device? Enter the code instead.',
@@ -122,10 +122,10 @@ export const en = {
     cancelled: 'Cancelled',
   },
   setup: {
-    title: 'Set up Fleetpocket',
+    title: 'Set up Jungle Monkey',
     progress: 'Setup progress',
     steps: { password: 'Password', totp: 'Authenticator', github: 'GitHub', repo: 'Repository' },
-    required: 'Fleetpocket is not set up yet. Open the setup link printed in the server log.',
+    required: 'Jungle Monkey is not set up yet. Open the setup link printed in the server log.',
     code: 'Setup code (from the server log)',
     passwordIntro: 'Choose the owner password (at least 12 characters).',
     repeat: 'Repeat password',
@@ -140,7 +140,7 @@ export const en = {
     badTotp: 'Wrong code. Check the time on your phone and try again.',
     githubReady: 'The GitHub App is configured.',
     githubIntro:
-      'Create the GitHub App Fleetpocket uses to push branches and open pull requests. GitHub asks you to confirm, then to pick the repositories to install it on.',
+      'Create the GitHub App Jungle Monkey uses to push branches and open pull requests. GitHub asks you to confirm, then to pick the repositories to install it on.',
     githubOwner: 'Where to create the App',
     githubPersonal: 'My personal account',
     githubOrg: 'An organization',
@@ -155,19 +155,19 @@ export const en = {
       key: 'The server could not save the App key. Check that /srv/fleetpocket/secrets/github-app.pem exists and belongs to uid 1000.',
       save: 'The server could not save the App. Check the server log.',
     },
-    repoIntro: 'Add the repositories Fleetpocket may work on to a project, then start your first task.',
+    repoIntro: 'Add the repositories Jungle Monkey may work on to a project, then start your first task.',
     addRepo: 'Add your first repository',
   },
   auth: {
     signingIn: 'Signing in…',
-    title: 'Sign in to Fleetpocket',
+    title: 'Sign in to Jungle Monkey',
     password: 'Password',
     code: 'Authenticator code',
     signIn: 'Sign in',
     badCredentials: 'Wrong password or code.',
     tooMany: (minutes: number) => `Too many attempts, try again in ${minutes} min.`,
     deniedTitle: 'Access denied',
-    deniedBody: 'This Telegram account is not allowed to use Fleetpocket.',
+    deniedBody: 'This Telegram account is not allowed to use Jungle Monkey.',
     deniedUser: (name: string, id: number | string) => `${name} · id ${id}`,
     expiredTitle: 'Session expired',
     expiredBody: 'Close and reopen the Mini App to sign in again.',
@@ -224,6 +224,7 @@ export const en = {
     taskAttachments: (n: number) => `${n} attachment${n === 1 ? '' : 's'} added to the task`,
   },
   task: {
+    number: (n: string) => `Task #${n}`,
     tabs: { activity: 'Activity', diff: 'Diff', info: 'Info' },
     copyError: 'Copy error',
     actions: {

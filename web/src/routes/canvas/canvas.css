@@ -1,50 +1,50 @@
-/* Canvas: a board of terminal windows (docs/design/remote-nodes.md, section 6),
-   drawn as an XP desktop of Command Prompt windows. */
+/* Canvas: a board of terminal panels (docs/design/remote-nodes.md, section 6),
+   drawn as ruled, square-cornered Field Manual panels on the drawing grid. */
 
 .fp-board {
-  background-color: var(--desktop);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
   touch-action: none;
 }
 
-/* Each terminal is a Luna window (blue frame, rounded title bar) around a Command Prompt body. */
+/* Each terminal: ink frame, mono title strip, a dark ink body. */
 .fp-term {
-  --term-bg: #000000;
-  --term-fg: #c0c0c0;
-  --term-dim: #808080;
-  --term-rule: #404040;
-  --term-ok: #55ff55;
-  --term-bad: #ff5555;
-  --term-ask: #ffff55;
-  padding: 0 3px 3px;
-  border-radius: 8px 8px 0 0;
-  background: var(--win-frame);
+  --term-bg: #1b1f1a;
+  --term-fg: #ece8dc;
+  --term-dim: #a8ab9c;
+  --term-rule: #3a3f33;
+  --term-ok: #9fc27f;
+  --term-bad: #ff7a66;
+  --term-ask: #ff9a5c;
+  border: 1.5px solid var(--rule);
+  background: var(--paper-raised);
   color: var(--term-fg);
-  box-shadow:
-    inset 0 0 0 1px var(--win-frame-edge),
-    3px 4px 12px rgb(0 0 0 / 0.35);
 }
-.fp-term:not([data-focused='true']) {
-  background: var(--win-title-inactive-2);
+.fp-term[data-focused='true'] {
+  border-color: var(--ink);
 }
 
 .fp-term-bar {
-  margin: 0 -3px;
-  border-radius: 7px 7px 0 0;
-  background: linear-gradient(180deg, var(--win-title-inactive-1), var(--win-title-inactive-2) 10%, var(--win-title-inactive-2) 88%, var(--win-title-inactive-3));
-  color: var(--win-title-inactive-fg);
-  font-family: var(--font-title);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
 }
 .fp-term[data-focused='true'] .fp-term-bar {
-  background: linear-gradient(180deg, var(--win-title-1), var(--win-title-2) 8%, var(--win-title-2) 40%, var(--win-title-3) 88%, var(--win-title-3) 93%, var(--win-title-4) 97%);
-  color: var(--win-title-fg);
-  text-shadow: 1px 1px var(--win-title-shadow);
+  border-bottom: 2px solid var(--ink);
+  color: var(--ink);
+  font-weight: 600;
 }
 .fp-term-body {
   background: var(--term-bg);
 }
 
 .fp-term-body {
-  font-family: 'Lucida Console', Consolas, 'Courier New', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.55;
   scrollbar-width: thin;
@@ -63,15 +63,14 @@
 
 /* Status light: steady, except the two states that move (working, asking). */
 .fp-led {
-  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 22%, transparent);
   background: currentColor;
 }
 .fp-led[data-live='true'] {
-  animation: fp-led 1.6s ease-in-out infinite;
+  animation: fp-led 1.6s steps(2, jump-none) infinite;
 }
 @keyframes fp-led {
   50% {
-    box-shadow: 0 0 0 6px color-mix(in oklab, currentColor 0%, transparent);
+    opacity: 0.25;
   }
 }
 @media (prefers-reduced-motion: reduce) {

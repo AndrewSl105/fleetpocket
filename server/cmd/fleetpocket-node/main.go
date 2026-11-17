@@ -1,5 +1,5 @@
-// Command fleetpocket-node runs Fleetpocket tasks on this computer for a
-// Fleetpocket server (docs/design/remote-nodes.md). It only makes outbound
+// Command fleetpocket-node runs Jungle Monkey tasks on this computer for a
+// Jungle Monkey server (docs/design/remote-nodes.md). It only makes outbound
 // connections: a WebSocket to the server and the local Docker socket.
 package main
 
@@ -36,7 +36,7 @@ commands:
   version    print the version
 
 run / doctor flags:
-  --server URL   the Fleetpocket server (FLEETPOCKET_SERVER), e.g. https://fleetpocket.example.com
+  --server URL   the Jungle Monkey server (FLEETPOCKET_SERVER), e.g. https://fleetpocket.example.com
 
 Secrets are read from the environment, or on macOS from the Keychain
 (service "fleetpocket-node", account = the variable name):
@@ -80,7 +80,7 @@ func main() {
 
 func run(args []string, doctor bool) error {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	server := fs.String("server", os.Getenv("FLEETPOCKET_SERVER"), "Fleetpocket server URL")
+	server := fs.String("server", os.Getenv("FLEETPOCKET_SERVER"), "Jungle Monkey server URL")
 	_ = fs.Parse(args)
 	if *server == "" {
 		return errors.New("set --server or FLEETPOCKET_SERVER")

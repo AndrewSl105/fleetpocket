@@ -69,7 +69,7 @@ function FileChip({ taskId, a }: { taskId: number; a: Attachment }) {
       disabled={download.isPending}
       aria-label={t.attachments.download(a.name)}
       title={a.name}
-      className="flex min-h-11 max-w-full items-center gap-2 rounded-lg bg-black/10 px-3 py-1.5 text-left text-xs"
+      className="flex min-h-11 max-w-full items-center gap-2 border border-rule bg-grid px-3 py-1.5 text-left text-xs"
     >
       <FileIcon className="size-4 shrink-0 opacity-70" aria-hidden="true" />
       <span className="min-w-0 truncate">{a.name}</span>
@@ -104,7 +104,7 @@ function Thumb({ taskId, a, onOpen }: { taskId: number; a: Attachment; onOpen: (
       disabled={img.state !== 'ready'}
       aria-label={t.attachments.open(a.name)}
       style={size}
-      className="flex items-center justify-center overflow-hidden rounded-lg bg-black/10"
+      className="flex items-center justify-center overflow-hidden border border-rule bg-grid"
     >
       {img.state === 'ready' ? (
         <BlobImage blob={img.blob} alt={a.name} className="size-full object-cover" />

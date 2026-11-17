@@ -40,7 +40,7 @@ function noteText(note: NonNullable<Extract<TimelineItem, { kind: 'user' }>['not
 
 function Divider({ children, warn }: { children: React.ReactNode; warn?: boolean }) {
   return (
-    <div className={cn('flex items-center gap-3 py-1 text-[11px] text-muted-foreground', warn && 'text-amber-700 dark:text-amber-300')}>
+    <div className={cn('flex items-center gap-3 py-1 text-[11px] text-muted-foreground', warn && 'text-signal-text')}>
       <span className="h-px flex-1 bg-border" />
       <span className="max-w-[75%] text-center">{children}</span>
       <span className="h-px flex-1 bg-border" />
@@ -61,7 +61,7 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
         aria-expanded={open}
         className={cn(
           'flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted',
-          failed && 'text-red-700 dark:text-red-300',
+          failed && 'text-danger',
         )}
       >
         <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} aria-hidden="true" />
@@ -72,7 +72,7 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
       {open && (
         <div className="ml-7 rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs break-all text-muted-foreground">
           {item.summary}
-          {item.error && <div className="mt-1 text-red-700 dark:text-red-300">{item.error}</div>}
+          {item.error && <div className="mt-1 text-danger">{item.error}</div>}
         </div>
       )}
     </div>
@@ -83,7 +83,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
   switch (item.kind) {
     case 'claude':
       return (
-        <div className="win-field max-w-[92%] px-3.5 py-2.5">
+        <div className="fm-field max-w-[92%] px-3.5 py-2.5">
           <Markdown>{item.text}</Markdown>
         </div>
       )
@@ -92,7 +92,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
         <div className="flex justify-end">
           <div
             className={cn(
-              'win-panel max-w-[85%] bg-accent px-3.5 py-2.5 text-[15px] whitespace-pre-wrap text-foreground',
+              'fm-card max-w-[85%] bg-accent px-3.5 py-2.5 text-[15px] whitespace-pre-wrap text-foreground',
               item.pending && 'opacity-70',
             )}
           >
@@ -128,11 +128,11 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
     }
     case 'commit':
       return (
-        <div className="flex items-center gap-2.5 win-etched px-3 py-2.5 text-sm">
+        <div className="flex items-center gap-2.5 fm-group px-3 py-2.5 text-sm">
           <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>{tl.committed(item.files)}</span>
-          <span className="font-mono text-xs text-emerald-700 dark:text-emerald-300">+{item.insertions}</span>
-          <span className="font-mono text-xs text-red-700 dark:text-red-300">−{item.deletions}</span>
+          <span className="font-mono text-xs text-olive-text">+{item.insertions}</span>
+          <span className="font-mono text-xs text-danger">−{item.deletions}</span>
           <span className="ml-auto font-mono text-xs text-muted-foreground">{item.sha.slice(0, 7)}</span>
         </div>
       )
@@ -146,14 +146,14 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
             : tl.prClosed(item.number, !!item.merged)
       const body = (
         <>
-          <Icon className="size-4 shrink-0 text-violet-600 dark:text-violet-300" aria-hidden="true" />
+          <Icon className="size-4 shrink-0 text-olive-text" aria-hidden="true" />
           <span className="font-medium">{text}</span>
           {item.url && <ExternalLink className="ml-auto size-4 text-muted-foreground" aria-hidden="true" />}
         </>
       )
-      const cls = 'flex items-center gap-2.5 win-etched bg-violet-500/5 px-3 py-2.5 text-sm'
+      const cls = 'flex items-center gap-2.5 fm-group bg-grid px-3 py-2.5 text-sm'
       return item.url ? (
-        <a href={item.url} target="_blank" rel="noreferrer" className={cn(cls, 'hover:bg-violet-500/10')}>
+        <a href={item.url} target="_blank" rel="noreferrer" className={cn(cls, 'hover:bg-grid')}>
           {body}
         </a>
       ) : (
@@ -171,8 +171,8 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
           rel="noreferrer"
           className={cn(
             'flex min-h-9 items-center gap-2 px-2 text-xs text-muted-foreground',
-            ok && 'text-emerald-700 dark:text-emerald-300',
-            bad && 'text-red-700 dark:text-red-300',
+            ok && 'text-olive-text',
+            bad && 'text-danger',
           )}
         >
           <Icon className="size-3.5" aria-hidden="true" />
@@ -182,8 +182,8 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
     }
     case 'done':
       return (
-        <div className="win-etched bg-emerald-500/5 px-3.5 py-3">
-          <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+        <div className="fm-group bg-grid px-3.5 py-3">
+          <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-olive-text">
             <Sparkles className="size-4" aria-hidden="true" />
             {item.noChanges ? tl.noChanges : tl.done}
           </div>
@@ -192,7 +192,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       )
     case 'error':
       return (
-        <div role="alert" className="flex gap-2.5 win-etched bg-red-500/5 px-3 py-2.5 text-sm text-red-700 dark:text-red-300">
+        <div role="alert" className="flex gap-2.5 fm-group bg-grid px-3 py-2.5 text-sm text-danger">
           <OctagonAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <div className="font-mono text-xs font-medium">{item.title === 'diff_rejected' ? tl.diffRejected : item.title}</div>

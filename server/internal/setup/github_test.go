@@ -29,7 +29,7 @@ func TestManifestSnapshot(t *testing.T) {
   },
   "redirect_url": "https://fp.example.com/api/v1/setup/github/callback",
   "setup_url": "https://fp.example.com/setup?step=repo",
-  "description": "Fleetpocket: coding agents that open pull requests.",
+  "description": "Jungle Monkey: coding agents that open pull requests.",
   "public": false,
   "default_events": [
     "pull_request",

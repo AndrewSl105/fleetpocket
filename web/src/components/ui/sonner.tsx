@@ -18,9 +18,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       toastOptions={{
         classNames: {
-          toast: "win-menu! rounded-[3px]! border-0! font-sans!",
-          actionButton: "win-raised! rounded-[3px]! text-foreground! active:win-pressed!",
-          cancelButton: "win-raised! rounded-[3px]! text-foreground! active:win-pressed!",
+          toast: "fm-menu! border-0! font-sans!",
+          actionButton: "fm-btn! text-foreground! active:fm-pressed!",
+          cancelButton: "fm-btn! text-foreground! active:fm-pressed!",
         },
       }}
       icons={{

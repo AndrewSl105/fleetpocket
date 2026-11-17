@@ -80,7 +80,7 @@ func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 			fmt.Fprintf(&b, " · [Task #%d](%s)", in.Task.ID, u)
 		}
 	}
-	b.WriteString("\n\n<sub>Opened by Fleetpocket.</sub>\n")
+	b.WriteString("\n\n<sub>Opened by Jungle Monkey.</sub>\n")
 	return b.String()
 }
 

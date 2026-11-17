@@ -31,7 +31,7 @@ function FileBlock({ file, split }: { file: FileData; split: boolean }) {
   const { add, del } = counts(file)
   const name = fileName(file)
   return (
-    <section id={`file-${name}`} className="overflow-hidden win-field">
+    <section id={`file-${name}`} className="overflow-hidden fm-field">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
@@ -39,8 +39,8 @@ function FileBlock({ file, split }: { file: FileData; split: boolean }) {
       >
         <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate font-mono">{name}</span>
-        <span className="font-mono text-emerald-700 dark:text-emerald-300">+{add}</span>
-        <span className="font-mono text-red-700 dark:text-red-300">−{del}</span>
+        <span className="font-mono text-olive-text">+{add}</span>
+        <span className="font-mono text-danger">−{del}</span>
       </button>
       {open && (
         <div className="diff-scroll overflow-x-auto text-xs">
@@ -88,7 +88,7 @@ export default function DiffTab({ taskId }: { taskId: number }) {
           {diff.data.base}…{diff.data.branch}
         </span>
       </div>
-      <ul className="mb-4 divide-y win-field text-xs">
+      <ul className="mb-4 divide-y fm-field text-xs">
         {files.map((f) => {
           const { add, del } = counts(f)
           const name = fileName(f)
@@ -96,14 +96,14 @@ export default function DiffTab({ taskId }: { taskId: number }) {
             <li key={name}>
               <a href={`#file-${name}`} className="flex min-h-10 items-center gap-2 px-3 hover:bg-muted">
                 <span className="min-w-0 flex-1 truncate font-mono">{name}</span>
-                <span className="font-mono text-emerald-700 dark:text-emerald-300">+{add}</span>
-                <span className="font-mono text-red-700 dark:text-red-300">−{del}</span>
+                <span className="font-mono text-olive-text">+{add}</span>
+                <span className="font-mono text-danger">−{del}</span>
               </a>
             </li>
           )
         })}
       </ul>
-      {diff.data.truncated && <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">{t.task.diff.truncated}</p>}
+      {diff.data.truncated && <p className="mb-3 text-xs text-signal-text">{t.task.diff.truncated}</p>}
       <div className="space-y-3">
         {files.map((f) => (
           <FileBlock key={fileName(f)} file={f} split={desktop} />

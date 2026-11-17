@@ -7,7 +7,7 @@ import { t } from '@/i18n/en'
 
 function Screen({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <main className="win-desktop flex min-h-(--app-height) items-center justify-center px-3">
+    <main className="fm-ground flex min-h-(--app-height) items-center justify-center px-3">
       <Window title={t.app.name} className="w-full max-w-sm" bodyClassName="flex gap-3 p-3">
         <div className="shrink-0 text-destructive">{icon}</div>
         <div className="flex min-w-0 flex-col items-start gap-2">

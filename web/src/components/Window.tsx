@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/** A Windows XP window: blue frame with a rounded Luna title bar, then the body. */
+/** A ruled panel: square ink frame, a mono title strip on a 2 px rule, then the body. */
 export function Window({
   title,
   icon,
@@ -13,7 +13,7 @@ export function Window({
 }: {
   title: ReactNode
   icon?: ReactNode
-  /** Title bar buttons (right side), e.g. <TitleButton>. */
+  /** Title strip buttons (right side), e.g. <TitleButton>. */
   controls?: ReactNode
   inactive?: boolean
   className?: string
@@ -21,8 +21,8 @@ export function Window({
   children: ReactNode
 }) {
   return (
-    <section className={cn('win-window flex flex-col px-[3px] pb-[3px]', className)}>
-      <div className={cn('-mx-[3px] flex h-[30px] shrink-0 items-center gap-1.5 pr-1 pl-2 text-[13px]', inactive ? 'win-titlebar-inactive' : 'win-titlebar')}>
+    <section className={cn('fm-panel flex flex-col', className)}>
+      <div className={cn('flex h-9 shrink-0 items-center gap-2 pr-1 pl-3', inactive ? 'fm-strip-muted' : 'fm-strip')}>
         {icon}
         <span className="min-w-0 flex-1 truncate">{title}</span>
         {controls}
@@ -32,7 +32,7 @@ export function Window({
   )
 }
 
-/** A title bar button (minimise, maximise, close); `close` makes it the red X. */
+/** A strip button (minimise, maximise, close). */
 export function TitleButton({ label, onClick, close, children }: { label: string; onClick?: () => void; close?: boolean; children: ReactNode }) {
   return (
     <button
@@ -41,7 +41,7 @@ export function TitleButton({ label, onClick, close, children }: { label: string
       title={label}
       onClick={onClick}
       data-close={close || undefined}
-      className="win-caption flex size-[21px] items-center justify-center [&_svg]:size-3 [&_svg]:stroke-[3]"
+      className="fm-icon-btn flex size-7 items-center justify-center [&_svg]:size-3.5 [&_svg]:stroke-2"
     >
       {children}
     </button>
