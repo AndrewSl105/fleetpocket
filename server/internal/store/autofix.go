@@ -175,7 +175,7 @@ func (s *Store) StartAutoFix(ctx context.Context, a AutoFixStart) (*Task, *Event
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE runs SET autofix_attempt = $2, max_budget_usd = nullif($3, 0) WHERE id = $1`,
+		if _, err := tx.Exec(ctx, `UPDATE runs SET autofix_attempt = $2, max_budget_usd = nullif($3::numeric, 0) WHERE id = $1`,
 			runID, a.Attempt, a.BudgetUSD); err != nil {
 			return err
 		}

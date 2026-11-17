@@ -13,7 +13,7 @@ func TestRenderAutoFix(t *testing.T) {
 		`{"phase":"started","attempt":1,"max_attempts":2,"signature":"ab12","checks":[{"name":"test","url":"https://x/1"}]}`: `CI auto-fix attempt 1/2`,
 		`{"phase":"green","fixes":1}`: "CI green after 1 fix",
 		`{"phase":"needs_you","reason":"the same failure repeated after a fix","checks":[{"name":"lint","url":"https://x/2"}]}`: `Logs: <a href="https://x/2">lint</a>`,
-		`{"phase":"cancelled","reason":"the PR was closed"}`: "the PR was closed",
+		`{"phase":"cancelled","reason":"the PR was closed"}`:                                                                    "the PR was closed",
 	}
 	for in, want := range cases {
 		if got := renderAutoFix(task, []byte(in)); !strings.Contains(got, want) || !strings.Contains(got, "#7") {
