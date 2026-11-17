@@ -24,7 +24,7 @@ export FLEETPOCKET_DEV_PORT FLEETPOCKET_DEV_CLIENT_ORIGIN
 TEST_DB_PORT ?= 55432
 FLEETPOCKET_TEST_DATABASE_URL ?= postgres://fleetpocket:fleetpocket@localhost:$(TEST_DB_PORT)/fleetpocket?sslmode=disable
 
-.PHONY: dev dev-setup dev-down dev-logs test test-db test-server test-agent test-web \
+.PHONY: embed-web jungle-monkey jungle-monkey-all npm-pack test-npm dev dev-setup dev-down dev-logs test test-db test-server test-agent test-web \
 	lint build gen-api test-install e2e e2e-real screenshots deps
 
 deps:
@@ -52,7 +52,7 @@ dev-logs:
 
 # ---- tests ----
 
-test: test-server test-agent test-web test-install
+test: test-server test-agent test-web test-install test-npm
 
 test-db:
 	docker run -d --name fleetpocket-test-pg -e POSTGRES_USER=fleetpocket -e POSTGRES_PASSWORD=fleetpocket \
@@ -98,3 +98,31 @@ build:
 
 gen-api:
 	cd web && npm run gen:api
+
+# ---- local mode (jungle-monkey) ----
+JM_VERSION ?= dev
+JM_LDFLAGS = -s -w -X github.com/andrewsl105/fleetpocket/server/internal/config.Version=$(JM_VERSION)
+
+# Copies web/dist into the Go package that embeds it (embedweb tag).
+embed-web:
+	cd web && npm run build
+	rm -rf server/internal/webui/dist && cp -r web/dist server/internal/webui/dist
+
+# The local binary with the web app inside: ./bin/jungle-monkey
+jungle-monkey: embed-web
+	cd server && CGO_ENABLED=0 go build -tags embedweb -ldflags "$(JM_LDFLAGS)" -o ../bin/jungle-monkey ./cmd/jungle-monkey
+
+# All five release targets into bin/, named as the npm launcher expects.
+jungle-monkey-all: embed-web
+	@for t in darwin/arm64/darwin-arm64 darwin/amd64/darwin-x64 linux/amd64/linux-x64 linux/arm64/linux-arm64 windows/amd64/win32-x64; do \
+		goos=$${t%%/*}; rest=$${t#*/}; goarch=$${rest%%/*}; key=$${rest#*/}; ext=; [ $$goos = windows ] && ext=.exe; \
+		echo "build $$key"; \
+		(cd server && CGO_ENABLED=0 GOOS=$$goos GOARCH=$$goarch go build -tags embedweb -ldflags "$(JM_LDFLAGS)" -o ../bin/jungle-monkey-$$key$$ext ./cmd/jungle-monkey) || exit 1; \
+	done
+
+# npm packages from bin/ into npm/dist (versions in lockstep).
+npm-pack: jungle-monkey-all
+	node npm/build.mjs $(JM_VERSION:dev=0.0.0-dev) bin
+
+test-npm:
+	cd npm/jungle-monkey && npm test

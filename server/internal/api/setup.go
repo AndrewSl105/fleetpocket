@@ -18,7 +18,9 @@ const minOwnerPassword = 12
 func (s *Server) setupGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if s.Setup != nil && s.Setup.Active() && p != "/healthz" &&
+		// With the embedded UI, its pages must load to show the wizard.
+		uiPage := s.UI != nil && !strings.HasPrefix(p, "/api/")
+		if s.Setup != nil && s.Setup.Active() && p != "/healthz" && !uiPage &&
 			!strings.HasPrefix(p, "/webhooks/") && !strings.HasPrefix(p, "/api/v1/setup/") {
 			writeError(w, http.StatusConflict, "setup_required", "open the setup link from the server log to create the owner")
 			return
