@@ -149,7 +149,8 @@ func (b *Bot) handleDraftCallback(ctx context.Context, cq *telego.CallbackQuery,
 		}
 		b.createMu.Lock()
 		v, err := b.Tasks.Create(ctx, tasks.CreateInput{ProjectID: d.ProjectID, RepositoryID: d.RepositoryID,
-			Title: tasks.TitleFromPrompt(prompt), Prompt: prompt, Agent: d.Agent, Node: d.Node, Source: "telegram", Images: images})
+			Title: tasks.TitleFromPrompt(prompt), Prompt: prompt, Agent: d.Agent, Node: d.Node, Source: "telegram", Images: images,
+			CreatedBy: actorID(ctx)})
 		if err == nil {
 			err = b.Store.SetTaskTelegram(ctx, v.ID, store.TelegramTarget{ChatID: d.ChatID, ThreadID: d.ThreadID})
 		}

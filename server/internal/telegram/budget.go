@@ -17,6 +17,7 @@ type budgetPayload struct {
 	Scope     string  `json:"scope"`
 	ProjectID string  `json:"project_id"`
 	Schedule  string  `json:"schedule"`
+	User      string  `json:"user"`
 	SpentUSD  float64 `json:"spent_usd"`
 	LimitUSD  float64 `json:"limit_usd"`
 	Via       string  `json:"via"`
@@ -25,6 +26,12 @@ type budgetPayload struct {
 func (p budgetPayload) scopeName() string {
 	if p.Scope == "project" {
 		return "Project " + esc(cut(p.ProjectID, 60)) + "'s monthly budget"
+	}
+	if p.Scope == "user" {
+		if p.User != "" {
+			return esc(cut(p.User, 60)) + "'s monthly budget"
+		}
+		return "Your monthly budget"
 	}
 	if p.Scope == "schedule" {
 		if p.Schedule != "" {
@@ -74,6 +81,11 @@ func (b *Bot) sendBudget(ctx context.Context, ev *store.Event) {
 		}
 	}
 	_, _ = b.sendTask(ctx, t, "budget", text, kb, true)
+	// A person's budget: the admins hear about it too (team mode).
+	var p budgetPayload
+	if json.Unmarshal(ev.Payload, &p) == nil && p.Scope == "user" {
+		b.alsoToAdmins(ctx, t, text)
+	}
 }
 
 // overrideBudget lets a task that waits for the budget start anyway.

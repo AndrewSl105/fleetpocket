@@ -175,12 +175,18 @@ func (b *Bot) handleCommand(ctx context.Context, m *telego.Message, cmd, args st
 			_, err := b.reply(ctx, m, "Usage: /msg &lt;id&gt; &lt;text&gt;", nil)
 			return err
 		}
+		if err := b.mayTask(ctx, id); err != nil {
+			return err
+		}
 		_, err := b.Tasks.Message(ctx, id, message, nil)
 		return err
 	case "cancel", "retry":
 		id, _, ok := splitID(args)
 		if !ok {
 			_, err := b.reply(ctx, m, "Usage: /"+cmd+" &lt;id&gt;", nil)
+			return err
+		}
+		if err := b.mayTask(ctx, id); err != nil {
 			return err
 		}
 		if cmd == "cancel" {
@@ -265,6 +271,9 @@ func (b *Bot) handlePromptReply(ctx context.Context, m *telego.Message, p store.
 		if strings.TrimSpace(text) == "" {
 			return fmt.Errorf("an answer is required")
 		}
+		if err := b.mayTask(ctx, p.TaskID); err != nil {
+			return err
+		}
 		_, err := b.Tasks.Answer(ctx, p.TaskID, p.QuestionID, text, "telegram")
 		return err
 	default:
@@ -286,6 +295,9 @@ func (b *Bot) routeTaskReply(ctx context.Context, m *telego.Message, taskID int6
 // sendToTask answers the task's open question with text, or sends it as a
 // message; images go with the message (after an answer, as a follow-up).
 func (b *Bot) sendToTask(ctx context.Context, m *telego.Message, taskID int64, text string, media []store.TelegramDraftMedia) error {
+	if err := b.mayTask(ctx, taskID); err != nil {
+		return err
+	}
 	images, err := b.downloadDraftImages(ctx, media)
 	if err != nil {
 		return err
@@ -319,7 +331,8 @@ func (b *Bot) newTask(ctx context.Context, m *telego.Message, projectID string, 
 		return err
 	}
 	b.createMu.Lock()
-	v, err := b.Tasks.Create(ctx, tasks.CreateInput{ProjectID: projectID, RepositoryID: repositoryID, Prompt: prompt, Source: "telegram", Images: images})
+	v, err := b.Tasks.Create(ctx, tasks.CreateInput{ProjectID: projectID, RepositoryID: repositoryID, Prompt: prompt, Source: "telegram", Images: images,
+		CreatedBy: actorID(ctx)})
 	if err == nil {
 		err = b.Store.SetTaskTelegram(ctx, v.ID, store.TelegramTarget{ChatID: m.Chat.ID, ThreadID: int64(m.MessageThreadID)})
 	}
@@ -384,7 +397,7 @@ func (b *Bot) showTask(ctx context.Context, to target, id int64) {
 			recent = append(recent, "answered: "+p.Text)
 		}
 	}
-	kb := b.taskButtons(ctx, t, to.chatID == b.OwnerID)
+	kb := b.taskButtons(ctx, t, b.private(ctx, to.chatID))
 	messageID, err := b.send(ctx, to, renderTaskDetails(t, t.Prompt, recent), kb, 0)
 	if err == nil {
 		_ = b.Store.AddTelegramTaskMessage(ctx, store.TelegramMessage{ChatID: to.chatID, MessageID: int64(messageID), TaskID: t.ID, Kind: "details", HasButtons: kb != nil})

@@ -21,6 +21,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/ideas"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
+	"github.com/andrewsl105/fleetpocket/server/internal/team"
 )
 
 type API interface {
@@ -51,6 +52,11 @@ type Bot struct {
 	STT                    Transcriber
 	STTEnabled             bool
 	OnError                func(string)
+	// Team is team mode (linked users, roles, routing); nil: single owner.
+	Team *team.Service
+	// QuestionTimeout is QUESTION_TIMEOUT: after it, open questions also go
+	// to the admins (team mode).
+	QuestionTimeout time.Duration
 
 	createMu sync.RWMutex
 	statusMu sync.Mutex
@@ -65,6 +71,8 @@ type editState struct {
 }
 
 type target struct{ chatID, threadID int64 }
+
+var errNoChat = errors.New("no Telegram chat for this person")
 
 func (b *Bot) init() {
 	if b.EditInterval == 0 {
@@ -91,6 +99,7 @@ func (b *Bot) Run(ctx context.Context, tg *telego.Bot) error {
 		}}))
 	}
 	go b.follow(ctx)
+	go b.escalateLoop(ctx)
 	for u := range updates {
 		b.HandleUpdate(ctx, u)
 	}
@@ -117,10 +126,13 @@ func (b *Bot) targetFor(ctx context.Context, t *store.Task) (target, store.Teleg
 	if chat, thread, err := b.Store.ProjectTelegram(ctx, t.ProjectID); err == nil && chat != 0 {
 		return target{chat, thread}, tt
 	}
-	return target{b.OwnerID, 0}, tt
+	return target{b.creatorChat(ctx, t.CreatedByID), 0}, tt
 }
 
 func (b *Bot) sendMode(ctx context.Context, to target, text string, markup telego.ReplyMarkup, replyTo int, sound bool) (int, error) {
+	if to.chatID == 0 {
+		return 0, errNoChat // team mode: the person has not linked Telegram
+	}
 	p := &telego.SendMessageParams{ChatID: tu.ID(to.chatID), MessageThreadID: int(to.threadID), Text: clamp(text), ParseMode: telego.ModeHTML,
 		LinkPreviewOptions: &telego.LinkPreviewOptions{IsDisabled: true}, ReplyMarkup: markup, DisableNotification: !sound}
 	if replyTo != 0 {
@@ -270,7 +282,7 @@ func (b *Bot) ensureStatus(ctx context.Context, t *store.Task) (target, int) {
 	if tt.MessageID != 0 {
 		return to, int(tt.MessageID)
 	}
-	kb := b.taskButtons(ctx, t, to.threadID == 0 && to.chatID == b.OwnerID)
+	kb := b.taskButtons(ctx, t, to.threadID == 0 && b.private(ctx, to.chatID))
 	id, err := b.send(ctx, to, b.card(ctx, t), kb, 0)
 	if err != nil {
 		return to, 0
@@ -318,7 +330,7 @@ func (b *Bot) editStatus(ctx context.Context, taskID int64) {
 	if msgID == 0 {
 		return
 	}
-	b.edit(ctx, to.chatID, msgID, b.card(ctx, t), b.taskButtons(ctx, t, to.threadID == 0 && to.chatID == b.OwnerID))
+	b.edit(ctx, to.chatID, msgID, b.card(ctx, t), b.taskButtons(ctx, t, to.threadID == 0 && b.private(ctx, to.chatID)))
 }
 
 func (b *Bot) removeStaleButtons(ctx context.Context, taskID int64) {
@@ -465,7 +477,7 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 
 func (b *Bot) targetPrivate(ctx context.Context, t *store.Task) bool {
 	to, _ := b.targetFor(ctx, t)
-	return to.threadID == 0 && to.chatID == b.OwnerID
+	return to.threadID == 0 && b.private(ctx, to.chatID)
 }
 
 func (b *Bot) notify(ctx context.Context, taskID int64, kind string, text func(*store.Task) string) {
@@ -531,14 +543,15 @@ func (b *Bot) refreshQuestion(ctx context.Context, taskID int64, questionID stri
 func (b *Bot) HandleUpdate(ctx context.Context, u telego.Update) {
 	switch {
 	case u.Message != nil:
-		if u.Message.From == nil || u.Message.From.ID != b.OwnerID {
-			slog.Info("telegram: ignored message from non-owner", "from", userID(u.Message.From), "chat", u.Message.Chat.ID)
+		ctx, ok := b.admit(ctx, u.Message.From, u.Message, nil)
+		if !ok || !b.mayMessage(ctx, u.Message) {
 			return
 		}
 		b.onMessage(ctx, u.Message)
 	case u.CallbackQuery != nil:
-		if u.CallbackQuery.From.ID != b.OwnerID {
-			slog.Info("telegram: ignored callback from non-owner", "from", u.CallbackQuery.From.ID)
+		from := u.CallbackQuery.From
+		ctx, ok := b.admit(ctx, &from, nil, u.CallbackQuery)
+		if !ok {
 			return
 		}
 		b.onCallback(ctx, u.CallbackQuery)
@@ -567,6 +580,10 @@ func (b *Bot) onCallback(ctx context.Context, cq *telego.CallbackQuery) {
 	c, err := b.Store.TelegramCallback(ctx, strings.TrimPrefix(cq.Data, "c:"))
 	if err != nil {
 		answer("This action has expired")
+		return
+	}
+	if why := b.mayCallback(ctx, c); why != "" {
+		answer(why)
 		return
 	}
 	switch c.Action {
@@ -656,7 +673,7 @@ func (b *Bot) mergeButtons(ctx context.Context, cq *telego.CallbackQuery, c stor
 	if mm := m.Message(); mm != nil {
 		threadID = int64(mm.MessageThreadID)
 	}
-	kb := b.taskButtons(ctx, t, threadID == 0 && m.GetChat().ID == b.OwnerID)
+	kb := b.taskButtons(ctx, t, threadID == 0 && b.private(ctx, m.GetChat().ID))
 	if c.Action == "merge" {
 		kb = tu.InlineKeyboard(tu.InlineKeyboardRow(
 			tu.InlineKeyboardButton(fmt.Sprintf("✅ Squash-merge #%d", *t.PRNumber)).WithCallbackData(b.callback(ctx, store.TelegramCallback{Action: "merge_confirm", TaskID: t.ID})),

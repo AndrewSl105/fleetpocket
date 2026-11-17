@@ -149,7 +149,7 @@ func (b *Bot) ScheduleFired(ctx context.Context, sc *store.Schedule, f *store.Sc
 	}
 	icon := map[string]string{store.FiringSkipped: "⏭", store.FiringQueued: "⏳", store.FiringMissed: "💤", store.FiringFailed: "❌"}[f.Outcome]
 	text := fmt.Sprintf("%s <b>%s</b> · %s%s", icon, name, f.Outcome, reason)
-	to := target{b.OwnerID, 0}
+	to := target{b.creatorChat(ctx, sc.CreatedByID), 0}
 	if chat, thread, err := b.Store.ProjectTelegram(ctx, sc.ProjectID); err == nil && chat != 0 {
 		to = target{chat, thread}
 	}

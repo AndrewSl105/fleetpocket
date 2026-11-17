@@ -98,6 +98,7 @@ func (b *Bot) saveIdea(ctx context.Context, cfg store.IdeaSettings, m, src *tele
 	if err != nil {
 		return err
 	}
+	b.authorIdea(ctx, idea)
 	_, err = b.reply(ctx, m, ideaSaved(cfg, idea), b.boardKeyboard(m))
 	return err
 }
@@ -145,6 +146,7 @@ func (b *Bot) ideaFromDraft(ctx context.Context, d *store.TelegramDraft, answer 
 		answer(cut(errText(err), 190))
 		return
 	}
+	b.authorIdea(ctx, idea)
 	if d.CardMessageID != 0 {
 		b.edit(ctx, d.ChatID, int(d.CardMessageID), ideaSaved(cfg, idea), nil)
 	}
@@ -182,4 +184,11 @@ func renderIdeaEvent(t *store.Task, raw json.RawMessage) string {
 		return fmt.Sprintf("✕ Idea “%s”: task #%d failed", title, t.ID)
 	}
 	return ""
+}
+
+// authorIdea records the linked user as the idea's creator (team mode).
+func (b *Bot) authorIdea(ctx context.Context, idea *store.Idea) {
+	if id := actorID(ctx); id != nil {
+		_ = b.Store.SetAuthor(ctx, "ideas", idea.ID, *id)
+	}
 }
