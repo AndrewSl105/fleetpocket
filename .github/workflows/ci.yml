@@ -21,6 +21,7 @@ jobs:
       agent: ${{ steps.filter.outputs.agent }}
       web: ${{ steps.filter.outputs.web }}
       deploy: ${{ steps.filter.outputs.deploy }}
+      npm: ${{ steps.filter.outputs.npm }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -42,6 +43,13 @@ jobs:
             deploy:
               - 'deploy/**'
               - '.github/workflows/ci.yml'
+            npm:
+              - 'npm/**'
+              - 'server/**'
+              - 'web/**'
+              - 'agent/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
 
   server:
     needs: changes
@@ -155,6 +163,41 @@ jobs:
           docker run --rm -e FLEETPOCKET_DOMAIN=fleetpocket.example.com
           -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro"
           caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  npm-smoke:
+    # Dry run of the npm release (npm/smoke.sh): pack every package, install
+    # the tarballs, --version, then on Linux start (fake runner), add a temp
+    # repository, run a task to branch_ready, check the jm/... branch, stop.
+    # macOS runners have no Docker: there it stops after --version and doctor.
+    needs: changes
+    if: needs.changes.outputs.npm == 'true' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Launcher tests
+        run: cd npm/jungle-monkey && npm test
+      - name: Web app
+        run: cd web && npm ci && cd .. && make embed-web
+      - name: Agent image
+        if: runner.os == 'Linux'
+        run: docker build -q -t fleetpocket-agent:dev agent
+      - name: Smoke test
+        env:
+          SMOKE_DOCKER: ${{ runner.os == 'Linux' && '1' || '0' }}
+        run: ./npm/smoke.sh
 
   links:
     runs-on: ubuntu-24.04
