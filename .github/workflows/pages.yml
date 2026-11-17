@@ -2,13 +2,8 @@ name: pages
 
 # The landing page: index.html plus the brand assets it references.
 # Settings → Pages → Source must be "GitHub Actions".
+# Manual only: Actions → pages → Run workflow.
 on:
-  push:
-    branches: [main]
-    paths:
-      - index.html
-      - docs/brand/**
-      - .github/workflows/pages.yml
   workflow_dispatch:
 
 permissions:

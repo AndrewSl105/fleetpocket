@@ -69,7 +69,7 @@ Jungle Monkey runs for one owner: you. The agent works in a sealed container wit
 ## Docs
 
 - [Local mode](docs/LOCAL.md): `npx jungle-monkey`, commands, data, uninstall
-- [Setup guide](docs/DEPLOY.md): server, GitHub App, updates and backups
+- [Setup guide](docs/DEPLOY.md): server, GitHub App, updates and backups. Deploying is manual: Actions → release → Run workflow from `main`; the landing page: Actions → pages → Run workflow
 - [Operations](docs/OPERATIONS.md): health checks, metrics, logs
 - [Development](docs/DEVELOPMENT.md): running it from source and contributing
 - Reference: [server spec](docs/SPEC-server.md), [web spec](docs/SPEC-web.md), [API](docs/API.md), [runner protocol](docs/PROTOCOL.md), [decisions](docs/DECISIONS.md)

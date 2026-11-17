@@ -1,9 +1,8 @@
 name: ci
 
+# Tests stay automatic on pull requests because Jungle Monkey's CI status and CI auto-fix read the PR's check results; remove `pull_request:` to make CI fully manual.
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
