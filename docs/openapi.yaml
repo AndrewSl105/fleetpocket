@@ -1008,6 +1008,88 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
+  /api/v1/local/github:
+    get:
+      operationId: localGitHubStatus
+      tags: [local]
+      summary: GitHub connection in local mode (optional; for Push & open PR)
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: localGitHubDisconnect
+      tags: [local]
+      summary: Forget the stored GitHub token
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/device:
+    post:
+      operationId: localGitHubDeviceStart
+      tags: [local]
+      summary: Start the OAuth device flow (scope `repo`)
+      description: 'POST https://github.com/login/device/code with the Jungle Monkey OAuth App client id. The owner opens `verification_uri` and enters `user_code`, then the client polls `/local/github/device/poll` every `interval` seconds. `502 github` when GitHub refuses or no client id is configured'
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Device code, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceCode' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/device/poll:
+    post:
+      operationId: localGitHubDevicePoll
+      tags: [local]
+      summary: Ask GitHub once whether the owner authorized the device
+      description: 'Respects the interval (slow_down adds 5 s); `connected` stores the token in the OS keychain'
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200':
+          description: Poll result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, github]
+                properties:
+                  status: { type: string, enum: [pending, connected, expired, denied, none] }
+                  github: { $ref: '#/components/schemas/GitHubConnStatus' }
+        '400': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/gh:
+    post:
+      operationId: localGitHubImportGH
+      tags: [local]
+      summary: Use the GitHub CLI's token (`gh auth token`)
+      description: The web app asks the owner first. `400 invalid` when gh is missing or not logged in, or GitHub rejects the token
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/github/token:
+    post:
+      operationId: localGitHubSetToken
+      tags: [local]
+      summary: Store a pasted fine-grained personal access token
+      description: Checked with GET /user before it is stored; `400 invalid` when GitHub rejects it
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [token], additionalProperties: false, properties: { token: { type: string } } }
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/GitHubConnStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
   /api/v1/tasks/{id}/budget-override:
     post:
       operationId: overrideTaskBudget
@@ -2094,6 +2176,26 @@ components:
         branch: { type: string }
         detached: { type: boolean }
         dirty: { type: boolean }
+
+    GitHubConnStatus:
+      type: object
+      required: [connected, login, scopes, error, device_flow, gh_cli]
+      properties:
+        connected: { type: boolean }
+        login: { type: string }
+        scopes: { type: array, items: { type: string }, description: 'Classic OAuth scopes (X-OAuth-Scopes); empty for a fine-grained token' }
+        error: { type: string, description: A stored token that no longer works }
+        device_flow: { type: boolean, description: An OAuth App client id is configured }
+        gh_cli: { type: boolean, description: The GitHub CLI is installed }
+
+    DeviceCode:
+      type: object
+      required: [user_code, verification_uri, expires_in, interval]
+      properties:
+        user_code: { type: string, example: WDJB-MJHT }
+        verification_uri: { type: string, example: 'https://github.com/login/device' }
+        expires_in: { type: integer }
+        interval: { type: integer, description: Seconds between polls }
 
     RepositorySource:
       type: string

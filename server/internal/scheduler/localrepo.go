@@ -114,7 +114,8 @@ func (s *Scheduler) ResumeDeliveries(ctx context.Context, repoID int64) {
 // then follows the normal PR flow (pr_open, CI, auto-fix). On failure the
 // task goes back to branch_ready.
 func (s *Scheduler) PushLocal(ctx context.Context, taskID int64) error {
-	if s.Publisher == nil {
+	pub := s.publisher()
+	if pub == nil {
 		return tasks.ErrGitHubDisabled
 	}
 	t, err := s.Store.GetTask(ctx, taskID)
@@ -149,7 +150,7 @@ func (s *Scheduler) PushLocal(ctx context.Context, taskID int64) error {
 	t = nt
 	branch := deref(t.Branch, "")
 	s.recordPush(ctx, t)
-	res, err := s.Publisher.Publish(ctx, PublishInput{
+	res, err := pub.Publish(ctx, PublishInput{
 		Host: s.host(t), Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
 		Summary: s.lastSummary(ctx, t.ID), CostUSD: t.CostUSDTotal, Turns: t.Turns,
 	})

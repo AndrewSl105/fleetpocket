@@ -765,6 +765,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/local/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GitHub connection in local mode (optional; for Push & open PR) */
+        get: operations["localGitHubStatus"];
+        put?: never;
+        post?: never;
+        /** Forget the stored GitHub token */
+        delete: operations["localGitHubDisconnect"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the OAuth device flow (scope `repo`)
+         * @description POST https://github.com/login/device/code with the Jungle Monkey OAuth App client id. The owner opens `verification_uri` and enters `user_code`, then the client polls `/local/github/device/poll` every `interval` seconds. `502 github` when GitHub refuses or no client id is configured
+         */
+        post: operations["localGitHubDeviceStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/device/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask GitHub once whether the owner authorized the device
+         * @description Respects the interval (slow_down adds 5 s); `connected` stores the token in the OS keychain
+         */
+        post: operations["localGitHubDevicePoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/gh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use the GitHub CLI's token (`gh auth token`)
+         * @description The web app asks the owner first. `400 invalid` when gh is missing or not logged in, or GitHub rejects the token
+         */
+        post: operations["localGitHubImportGH"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/github/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a pasted fine-grained personal access token
+         * @description Checked with GET /user before it is stored; `400 invalid` when GitHub rejects it
+         */
+        post: operations["localGitHubSetToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/{id}/budget-override": {
         parameters: {
             query?: never;
@@ -1664,6 +1762,27 @@ export interface components {
             branch: string;
             detached: boolean;
             dirty: boolean;
+        };
+        GitHubConnStatus: {
+            connected: boolean;
+            login: string;
+            /** @description Classic OAuth scopes (X-OAuth-Scopes); empty for a fine-grained token */
+            scopes: string[];
+            /** @description A stored token that no longer works */
+            error: string;
+            /** @description An OAuth App client id is configured */
+            device_flow: boolean;
+            /** @description The GitHub CLI is installed */
+            gh_cli: boolean;
+        };
+        DeviceCode: {
+            /** @example WDJB-MJHT */
+            user_code: string;
+            /** @example https://github.com/login/device */
+            verification_uri: string;
+            expires_in: number;
+            /** @description Seconds between polls */
+            interval: number;
         };
         /**
          * @description `local` (a folder on the owner's disk) exists only in local mode (`npx jungle-monkey`)
@@ -4329,6 +4448,154 @@ export interface operations {
             400: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+        };
+    };
+    localGitHubStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localGitHubDisconnect: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localGitHubDeviceStart: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Device code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceCode"];
+                };
+            };
+            400: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    localGitHubDevicePoll: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Poll result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "pending" | "connected" | "expired" | "denied" | "none";
+                        github: components["schemas"]["GitHubConnStatus"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    localGitHubImportGH: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localGitHubSetToken: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
         };
     };
     overrideTaskBudget: {

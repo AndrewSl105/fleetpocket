@@ -94,10 +94,15 @@ func (h *Webhook) pullRequest(ctx context.Context, e *github.PullRequestEvent) e
 	if err != nil {
 		return err
 	}
-	merged := pr.GetMerged()
+	return h.closePR(ctx, t, pr.GetNumber(), pr.GetMerged())
+}
+
+// closePR records that task t's PR was closed or merged and completes the
+// task (webhook, or the local-mode poller).
+func (h *Webhook) closePR(ctx context.Context, t *store.Task, number int, merged bool) error {
 	// A merge from Fleetpocket (tasks.Service.Merge) has already recorded it.
-	if !h.closedRecorded(ctx, t.ID, pr.GetNumber()) {
-		h.event(ctx, t.ID, "pr_closed", map[string]any{"number": pr.GetNumber(), "merged": merged})
+	if !h.closedRecorded(ctx, t.ID, number) {
+		h.event(ctx, t.ID, "pr_closed", map[string]any{"number": number, "merged": merged})
 	}
 	if h.OnPRClosed != nil {
 		h.OnPRClosed(ctx, t.ID)
@@ -161,6 +166,16 @@ func (h *Webhook) ci(ctx context.Context, repo, branch, sha, action, status, con
 	t, err := h.Store.TaskByBranch(ctx, repo, branch)
 	if err != nil {
 		return err
+	}
+	return h.ciTask(ctx, t, sha, action, status, conclusion, name, url)
+}
+
+// ciTask records a CI status change of task t's branch and calls the
+// auto-fix hooks (webhook, or the local-mode poller).
+func (h *Webhook) ciTask(ctx context.Context, t *store.Task, sha, action, status, conclusion, name, url string) error {
+	ci := CIStatus(action, status, conclusion)
+	if ci == "" {
+		return nil
 	}
 	// A failure sticks until the next push starts new checks (pending).
 	if ci == "success" && t.CIStatus != nil && *t.CIStatus == "failure" {

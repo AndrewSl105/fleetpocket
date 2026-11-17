@@ -25,6 +25,9 @@ type App struct {
 	apiURL string // "" = api.github.com
 	// OnError observes API failures (metrics).
 	OnError func(op string)
+	// userToken is set on a UserClient: every call uses the owner's token
+	// instead of an installation token.
+	userToken func(ctx context.Context) (string, error)
 }
 
 // New loads the App's private key. apiURL overrides the API base (tests).
@@ -77,6 +80,9 @@ func (a *App) fail(op string, err error) error {
 // Token mints an installation token scoped to the single repository
 // "owner/name". It is used for one operation and never stored.
 func (a *App) Token(ctx context.Context, fullName string, installationID int64) (string, error) {
+	if a.userToken != nil {
+		return a.userToken(ctx)
+	}
 	_, name, ok := strings.Cut(fullName, "/")
 	if !ok {
 		return "", fmt.Errorf("bad repository name %q", fullName)
@@ -89,17 +95,23 @@ func (a *App) Token(ctx context.Context, fullName string, installationID int64) 
 }
 
 func (a *App) repoClient(ctx context.Context, fullName string, installationID int64) (*github.Client, string, string, error) {
+	owner, name, ok := strings.Cut(fullName, "/")
+	if !ok {
+		return nil, "", "", fmt.Errorf("bad repository name %q", fullName)
+	}
 	tok, err := a.Token(ctx, fullName, installationID)
 	if err != nil {
 		return nil, "", "", err
 	}
-	owner, name, _ := strings.Cut(fullName, "/")
 	c, err := a.newClient(github.WithAuthToken(tok))
 	return c, owner, name, err
 }
 
 // ListRepositories returns every repository visible to any installation.
 func (a *App) ListRepositories(ctx context.Context) ([]api.GitHubRepo, error) {
+	if a.userToken != nil {
+		return a.listUserRepositories(ctx)
+	}
 	var out []api.GitHubRepo
 	opt := &github.ListOptions{PerPage: 100}
 	for {

@@ -71,6 +71,8 @@ type Server struct {
 	// LocalRepos serves the /local repository endpoints; nil (server mode)
 	// answers them with 400 local_mode_only.
 	LocalRepos *localrepos.Service
+	// LocalGitHub connects GitHub with the owner's token (local mode only).
+	LocalGitHub LocalGitHub
 	// ResumeDeliveries retries deliveries that waited for a moved folder.
 	ResumeDeliveries func(ctx context.Context, repoID int64)
 	// Gateway is the MCP gateway (also the MCP server registry); its own
@@ -151,6 +153,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/local/repos", s.sessionOrControl(s.localRepos(s.addLocalRepo)))
 	mux.HandleFunc("GET /api/v1/local/repos/{id}/status", a(s.localRepos(s.localRepoStatus)))
 	mux.HandleFunc("POST /api/v1/local/repos/{id}/locate", a(s.localRepos(s.locateLocalRepo)))
+	mux.HandleFunc("GET /api/v1/local/github", a(s.localGitHub(s.githubStatus)))
+	mux.HandleFunc("DELETE /api/v1/local/github", a(s.localGitHub(s.githubDisconnect)))
+	mux.HandleFunc("POST /api/v1/local/github/device", a(s.localGitHub(s.githubDeviceStart)))
+	mux.HandleFunc("POST /api/v1/local/github/device/poll", a(s.localGitHub(s.githubDevicePoll)))
+	mux.HandleFunc("POST /api/v1/local/github/gh", a(s.localGitHub(s.githubImportGH)))
+	mux.HandleFunc("POST /api/v1/local/github/token", a(s.localGitHub(s.githubSetToken)))
 	mux.HandleFunc("GET /api/v1/stats", a(s.stats))
 	mux.HandleFunc("GET /api/v1/mcp-servers", a(s.listMCPServers))
 	mux.HandleFunc("POST /api/v1/mcp-servers", a(s.createMCPServer))

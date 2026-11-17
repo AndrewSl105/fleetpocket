@@ -14,13 +14,21 @@ import (
 // Publisher implements scheduler.Publisher: validate, push, open or update the PR.
 // The workspace operations run on the task's host (PublishInput.Host).
 type Publisher struct {
-	App *App
+	// App is the GitHub client: the GitHub App (server mode) or the owner's
+	// token (local mode, UserClient).
+	App Client
+	// Connected reports whether GitHub can be used right now; nil means
+	// always (server mode). Local mode: a token is stored.
+	Connected func() bool
 	// RequireScanner fails the publish when the host cannot run the secrets
 	// scan (SECRETS_SCAN=gitleaks).
 	RequireScanner bool
 	// TaskURL links back to the task in the web app.
 	TaskURL func(taskID int64) string
 }
+
+// Enabled implements scheduler.Enabler.
+func (p *Publisher) Enabled() bool { return p.Connected == nil || p.Connected() }
 
 func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*scheduler.PublishResult, error) {
 	t, repo, h := in.Task, in.Repo, in.Host

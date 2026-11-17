@@ -60,6 +60,8 @@ type Options struct {
 	Home     string
 	StartDir string
 	DataDir  string
+	// Secrets is the keychain holding the owner's GitHub token (local mode).
+	Secrets githubapp.TokenStore
 }
 
 // Serve runs the service until ctx ends or cancel is called (restart after
@@ -246,6 +248,41 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		taskSvc.LocalHost = func(t *store.Task) tasks.LocalBranches { return registry.For(t.Node) }
 		taskSvc.PushLocal = sched.PushLocal
 	}
+	var poller *githubapp.Poller
+	if cfg.Local() && opts.Secrets != nil {
+		// GitHub with the owner's token: optional, for "Push & open PR" and
+		// the PR/CI flow after it. PRs are polled instead of webhooks.
+		conn := &githubapp.Connector{ClientID: cfg.GitHubClientID, Store: opts.Secrets}
+		user := githubapp.NewUserClient(conn.Token, cfg.GitHubAPIURL)
+		user.OnError = met.GitHubError
+		conn.Client = user
+		// Not connected: git runs without a token, as before.
+		ws.Auth = func(ctx context.Context, full string, inst int64) (string, error) {
+			if !conn.Connected() {
+				return "", nil
+			}
+			return user.Token(ctx, full, inst)
+		}
+		taskSvc.GitHub = user
+		sched.Publisher = &githubapp.Publisher{App: user, Connected: conn.Connected,
+			RequireScanner: cfg.SecretsScan == "gitleaks", TaskURL: taskURL(cfg)}
+		fixer := &cifix.Service{
+			Store: st, Hub: hub, GitHub: user, Files: files, Wake: sched.Wake, Holder: sched,
+			DefaultBudgetUSD: cfg.DefaultMaxBudgetUSD, Attempt: met.AutoFixAttempt, Outcome: met.AutoFixOutcome,
+		}
+		taskSvc.AutoFix = fixer
+		hook := &githubapp.Webhook{
+			Store: st, Hub: hub, Tasks: taskSvc,
+			Cleanup: func(ctx context.Context, id int64) {
+				if t, err := st.GetTask(ctx, id); err == nil {
+					_ = registry.For(t.Node).RemoveAll(ctx, id)
+				}
+			},
+			OnCIFailed: fixer.Failed, OnCI: fixer.Changed, OnPRClosed: fixer.PRClosed,
+		}
+		poller = &githubapp.Poller{Store: st, Hook: hook, Token: conn.Token, APIURL: cfg.GitHubAPIURL}
+		srv.LocalGitHub = conn
+	}
 
 	var wg sync.WaitGroup
 	if cfg.TelegramEnabled() {
@@ -270,6 +307,13 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 			if err := bot.Run(ctx, tg); err != nil {
 				slog.Error("telegram bot stopped", "err", err)
 			}
+		}()
+	}
+	if poller != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			poller.Run(ctx)
 		}()
 	}
 	wg.Add(1)

@@ -283,6 +283,17 @@ working tree are never touched by delivery.
 | `POST /tasks/{id}/branch/discard` | deletes `local_branch` (`409 current_branch` while it is checked out) and completes the task |
 | `POST /tasks/{id}/branch/push` | "Push & open PR": needs a GitHub `origin` remote (`400`) and GitHub connected (`503 github_disabled`). Pushes `agent/<id>-<slug>` with the owner's token (held by the server process, never the runner), opens the PR, and the task becomes `pr_open` with the usual CI and auto-fix flow. On failure it returns to `branch_ready` |
 
+| `GET /local/github` | `{connected, login, scopes, error, device_flow, gh_cli}`: GitHub is optional in local mode (only "Push & open PR" and the PR flow after it need it) |
+| `POST /local/github/device` | starts the OAuth device flow (scope `repo`): `{user_code, verification_uri, expires_in, interval}`; `502 github` without a client id or when GitHub refuses |
+| `POST /local/github/device/poll` | `{status: pending\|connected\|expired\|denied\|none, github}`; poll every `interval` seconds (the server also enforces it and `slow_down`) |
+| `POST /local/github/gh` | imports `gh auth token` (the web app asks first) |
+| `POST /local/github/token` `{token}` | stores a pasted fine-grained PAT after `GET /user` accepts it |
+| `DELETE /local/github` | forgets the token |
+
+The token lives in the OS keychain (service `jungle-monkey`, a 0600 file when there is none) and is used only by the server process; runners never get it. Without webhooks, the PRs of `pr_open` tasks are polled every 60 s (conditional requests with ETags, backing off to 15 min on errors) and fed into the same code as `POST /webhooks/github`: CI status, CI auto-fix, PR merged or closed.
+
+`GET /auth/local?code=…&next=/projects/<id>` (the CLI's one-time link) lands on `next` when it is an app path.
+
 `POST /tasks` takes `start_from`: `last_commit` (default) or `working_tree` (local repositories only): the copy starts from the commit checked out in the folder plus its uncommitted changes and untracked, not ignored files, committed as `WIP: working tree at start`.
 
 A follow-up on a `branch_ready` task continues the same task branch and re-delivers it: `local_branch` is fast-forwarded, or, when it is checked out or the owner committed on it, the update goes to a new `-2`… branch (`branch_ready.previous`). Server mode answers every `/local` endpoint and `source: "local"` with `400 local_mode_only`.

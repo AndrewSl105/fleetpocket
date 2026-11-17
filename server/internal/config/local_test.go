@@ -109,3 +109,40 @@ func TestRunnerImageFor(t *testing.T) {
 		t.Error(got)
 	}
 }
+
+// GitHub in local mode uses the OAuth App client id (overridable); server
+// mode keeps the GitHub App and the gitleaks scan.
+func TestGitHubDefaultsPerMode(t *testing.T) {
+	old := DefaultGitHubClientID
+	DefaultGitHubClientID = "Iv1.built-in"
+	t.Cleanup(func() { DefaultGitHubClientID = old })
+
+	t.Setenv("MODE", "")
+	t.Setenv("JM_GITHUB_CLIENT_ID", "")
+	t.Setenv("SECRETS_SCAN", "")
+	t.Setenv("GITHUB_APP_ID", "7")
+	t.Setenv("GITHUB_APP_PRIVATE_KEY_PATH", "/k.pem")
+	s, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.SecretsScan != "gitleaks" || !s.GitHubEnabled() {
+		t.Fatalf("server: scan %q app %v", s.SecretsScan, s.GitHubEnabled())
+	}
+
+	t.Setenv("MODE", "local")
+	t.Setenv("JM_DATA_DIR", t.TempDir())
+	l, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.GitHubClientID != "Iv1.built-in" || l.GitHubEnabled() || l.SecretsScan != "off" {
+		t.Fatalf("local: client %q app %v scan %q", l.GitHubClientID, l.GitHubEnabled(), l.SecretsScan)
+	}
+	t.Setenv("JM_GITHUB_CLIENT_ID", "Iv1.override")
+	t.Setenv("SECRETS_SCAN", "gitleaks")
+	l, _ = Load()
+	if l.GitHubClientID != "Iv1.override" || l.SecretsScan != "gitleaks" {
+		t.Fatalf("overrides: %q %q", l.GitHubClientID, l.SecretsScan)
+	}
+}

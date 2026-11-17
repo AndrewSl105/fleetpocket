@@ -62,9 +62,10 @@ func (s *Scheduler) recordCheckpoint(ctx context.Context, t *store.Task, runID i
 
 // needsForce: after a restore the branch may have been rewritten; then the
 // push needs --force-with-lease (the publisher refuses branches Jungle
-// Monkey did not create).
+// Monkey did not create). A delivered local branch is rewritten the same way
+// (a forced fetch of jm/...).
 func (s *Scheduler) needsForce(ctx context.Context, h hosts.Host, t *store.Task, branch string) (bool, error) {
-	if branch == "" || s.Publisher == nil {
+	if branch == "" || s.publisher() == nil && t.LocalBranch == nil {
 		return false, nil
 	}
 	restored, err := s.Store.HasRestore(ctx, t.ID)

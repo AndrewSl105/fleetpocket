@@ -67,6 +67,21 @@ type Publisher interface {
 	Publish(ctx context.Context, in PublishInput) (*PublishResult, error)
 }
 
+// Enabler is a Publisher that can be off at runtime (local mode while
+// GitHub is not connected); it then counts as no publisher.
+type Enabler interface{ Enabled() bool }
+
+// publisher is s.Publisher, or nil when there is none or it is off.
+func (s *Scheduler) publisher() Publisher {
+	if s.Publisher == nil {
+		return nil
+	}
+	if e, ok := s.Publisher.(Enabler); ok && !e.Enabled() {
+		return nil
+	}
+	return s.Publisher
+}
+
 // Hooks lets other parts (metrics) observe runs without coupling.
 type Hooks struct {
 	RunFinished func(project string, exitCode int, dur time.Duration)
@@ -939,7 +954,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		return
 	}
 
-	if guard && s.Publisher != nil {
+	if guard && s.publisher() != nil {
 		project, err := s.Store.GetProject(ctx, t.ProjectID)
 		if err != nil {
 			s.fail(ctx, t, err.Error())
@@ -972,7 +987,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 			return
 		}
 	}
-	if s.Publisher == nil {
+	if s.publisher() == nil {
 		_ = h.RemoveAll(ctx, t.ID)
 		if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.Completed, "committed locally (GitHub App not configured)"); err != nil {
 			s.log(t, 0).Error("set completed", "err", err)
@@ -989,7 +1004,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		t = latest
 	}
 	s.recordPush(ctx, t)
-	res, err := s.Publisher.Publish(ctx, PublishInput{
+	res, err := s.publisher().Publish(ctx, PublishInput{
 		Host: h, Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
 		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit, Force: force,
 	})
