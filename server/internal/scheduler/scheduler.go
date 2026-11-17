@@ -66,6 +66,10 @@ type Hooks struct {
 	RunFinished func(project string, exitCode int, dur time.Duration)
 	// AutoFixOutcome counts CI auto-fix loops handed back to the owner.
 	AutoFixOutcome func(project, outcome string)
+	// BudgetHeld counts tasks a monthly cap holds; BudgetAlert the 80% and
+	// 100% notices (scope: global or project).
+	BudgetHeld  func(project, scope string)
+	BudgetAlert func(scope string, level int)
 }
 
 type Scheduler struct {
@@ -85,6 +89,8 @@ type Scheduler struct {
 	// runs (tests mount a freshly built binary into another image).
 	EgressBinary string
 	EgressBinds  []string
+	// Now is the clock of the monthly budgets; nil: time.Now (tests set it).
+	Now func() time.Time
 
 	wake chan struct{}
 	mu   sync.Mutex
@@ -197,8 +203,9 @@ func (s *Scheduler) Run(ctx context.Context) error {
 }
 
 func (s *Scheduler) claim(ctx context.Context) {
+	gate := s.budgetGate(ctx)
 	for {
-		t, err := s.Store.ClaimNext(ctx, s.Cfg.MaxConcurrentTasks, s.Hosts.Online())
+		t, err := s.Store.ClaimNext(ctx, s.Cfg.MaxConcurrentTasks, s.Hosts.Online(), gate)
 		if err != nil {
 			if ctx.Err() == nil {
 				slog.Error("claim", "err", err)
@@ -206,6 +213,7 @@ func (s *Scheduler) claim(ctx context.Context) {
 			return
 		}
 		if t == nil {
+			s.markBudgetWaits(ctx, gate)
 			return
 		}
 		s.Hub.PublishTask(t)
@@ -586,10 +594,7 @@ const maxReattach = 50
 // code and applies it. A stream that ends while the container still runs is
 // re-attached; events.jsonl fills any gap.
 func (s *Scheduler) supervise(ctx context.Context, h hosts.Host, t *store.Task, run *store.Run, r *runnermgr.Runner, started time.Time) {
-	var baseline float64
-	if run.Kind == tasks.RunResume || run.Kind == tasks.RunFollowup {
-		baseline, _ = s.Store.SessionBaselineCost(ctx, t.ID, run.ID)
-	}
+	base := s.usageBase(ctx, t, run)
 	var out runOutcome
 	reattached := 0
 	for {
@@ -613,7 +618,7 @@ func (s *Scheduler) supervise(ctx context.Context, h hosts.Host, t *store.Task, 
 				s.replayFile(ctx, h, t, run.ID, &out)
 				continue
 			}
-			s.handleEvent(ctx, t, run.ID, baseline, ev, &out)
+			s.handleEvent(ctx, t, run.ID, base, ev, &out)
 		case line, ok := <-r.BadLines:
 			if ok {
 				s.log(t, run.ID).Warn("invalid runner output", "line", line)
@@ -632,7 +637,7 @@ exited:
 }
 
 // handleEvent persists one runner event, publishes it and applies its side effects.
-func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64, baseline float64, ev runnermgr.Event, out *runOutcome) {
+func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64, base *usageBase, ev runnermgr.Event, out *runOutcome) {
 	switch ev.Type {
 	case runnermgr.EvDone:
 		out.done = &ev
@@ -683,21 +688,13 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 		if nt, err := s.Store.SetStatus(ctx, t.ID, []string{tasks.Running}, tasks.WaitingInput, "", false); err == nil {
 			s.Hub.PublishTask(nt)
 		}
+	case runnermgr.EvStarted:
+		base.model = ev.Model
+		if err := s.Store.SetRunAgent(ctx, runID, t.Agent, ev.Model, ev.Auth); err != nil {
+			s.log(t, runID).Error("set run agent", "err", err)
+		}
 	case runnermgr.EvUsage, runnermgr.EvDone:
-		cost := ev.CostUSDTotal - baseline
-		if cost < 0 {
-			cost = 0
-		}
-		if err := s.Store.SetRunCost(ctx, runID, cost); err != nil {
-			s.log(t, runID).Error("set cost", "err", err)
-		}
-		if ev.Type == runnermgr.EvUsage {
-			if nt, err := s.Store.SetRunTurns(ctx, runID, ev.Turns); err != nil {
-				s.log(t, runID).Error("set turns", "err", err)
-			} else {
-				s.Hub.PublishTask(nt)
-			}
-		}
+		s.recordUsage(ctx, t, runID, ev, base)
 	}
 }
 
@@ -707,7 +704,15 @@ func (s *Scheduler) finishRun(ctx context.Context, h hosts.Host, taskID int64, r
 	first, _ := s.Store.FinishRun(ctx, run.ID, code)
 	s.endIntegrations(ctx, run.ID)
 	if first {
-		s.addEvent(ctx, taskID, &run.ID, "run_finished", map[string]any{"run_id": run.ID, "exit_code": code})
+		payload := map[string]any{"run_id": run.ID, "exit_code": code}
+		// The run's cost for the timeline (docs/API.md, event types).
+		if r, err := s.Store.GetRun(ctx, run.ID); err == nil && r.CostSource != nil {
+			payload["cost_usd"], payload["cost_source"] = r.CostUSD, *r.CostSource
+			if r.Auth != nil {
+				payload["auth"] = *r.Auth
+			}
+		}
+		s.addEvent(ctx, taskID, &run.ID, "run_finished", payload)
 	}
 	if run.ContainerID != nil {
 		_ = h.Remove(ctx, *run.ContainerID)

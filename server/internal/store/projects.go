@@ -26,11 +26,15 @@ type Project struct {
 	RunnerCPUs       *float64 `json:"runner_cpus"`
 	TelegramThreadID *int64   `json:"telegram_thread_id"`
 	// CIAutoFix overrides the global CI auto-fix default; nil fields inherit it.
-	CIAutoFix    AutoFixOverrides `json:"ci_autofix"`
-	Archived     bool             `json:"archived"`
-	CreatedAt    time.Time        `json:"created_at"`
-	UpdatedAt    time.Time        `json:"updated_at"`
-	Repositories []Repository     `json:"repositories"`
+	CIAutoFix AutoFixOverrides `json:"ci_autofix"`
+	// Budget is the project's monthly cap (nil: none); MonthCostUSD is the
+	// month-to-date cost, filled in by the API.
+	Budget       *ProjectBudget `json:"budget"`
+	MonthCostUSD float64        `json:"month_cost_usd"`
+	Archived     bool           `json:"archived"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	Repositories []Repository   `json:"repositories"`
 }
 
 type Repository struct {
@@ -44,20 +48,25 @@ type Repository struct {
 
 const projectCols = `id, name, instructions, services, env, runner_image, model, max_turns,
 	max_budget_usd::float8, EXTRACT(EPOCH FROM max_duration)::bigint, runner_memory, runner_cpus::float8,
-	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix`
+	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix, budget`
 
 func scanProject(row interface{ Scan(...any) error }) (*Project, error) {
 	var p Project
-	var env, autofix []byte
+	var env, autofix, budget []byte
 	err := row.Scan(&p.ID, &p.Name, &p.Instructions, &p.Services, &env, &p.RunnerImage, &p.Model, &p.MaxTurns,
 		&p.MaxBudgetUSD, &p.MaxDurationSec, &p.RunnerMemory, &p.RunnerCPUs,
-		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix)
+		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix, &budget)
 	if err != nil {
 		return nil, err
 	}
 	if len(autofix) > 0 {
 		if err := json.Unmarshal(autofix, &p.CIAutoFix); err != nil {
 			return nil, fmt.Errorf("project %s ci_autofix: %w", p.ID, err)
+		}
+	}
+	if len(budget) > 0 {
+		if err := json.Unmarshal(budget, &p.Budget); err != nil {
+			return nil, fmt.Errorf("project %s budget: %w", p.ID, err)
 		}
 	}
 	p.Env = map[string]string{}
@@ -93,6 +102,8 @@ type ProjectFields struct {
 	Archived         *bool              `json:"archived"`
 	// CIAutoFix replaces the project's CI auto-fix overrides as a whole.
 	CIAutoFix *AutoFixOverrides `json:"ci_autofix"`
+	// Budget replaces the monthly cap; a nil or zero monthly_usd removes it.
+	Budget *ProjectBudget `json:"budget"`
 }
 
 func (s *Store) CreateProject(ctx context.Context, id string, f ProjectFields) (*Project, error) {
@@ -180,6 +191,14 @@ func (s *Store) UpdateProject(ctx context.Context, id string, f ProjectFields) (
 		} else {
 			b, _ := json.Marshal(*f.CIAutoFix)
 			add("ci_autofix", b)
+		}
+	}
+	if f.Budget != nil {
+		if f.Budget.Cap() <= 0 {
+			add("budget", nil)
+		} else {
+			b, _ := json.Marshal(*f.Budget)
+			add("budget", b)
 		}
 	}
 	tag, err := s.Pool.Exec(ctx, `UPDATE projects SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)

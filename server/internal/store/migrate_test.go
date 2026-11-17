@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/testutil"
@@ -33,5 +34,16 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	}
 	if err := st.SetProjectEgress(ctx, "p", store.Egress{Mode: store.EgressAllowlist}); err != nil {
 		t.Fatalf("egress: %v", err)
+	}
+	// 00013: costs and budgets.
+	ten := 10.0
+	if p, err := st.UpdateProject(ctx, "p", store.ProjectFields{Budget: &store.ProjectBudget{MonthlyUSD: &ten}}); err != nil || p.Budget.Cap() != 10 {
+		t.Fatalf("budget: %+v %v", p, err)
+	}
+	if err := st.SetCostSettings(ctx, store.CostSettings{MonthlyBudgetUSD: &ten}); err != nil {
+		t.Fatalf("cost settings: %v", err)
+	}
+	if _, err := st.AddBudgetAlert(ctx, "global", "", time.Now(), 80); err != nil {
+		t.Fatalf("budget_alerts: %v", err)
 	}
 }

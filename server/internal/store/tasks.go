@@ -53,6 +53,16 @@ type Task struct {
 	AutoFixSignature   *string `json:"-"`
 	AutoFixHandledSHA  *string `json:"-"`
 
+	// Costs (docs/SPEC-server.md "Costs and budgets"): the auto-fix runs'
+	// share of CostUSDTotal, whether any run's cost is an estimate or
+	// API-equivalent (Claude subscription), the budget scope a queued task
+	// waits for, and when the owner let it start anyway.
+	AutoFixCostUSD    float64    `json:"autofix_cost_usd"`
+	CostEstimated     bool       `json:"cost_estimated"`
+	CostAPIEquivalent bool       `json:"cost_api_equivalent"`
+	BudgetWait        *string    `json:"budget_wait"`
+	BudgetOverrideAt  *time.Time `json:"budget_override_at"`
+
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
 	StatusEvents []*Event `json:"-"`
@@ -61,19 +71,24 @@ type Task struct {
 const taskCols = `id, project_id, repository_id, title, prompt, status, status_reason, branch, session_id,
 	pr_number, pr_url, ci_status, cost_usd_total::float8, turns, source, created_at, updated_at, finished_at, paused_at, cleaned_at,
 	last_activity, last_activity_at, queued_message, agent, node,
-	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha`
+	last_pushed_sha, autofix_state, autofix_attempts, autofix_max_attempts, autofix_signature, autofix_handled_sha,
+	autofix_cost_usd::float8, cost_estimated, cost_api_equivalent, budget_wait, budget_override_at`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	var attempts *int
+	var fixCost *float64
+	var estimated, apiEq *bool
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
 		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
-		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA)
+		&t.LastPushedSHA, &t.AutoFixState, &attempts, &t.AutoFixMaxAttempts, &t.AutoFixSignature, &t.AutoFixHandledSHA,
+		&fixCost, &estimated, &apiEq, &t.BudgetWait, &t.BudgetOverrideAt)
 	if err != nil {
 		return nil, err
 	}
 	t.AutoFixAttempts = deref(attempts, 0)
+	t.AutoFixCostUSD, t.CostEstimated, t.CostAPIEquivalent = deref(fixCost, 0), deref(estimated, false), deref(apiEq, false)
 	return &t, nil
 }
 
@@ -186,6 +201,7 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id int64, from []string, to, re
 	t, err := scanTask(tx.QueryRow(ctx, `UPDATE tasks SET status = $2, status_reason = NULLIF($3, ''), updated_at = now(),
 			finished_at = CASE WHEN $4 THEN now() ELSE NULL END,
 			paused_at = CASE WHEN $2 = 'paused' THEN now() ELSE NULL END,
+			budget_wait = CASE WHEN $2 = 'queued' THEN budget_wait ELSE NULL END,
 			last_activity = $6, last_activity_at = now()
 		WHERE id = $1 AND (coalesce(cardinality($5::text[]), 0) = 0 OR status = ANY($5)) RETURNING `+taskCols,
 		id, to, reason, terminal, from, ActivityLine(activity)))
@@ -388,8 +404,9 @@ func (s *Store) MarkCleaned(ctx context.Context, id int64) error {
 // ClaimNext moves the oldest queued task whose host has room to preparing:
 // server tasks (node NULL) count against max, a node's tasks against that
 // node's max_concurrent, and tasks of nodes not in online wait. Returns nil
-// when nothing was claimed.
-func (s *Store) ClaimNext(ctx context.Context, max int, online []string) (*Task, error) {
+// when nothing was claimed. Tasks of a scope over its monthly cap wait too,
+// unless the owner let them start anyway this month (gate).
+func (s *Store) ClaimNext(ctx context.Context, max int, online []string, gate BudgetGate) (*Task, error) {
 	var out *Task
 	if online == nil {
 		online = []string{}
@@ -401,7 +418,7 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string) (*Task,
 		}
 		var id int64
 		err := tx.QueryRow(ctx, `
-			WITH active AS (
+			WITH `+budgetCTE(3, 4)+`, active AS (
 				SELECT coalesce(node, '') AS host, count(*) AS n FROM tasks
 				WHERE status IN ('preparing', 'running', 'waiting_input', 'pushing')
 				GROUP BY 1
@@ -414,7 +431,9 @@ func (s *Store) ClaimNext(ctx context.Context, max int, online []string) (*Task,
 			)
 			SELECT t.id FROM tasks t
 			WHERE t.status = 'queued' AND coalesce(t.node, '') IN (SELECT host FROM room)
-			ORDER BY t.updated_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED`, max, online).Scan(&id)
+			  AND (t.budget_override_at >= $3 OR (NOT (SELECT b FROM global_blocked)
+			       AND t.project_id NOT IN (SELECT id FROM blocked_projects)))
+			ORDER BY t.updated_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED`, max, online, gate.MonthStart, gate.GlobalUSD).Scan(&id)
 		if err == pgx.ErrNoRows {
 			return nil
 		}
@@ -462,15 +481,29 @@ type Run struct {
 	// then overrides the project's budget for the run.
 	AutoFixAttempt *int     `json:"autofix_attempt"`
 	MaxBudgetUSD   *float64 `json:"-"`
+	// Usage (docs/SPEC-server.md "Costs and budgets"): the agent and model,
+	// tokens (input includes the cache reads and writes), where CostUSD
+	// came from and how the agent was authenticated. Nil for runs from
+	// before they were recorded.
+	Agent            *string `json:"agent"`
+	Model            *string `json:"model"`
+	InputTokens      int64   `json:"input_tokens"`
+	OutputTokens     int64   `json:"output_tokens"`
+	CacheReadTokens  int64   `json:"cache_read_tokens"`
+	CacheWriteTokens int64   `json:"cache_write_tokens"`
+	CostSource       *string `json:"cost_source"`
+	Auth             *string `json:"auth"`
 }
 
 const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at,
-	autofix_attempt, max_budget_usd::float8`
+	autofix_attempt, max_budget_usd::float8, agent, model, coalesce(input_tokens, 0), coalesce(output_tokens, 0),
+	coalesce(cache_read_tokens, 0), coalesce(cache_write_tokens, 0), cost_source, auth`
 
 func scanRun(row interface{ Scan(...any) error }) (*Run, error) {
 	var r Run
 	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt,
-		&r.AutoFixAttempt, &r.MaxBudgetUSD); err != nil {
+		&r.AutoFixAttempt, &r.MaxBudgetUSD, &r.Agent, &r.Model, &r.InputTokens, &r.OutputTokens,
+		&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostSource, &r.Auth); err != nil {
 		return nil, err
 	}
 	return &r, nil
@@ -519,15 +552,6 @@ func (s *Store) SetRunContainer(ctx context.Context, id int64, containerID strin
 func (s *Store) FinishRun(ctx context.Context, id int64, exitCode int) (bool, error) {
 	tag, err := s.Pool.Exec(ctx, `UPDATE runs SET exit_code = $2, finished_at = now(), gateway_token_hash = NULL WHERE id = $1 AND finished_at IS NULL`, id, exitCode)
 	return err == nil && tag.RowsAffected() == 1, err
-}
-
-// SetRunCost records a run's cumulative cost and recomputes the task total.
-func (s *Store) SetRunCost(ctx context.Context, runID int64, cost float64) error {
-	_, err := s.Pool.Exec(ctx, `WITH r AS (UPDATE runs SET cost_usd = $2 WHERE id = $1 RETURNING task_id)
-		UPDATE tasks SET cost_usd_total = (SELECT coalesce(sum(cost_usd), 0) FROM runs WHERE task_id = (SELECT task_id FROM r)
-			AND id <> $1) + $2, updated_at = now()
-		WHERE id = (SELECT task_id FROM r)`, runID, cost)
-	return err
 }
 
 // SetRunTurns records a run's turn count (the runner reports it per run) and
@@ -682,19 +706,6 @@ func (s *Store) LastEvents(ctx context.Context, taskID int64, types []string, n 
 		out = append(out, &e)
 	}
 	return out, rows.Err()
-}
-
-// SessionBaselineCost is the cost already reported by earlier runs of the
-// same Claude session: runs since the last fresh (initial/retry) run. The
-// runner reports cumulative session cost, so a resumed run's own cost is
-// its reported total minus this baseline.
-func (s *Store) SessionBaselineCost(ctx context.Context, taskID, runID int64) (float64, error) {
-	var c float64
-	err := s.Pool.QueryRow(ctx, `SELECT coalesce(sum(cost_usd), 0)::float8 FROM runs
-		WHERE task_id = $1 AND id < $2 AND started_at IS NOT NULL
-		AND id >= coalesce((SELECT max(id) FROM runs WHERE task_id = $1 AND id < $2 AND kind IN ('initial', 'retry')), 0)`,
-		taskID, runID).Scan(&c)
-	return c, err
 }
 
 // ResetRunStart makes a run pending again (it never got a container).

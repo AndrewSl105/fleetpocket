@@ -69,6 +69,8 @@ type Service struct {
 	AgentEnabled func(agent string) bool
 	// AutoFix is the CI auto-fix loop; nil when GitHub is not configured.
 	AutoFix AutoFixer
+	// OnBudgetOverride counts owner budget overrides (metrics); may be nil.
+	OnBudgetOverride func(project string)
 }
 
 // ServerNode is the placement value for the server itself.
@@ -455,6 +457,26 @@ func (s *Service) Retry(ctx context.Context, taskID int64) (*View, error) {
 		return nil, err
 	}
 	s.publishTask(nt)
+	s.wake()
+	return s.Get(ctx, taskID)
+}
+
+// OverrideBudget lets a queued task start although a monthly budget holds
+// it ("waiting: budget"); good for runs of this task until the month ends.
+// via names who did it (web, telegram) for the timeline.
+func (s *Service) OverrideBudget(ctx context.Context, taskID int64, via string) (*View, error) {
+	t, ev, err := s.Store.OverrideBudget(ctx, taskID, via)
+	if errors.Is(err, store.ErrConflict) {
+		return nil, fmt.Errorf("%w: only a queued task can start despite the budget", ErrConflict)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if s.OnBudgetOverride != nil {
+		s.OnBudgetOverride(t.ProjectID)
+	}
+	s.publishEvent(ev)
+	s.publishTask(t)
 	s.wake()
 	return s.Get(ctx, taskID)
 }
