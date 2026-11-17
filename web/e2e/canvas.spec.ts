@@ -30,10 +30,28 @@ test('run a task on a computer and follow it on the canvas', async ({ page }) =>
   await expect(mac).toBeVisible()
   await expect(page.getByText('MacBook Pro', { exact: true })).toBeVisible()
 
-  // Answer a question from its terminal.
+  // Nodes are the default view; the full node shows from 110 % zoom.
+  const nodeView = page.getByRole('radio', { name: 'Node' })
+  const terminalView = page.getByRole('radio', { name: 'Terminal' })
+  await expect(nodeView).toHaveAttribute('aria-checked', 'true')
+  // Answer a question from its node: zoom in around it (ctrl + wheel).
   const waiting = page.getByRole('region', { name: 'Retry webhook deliveries with backoff' })
+  const box = (await waiting.boundingBox())!
+  await page.mouse.move(box.x + 20, box.y + 20)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -100)
+  await page.keyboard.up('Control')
+  await expect(waiting.getByRole('textbox', { name: 'Reply…' })).toBeVisible()
   await waiting.getByRole('button', { name: '5 attempts' }).click()
+  await expect(waiting.getByRole('button', { name: '5 attempts' })).toHaveCount(0)
+
+  // The terminal shows the same answer; then back to nodes.
+  await terminalView.click()
+  await expect(terminalView).toHaveAttribute('aria-checked', 'true')
   await expect(waiting.getByText('❯ 5 attempts')).toBeVisible()
+  await nodeView.click()
+  await expect(nodeView).toHaveAttribute('aria-checked', 'true')
+  await expect(mac.getByText(/STEP \d+/)).toBeVisible()
 
   // Minimise, hide and bring back a window.
   await mac.getByRole('button', { name: 'Minimize' }).click()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Task } from '@/api/types'
-import { fitView, GAP, HEADER_H, hostBlocks, layoutWindows, ROWS, WIN_H, WIN_W, zoomAt } from './layout'
+import { detailLevel, fitView, GAP, HEADER_H, hostBlocks, layoutWindows, ROWS, WIN_H, WIN_W, zoomAt } from './layout'
 import { hostOrder } from '@/lib/hosts'
 
 const task = (id: number, status: Task['status'], node: string | null = null) => ({ id, status, node }) as Task
@@ -56,5 +56,18 @@ describe('view', () => {
     const z = zoomAt({ x: 0, y: 0, zoom: 1 }, 2, 100, 100)
     // Clamped at ZOOM_MAX; the point under the pointer stays put.
     expect(z).toEqual({ x: -60, y: -60, zoom: 1.6 })
+  })
+})
+
+describe('detailLevel', () => {
+  it('picks the node content for the zoom', () => {
+    expect(detailLevel(0.3)).toBe('dot')
+    expect(detailLevel(0.39)).toBe('dot')
+    expect(detailLevel(0.4)).toBe('chip')
+    expect(detailLevel(0.69)).toBe('chip')
+    expect(detailLevel(0.7)).toBe('strip')
+    expect(detailLevel(1.1)).toBe('strip')
+    expect(detailLevel(1.11)).toBe('full')
+    expect(detailLevel(1.6)).toBe('full')
   })
 })
