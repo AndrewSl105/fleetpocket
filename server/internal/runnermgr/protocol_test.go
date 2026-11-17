@@ -1,6 +1,7 @@
 package runnermgr
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -53,6 +54,27 @@ func TestEncodeCommand(t *testing.T) {
 	}
 	b, _ = EncodeCommand(NewRun(RunCommand{TaskID: "1", Prompt: "p"}))
 	if !strings.HasPrefix(string(b), `{"type":"run","task_id":"1"`) {
+		t.Fatalf("%s", b)
+	}
+}
+
+func TestRunCommandSkillsAndOutputRoundTrip(t *testing.T) {
+	in := NewRun(RunCommand{TaskID: "1", Prompt: "p", Output: OutputArtifacts,
+		Skills: []Skill{{Slug: "db-schema", Files: []SkillFile{{Path: "SKILL.md", Content: "---\nname: x\n---\n"}}}}})
+	b, err := EncodeCommand(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out RunCommand
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Output != OutputArtifacts || len(out.Skills) != 1 || out.Skills[0].Files[0].Path != "SKILL.md" {
+		t.Fatalf("%+v", out)
+	}
+	// Today's tasks: neither field on the wire.
+	b, _ = EncodeCommand(NewRun(RunCommand{TaskID: "1", Prompt: "p"}))
+	if strings.Contains(string(b), "skills") || strings.Contains(string(b), "output") {
 		t.Fatalf("%s", b)
 	}
 }

@@ -15,11 +15,16 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 | type | fields | meaning |
 |---|---|---|
-| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}`, `mcp?{token, servers[{name, url}]}` | first line, starts the session |
+| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}` | first line, starts the session |
 | `answer` | `question_id`, `text` | reply to a pending question. An answer that arrives before its question is kept and used when the question is asked. |
 | `message` | `text` | extra user message injected into the running session. A run handles one prompt: input closes after the first turn's result, so a message that arrives after that is dropped. Codex and Cursor cannot take input mid-turn: a message that arrives during the turn runs as one more turn after it. **Fleetpocket does not send it**: it queues messages and starts them as the next run (API.md). |
 | `interrupt` | — | stop the current turn, keep the session. The run then ends as `done` (summary "Interrupted by the user.") with whatever was committed; send a follow-up as a new run with `resume_session_id`. |
 | `cancel` | — | end the session, exit code `2` |
+
+### Skills and output
+
+- Before the session starts the runner writes each skill folder where the agent discovers project skills: Claude `/workspace/.claude/skills/<slug>/<path>` (`settingSources: ["project"]`), Cursor `/workspace/.cursor/skills/<slug>/<path>` (`local.settingSources: ["project"]`). Each written folder is added to `.git/info/exclude`, so skills never reach a commit. When the repository already has that folder, the repository's copy wins: the runner skips the skill and emits `assistant_text` noting the skip. Codex has no skills input in `@openai/codex-sdk`: the runner appends each skill's name, description and body to its `developer_instructions`.
+- `output: "artifacts"`: the Claude policy denies `Write`/`Edit`/`MultiEdit`/`NotebookEdit` outside `.fleetpocket/out/`, and the runner skips its final commit (`done.no_changes` is `true`). Codex and Cursor have no hook; the server is to discard repository changes after the run (not live yet, so the API refuses outputs other than `pr`; DECISIONS.md).
 
 An invalid line produces an `error` event with `code: "bad_command"`; the runner keeps running. A second `run` is also `bad_command`.
 

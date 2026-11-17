@@ -260,6 +260,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List skills */
+        get: operations["listSkills"];
+        put?: never;
+        /**
+         * Create a skill
+         * @description 400 for bad paths, limits, frontmatter or a secrets-scan finding; 409 when the slug is taken.
+         */
+        post: operations["createSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import a SKILL.md or a .zip of a skill folder */
+        post: operations["importSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** Get a skill */
+        get: operations["getSkill"];
+        /** Replace a skill */
+        put: operations["updateSkill"];
+        post?: never;
+        /** Delete a skill (also from every project) */
+        delete: operations["deleteSkill"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy a skill under `<slug>-copy` (or `<slug>-copy-N`), not enabled by default */
+        post: operations["duplicateSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** Download the skill folder as `<slug>.zip` */
+        get: operations["exportSkill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks": {
         parameters: {
             query?: never;
@@ -1061,6 +1158,13 @@ export interface components {
             ci_autofix?: components["schemas"]["CIAutoFixSettings"];
             /** @description Replaces the project's monthly cap; null or 0 `monthly_usd` removes it */
             budget?: components["schemas"]["ProjectBudget"];
+            /**
+             * @description Output new tasks get; empty or null is `pr`. Values other than `pr` are refused with 400 until diagram collection ships
+             * @enum {string|null}
+             */
+            default_output?: "pr" | "artifacts" | "pr_and_artifacts" | "" | null;
+            /** @description Replaces the project's enabled skills (slugs; unknown slugs are ignored) */
+            skills?: string[];
         };
         /** @description CI auto-fix settings (docs/SPEC-server.md "CI auto-fix"). A null field inherits the level below (project → global default → built-in default). */
         CIAutoFixSettings: {
@@ -1191,11 +1295,56 @@ export interface components {
             month_cost_usd: number;
             /** @description Some of those runs have no price; month_cost_usd is a lower bound */
             month_cost_unknown: boolean;
+            /**
+             * @description null is `pr`
+             * @enum {string|null}
+             */
+            default_output?: "pr" | "artifacts" | "pr_and_artifacts" | null;
+            /** @description Slugs of the skills enabled for the project's tasks */
+            skills?: string[];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
             repositories: components["schemas"]["Repository"][];
+        };
+        /**
+         * @description `pr` opens a pull request (default); `artifacts` delivers diagrams only; `pr_and_artifacts` both
+         * @enum {string}
+         */
+        TaskOutput: "pr" | "artifacts" | "pr_and_artifacts";
+        SkillFile: {
+            /** @description Relative to the skill folder; no absolute paths, `..`, backslashes or `.git` */
+            path: string;
+            /** @description Text only */
+            content: string;
+        };
+        SkillInput: {
+            slug: string;
+            /** @description SKILL.md: YAML frontmatter with `name` and `description`, then markdown */
+            body: string;
+            /** @description Extra files; at most 50 files and 1 MB per skill including SKILL.md */
+            files?: components["schemas"]["SkillFile"][];
+            /** @description On for every project's tasks */
+            enabled_by_default?: boolean;
+        };
+        Skill: {
+            /** Format: int64 */
+            id: number;
+            slug: string;
+            /** @description From the frontmatter */
+            name: string;
+            /** @description From the frontmatter */
+            description: string;
+            body: string;
+            files: components["schemas"]["SkillFile"][];
+            enabled_by_default: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Ids of the projects that enable the skill */
+            projects: string[];
         };
         Repository: {
             /** Format: int64 */
@@ -1286,6 +1435,11 @@ export interface components {
             last_activity: string | null;
             /** Format: date-time */
             last_activity_at: string | null;
+            output: components["schemas"]["TaskOutput"];
+            /** @description Skills (slugs) the last run used */
+            skills: string[];
+            skills_add: string[];
+            skills_remove: string[];
             /** @description Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued. */
             queued_message: string | null;
             autofix_state: components["schemas"]["AutoFixState"];
@@ -2749,6 +2903,212 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    listSkills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All skills by slug */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Skill"][];
+                    };
+                };
+            };
+        };
+    };
+    createSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    importSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description SKILL.md, or a .zip (name ends in .zip) with SKILL.md at the root or in one folder; at most 2 MB
+                     */
+                    file: string;
+                    /** @description Defaults to the zip's folder name, else the frontmatter name */
+                    slug?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Imported */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The skill */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillInput"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OK"];
+            404: components["responses"]["Error"];
+        };
+    };
+    duplicateSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The copy */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    exportSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zip with `<slug>/SKILL.md` and the extra files */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
     listTasks: {
         parameters: {
             query?: {
@@ -2804,6 +3164,12 @@ export interface operations {
                     agent?: components["schemas"]["Agent"];
                     /** @description Where the task runs: `server` or a node id. Defaults to the project's host; 400 when the node is unknown or lacks the agent's credentials */
                     node?: string;
+                    /** @description Defaults to the project's default_output, else `pr`. `artifacts` and `pr_and_artifacts` are refused with 400 until diagram collection ships */
+                    output?: components["schemas"]["TaskOutput"];
+                    /** @description Skill slugs added to the project's skills for this task */
+                    skills_add?: string[];
+                    /** @description Skill slugs removed from the project's skills for this task */
+                    skills_remove?: string[];
                 };
                 "multipart/form-data": {
                     project_id: string;
@@ -2819,6 +3185,11 @@ export interface operations {
                     agent?: components["schemas"]["Agent"];
                     /** @description Where the task runs: `server` or a node id. Defaults to the project's host; 400 when the node is unknown or lacks the agent's credentials */
                     node?: string;
+                    output?: components["schemas"]["TaskOutput"];
+                    /** @description Comma-separated skill slugs */
+                    skills_add?: string;
+                    /** @description Comma-separated skill slugs */
+                    skills_remove?: string;
                     /** @description PNG, JPEG, WebP or GIF (not animated), at most 40 MB each, 100 MB together; type detected from the content */
                     "files[]"?: string[];
                 };

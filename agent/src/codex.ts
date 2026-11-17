@@ -1,4 +1,5 @@
 // Real Codex session via @openai/codex-sdk (it spawns the bundled `codex` CLI).
+import { skillsInstructions } from "./skills.ts";
 import { Codex, type Input } from "@openai/codex-sdk";
 import { ATTACHMENTS_DIR, hasAttachments, promptImages } from "./attachments.ts";
 import { CodexMapper } from "./codex-mapper.ts";
@@ -17,11 +18,13 @@ export const codexSession: Session = async ({ cmd, workspace, emitter, control }
   const mcp = codexMcp(cmd.mcp);
   if (mcp) Object.assign(env, mcp.env);
 
+  // Codex has no skills input: the skills travel in its developer instructions.
+  const instructions = [cmd.append_system_prompt ?? "", skillsInstructions(cmd.skills)].filter(Boolean).join("\n\n");
   const codex = new Codex({
     ...(apiKey ? { apiKey } : {}),
     env,
     config: {
-      ...(cmd.append_system_prompt ? { developer_instructions: cmd.append_system_prompt } : {}),
+      ...(instructions ? { developer_instructions: instructions } : {}),
       // Commands Codex runs must not see the key it was given.
       shell_environment_policy: { inherit: "all", exclude: ["*KEY*", "*TOKEN*", "*SECRET*"] },
       ...(mcp ? { mcp_servers: mcp.config } : {}),

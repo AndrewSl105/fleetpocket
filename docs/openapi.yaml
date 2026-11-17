@@ -407,6 +407,125 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/GitHubRepo' } }
         '503': { $ref: '#/components/responses/Error' }
 
+  /api/v1/skills:
+    get:
+      operationId: listSkills
+      tags: [skills]
+      summary: List skills
+      responses:
+        '200':
+          description: All skills by slug
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Skill' } }
+    post:
+      operationId: createSkill
+      tags: [skills]
+      summary: Create a skill
+      description: 400 for bad paths, limits, frontmatter or a secrets-scan finding; 409 when the slug is taken.
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillInput' } } }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/skills/import:
+    post:
+      operationId: importSkill
+      tags: [skills]
+      summary: Import a SKILL.md or a .zip of a skill folder
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              additionalProperties: false
+              properties:
+                file: { type: string, format: binary, description: 'SKILL.md, or a .zip (name ends in .zip) with SKILL.md at the root or in one folder; at most 2 MB' }
+                slug: { type: string, description: 'Defaults to the zip''s folder name, else the frontmatter name' }
+      responses:
+        '201':
+          description: Imported
+          content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/skills/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getSkill
+      tags: [skills]
+      summary: Get a skill
+      responses:
+        '200':
+          description: The skill
+          content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateSkill
+      tags: [skills]
+      summary: Replace a skill
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillInput' } } }
+      responses:
+        '200':
+          description: Updated
+          content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSkill
+      tags: [skills]
+      summary: Delete a skill (also from every project)
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/skills/{id}/duplicate:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: duplicateSkill
+      tags: [skills]
+      summary: Copy a skill under `<slug>-copy` (or `<slug>-copy-N`), not enabled by default
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      responses:
+        '201':
+          description: The copy
+          content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/skills/{id}/export:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: exportSkill
+      tags: [skills]
+      summary: Download the skill folder as `<slug>.zip`
+      responses:
+        '200':
+          description: Zip with `<slug>/SKILL.md` and the extra files
+          content: { application/zip: { schema: { type: string, format: binary } } }
+        '404': { $ref: '#/components/responses/Error' }
+
   /api/v1/tasks:
     get:
       operationId: listTasks
@@ -452,6 +571,9 @@ paths:
                 prompt: { type: string }
                 agent: { $ref: '#/components/schemas/Agent', description: "Defaults to the project's agent; 400 when the agent has no credentials on the task's host" }
                 node: { type: string, description: "Where the task runs: `server` or a node id. Defaults to the project's host; 400 when the node is unknown or lacks the agent's credentials" }
+                output: { $ref: '#/components/schemas/TaskOutput', description: "Defaults to the project's default_output, else `pr`. `artifacts` and `pr_and_artifacts` are refused with 400 until diagram collection ships" }
+                skills_add: { type: array, items: { type: string }, description: Skill slugs added to the project's skills for this task }
+                skills_remove: { type: array, items: { type: string }, description: Skill slugs removed from the project's skills for this task }
           multipart/form-data:
             schema:
               type: object
@@ -464,6 +586,9 @@ paths:
                 prompt: { type: string }
                 agent: { $ref: '#/components/schemas/Agent', description: "Defaults to the project's agent; 400 when the agent has no credentials on the task's host" }
                 node: { type: string, description: "Where the task runs: `server` or a node id. Defaults to the project's host; 400 when the node is unknown or lacks the agent's credentials" }
+                output: { $ref: '#/components/schemas/TaskOutput' }
+                skills_add: { type: string, description: Comma-separated skill slugs }
+                skills_remove: { type: string, description: Comma-separated skill slugs }
                 'files[]':
                   type: array
                   maxItems: 10
@@ -1462,6 +1587,11 @@ components:
         budget:
           $ref: '#/components/schemas/ProjectBudget'
           description: Replaces the project's monthly cap; null or 0 `monthly_usd` removes it
+        default_output:
+          type: [string, 'null']
+          enum: [pr, artifacts, pr_and_artifacts, '', null]
+          description: Output new tasks get; empty or null is `pr`. Values other than `pr` are refused with 400 until diagram collection ships
+        skills: { type: array, items: { type: string }, description: Replaces the project's enabled skills (slugs; unknown slugs are ignored) }
 
     CIAutoFixSettings:
       type: object
@@ -1608,9 +1738,49 @@ components:
         budget: { $ref: '#/components/schemas/ProjectBudget' }
         month_cost_usd: { type: number, description: Cost of the project's runs started this calendar month }
         month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
+        default_output: { type: [string, 'null'], enum: [pr, artifacts, pr_and_artifacts, null], description: null is `pr` }
+        skills: { type: array, items: { type: string }, description: Slugs of the skills enabled for the project's tasks }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         repositories: { type: array, items: { $ref: '#/components/schemas/Repository' } }
+
+    TaskOutput:
+      type: string
+      enum: [pr, artifacts, pr_and_artifacts]
+      description: '`pr` opens a pull request (default); `artifacts` delivers diagrams only; `pr_and_artifacts` both'
+
+    SkillFile:
+      type: object
+      required: [path, content]
+      additionalProperties: false
+      properties:
+        path: { type: string, description: 'Relative to the skill folder; no absolute paths, `..`, backslashes or `.git`' }
+        content: { type: string, description: Text only }
+
+    SkillInput:
+      type: object
+      required: [slug, body]
+      additionalProperties: false
+      properties:
+        slug: { type: string, pattern: '^[a-z][a-z0-9-]{1,63}$' }
+        body: { type: string, description: 'SKILL.md: YAML frontmatter with `name` and `description`, then markdown' }
+        files: { type: array, maxItems: 49, items: { $ref: '#/components/schemas/SkillFile' }, description: 'Extra files; at most 50 files and 1 MB per skill including SKILL.md' }
+        enabled_by_default: { type: boolean, description: On for every project's tasks }
+
+    Skill:
+      type: object
+      required: [id, slug, name, description, body, files, enabled_by_default, created_at, updated_at, projects]
+      properties:
+        id: { type: integer, format: int64 }
+        slug: { type: string }
+        name: { type: string, description: From the frontmatter }
+        description: { type: string, description: From the frontmatter }
+        body: { type: string }
+        files: { type: array, items: { $ref: '#/components/schemas/SkillFile' } }
+        enabled_by_default: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        projects: { type: array, items: { type: string }, description: Ids of the projects that enable the skill }
 
     Repository:
       type: object
@@ -1674,7 +1844,7 @@ components:
 
     Task:
       type: object
-      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at]
+      required: [id, project_id, repository_id, title, prompt, status, cost_usd_total, turns, source, agent, node, created_at, updated_at, last_activity, last_activity_at, queued_message, autofix_state, autofix_attempts, autofix_max_attempts, autofix_cost_usd, cost_estimated, cost_api_equivalent, cost_unknown, budget_wait, budget_override_at, output, skills, skills_add, skills_remove]
       properties:
         id: { type: integer, format: int64 }
         project_id: { type: string }
@@ -1702,6 +1872,10 @@ components:
           maxLength: 120
           description: 'Latest tool_use summary or status change ("<status>" or "<status>: <reason>"), one line'
         last_activity_at: { type: [string, 'null'], format: date-time }
+        output: { $ref: '#/components/schemas/TaskOutput' }
+        skills: { type: array, items: { type: string }, description: Skills (slugs) the last run used }
+        skills_add: { type: array, items: { type: string } }
+        skills_remove: { type: array, items: { type: string } }
         queued_message:
           type: [string, 'null']
           description: Text sent while a run was active (several messages joined by a blank line); it becomes the input of the next run when the current one ends. `null` when nothing is queued.

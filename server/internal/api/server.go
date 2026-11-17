@@ -15,6 +15,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/nodes"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
+	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 )
@@ -42,8 +43,10 @@ type Server struct {
 	Store    *store.Store
 	Tasks    *tasks.Service
 	Projects *projects.Service
-	Auth     *auth.Manager
-	Hub      *events.Hub
+	// SkillScanner is the secrets scan for skill files; nil skips it (SECRETS_SCAN=off).
+	SkillScanner skills.SecretsScanner
+	Auth         *auth.Manager
+	Hub          *events.Hub
 	// Nodes registers computers that run tasks; nil disables the endpoints.
 	Nodes   *nodes.Service
 	GitHub  GitHub
@@ -110,6 +113,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/projects/{id}/repositories/{repoId}", a(s.updateRepository))
 	mux.HandleFunc("DELETE /api/v1/projects/{id}/repositories/{repoId}", a(s.deleteRepository))
 	mux.HandleFunc("GET /api/v1/github/repositories", a(s.githubRepositories))
+
+	mux.HandleFunc("GET /api/v1/skills", a(s.listSkills))
+	mux.HandleFunc("POST /api/v1/skills", a(s.createSkill))
+	mux.HandleFunc("POST /api/v1/skills/import", a(s.importSkill))
+	mux.HandleFunc("GET /api/v1/skills/{id}", a(s.getSkill))
+	mux.HandleFunc("PUT /api/v1/skills/{id}", a(s.updateSkill))
+	mux.HandleFunc("DELETE /api/v1/skills/{id}", a(s.deleteSkill))
+	mux.HandleFunc("POST /api/v1/skills/{id}/duplicate", a(s.duplicateSkill))
+	mux.HandleFunc("GET /api/v1/skills/{id}/export", a(s.exportSkill))
 
 	mux.HandleFunc("GET /api/v1/tasks", a(s.listTasks))
 	mux.HandleFunc("POST /api/v1/tasks", a(s.createTask))

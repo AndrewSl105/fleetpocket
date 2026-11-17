@@ -20,6 +20,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
+	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
@@ -333,6 +334,10 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 
 	cmd := s.runCommand(t, run, project, repo, branch)
 	cmd.MCP = integ.mcp
+	if err := s.attachSkills(ctx, t, &cmd); err != nil {
+		s.failOrRequeue(ctx, t, run, "skills", err)
+		return
+	}
 	hasAtt, err := s.prepareAttachments(ctx, h, t.ID, run, &cmd)
 	if err != nil {
 		s.failOrRequeue(ctx, t, run, "attachments", err)
@@ -454,6 +459,7 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 		AppendSystemPrompt: SystemPrompt(t, repo, branch, p.Instructions),
 		Agent:              t.Agent,
 		Model:              s.model(t, p),
+		Output:             wireOutput(t.Output),
 		Limits: runnermgr.Limits{
 			MaxTurns:           maxTurns,
 			MaxBudgetUSD:       budget,
@@ -466,6 +472,39 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 			AuthorEmail: commitEmail,
 		},
 	})
+}
+
+// wireOutput leaves "pr" off the wire so today's run command is unchanged.
+func wireOutput(o string) string {
+	if o == runnermgr.OutputPR {
+		return ""
+	}
+	return o
+}
+
+// attachSkills resolves the task's skills (project defaults + task additions
+// − task removals), records them on the task and adds them to the command.
+func (s *Scheduler) attachSkills(ctx context.Context, t *store.Task, cmd *runnermgr.RunCommand) error {
+	defaults, err := s.Store.DefaultSkillSlugs(ctx, t.ProjectID)
+	if err != nil {
+		return err
+	}
+	slugs := skills.Resolve(defaults, t.SkillsAdd, t.SkillsRemove)
+	list, err := s.Store.SkillsBySlug(ctx, slugs)
+	if err != nil {
+		return err
+	}
+	used := make([]string, 0, len(list))
+	for _, sk := range list {
+		files := []runnermgr.SkillFile{{Path: skills.SkillFileName, Content: sk.Body}}
+		for _, f := range sk.Files {
+			files = append(files, runnermgr.SkillFile{Path: f.Path, Content: f.Content})
+		}
+		cmd.Skills = append(cmd.Skills, runnermgr.Skill{Slug: sk.Slug, Files: files})
+		used = append(used, sk.Slug)
+	}
+	t.Skills = used
+	return s.Store.SetTaskSkills(ctx, t.ID, used)
 }
 
 // model is the task's model: the project's when the task runs with the
@@ -569,10 +608,26 @@ func SystemPrompt(t *store.Task, repo *store.Repository, branch, projectInstruct
 		b.WriteString("Nobody can answer questions during the run: make reasonable choices yourself and list open questions in your summary.\n")
 	}
 	b.WriteString("Finish with a short summary of what you changed and anything the reviewer should check.\n")
+	if t.Output == runnermgr.OutputArtifacts || t.Output == runnermgr.OutputPRAndArtifacts {
+		b.WriteString(OutputContract(t.Output))
+	}
 	if strings.TrimSpace(projectInstructions) != "" {
 		b.WriteString("\nProject instructions:\n")
 		b.WriteString(projectInstructions)
 		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// OutputContract tells the agent where and how to deliver diagrams.
+func OutputContract(output string) string {
+	var b strings.Builder
+	b.WriteString("\nOutput contract (diagrams):\n")
+	b.WriteString("- Write deliverables only to .fleetpocket/out/ (it is excluded from git).\n")
+	b.WriteString("- Every diagram is a Mermaid file <name>.mmd: erDiagram, flowchart, sequenceDiagram, or C4 via C4Context/C4Container/C4Component. Optional extra sources use the same basename (.dbml, .d2, .puml, .sql).\n")
+	b.WriteString(`- Write .fleetpocket/out/manifest.json: {"artifacts":[{"file":"<name>.mmd","title":"…","summary":"…","kind":"mermaid","confidence":"exact|derived","sources":["<files or tables it was built from>"]}]}.` + "\n")
+	if output == runnermgr.OutputArtifacts {
+		b.WriteString("- Do not modify repository files: this task produces diagrams only, and any repository change is discarded.\n")
 	}
 	return b.String()
 }

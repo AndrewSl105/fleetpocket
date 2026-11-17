@@ -60,7 +60,9 @@ type RunCommand struct {
 	Limits             Limits     `json:"limits"`
 	Commit             CommitInfo `json:"commit"`
 	// MCP is the run's MCP gateway config; nil (omitted) = no MCP servers.
-	MCP *MCPConfig `json:"mcp,omitempty"`
+	MCP    *MCPConfig `json:"mcp,omitempty"`
+	Skills []Skill    `json:"skills,omitempty"`
+	Output string     `json:"output,omitempty"` // "pr" (default) | "artifacts" | "pr_and_artifacts"
 }
 
 // MCPConfig gives the agent its MCP servers through the gateway. Token is
@@ -74,6 +76,25 @@ type MCPConfig struct {
 type MCPServerRef struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`
+}
+
+// Task output modes.
+const (
+	OutputPR             = "pr"
+	OutputArtifacts      = "artifacts"
+	OutputPRAndArtifacts = "pr_and_artifacts"
+)
+
+// Skill is one skill folder the runner writes before the session starts.
+// Files include SKILL.md; paths are relative to the skill folder.
+type Skill struct {
+	Slug  string      `json:"slug"`
+	Files []SkillFile `json:"files"`
+}
+
+type SkillFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 type AnswerCommand struct {

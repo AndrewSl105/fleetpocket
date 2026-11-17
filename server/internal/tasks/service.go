@@ -92,11 +92,26 @@ type CreateInput struct {
 	// Agent overrides the project's agent; "" uses it.
 	Agent string `json:"agent"`
 	// Node overrides the project's host: "server" or a node id; "" uses it.
-	Node   string `json:"node"`
-	Source string `json:"-"`
+	Node string `json:"node"`
+	// Output is "pr", "artifacts" or "pr_and_artifacts"; "" uses the project's default_output (else "pr").
+	Output string `json:"output"`
+	// SkillsAdd/SkillsRemove change the project's skills for this task (slugs).
+	SkillsAdd    []string `json:"skills_add"`
+	SkillsRemove []string `json:"skills_remove"`
+	Source       string   `json:"-"`
 	// Images are validated uploads (attachments.Process).
 	Images []*attachments.Image `json:"-"`
 }
+
+// Outputs are the valid task outputs; "pr" is today's behaviour.
+var Outputs = []string{"pr", "artifacts", "pr_and_artifacts"}
+
+// ArtifactsEnabled gates the "artifacts" outputs until the server collects
+// .fleetpocket/out/ and enforces "never push" for them (docs/DECISIONS.md).
+var ArtifactsEnabled = false
+
+// ValidOutput reports whether o is a task output.
+func ValidOutput(o string) bool { return slices.Contains(Outputs, o) }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	in.Prompt = strings.TrimSpace(in.Prompt)
@@ -138,11 +153,25 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
+	output := in.Output
+	if output == "" && p.DefaultOutput != nil {
+		output = *p.DefaultOutput
+	}
+	if output == "" {
+		output = "pr"
+	}
+	if !ValidOutput(output) {
+		return nil, fmt.Errorf("%w: output must be one of %s", ErrInvalid, strings.Join(Outputs, ", "))
+	}
+	if output != "pr" && !ArtifactsEnabled {
+		return nil, fmt.Errorf("%w: output %q is not available yet (diagram collection is not implemented)", ErrInvalid, output)
+	}
 	up, release, err := s.upload(in.Images)
 	if err != nil {
 		return nil, err
 	}
-	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node)}, up)
+	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
+		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove}, up)
 	release()
 	if err != nil {
 		return nil, err

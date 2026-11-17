@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/autofix"
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
+	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 )
 
 var ErrInvalid = errors.New("invalid input")
@@ -80,6 +82,12 @@ func (s *Service) Archive(ctx context.Context, id string) (*store.Project, error
 func validate(f store.ProjectFields) error {
 	if f.Name != nil && strings.TrimSpace(*f.Name) == "" {
 		return fmt.Errorf("%w: name must not be empty", ErrInvalid)
+	}
+	if f.DefaultOutput != nil && *f.DefaultOutput != "" && !slices.Contains([]string{"pr", "artifacts", "pr_and_artifacts"}, *f.DefaultOutput) {
+		return fmt.Errorf("%w: default_output must be pr, artifacts or pr_and_artifacts", ErrInvalid)
+	}
+	if f.DefaultOutput != nil && *f.DefaultOutput != "" && *f.DefaultOutput != "pr" && !tasks.ArtifactsEnabled {
+		return fmt.Errorf("%w: default_output %q is not available yet", ErrInvalid, *f.DefaultOutput)
 	}
 	if f.Agent != nil && *f.Agent != "" && !config.ValidAgent(*f.Agent) {
 		return fmt.Errorf("%w: agent must be one of %s", ErrInvalid, strings.Join(config.Agents, ", "))

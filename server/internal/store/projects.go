@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Project struct {
@@ -33,11 +35,15 @@ type Project struct {
 	MonthCostUSD float64        `json:"month_cost_usd"`
 	// MonthCostUnknown: some of this month's runs have no price, so
 	// MonthCostUSD is a lower bound.
-	MonthCostUnknown bool         `json:"month_cost_unknown"`
-	Archived         bool         `json:"archived"`
-	CreatedAt        time.Time    `json:"created_at"`
-	UpdatedAt        time.Time    `json:"updated_at"`
-	Repositories     []Repository `json:"repositories"`
+	MonthCostUnknown bool `json:"month_cost_unknown"`
+	// DefaultOutput is the output new tasks get; nil means "pr".
+	DefaultOutput *string `json:"default_output"`
+	// Skills are the slugs enabled for the project's tasks.
+	Skills       []string     `json:"skills"`
+	Archived     bool         `json:"archived"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	Repositories []Repository `json:"repositories"`
 }
 
 type Repository struct {
@@ -51,14 +57,16 @@ type Repository struct {
 
 const projectCols = `id, name, instructions, services, env, runner_image, model, max_turns,
 	max_budget_usd::float8, EXTRACT(EPOCH FROM max_duration)::bigint, runner_memory, runner_cpus::float8,
-	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix, budget`
+	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix, budget, default_output,
+	coalesce((SELECT array_agg(s.slug ORDER BY s.slug) FROM project_skills ps JOIN skills s ON s.id = ps.skill_id
+		WHERE ps.project_id = projects.id), '{}')`
 
 func scanProject(row interface{ Scan(...any) error }) (*Project, error) {
 	var p Project
 	var env, autofix, budget []byte
 	err := row.Scan(&p.ID, &p.Name, &p.Instructions, &p.Services, &env, &p.RunnerImage, &p.Model, &p.MaxTurns,
 		&p.MaxBudgetUSD, &p.MaxDurationSec, &p.RunnerMemory, &p.RunnerCPUs,
-		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix, &budget)
+		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix, &budget, &p.DefaultOutput, &p.Skills)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +115,10 @@ type ProjectFields struct {
 	CIAutoFix *AutoFixOverrides `json:"ci_autofix"`
 	// Budget replaces the monthly cap; a nil or zero monthly_usd removes it.
 	Budget *ProjectBudget `json:"budget"`
+	// DefaultOutput: "" resets to nil ("pr").
+	DefaultOutput *string `json:"default_output"`
+	// Skills replaces the project's enabled skills (slugs; unknown slugs are ignored).
+	Skills *[]string `json:"skills"`
 }
 
 func (s *Store) CreateProject(ctx context.Context, id string, f ProjectFields) (*Project, error) {
@@ -204,12 +216,29 @@ func (s *Store) UpdateProject(ctx context.Context, id string, f ProjectFields) (
 			add("budget", b)
 		}
 	}
-	tag, err := s.Pool.Exec(ctx, `UPDATE projects SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)
+	if f.DefaultOutput != nil {
+		add("default_output", nilIfEmpty(*f.DefaultOutput))
+	}
+	err := s.Tx(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE projects SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+		if f.Skills == nil {
+			return nil
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM project_skills WHERE project_id = $1`, id); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO project_skills (project_id, skill_id)
+			SELECT $1, id FROM skills WHERE slug = ANY($2::text[])`, id, *f.Skills)
+		return err
+	})
 	if err != nil {
 		return nil, err
-	}
-	if tag.RowsAffected() == 0 {
-		return nil, ErrNotFound
 	}
 	return s.GetProject(ctx, id)
 }

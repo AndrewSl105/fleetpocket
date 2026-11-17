@@ -17,6 +17,16 @@ export const ExitCode = {
 export const AGENTS = ["claude", "codex", "cursor"] as const;
 export type AgentKind = (typeof AGENTS)[number];
 
+export const OUTPUTS = ["pr", "artifacts", "pr_and_artifacts"] as const;
+export type Output = (typeof OUTPUTS)[number];
+
+export const SkillFile = z.object({ path: z.string().min(1), content: z.string() });
+export const Skill = z.object({
+  slug: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/),
+  files: z.array(SkillFile),
+});
+export type Skill = z.infer<typeof Skill>;
+
 export const RunCommand = z.object({
   type: z.literal("run"),
   task_id: z.union([z.string(), z.number()]).transform(String),
@@ -45,6 +55,8 @@ export const RunCommand = z.object({
       servers: z.array(z.object({ name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/), url: z.string().url() })),
     })
     .optional(),
+  skills: z.array(Skill).default([]),
+  output: z.enum(OUTPUTS).default("pr"),
 });
 
 export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;
