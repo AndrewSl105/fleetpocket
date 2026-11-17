@@ -4,24 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Jungle Monkey: coding agents in a sealed box, steered from your phone</title>
-<meta name="description" content="Send a coding agent (Claude Code, Codex or Cursor) into your repo, answer its questions from your phone, get a branch or a pull request back. Self-hosted, MIT.">
+<title>Jungle Monkey: every coding agent, one control room</title>
+<meta name="description" content="Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor. Run them side by side, queued, sandboxed and on a budget, on your server or your own machines, and get a branch or a pull request back. MIT.">
 <meta name="theme-color" content="#F2EFE6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14170F" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://andrewsl105.github.io/jungle_monkey/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Jungle Monkey">
 <meta property="og:url" content="https://andrewsl105.github.io/jungle_monkey/">
-<meta property="og:title" content="Jungle Monkey">
-<meta property="og:description" content="Send a coding agent into your repo, answer its questions from your phone, get a branch or a pull request back.">
+<meta property="og:title" content="Jungle Monkey: every coding agent, one control room">
+<meta property="og:description" content="Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor. Parallel runs in sealed containers, on your server or your own machines.">
 <meta property="og:image" content="https://andrewsl105.github.io/jungle_monkey/docs/brand/jungle-monkey-og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Jungle Monkey: an orange-brown monkey on a jungle branch">
+<meta property="og:image:alt" content="Jungle Monkey, agent orchestrator: the monkey logo beside the line “Every coding agent. One control room.”">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Jungle Monkey">
-<meta name="twitter:description" content="Send a coding agent into your repo, answer its questions from your phone, get a branch or a pull request back.">
+<meta name="twitter:title" content="Jungle Monkey: every coding agent, one control room">
+<meta name="twitter:description" content="Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor. Parallel runs in sealed containers, on your server or your own machines.">
 <meta name="twitter:image" content="https://andrewsl105.github.io/jungle_monkey/docs/brand/jungle-monkey-og.jpg">
+<meta name="twitter:image:alt" content="Jungle Monkey, agent orchestrator: the monkey logo beside the line “Every coding agent. One control room.”">
 <link rel="icon" type="image/png" sizes="32x32" href="docs/brand/jungle-monkey-icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="docs/brand/jungle-monkey-icon-16.png">
 <link rel="icon" type="image/png" sizes="192x192" href="docs/brand/jungle-monkey-icon-192.png">
@@ -62,6 +63,7 @@ code{font-family:var(--mono);font-size:.92em}
 .btn.sig{background:var(--signal);color:var(--signal-ink)}
 .btn.sm{min-height:44px;padding:0 14px;font-size:14px}
 .btn[disabled]{opacity:.55;cursor:default;transform:none}
+.btn[hidden]{display:none}
 header.top{border-bottom:2px solid var(--ink);background:var(--paper)}
 header.top .wrap{display:flex;align-items:center;gap:10px;min-height:60px}
 header.top img{width:36px;height:36px;border:1.5px solid var(--ink)}
@@ -77,18 +79,45 @@ h3{font:600 18px/1.3 var(--sans);margin:0 0 6px}
 .lede{color:var(--ink2);max-width:60ch;margin:0 0 28px}
 .head{border-bottom:2px solid var(--ink);margin-bottom:24px}
 .grid-bg{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
-.two{display:grid;gap:32px;align-items:start}
-@media (min-width:900px){.two{grid-template-columns:1fr 1fr;gap:48px}.two.wide-r{grid-template-columns:.85fr 1.15fr}}
+.two{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;align-items:start}
+.two>*{min-width:0}
+@media (min-width:900px){.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px}.two.wide-r{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}}
 
 /* Hero */
 .hero{border-bottom:2px solid var(--ink)}
-.hero .wrap{display:grid;gap:28px;padding-top:36px;padding-bottom:44px;align-items:center}
-.sub{font-size:20px;line-height:1.45;color:var(--ink2);margin:0 0 28px;max-width:34ch}
+.hero .wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;padding-top:36px;padding-bottom:44px;align-items:center}
+.hero .wrap>*{min-width:0}
+.sub{font-size:19px;line-height:1.5;color:var(--ink2);margin:0 0 28px;max-width:46ch}
 .cta{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:22px}
-.agents{font:400 13px var(--mono);color:var(--muted);margin:0}
-.monkey{margin:0 auto;max-width:440px;width:100%;box-shadow:6px 6px 0 var(--ink)}
-.monkey img{display:block;width:100%;height:auto;aspect-ratio:1}
-@media (min-width:860px){.hero .wrap{grid-template-columns:1.05fr 1fr;padding-top:64px;padding-bottom:72px}h1{font-size:68px}}
+.agents{font:400 13px/1.6 var(--mono);color:var(--muted);margin:0}
+.agents span{white-space:nowrap}
+@media (min-width:860px){.hero .wrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;padding-top:64px;padding-bottom:72px}h1{font-size:64px}}
+/* Hero canvas: three task nodes. The frame keeps room for its 6px offset shadow. */
+.fleet{border:1.5px solid var(--ink);box-shadow:6px 6px 0 var(--ink);margin:0 6px 6px 0;padding:0 12px 12px;max-width:560px;width:calc(100% - 6px);justify-self:center}
+.fleet-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px}
+.fleet-bar .label{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-nodes{display:flex;flex-direction:column;gap:12px}
+.hn{position:relative;border:1.5px solid var(--ink);background:var(--raised);box-shadow:2px 2px 0 var(--ink);height:184px;display:flex;flex-direction:column;min-width:0}
+.hn.ask{border-style:dashed}
+.hn-bar{display:flex;align-items:center;gap:8px;height:30px;flex-shrink:0;padding:0 8px;border-bottom:1.5px solid var(--ink);font:600 12px var(--mono);letter-spacing:.3px}
+.hn-bar .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hn-bar .ag{font:400 11px var(--mono);flex-shrink:0}
+.hn.pr .hn-bar{background:var(--olive);color:var(--olive-ink)}
+.hn.pr .led{background:var(--olive-ink)}
+.hn.br .led{background:var(--olive-text)}
+.hn.idle .led{background:var(--muted)}
+.hn-body{flex:1;min-height:0;display:grid;grid-template-columns:40px minmax(0,1fr);grid-template-rows:40px 1fr 22px;gap:6px 10px;padding:8px}
+.hn .glyph{width:40px;height:40px}
+.hn .glyph svg{width:26px;height:26px}
+.hn-now{min-width:0;align-self:center}
+.hn .lanes{grid-column:1/-1;height:auto;gap:2px}
+.hn .lanes li{height:10px;font-size:9.5px}
+.hn .lanes .ln-n{width:38px}
+.hn .lanes .ln-c{width:16px}
+.hn .blk i{height:8px;width:8px}
+.hn-foot{grid-column:1/-1;display:flex;align-items:center;gap:12px;font:400 11px var(--mono);color:var(--muted);min-width:0}
+.hn-foot .hn-cost{margin-left:auto}
+.stamp.xs{font-size:10.5px;padding:2px 6px;letter-spacing:.8px}
 
 /* Install */
 .tabs{display:flex;flex-wrap:wrap;margin:8px 0 0}
@@ -112,62 +141,13 @@ table.cmp{width:100%;min-width:560px;border-collapse:collapse;font-size:14px}
 .cmp tbody th{font:500 12px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted);width:20%}
 .cmp td{color:var(--ink2)}
 
-/* Phone demo */
+/* Controls */
 .ctl{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:20px 0}
 .seg{display:inline-flex;border:1.5px solid var(--ink)}
 .seg button{min-height:44px;padding:0 12px;border:0;background:var(--raised);font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase}
 .seg button+button{border-left:1.5px solid var(--ink)}
 .seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-ol.steps{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
-ol.steps li{display:grid;grid-template-columns:40px 1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--rule);color:var(--ink2)}
-ol.steps li b{font:600 13px var(--mono);color:var(--muted)}
-ol.steps li.cur{color:var(--ink)}
-ol.steps li.cur b{color:var(--signal-text)}
-.phone{width:100%;max-width:360px;margin:0 auto;border:2px solid var(--ink);border-radius:0;background:var(--ink);padding:10px;box-shadow:8px 8px 0 var(--signal)}
-.scr{background:var(--paper);height:620px;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.ph-bar{display:flex;justify-content:space-between;padding:6px 12px;font:500 11px var(--mono);color:var(--muted);border-bottom:1px solid var(--rule)}
-.view{display:flex;flex-direction:column;min-height:0;flex:1}
-.view[hidden]{display:none}
-.ph-head{padding:12px 14px;border-bottom:1.5px solid var(--ink)}
-.ph-head .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.ph-title{font:700 19px/1.2 var(--sans);margin:4px 0 8px}
-.ph-meta{font:400 12px/1.6 var(--mono);color:var(--muted);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ph-tabs{display:flex;gap:18px;padding:0 14px;border-bottom:1.5px solid var(--ink);font:600 12px var(--mono);letter-spacing:1.5px}
-.ph-tabs span{padding:10px 0;color:var(--muted)}
-.ph-tabs span:first-child{color:var(--ink);border-bottom:3px solid var(--ink)}
-.icon{min-width:44px;min-height:44px;border:0;background:none;font-size:20px;padding:0}
-.list{list-style:none;margin:0;padding:0}
-.list li{padding:12px 14px;border-bottom:1px solid var(--rule)}
-.list li button{display:block;width:100%;text-align:left;border:0;background:none;padding:0}
-.list .t{display:block;font-weight:600;margin-bottom:6px}
-.list .m{font:400 12px var(--mono);color:var(--muted)}
-.list li.new{animation:slide .4s ease-out}
-.form{padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
-.fld{border:1.5px solid var(--ink);background:var(--raised);padding:10px;min-height:96px;font-size:15px}
-.fld.small{min-height:0;font:400 13px var(--mono)}
-.caret::after{content:"▍";animation:blink 1s steps(2,jump-none) infinite;color:var(--signal-text)}
-.fl{font:500 11px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
-.tl{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
-.tl p{margin:0}
-p.ln{font:400 13px/1.45 var(--mono);color:var(--ink2);animation:slide .3s ease-out;overflow-wrap:anywhere}
-.ln b{font-weight:600;color:var(--ink)}
-.ln.out{color:var(--muted);padding-left:16px}
-.ln.sys{color:var(--muted);text-align:center;border-top:1px solid var(--rule);padding-top:6px;font-size:12px}
-.say{border:1.5px solid var(--ink);background:var(--raised);padding:10px;font-size:14px;animation:slide .3s ease-out}
-.card{border:1.5px solid var(--ink);padding:12px;background:var(--raised);animation:slide .3s ease-out}
-.card.asks{border-style:dashed}
-.card .k{font:600 12px var(--mono);letter-spacing:1.5px;color:var(--signal-text);margin:0 0 6px}
-.card .k.ok{color:var(--olive-text)}
-.card p{margin:0 0 10px;font-size:14px}
-.opts{display:flex;flex-wrap:wrap;gap:8px}
-.ob{min-height:44px;padding:0 12px;border:1.5px solid var(--ink);background:var(--paper);font-weight:600;font-size:14px}
-.ob.p{background:var(--ink);color:var(--paper)}
-.ob.s{background:var(--signal);color:var(--signal-ink)}
-.ph-foot{border-top:1px solid var(--rule);padding:8px 14px;font:400 12px var(--mono);color:var(--muted)}
-.pulse{animation:pulse 1.4s ease-in-out infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--signal) 40%,transparent)}}
 @keyframes slide{from{opacity:0;transform:translateY(6px)}}
-@keyframes blink{50%{opacity:0}}
 
 /* Canvas node */
 .switch{margin-bottom:16px}
@@ -205,8 +185,8 @@ p.ln{font:400 13px/1.45 var(--mono);color:var(--ink2);animation:slide .3s ease-o
 .lanes .ln-n{width:40px;color:var(--muted);letter-spacing:1px}
 .lanes .ln-c{width:20px;text-align:right}
 .lanes .blk{display:flex;gap:3px}
-.blk i{width:9px;height:10px;opacity:.75;animation:fade .3s ease-out}
-.blk i.new{opacity:1}
+.blk i{width:9px;height:10px;opacity:.75}
+.blk i.new{opacity:1;animation:fade .3s ease-out}
 @keyframes fade{from{opacity:0}}
 .fin-box{height:84px;display:flex;flex-direction:column;gap:8px}
 .fgrid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule);margin:0}
@@ -257,9 +237,17 @@ ol.hops button[aria-current=step] b{color:var(--signal-ink)}
 .feat{border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);padding:20px 16px;background:var(--paper)}
 .feat:hover{background:var(--raised)}
 .feat p{margin:0;color:var(--ink2);font-size:15px}
-.mini{height:76px;margin-bottom:14px;border:1px solid var(--rule);background:var(--raised);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px}
-@media (min-width:700px){.feats{grid-template-columns:1fr 1fr}}
-@media (min-width:1000px){.feats{grid-template-columns:repeat(3,1fr)}}
+.mini{height:76px;margin-bottom:14px;border:1px solid var(--rule);background:var(--raised);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 8px}
+@media (min-width:700px){.feats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1000px){.feats{grid-template-columns:repeat(3,minmax(0,1fr))}.feats.four{grid-template-columns:repeat(4,minmax(0,1fr))}}
+ul.req.pick{margin:28px 0 0;max-width:80ch}
+.slots{display:flex;gap:6px}
+.slot{border:1.5px solid var(--ink);padding:3px 6px;font:600 11px var(--mono);letter-spacing:1px;background:var(--paper)}
+.slot.on{background:var(--signal);color:var(--signal-ink)}
+.slot.q{border-style:dashed;color:var(--ink2)}
+.play .slot.q{animation:qin 4s ease-in-out infinite}
+.play .slot.q+.slot.q{animation-delay:.5s}
+@keyframes qin{0%{opacity:0;transform:translateX(10px)}15%,85%{opacity:1;transform:none}100%{opacity:0}}
 /* mini animations run only while .play (in view) */
 .mini .seq{position:relative;width:150px;height:28px}
 .mini .seq .stamp{position:absolute;left:50%;top:0;transform:translateX(-50%);opacity:0}
@@ -303,7 +291,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
 /* Off-screen sections pause their CSS animations. */
 .off *,.off *::before,.off *::after{animation-play-state:paused!important}
 @media (max-width:520px){header.top nav a.opt{display:none}h2{font-size:24px}}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.mini .seq .stamp:nth-child(3){opacity:1}*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.mini .seq .stamp:nth-child(3){opacity:1}.hosts span,.slot.q{opacity:1}*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -313,7 +301,8 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
     <img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="36" height="36">
     <span class="brand">Jungle Monkey</span>
     <nav aria-label="Site">
-      <a class="opt" href="#try">Demo</a>
+      <a class="opt" href="#agents">Agents</a>
+      <a class="opt" href="#watch">Demo</a>
       <a class="opt" href="#keys">Security</a>
       <a href="#install">Install</a>
       <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
@@ -322,27 +311,189 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
 </header>
 
 <main id="main">
-<section class="hero grid-bg" aria-labelledby="hero-h">
+<section class="hero grid-bg" id="top" aria-labelledby="hero-h">
   <div class="wrap">
     <div>
-      <p class="label">Agent field unit · Nº 01</p>
-      <h1 id="hero-h">Jungle Monkey</h1>
-      <p class="sub">Send a coding agent into your repo, answer its questions from your phone, and get a branch or a pull request back.</p>
+      <p class="label">Agent orchestrator · Nº 01</p>
+      <h1 id="hero-h">Every coding agent. One control room.</h1>
+      <p class="sub">Run Claude Code, Codex and Cursor side by side — queued, sandboxed and on a budget — on your server or your own machines. Watch every agent work, answer its questions, and ship the result as a branch or a pull request.</p>
       <div class="cta">
         <a class="btn ink" href="#install">Install</a>
         <a class="btn" href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
       </div>
-      <p class="agents">Claude Code · Codex · Cursor · sealed containers · self-hosted · MIT</p>
+      <p class="agents"><span>Claude Code ·</span> <span>Codex ·</span> <span>Cursor ·</span> <span>parallel runs ·</span> <span>sealed containers ·</span> <span>self-hosted ·</span> <span>MIT</span></p>
     </div>
-    <figure class="monkey">
-      <img src="docs/brand/jungle-monkey-stamp-512.png" alt="Jungle Monkey logo: an orange-brown monkey in a square ink frame" width="512" height="512" fetchpriority="high" decoding="async">
-    </figure>
+    <div class="fleet grid-bg" id="fleet" role="group" aria-label="Scripted demo: three agents running side by side on the canvas">
+      <div class="fleet-bar"><p class="label" aria-hidden="true">Canvas · 3 tasks · server</p><button type="button" class="btn sm" id="fleet-play">Pause</button></div>
+      <div class="fleet-nodes">
+        <div class="hn idle" id="hn-claude" role="group" aria-label="Task 41, Claude Code: Retry webhook deliveries">
+          <div class="hn-bar"><span class="led"></span><span class="tt">#41 · Retry webhook deliveries</span><span class="ag">Claude Code</span></div>
+          <div class="hn-body">
+            <span class="glyph" aria-hidden="true"></span>
+            <div class="hn-now"><p class="verb">QUEUED</p><p class="tgt">waiting for a slot</p></div>
+            <ul class="lanes" aria-label="Activity by lane"></ul>
+            <div class="hn-foot"><span class="stamp xs">Queued</span><span class="hn-cost">$0.00</span><span class="hn-time">0s</span></div>
+          </div>
+        </div>
+        <div class="hn idle" id="hn-codex" role="group" aria-label="Task 42, Codex: Add CSV export to tables">
+          <div class="hn-bar"><span class="led"></span><span class="tt">#42 · Add CSV export to tables</span><span class="ag">Codex</span></div>
+          <div class="hn-body">
+            <span class="glyph" aria-hidden="true"></span>
+            <div class="hn-now"><p class="verb">QUEUED</p><p class="tgt">waiting for a slot</p></div>
+            <ul class="lanes" aria-label="Activity by lane"></ul>
+            <div class="hn-foot"><span class="stamp xs">Queued</span><span class="hn-cost">$0.00</span><span class="hn-time">0s</span></div>
+          </div>
+        </div>
+        <div class="hn idle" id="hn-cursor" role="group" aria-label="Task 43, Cursor: Upgrade ESLint to v9">
+          <div class="hn-bar"><span class="led"></span><span class="tt">#43 · Upgrade ESLint to v9</span><span class="ag">Cursor</span></div>
+          <div class="hn-body">
+            <span class="glyph" aria-hidden="true"></span>
+            <div class="hn-now"><p class="verb">QUEUED</p><p class="tgt">waiting for a slot</p></div>
+            <ul class="lanes" aria-label="Activity by lane"></ul>
+            <div class="hn-foot"><span class="stamp xs">Queued</span><span class="hn-cost">$0.00</span><span class="hn-time">0s</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="sr" id="fleet-live" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="agents" aria-labelledby="agents-h">
+  <div class="wrap">
+    <div class="head"><p class="label">§ 01 · Providers</p><h2 id="agents-h">Any agent</h2></div>
+    <p class="lede">Three coding agents, one workflow. Each runs through its own SDK in the same sealed container, reports into the same timeline, gets the same skills and MCP tools, and delivers the same way.</p>
+    <div class="feats">
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><span class="plate">CLAUDE CODE</span><span class="stamp ask">? Asks you</span></div>
+        <h3>Claude Code</h3>
+        <p>Through the Claude Agent SDK, with an API key or your Claude subscription. Stops to ask when it needs a decision, and reports its own cost (API-equivalent on a subscription).</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><span class="plate">CODEX</span><span class="stamp">≈$0.18</span></div>
+        <h3>Codex</h3>
+        <p>Through the OpenAI Codex SDK. Makes its own choices and lists open questions in the summary; its cost is estimated from the price table you can edit.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><span class="plate">CURSOR</span><span class="stamp">≈$0.11</span></div>
+        <h3>Cursor</h3>
+        <p>Through the Cursor SDK. Like Codex, it decides on its own and lists open questions at the end, with an estimated cost.</p>
+      </article>
+    </div>
+    <ul class="req pick">
+      <li><strong>Pick per project or per task.</strong> A project has a default agent and any task can override it, so one project can mix providers. Schedules pick theirs too.</li>
+      <li><strong>Keys stay yours.</strong> Provider keys live on your own hosts: the server's <code>.env</code>, the OS keychain for <code>npx jungle-monkey</code>, the macOS Keychain on a computer you add. A run gets only its own agent's key.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block grid-bg" id="orchestration" aria-labelledby="orch-h">
+  <div class="wrap">
+    <div class="head"><p class="label">§ 02 · Orchestration</p><h2 id="orch-h">Orchestration</h2></div>
+    <p class="lede">A queue in front of every agent, limits on what runs at once and what it may spend, and loops that bring a task home.</p>
+    <div class="feats" id="feats">
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><span class="cap">SERVER · 2 SLOTS</span><div class="slots"><span class="slot on">RUN</span><span class="slot on">RUN</span><span class="slot q">#44</span><span class="slot q">#45</span></div></div>
+        <h3>Queue and concurrency</h3>
+        <p>Tasks queue and start when their host has a free slot: the server runs up to <code>MAX_CONCURRENT_TASKS</code> at once (default 2), each computer you add has its own limit (1–32). A schedule skips or queues a firing while its last task still runs.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><div class="plates"><span class="chip"></span><span class="plate">SERVER</span><span class="plate">MY MAC</span></div></div>
+        <h3>Server or your computers</h3>
+        <p>Add a Mac in Settings → Computers (it runs <code>fleetpocket-node</code> with its own Docker and agent keys, and only connects out), then choose per project or per task where a task runs.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><span class="cap">MAY · ACME/HOOKS</span><div class="bar"><i></i></div><span class="stamp ask">80% · notice</span></div>
+        <h3>Budgets and costs</h3>
+        <p>Every run's tokens and cost: reported by Claude, estimated for Codex and Cursor (<code>≈$0.84</code>). Totals by project, agent and day with a CSV export. Monthly caps per project, schedule or overall hold new runs at 100%, with a notice at 80% and a one-tap "Start anyway".</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><div class="seq"><span class="stamp bad">✕ CI failed</span><span class="stamp run">● Fixing · 1/3</span><span class="stamp ok">✓ CI green</span></div></div>
+        <h3>CI auto-fix</h3>
+        <p>A failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><div class="hosts"><span class="y">✓ linear · list_issues</span><span class="y">✓ sentry · get_issue</span><span class="x">✕ db · drop_table · not allowed</span></div></div>
+        <h3>MCP through the gateway</h3>
+        <p>MCP servers (Linear, Sentry, a database, any npm/pip package or image) per project or globally. The agent reaches them through a gateway that holds the credentials, enforces tool lists and call limits, and logs every call.</p>
+      </article>
+      <article class="feat">
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><circle cx="34" cy="32" r="18" class="pap-f ink-s" stroke-width="1.5"/><path d="M34 32 V20 M34 32 L43 37" class="ink-s" stroke-width="2"/><path class="draw sig-s" d="M62 32 H96 C108 32 108 14 120 14 C132 14 132 32 144 32 H156" stroke-width="2.5" fill="none"/><text x="140" y="56" class="mt">✓ check</text><text x="66" y="56" class="mt">0 3 * * 1-5</text></svg></div>
+        <h3>Schedules and loops</h3>
+        <p>Start a task on a timetable with its own budget, or let a task loop until your check (<code>npm test</code>, <code>go test ./...</code>) passes; the PR or local branch arrives once, at the end.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="watch" aria-labelledby="watch-h">
+  <div class="wrap two wide-r">
+    <div>
+      <div class="head"><p class="label">§ 03 · Observation</p><h2 id="watch-h">See every agent work</h2></div>
+      <p class="lede">The canvas puts every running task on one board as a live node, whichever agent runs it: what it is doing now, its activity lanes, the files it read (R) and wrote (W), its steps, cost and time. Flip a node to a plain terminal for the same run as log lines. Answer a question, send a follow-up, or restore a checkpoint and let the agent continue from there.</p>
+      <div class="seg switch" role="group" aria-label="View">
+        <button type="button" id="sw-term" aria-pressed="false">Terminal</button>
+        <button type="button" id="sw-node" aria-pressed="true">Node</button>
+      </div>
+      <p class="sr" id="node-live" aria-live="polite"></p>
+    </div>
+    <div>
+      <section class="node" id="node" aria-label="Task node #0042">
+        <div class="nbar"><span class="led live" id="n-led"></span><span class="tt">#42 · Retry webhook deliveries</span><span class="ag">Claude Code</span></div>
+        <div class="nbody">
+          <div class="now"><span class="glyph" id="n-glyph" aria-hidden="true"></span><div style="min-width:0;flex:1"><p class="verb" id="n-verb">QUEUED</p><p class="tgt" id="n-tgt">waiting for a slot</p></div></div>
+          <div id="n-mid"></div>
+          <div class="touched"><p class="label" style="font-size:10px">Touched</p><ul id="n-files"></ul></div>
+          <div class="nfoot"><span id="n-step">STEP 0</span><span id="n-cost">$0.00</span><span id="n-time">0s</span></div>
+        </div>
+      </section>
+      <div class="term" id="term" hidden aria-live="off" aria-label="Terminal view of task #0042"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block grid-bg" id="keys" aria-labelledby="keys-h">
+  <div class="wrap two">
+    <div>
+      <div class="head"><p class="label">§ 04 · Security</p><h2 id="keys-h">Sealed by design</h2></div>
+      <p class="lede">Whichever agent runs, it gets a folder, a prompt and its own provider key. No GitHub token, no Docker access, no host network. The GitHub and MCP credentials live outside its box. Tap a hop.</p>
+      <ol class="hops" id="hops"></ol>
+      <p class="hopdesc" id="hop-desc"></p>
+      <p class="sr" id="hop-live" aria-live="polite"></p>
+      <div class="ctl"><button type="button" class="btn sm" id="hop-play" aria-pressed="true">Pause tour</button></div>
+    </div>
+    <div class="map" id="map">
+      <svg viewBox="0 0 384 380" role="img" aria-labelledby="map-t">
+        <title id="map-t">System map: a sealed agent container holding only its own provider key; an egress proxy to allowed hosts; the MCP gateway to integrations; the publisher, which holds the GitHub token, to GitHub; the notifier to your phone.</title>
+        <rect class="srv" x="124" y="112" width="124" height="262"/>
+        <text class="s" x="128" y="370">JUNGLE MONKEY</text>
+        <rect class="bx seal" x="6" y="14" width="96" height="352"/>
+        <text class="t" x="12" y="30">SEALED</text><text class="t" x="12" y="42">CONTAINER</text>
+        <g id="b-agent"><rect class="bx" x="16" y="56" width="76" height="46"/><text class="t" x="24" y="76">AGENT</text><text class="s" x="24" y="90">own key only</text></g>
+        <g id="b-ws"><rect class="bx" x="16" y="296" width="76" height="46"/><text class="t" x="22" y="316">WORKSPACE</text><text class="s" x="24" y="330">one repo</text></g>
+        <path class="ln" id="p-ws" d="M54 102 V296"/>
+        <g class="proxy" id="b-proxy"><rect class="bx" x="134" y="22" width="106" height="52"/><text class="t" x="140" y="42">EGRESS PROXY</text><text class="s" x="140" y="58">allowlist</text></g>
+        <g class="blk-x" id="b-x"><text x="132" y="92">✕ tracker.example.net</text></g>
+        <g id="b-hosts"><rect class="bx" x="274" y="22" width="104" height="52"/><text class="t" x="280" y="42">ALLOWED</text><text class="s" x="280" y="58">npm · PyPI · API</text></g>
+        <g id="b-gw"><rect class="bx" x="134" y="120" width="106" height="52"/><text class="t" x="140" y="140">MCP GATEWAY</text><text class="s" x="140" y="156">creds in memory</text></g>
+        <g id="b-int"><rect class="bx" x="274" y="120" width="104" height="52"/><text class="t" x="280" y="140">TOOLS</text><text class="s" x="280" y="156">Linear · Sentry</text></g>
+        <g id="b-pub"><rect class="bx" x="134" y="210" width="106" height="52"/><text class="t" x="140" y="230">PUBLISHER</text><text class="s" x="140" y="246">holds GitHub key</text></g>
+        <g id="b-gh"><rect class="bx" x="274" y="210" width="104" height="52"/><text class="t" x="280" y="230">GITHUB</text><text class="s" x="280" y="246">push · PR</text></g>
+        <g id="b-note"><rect class="bx" x="134" y="300" width="106" height="52"/><text class="t" x="140" y="320">NOTIFIER</text><text class="s" x="140" y="336">Telegram bot</text></g>
+        <g id="b-phone"><rect class="bx" x="274" y="300" width="104" height="52"/><text class="t" x="280" y="320">YOUR PHONE</text><text class="s" x="280" y="336">answer · merge</text></g>
+        <path class="ln" id="p-c-proxy" d="M102 48 H134"/><path class="ln" id="p-proxy-hosts" d="M240 48 H274"/>
+        <path class="ln" id="p-c-gw" d="M102 146 H134"/><path class="ln" id="p-gw-int" d="M240 146 H274"/>
+        <path class="ln" id="p-c-pub" d="M102 236 H134"/><path class="ln" id="p-pub-gh" d="M240 236 H274"/>
+        <path class="ln" id="p-c-note" d="M102 326 H134"/><path class="ln" id="p-note-phone" d="M240 326 H274"/>
+        <rect class="pk" id="pk" x="-20" y="-20" width="9" height="9"/>
+      </svg>
+    </div>
   </div>
 </section>
 
 <section class="block" id="install" aria-labelledby="install-h">
   <div class="wrap">
-    <div class="head"><p class="label">§ 01 · Deployment</p><h2 id="install-h">Install</h2></div>
+    <div class="head"><p class="label">§ 05 · Deployment</p><h2 id="install-h">Install</h2></div>
     <p class="lede">Three ways in. Start on your laptop in a minute; move to a server when you want it running while you sleep.</p>
     <div class="tabs" role="tablist" aria-label="Ways to install">
       <button type="button" role="tab" id="tab-npx" aria-controls="panel-npx" aria-selected="true">On your computer · npx</button>
@@ -392,179 +543,15 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
   </div>
 </section>
 
-<section class="block grid-bg" id="try" aria-labelledby="try-h">
-  <div class="wrap two">
-    <div>
-      <div class="head"><p class="label">§ 02 · Field exercise</p><h2 id="try-h">Try it, scripted</h2></div>
-      <p class="lede">A phone running the real app's screens with fake data. Start a task, answer Claude's question, and pick how the work comes back.</p>
-      <ol class="steps" id="ph-steps">
-        <li class="cur"><b>01</b><span>Tap <strong>+ New</strong> and start the task.</span></li>
-        <li><b>02</b><span>Watch it run: Read, Grep, Edit, Bash.</span></li>
-        <li><b>03</b><span>Claude asks. Tap an answer.</span></li>
-        <li><b>04</b><span>It commits, then hands the work back.</span></li>
-      </ol>
-      <div class="ctl">
-        <span class="label" id="end-l">Ending</span>
-        <div class="seg" role="group" aria-labelledby="end-l">
-          <button type="button" id="end-gh" aria-pressed="true">GitHub PR</button>
-          <button type="button" id="end-local" aria-pressed="false">Local branch</button>
-        </div>
-        <button type="button" class="btn sm" id="ph-restart">Restart</button>
-      </div>
-      <p class="sr" id="ph-live" aria-live="polite"></p>
-    </div>
-    <div class="phone" role="group" aria-label="Demo of the Jungle Monkey app on a phone">
-      <div class="scr">
-        <div class="ph-bar" aria-hidden="true"><span>9:41</span><span>JUNGLE MONKEY</span><span>▮▮▮</span></div>
-        <div class="view" id="v-list">
-          <div class="ph-head"><div class="row"><span class="ph-title" style="margin:0">Tasks</span><button type="button" class="btn sig sm pulse" id="ph-new">+ New</button></div></div>
-          <ul class="list" id="ph-list">
-            <li><button type="button" disabled><span class="t">Bump Go to 1.25</span><span class="stamp ok">✓ PR open</span> <span class="m">#0041</span></button></li>
-            <li><button type="button" disabled><span class="t">Fix flaky login test</span><span class="stamp">Completed</span> <span class="m">#0040</span></button></li>
-          </ul>
-        </div>
-        <div class="view" id="v-new" hidden>
-          <div class="ph-head"><div class="row"><button type="button" class="icon" id="ph-cancel" aria-label="Back to tasks">←</button><span class="label">New task</span><span style="width:44px"></span></div></div>
-          <div class="form">
-            <div><p class="fl">Project</p><div class="fld small" id="ph-proj">acme/hooks · Claude Code</div></div>
-            <div><p class="fl">What should change?</p><div class="fld caret" id="ph-prompt"></div></div>
-            <div id="ph-from" hidden><p class="fl" id="from-l">Start from</p>
-              <div class="seg" role="group" aria-labelledby="from-l"><button type="button" aria-pressed="true" data-from="0">Last commit</button><button type="button" aria-pressed="false" data-from="1">Include my uncommitted changes</button></div>
-            </div>
-            <button type="button" class="btn ink" id="ph-start">Start task</button>
-          </div>
-        </div>
-        <div class="view" id="v-task" hidden>
-          <div class="ph-head">
-            <div class="row"><button type="button" class="icon" id="ph-back" aria-label="Back to tasks">←</button><span class="label">Task #0042</span><span style="width:44px"></span></div>
-            <p class="ph-title">Retry webhook deliveries with backoff</p>
-            <p style="margin:0 0 6px"><span class="stamp" id="ph-stamp">Queued</span></p>
-            <p class="ph-meta" id="ph-cost">$0.00 API-equivalent · 0 turns</p>
-            <p class="ph-meta" id="ph-branch">agent/42-retry-webhook-deliveries</p>
-          </div>
-          <div class="ph-tabs" aria-hidden="true"><span>ACTIVITY</span><span>DIFF</span><span>INFO</span></div>
-          <div class="tl" id="ph-tl"></div>
-          <div class="ph-foot" aria-hidden="true">Message for the next run…</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="watch" aria-labelledby="watch-h">
-  <div class="wrap two wide-r">
-    <div>
-      <div class="head"><p class="label">§ 03 · Observation</p><h2 id="watch-h">Watch the agent work</h2></div>
-      <p class="lede">The canvas puts every running task on one board as a live node: what it is doing now, its activity lanes, the files it read (R) and wrote (W), its steps, cost and time. Flip a node to a plain terminal for the same run as log lines.</p>
-      <div class="seg switch" role="group" aria-label="View">
-        <button type="button" id="sw-term" aria-pressed="false">Terminal</button>
-        <button type="button" id="sw-node" aria-pressed="true">Node</button>
-      </div>
-      <p class="sr" id="node-live" aria-live="polite"></p>
-    </div>
-    <div>
-      <section class="node" id="node" aria-label="Task node #0042">
-        <div class="nbar"><span class="led live" id="n-led"></span><span class="tt">#42 · Retry webhook deliveries</span><span class="ag">Claude Code</span></div>
-        <div class="nbody">
-          <div class="now"><span class="glyph" id="n-glyph" aria-hidden="true"></span><div style="min-width:0;flex:1"><p class="verb" id="n-verb">QUEUED</p><p class="tgt" id="n-tgt">waiting for a slot</p></div></div>
-          <div id="n-mid"></div>
-          <div class="touched"><p class="label" style="font-size:10px">Touched</p><ul id="n-files"></ul></div>
-          <div class="nfoot"><span id="n-step">STEP 0</span><span id="n-cost">$0.00</span><span id="n-time">0s</span></div>
-        </div>
-      </section>
-      <div class="term" id="term" hidden aria-live="off" aria-label="Terminal view of task #0042"></div>
-    </div>
-  </div>
-</section>
-
-<section class="block grid-bg" id="keys" aria-labelledby="keys-h">
-  <div class="wrap two">
-    <div>
-      <div class="head"><p class="label">§ 04 · Security</p><h2 id="keys-h">Your keys stay with you</h2></div>
-      <p class="lede">The agent gets a folder and a prompt. It gets no GitHub token, no Docker access and no host network. Everything with a key lives outside its box. Tap a hop.</p>
-      <ol class="hops" id="hops"></ol>
-      <p class="hopdesc" id="hop-desc"></p>
-      <p class="sr" id="hop-live" aria-live="polite"></p>
-      <div class="ctl"><button type="button" class="btn sm" id="hop-play" aria-pressed="true">Pause tour</button></div>
-    </div>
-    <div class="map" id="map">
-      <svg viewBox="0 0 384 380" role="img" aria-labelledby="map-t">
-        <title id="map-t">System map: a sealed agent container; an egress proxy to allowed hosts; the MCP gateway to integrations; the publisher, which holds the GitHub token, to GitHub; the notifier to your phone.</title>
-        <rect class="srv" x="124" y="112" width="124" height="262"/>
-        <text class="s" x="128" y="370">JUNGLE MONKEY</text>
-        <rect class="bx seal" x="6" y="14" width="96" height="352"/>
-        <text class="t" x="12" y="30">SEALED</text><text class="t" x="12" y="42">CONTAINER</text>
-        <g id="b-agent"><rect class="bx" x="16" y="56" width="76" height="46"/><text class="t" x="24" y="76">AGENT</text><text class="s" x="24" y="90">no keys</text></g>
-        <g id="b-ws"><rect class="bx" x="16" y="296" width="76" height="46"/><text class="t" x="22" y="316">WORKSPACE</text><text class="s" x="24" y="330">one repo</text></g>
-        <path class="ln" id="p-ws" d="M54 102 V296"/>
-        <g class="proxy" id="b-proxy"><rect class="bx" x="134" y="22" width="106" height="52"/><text class="t" x="140" y="42">EGRESS PROXY</text><text class="s" x="140" y="58">allowlist</text></g>
-        <g class="blk-x" id="b-x"><text x="132" y="92">✕ tracker.example.net</text></g>
-        <g id="b-hosts"><rect class="bx" x="274" y="22" width="104" height="52"/><text class="t" x="280" y="42">ALLOWED</text><text class="s" x="280" y="58">npm · PyPI · API</text></g>
-        <g id="b-gw"><rect class="bx" x="134" y="120" width="106" height="52"/><text class="t" x="140" y="140">MCP GATEWAY</text><text class="s" x="140" y="156">creds in memory</text></g>
-        <g id="b-int"><rect class="bx" x="274" y="120" width="104" height="52"/><text class="t" x="280" y="140">TOOLS</text><text class="s" x="280" y="156">Linear · Sentry</text></g>
-        <g id="b-pub"><rect class="bx" x="134" y="210" width="106" height="52"/><text class="t" x="140" y="230">PUBLISHER</text><text class="s" x="140" y="246">holds GitHub key</text></g>
-        <g id="b-gh"><rect class="bx" x="274" y="210" width="104" height="52"/><text class="t" x="280" y="230">GITHUB</text><text class="s" x="280" y="246">push · PR</text></g>
-        <g id="b-note"><rect class="bx" x="134" y="300" width="106" height="52"/><text class="t" x="140" y="320">NOTIFIER</text><text class="s" x="140" y="336">Telegram bot</text></g>
-        <g id="b-phone"><rect class="bx" x="274" y="300" width="104" height="52"/><text class="t" x="280" y="320">YOUR PHONE</text><text class="s" x="280" y="336">answer · merge</text></g>
-        <path class="ln" id="p-c-proxy" d="M102 48 H134"/><path class="ln" id="p-proxy-hosts" d="M240 48 H274"/>
-        <path class="ln" id="p-c-gw" d="M102 146 H134"/><path class="ln" id="p-gw-int" d="M240 146 H274"/>
-        <path class="ln" id="p-c-pub" d="M102 236 H134"/><path class="ln" id="p-pub-gh" d="M240 236 H274"/>
-        <path class="ln" id="p-c-note" d="M102 326 H134"/><path class="ln" id="p-note-phone" d="M240 326 H274"/>
-        <rect class="pk" id="pk" x="-20" y="-20" width="9" height="9"/>
-      </svg>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="features" aria-labelledby="feat-h">
+<section class="block grid-bg" id="anywhere" aria-labelledby="anywhere-h">
   <div class="wrap">
-    <div class="head"><p class="label">§ 05 · Equipment</p><h2 id="feat-h">What else is in the kit</h2></div>
-    <div class="feats" id="feats">
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><div class="seq"><span class="stamp bad">✕ CI failed</span><span class="stamp run">● Fixing · 1/3</span><span class="stamp ok">✓ CI green</span></div></div>
-        <h3>CI auto-fix</h3>
-        <p>A failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><div class="hosts"><span class="y">✓ mcp · linear</span><span class="y">✓ registry.npmjs.org</span><span class="x">✕ tracker.example.net · Allow?</span></div></div>
-        <h3>MCP integrations, egress allowlist</h3>
-        <p>MCP servers (Linear, Sentry, a database, any npm/pip package or image) through a gateway that holds the credentials, enforces tool lists and call limits and logs every call. Lock the network to an allowlist; blocked hosts get a one-tap "Allow".</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><span class="cap">MAY · ACME/HOOKS</span><div class="bar"><i></i></div><span class="stamp ask">80% · notice</span></div>
-        <h3>Costs and budgets</h3>
-        <p>Every run's tokens and cost: reported by Claude, estimated for Codex and Cursor (<code>≈$0.84</code>). Totals by project, agent and day with a CSV export. Monthly caps hold new runs at 100%, with a notice at 80% and a one-tap "Start anyway".</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><div class="plates"><span class="chip"></span><span class="plate">SERVER</span><span class="plate">MY MAC</span></div></div>
-        <h3>Remote computers</h3>
-        <p>Add your Mac in Settings → Computers (it runs <code>fleetpocket-node</code>, which only connects out) and choose per project or per task whether a task runs on the server or on it.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><path d="M10 44 H190" class="ink-s" stroke-width="2.5" fill="none"/><path class="draw sig-s" d="M40 44 C60 44 60 18 84 18 H130 C150 18 150 44 168 44" stroke-width="2.5" fill="none"/><circle cx="40" cy="44" r="4" class="ink-f"/><circle cx="168" cy="44" r="4" class="oli-f"/><text x="88" y="12" class="mt">jm/42-…</text><text x="12" y="60" class="mt">main</text></svg></div>
-        <h3>Local repos</h3>
-        <p>Point it at a folder on your disk and get a <code>jm/&lt;task id&gt;-&lt;slug&gt;</code> branch back in that repo: merge it into your current branch, check it out, discard it, or push it and open a PR when GitHub is connected.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><path d="M12 32 H110" class="ink-s" stroke-width="2.5"/><path d="M110 32 H188" class="mut-s" stroke-width="2" stroke-dasharray="4 4"/><path class="draw sig-s" d="M70 32 C84 32 90 54 110 54 H180" stroke-width="2.5" fill="none"/><g class="ink-f"><circle cx="30" cy="32" r="4"/><circle cx="50" cy="32" r="4"/><circle cx="70" cy="32" r="5"/></g><circle cx="130" cy="32" r="4" class="pap-f mut-s"/><circle cx="160" cy="32" r="4" class="pap-f mut-s"/><text x="54" y="16" class="mt">↶ restore here</text></svg></div>
-        <h3>Checkpoints</h3>
-        <p>Every agent step that changes files can be saved. Restore any step, add "…then do it with a migration instead", and the agent continues from there; discarded steps stay as an abandoned branch.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><rect x="14" y="12" width="52" height="40" class="pap-f ink-s" stroke-width="1.5"/><path d="M22 24 H58 M22 32 H52 M22 40 H46" class="mut-s" stroke-width="2"/><text x="20" y="9" class="mt">SKILL.md</text><path class="draw sig-s" d="M72 32 H118" stroke-width="2.5" fill="none"/><rect x="124" y="20" width="62" height="24" class="pap-f ink-s" stroke-width="1.5"/><text x="131" y="36" class="mt">✓ project</text></svg></div>
-        <h3>Skill library</h3>
-        <p>Your playbooks as SKILL.md skills with templates. Tick which ones a project's tasks get, or add one to a single task. Four diagram skills included, off until you enable them.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><circle cx="34" cy="32" r="18" class="pap-f ink-s" stroke-width="1.5"/><path d="M34 32 V20 M34 32 L43 37" class="ink-s" stroke-width="2"/><path class="draw sig-s" d="M62 32 H96 C108 32 108 14 120 14 C132 14 132 32 144 32 H156" stroke-width="2.5" fill="none"/><text x="140" y="56" class="mt">✓ check</text><text x="66" y="56" class="mt">0 3 * * 1-5</text></svg></div>
-        <h3>Schedules and loops</h3>
-        <p>Start a task on a timetable with its own budgets, or let a task loop until your check passes; the PR or local branch arrives once, at the end.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><rect x="10" y="10" width="54" height="44" class="pap-f ink-s" stroke-width="1.5"/><rect x="73" y="10" width="54" height="44" class="pap-f ink-s" stroke-width="1.5"/><rect x="136" y="10" width="54" height="44" class="pap-f ink-s" stroke-width="1.5"/><rect x="16" y="22" width="42" height="12" class="ink-s" stroke-width="1.2" fill="none"/><text x="15" y="8" class="mt">INBOX</text><text x="141" y="8" class="mt">DONE</text><path class="draw sig-s" d="M58 28 C80 28 120 40 142 40" stroke-width="2.5" fill="none"/><text x="78" y="50" class="mt">🎙 0:07</text></svg></div>
-        <h3>Ideas board</h3>
-        <p>Hold to talk and the voice note becomes a card, or drop in text, links, screenshots, or send /idea in Telegram. Start a task from a card; it moves to Done when the PR merges. Off until you turn it on.</p>
-      </article>
+    <div class="head"><p class="label">§ 06 · Field access</p><h2 id="anywhere-h">Steer from anywhere</h2></div>
+    <p class="lede">One app on every screen. Phone and Telegram need a server install.</p>
+    <div class="feats four">
+      <article class="feat"><h3>Web</h3><p>The task list and the open task side by side: start, answer, follow up, merge.</p></article>
+      <article class="feat"><h3>Desktop canvas</h3><p>Every running task as a live node on one board, grouped by the machine it runs on.</p></article>
+      <article class="feat"><h3>Phone PWA</h3><p>Laid out for one hand. Hold to talk on the Ideas board and turn a card into a task.</p></article>
+      <article class="feat"><h3>Telegram</h3><p>An optional bot and Mini App that ping you when an agent asks something.</p></article>
     </div>
   </div>
 </section>
@@ -593,21 +580,23 @@ function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.cl
 // One rAF loop for every demo; a demo only ticks while its section is on screen.
 var demos = [], raf = 0, last = 0
 function Demo(node, frame) {
-  var d = { node: node, vis: false, now: 0, q: [], frame: frame }
+  var d = { node: node, vis: false, hold: false, now: 0, q: [], frame: frame }
   d.after = function (ms, fn) { d.q.push({ t: d.now + ms, fn: fn }) }
   d.clear = function () { d.q = [] }
+  // Off screen or held (a Pause button): no ticks, CSS animations paused.
+  d.sync = function () { d.node.classList.toggle('off', !d.vis || d.hold); start() }
   demos.push(d)
   io.observe(node)
   return d
 }
 var io = new IntersectionObserver(function (es) {
   es.forEach(function (e) {
-    demos.forEach(function (d) { if (d.node === e.target) { d.vis = e.isIntersecting; d.node.classList.toggle('off', !d.vis) } })
+    demos.forEach(function (d) { if (d.node === e.target) { d.vis = e.isIntersecting; d.sync() } })
   })
   start()
 }, { rootMargin: '80px' })
 function start() {
-  if (raf || document.hidden || !demos.some(function (d) { return d.vis })) return
+  if (raf || document.hidden || !demos.some(function (d) { return d.vis && !d.hold })) return
   last = 0; raf = requestAnimationFrame(loop)
 }
 function loop(ts) {
@@ -615,7 +604,7 @@ function loop(ts) {
   var dt = last ? Math.min(ts - last, 64) : 16, any = false
   last = ts
   demos.forEach(function (d) {
-    if (!d.vis) return
+    if (!d.vis || d.hold) return
     any = true
     d.now += dt
     for (var guard = 0; guard < 20; guard++) {
@@ -640,6 +629,40 @@ function Live(node) {
   }
 }
 function setStamp(s, cls, text) { s.className = 'stamp ' + cls; s.textContent = text }
+var NS = 'http://www.w3.org/2000/svg'
+var G = {
+  read: '<path d="M4 10h9l2 3h13v14H4z"/><g class="g-bob"><path d="M10 4h12v12H10z" fill="var(--paper)"/><path d="M13 8h6M13 11h6"/></g>',
+  web: '<circle cx="16" cy="16" r="10"/><ellipse class="g-squash" cx="16" cy="16" rx="5" ry="10"/><path d="M6 16h20"/><g class="g-orbit"><circle cx="16" cy="3" r="2" fill="var(--signal)" stroke="none"/></g>',
+  test: '<path d="M3 12h26v8H3z"/><path class="g-fill" d="M5 16h22" stroke="var(--signal)" stroke-width="4" stroke-linecap="butt"/>',
+  shell: '<path d="M3 6h26v20H3z"/><path d="M8 12l4 4-4 4"/><path class="g-blink" d="M15 21h7"/>',
+  edit: '<path d="M8 21l13-13 4 4-13 13H8z"/><path class="g-draw" d="M4 29h24" stroke="var(--signal)"/>',
+  ask: '<path d="M11 12a5 5 0 1 1 7.5 4.3c-1.6.9-2.5 1.7-2.5 3.7"/><circle class="g-blink" cx="16" cy="25.5" r="1.6" fill="currentColor" stroke="none"/>',
+  think: '<circle class="g-dot" cx="8" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle class="g-dot g-dot2" cx="16" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle class="g-dot g-dot3" cx="24" cy="16" r="2.5" fill="currentColor" stroke="none"/>',
+  git: '<g class="g-rise"><path d="M16 26V8M9 15l7-7 7 7"/></g>',
+  done: '<path d="M7 16l6 6 12-12" stroke-width="3"/>',
+  idle: '<path d="M12 9v14M20 9v14" stroke-width="3"/>'
+}
+var LANES = [['read', 'READ'], ['web', 'WEB'], ['edit', 'EDIT'], ['shell', 'SHELL'], ['git', 'GIT']]
+// Node glyphs and lanes, shared by the hero canvas and the node demo (the web app's canvas node look).
+function glyphInto(box, k) {
+  var s = document.createElementNS(NS, 'svg')
+  s.setAttribute('viewBox', '0 0 32 32'); s.setAttribute('width', '32'); s.setAttribute('height', '32')
+  s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'square')
+  s.innerHTML = G[k]
+  box.textContent = ''; box.appendChild(s)
+}
+function renderLanes(ul, counts, active, max) {
+  ul.textContent = ''
+  LANES.forEach(function (l) {
+    var li = el('li'), n = counts[l[0]], shown = Math.min(n, max)
+    li.setAttribute('aria-label', l[1] + ': ' + n)
+    li.appendChild(el('span', 'ln-n', l[1])); li.appendChild(el('span', 'ln-c', String(n)))
+    var bl = el('span', 'blk')
+    for (var i = 0; i < shown; i++) { var x = el('i', active === l[0] && i === shown - 1 ? 'new' : ''); x.style.background = 'var(--l-' + l[0] + ')'; bl.appendChild(x) }
+    li.appendChild(bl); ul.appendChild(li)
+  })
+}
+function dur(s) { return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's' }
 
 /* ---------- Install: tabs and copy ---------- */
 var tabs = Array.prototype.slice.call(document.querySelectorAll('[role=tab]'))
@@ -682,142 +705,98 @@ document.querySelectorAll('.copy').forEach(function (b) {
   })
 })
 
-/* ---------- Try it: the phone ---------- */
+/* ---------- Hero: three agents on one canvas ---------- */
 ;(function () {
-  var sec = $('try'), live = Live($('ph-live'))
-  var vList = $('v-list'), vNew = $('v-new'), vTask = $('v-task')
-  var tl = $('ph-tl'), stamp = $('ph-stamp'), cost = $('ph-cost'), branch = $('ph-branch'), prompt = $('ph-prompt')
-  var newBtn = $('ph-new'), steps = $('ph-steps').children, list = $('ph-list')
-  var endGh = $('end-gh'), endLocal = $('end-local'), from = $('ph-from')
-  var mode = 'gh', phase = 'list', row = null, run = 0
-  var PROMPT = 'Retry webhook deliveries with exponential backoff instead of failing on the first 5xx.'
-  var d = Demo(sec)
-  // Under reduced motion every scripted step happens at once.
-  function after(ms, fn) { if (RM) fn(); else d.after(ms, fn) }
-  function show(v) { [vList, vNew, vTask].forEach(function (x) { x.hidden = x !== v }) }
-  function step(i) { for (var k = 0; k < steps.length; k++) steps[k].classList.toggle('cur', k === i) }
-  function scroll() { tl.scrollTop = tl.scrollHeight }
-  function add(node) { tl.appendChild(node); scroll(); return node }
-  function line(tool, arg, cls) { var p = el('p', 'ln' + (cls ? ' ' + cls : '')); if (tool) { p.appendChild(el('span', null, '› ')); p.appendChild(el('b', null, tool)); p.appendChild(document.createTextNode(' · ' + arg)) } else p.textContent = arg; return add(p) }
-  function status(cls, text, say) { setStamp(stamp, cls, text); if (row) setStamp(row, cls, text); live(say || text) }
-  function meta(c, turns) { cost.textContent = '$' + c.toFixed(2) + ' API-equivalent · ' + turns + ' turns' }
-  function brName() { return mode === 'gh' ? 'agent/42-retry-webhook-deliveries' : 'jm/42-retry-webhook-deliveries' }
-  function setMode(m) {
-    mode = m
-    endGh.setAttribute('aria-pressed', m === 'gh'); endLocal.setAttribute('aria-pressed', m === 'local')
-    from.hidden = m !== 'local'
-    $('ph-proj').textContent = m === 'gh' ? 'acme/hooks · GitHub · Claude Code' : '~/code/hooks · origin: GitHub (connected) · Claude Code'
-    branch.textContent = brName()
-    if (phase === 'end') { var c = tl.querySelector('.card.end'); if (c) c.remove(); ending() }
-  }
-  function reset() {
-    run++; d.clear(); phase = 'list'
-    tl.textContent = ''; prompt.textContent = ''; prompt.classList.add('caret')
-    if (row) { row.closest('li').remove(); row = null }
-    meta(0, 0); setStamp(stamp, '', 'Queued'); branch.textContent = brName()
-    newBtn.classList.add('pulse'); show(vList); step(0)
-  }
-  function typePrompt(i) {
-    prompt.textContent = PROMPT.slice(0, i)
-    if (i < PROMPT.length) after(18, function () { typePrompt(i + 2) })
-  }
-  newBtn.addEventListener('click', function () {
-    if (phase !== 'list') { show(vTask); return }
-    phase = 'new'; newBtn.classList.remove('pulse'); show(vNew); typePrompt(0)
-    $('ph-start').focus()
+  var fleet = $('fleet'), play = $('fleet-play'), live = Live($('fleet-live'))
+  // [glyph, verb, target, lane, seconds, cost]; the last entry is the end state.
+  var NODES = [
+    { id: 'hn-claude', name: 'Claude Code', est: false, start: 500, ev: [
+      ['think', 'THINKING', 'planning the change', null, 5, 0.02],
+      ['read', 'READING', 'internal/webhooks/deliver.go', 'read', 4, 0.05],
+      ['read', 'READING', 'grep "deliver(" internal/', 'read', 3, 0.07],
+      ['web', 'FETCHING', 'pkg.go.dev/math/rand/v2', 'web', 7, 0.11],
+      ['read', 'READING', 'internal/webhooks/deliver_test.go', 'read', 4, 0.14]
+    ], end: ['ask', 'ASKS YOU', 'Retry limit: 3, 5 or 10 attempts?', 'ask', '? Asks you', 'Claude Code asks you: how many attempts before a delivery fails?'] },
+    { id: 'hn-codex', name: 'Codex', est: true, start: 1300, ev: [
+      ['read', 'READING', 'src/tables/DataTable.tsx', 'read', 4, 0.02],
+      ['read', 'READING', 'src/lib/format.ts', 'read', 3, 0.03],
+      ['web', 'SEARCHING', 'RFC 4180 csv quoting', 'web', 6, 0.05],
+      ['edit', 'WRITING', 'src/lib/csv.ts', 'edit', 11, 0.08],
+      ['edit', 'WRITING', 'src/tables/DataTable.tsx', 'edit', 9, 0.11],
+      ['test', 'TESTING', 'npm test', 'shell', 16, 0.13],
+      ['edit', 'WRITING', 'src/lib/csv.test.ts', 'edit', 8, 0.16],
+      ['test', 'TESTING', 'npm test', 'shell', 14, 0.17],
+      ['git', 'COMMITTED', '7c2e1d4 · +142 −6', 'git', 3, 0.18],
+      ['git', 'PUSHING', 'agent/42-add-csv-export', 'git', 4, 0.18]
+    ], end: ['done', 'PR OPEN', '#58 · CI ✓', 'pr', '✓ PR open', 'Codex: pull request 58 open, CI passed'] },
+    { id: 'hn-cursor', name: 'Cursor', est: true, start: 2100, ev: [
+      ['read', 'READING', 'package.json', 'read', 3, 0.01],
+      ['read', 'READING', '.eslintrc.cjs', 'read', 3, 0.02],
+      ['web', 'FETCHING', 'eslint.org/docs/latest/use/migrate-to-9.0.0', 'web', 8, 0.04],
+      ['edit', 'WRITING', 'eslint.config.js', 'edit', 10, 0.07],
+      ['shell', 'RUNNING', 'npx eslint .', 'shell', 12, 0.08],
+      ['edit', 'WRITING', 'src/app/routes.tsx', 'edit', 6, 0.1],
+      ['git', 'COMMITTED', 'e41b09a · +58 −71', 'git', 3, 0.11]
+    ], end: ['done', 'BRANCH READY', 'jm/43-upgrade-eslint-to-v9', 'br', '⎇ Branch ready', 'Cursor: branch jm/43-upgrade-eslint-to-v9 ready'] }
+  ]
+  NODES.forEach(function (n) {
+    var r = $(n.id)
+    n.root = r; n.glyph = r.querySelector('.glyph'); n.verb = r.querySelector('.verb'); n.tgt = r.querySelector('.tgt')
+    n.lanes = r.querySelector('.lanes'); n.stamp = r.querySelector('.stamp'); n.cost = r.querySelector('.hn-cost'); n.time = r.querySelector('.hn-time')
+    n.led = r.querySelector('.led')
   })
-  $('ph-cancel').addEventListener('click', function () { if (phase === 'new') reset() })
-  $('ph-back').addEventListener('click', function () { show(vList); newBtn.textContent = '+ New'; newBtn.focus() })
-  from.addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return
-    from.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b) })
-  })
-  $('ph-start').addEventListener('click', function () {
-    if (phase !== 'new') return
-    phase = 'run'; prompt.textContent = PROMPT; prompt.classList.remove('caret')
-    var li = el('li', 'new'), b = el('button'); b.type = 'button'
-    b.appendChild(el('span', 't', 'Retry webhook deliveries with backoff'))
-    row = el('span', 'stamp', 'Queued'); b.appendChild(row); b.appendChild(document.createTextNode(' ')); b.appendChild(el('span', 'm', '#0042'))
-    b.addEventListener('click', function () { show(vTask) })
-    li.appendChild(b); list.insertBefore(li, list.firstChild)
-    show(vTask); step(1); $('ph-back').focus()
-    status('run', 'Preparing', 'Task 42 started: preparing')
-    var my = run
-    var script = [
-      [500, function () { status('run', '● Running', 'Running'); line(null, 'Run started (initial)', 'sys') }],
-      [700, function () { line('Read', 'internal/webhooks/deliver.go'); meta(0.06, 1) }],
-      [700, function () { line('Grep', '"deliver(" internal/') }],
-      [700, function () { line('Read', 'internal/webhooks/deliver_test.go'); meta(0.14, 2) }],
-      [800, function () { var s = add(el('div', 'say')); s.textContent = 'Deliveries fail hard on the first 5xx. I can add retries with backoff in internal/webhooks.'; meta(0.21, 3) }],
-      [900, ask]
-    ]
-    var t = 0
-    script.forEach(function (s) { t += s[0]; after(t, function () { if (my === run) s[1]() }) })
-  })
-  function ask() {
-    phase = 'ask'; step(2)
-    status('ask', '? Needs answer', 'Claude asks: how many attempts should a delivery get before it is marked as failed?')
-    var c = add(el('div', 'card asks'))
-    c.appendChild(el('p', 'k', '? CLAUDE ASKS'))
-    c.appendChild(el('p', null, 'How many attempts should a delivery get before it is marked as failed?'))
-    var o = el('div', 'opts'); c.appendChild(o)
-    ;['3 attempts', '5 attempts', '10 attempts'].forEach(function (a) {
-      var b = el('button', 'ob', a); b.type = 'button'
-      b.addEventListener('click', function () { answer(c, a) })
-      o.appendChild(b)
-    })
-    scroll()
-    if (!RM) o.firstChild.focus({ preventScroll: true })
+  function money(n, c) { return (n.est ? '≈$' : '$') + c.toFixed(2) }
+  function reset(n) {
+    n.i = 0; n.secs = 0; n.counts = { read: 0, web: 0, edit: 0, shell: 0, git: 0 }; n.active = null
+    n.root.className = 'hn idle'; n.led.classList.remove('live')
+    glyphInto(n.glyph, 'idle'); n.verb.textContent = 'QUEUED'; n.tgt.textContent = 'waiting for a slot'
+    renderLanes(n.lanes, n.counts, null, 10); setStamp(n.stamp, 'xs', 'Queued')
+    n.cost.textContent = money(n, 0); n.time.textContent = '0s'
   }
-  function answer(card, a) {
-    if (phase !== 'ask') return
-    phase = 'run2'; step(3)
-    card.querySelector('.opts').replaceWith(el('p', 'ln', '❯ ' + a))
-    var my = run, t = 0
-    status('run', '● Running', 'Answered ' + a + '. Running')
-    ;[
-      [600, function () { line('Edit', 'internal/webhooks/backoff.go'); meta(0.27, 4) }],
-      [700, function () { line('Edit', 'internal/webhooks/deliver.go') }],
-      [700, function () { line('Edit', 'internal/webhooks/deliver_test.go'); meta(0.33, 5) }],
-      [700, function () { line('Bash', 'go test ./internal/webhooks/...') }],
-      [800, function () { line(null, 'ok   acme/hooks/internal/webhooks  0.84s', 'out'); meta(0.38, 6) }],
-      [700, function () { line(null, '● Committed a1f9c2e · +186 −12 · 4 files') }],
-      [700, function () { if (mode === 'gh') status('run', 'Pushing', 'Pushing') }],
-      [800, function () { phase = 'end'; ending() }]
-    ].forEach(function (s) { t += s[0]; after(t, function () { if (my === run) s[1]() }) })
+  function apply(n, e) {
+    if (n.i === 0) { n.root.className = 'hn'; n.led.classList.add('live'); setStamp(n.stamp, 'xs run', '● Running') }
+    n.i++; n.secs += e[4]; n.counts[e[3]]++; n.active = e[3]
+    glyphInto(n.glyph, e[0]); n.verb.textContent = e[1]; n.tgt.textContent = e[2]
+    renderLanes(n.lanes, n.counts, n.active, 10)
+    n.cost.textContent = money(n, e[5]); n.time.textContent = dur(n.secs)
   }
-  function action(text, fn) { var b = el('button', 'ob', text); b.type = 'button'; b.addEventListener('click', fn); return b }
-  function ending() {
-    branch.textContent = brName()
-    var c = el('div', 'card end'), o = el('div', 'opts')
-    if (mode === 'gh') {
-      status('ok', '✓ PR open · CI ✓', 'Pull request 57 open, CI passed')
-      c.appendChild(el('p', 'k ok', '✓ PULL REQUEST #57 · CI ✓ 4/4'))
-      c.appendChild(el('p', null, 'Retry webhook deliveries with backoff. 4 files, +186 −12.'))
-      var m = action('Merge', function () { merged(c, 'Merged into main') }); m.className = 'ob p'; o.appendChild(m)
-    } else {
-      status('br', '⎇ Branch ready', 'Branch ready: jm/42-retry-webhook-deliveries')
-      c.appendChild(el('p', 'k ok', '⎇ BRANCH READY · jm/42-…'))
-      c.appendChild(el('p', null, 'jm/42-retry-webhook-deliveries in ~/code/hooks. 4 files, +186 −12.'))
-      var mm = action('Merge into current branch', function () { merged(c, 'Merged into main (your current branch)') }); mm.className = 'ob p'; o.appendChild(mm)
-      o.appendChild(action('Check out the branch', function () { line(null, 'Switched to branch jm/42-retry-webhook-deliveries', 'out') }))
-      o.appendChild(action('Discard', function () { c.remove(); line(null, 'Branch discarded', 'sys'); status('ok', '✓ Completed', 'Branch discarded, task completed') }))
-      o.appendChild(action('Push & open PR', function () {
-        line(null, '● Pushed agent/42-retry-webhook-deliveries · PR #57 opened', '')
-        c.remove(); mode = 'gh'; endGh.setAttribute('aria-pressed', true); endLocal.setAttribute('aria-pressed', false); ending()
-      }))
+  function finish(n, say) {
+    var x = n.end
+    glyphInto(n.glyph, x[0]); n.verb.textContent = x[1]; n.tgt.textContent = x[2]
+    n.root.className = 'hn ' + x[3]; n.active = null; renderLanes(n.lanes, n.counts, null, 10)
+    n.led.classList.toggle('live', x[3] === 'ask')
+    setStamp(n.stamp, 'xs ' + (x[3] === 'ask' ? 'ask' : x[3] === 'pr' ? 'ok' : 'br'), x[4])
+    if (say) live(x[5])
+  }
+  NODES.forEach(reset)
+  if (RM) {
+    // Reduced motion: the final states, nothing moves.
+    NODES.forEach(function (n) { n.ev.forEach(function (e) { apply(n, e) }); finish(n, false) })
+    play.hidden = true
+    return
+  }
+  var d = Demo(fleet), round = 0, left = 0
+  function step(n, r) {
+    if (r !== round) return
+    if (n.i < n.ev.length) {
+      var e = n.ev[n.i]
+      apply(n, e)
+      d.after(e[0] === 'edit' || e[0] === 'test' ? 1400 : 1000, function () { step(n, r) })
+      return
     }
-    c.appendChild(o); add(c)
+    // Screen readers hear each end state once, not on every loop.
+    finish(n, round === 1)
+    if (--left === 0) d.after(5200, go)
   }
-  function merged(c, text) {
-    c.querySelector('.opts').replaceWith(el('p', 'ln', '✓ ' + text))
-    status('ok', '✓ Completed', text + '. Task completed')
-    phase = 'done'
+  function go() {
+    round++; left = NODES.length; d.clear()
+    NODES.forEach(function (n) { reset(n); d.after(n.start, function () { step(n, round) }) })
   }
-  endGh.addEventListener('click', function () { setMode('gh') })
-  endLocal.addEventListener('click', function () { setMode('local') })
-  $('ph-restart').addEventListener('click', function () { reset(); newBtn.focus() })
-  reset()
+  play.addEventListener('click', function () {
+    d.hold = !d.hold; d.sync()
+    play.textContent = d.hold ? 'Play' : 'Pause'
+  })
+  go()
 })()
 
 /* ---------- Watch the agent: node and terminal ---------- */
@@ -825,19 +804,6 @@ document.querySelectorAll('.copy').forEach(function (b) {
   var sec = $('watch'), node = $('node'), term = $('term'), live = Live($('node-live'))
   var glyph = $('n-glyph'), verb = $('n-verb'), tgt = $('n-tgt'), mid = $('n-mid'), files = $('n-files')
   var stepE = $('n-step'), costE = $('n-cost'), timeE = $('n-time'), led = $('n-led')
-  var NS = 'http://www.w3.org/2000/svg'
-  var G = {
-    read: '<path d="M4 10h9l2 3h13v14H4z"/><g class="g-bob"><path d="M10 4h12v12H10z" fill="var(--paper)"/><path d="M13 8h6M13 11h6"/></g>',
-    web: '<circle cx="16" cy="16" r="10"/><ellipse class="g-squash" cx="16" cy="16" rx="5" ry="10"/><path d="M6 16h20"/><g class="g-orbit"><circle cx="16" cy="3" r="2" fill="var(--signal)" stroke="none"/></g>',
-    test: '<path d="M3 12h26v8H3z"/><path class="g-fill" d="M5 16h22" stroke="var(--signal)" stroke-width="4" stroke-linecap="butt"/>',
-    shell: '<path d="M3 6h26v20H3z"/><path d="M8 12l4 4-4 4"/><path class="g-blink" d="M15 21h7"/>',
-    edit: '<path d="M8 21l13-13 4 4-13 13H8z"/><path class="g-draw" d="M4 29h24" stroke="var(--signal)"/>',
-    think: '<circle class="g-dot" cx="8" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle class="g-dot g-dot2" cx="16" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle class="g-dot g-dot3" cx="24" cy="16" r="2.5" fill="currentColor" stroke="none"/>',
-    git: '<g class="g-rise"><path d="M16 26V8M9 15l7-7 7 7"/></g>',
-    done: '<path d="M7 16l6 6 12-12" stroke-width="3"/>',
-    idle: '<path d="M12 9v14M20 9v14" stroke-width="3"/>'
-  }
-  var LANES = [['read', 'READ'], ['web', 'WEB'], ['edit', 'EDIT'], ['shell', 'SHELL'], ['git', 'GIT']]
   // [glyph, verb, target, lane, file, mode, seconds, cost, terminal line, terminal output]
   var EV = [
     ['think', 'THINKING', 'planning the change', null, null, null, 6, 0.02, '● Thinking…'],
@@ -857,14 +823,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
   ]
   var st, view = 'node'
   function fresh() { return { i: 0, lanes: { read: 0, web: 0, edit: 0, shell: 0, git: 0 }, active: null, files: [], secs: 0, cost: 0 } }
-  function setGlyph(k) {
-    var s = document.createElementNS(NS, 'svg')
-    s.setAttribute('viewBox', '0 0 32 32'); s.setAttribute('width', '32'); s.setAttribute('height', '32')
-    s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'square')
-    s.innerHTML = G[k]
-    glyph.textContent = ''; glyph.appendChild(s)
-  }
-  function dur(s) { return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's' }
+  function setGlyph(k) { glyphInto(glyph, k) }
   function renderMid(fin) {
     mid.textContent = ''
     if (fin) {
@@ -876,14 +835,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
       b.appendChild(g); mid.appendChild(b); return
     }
     var ul = el('ul', 'lanes'); ul.setAttribute('aria-label', 'Activity by lane')
-    LANES.forEach(function (l) {
-      var li = el('li'), n = st.lanes[l[0]]
-      li.setAttribute('aria-label', l[1] + ': ' + n)
-      li.appendChild(el('span', 'ln-n', l[1])); li.appendChild(el('span', 'ln-c', String(n)))
-      var bl = el('span', 'blk')
-      for (var i = 0; i < Math.min(n, 12); i++) { var x = el('i', st.active === l[0] && i === Math.min(n, 12) - 1 ? 'new' : ''); x.style.background = 'var(--l-' + l[0] + ')'; bl.appendChild(x) }
-      li.appendChild(bl); ul.appendChild(li)
-    })
+    renderLanes(ul, st.lanes, st.active, 12)
     mid.appendChild(ul)
   }
   function renderFiles() {
@@ -938,7 +890,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
 ;(function () {
   var map = $('map'), pk = $('pk'), list = $('hops'), desc = $('hop-desc'), live = $('hop-live'), play = $('hop-play')
   var HOPS = [
-    ['Container → workspace', ['b-agent', 'b-ws'], ['p-ws'], 'The agent sees one folder: this task’s copy of the repo, on its own task network. It gets no GitHub token, no Docker access and no host network.'],
+    ['Container → workspace', ['b-agent', 'b-ws'], ['p-ws'], 'The agent sees one folder: this task’s copy of the repo, on its own task network, plus its own provider key. It gets no GitHub token, no Docker access and no host network.'],
     ['Egress proxy → allowed hosts', ['b-proxy', 'b-hosts'], ['p-c-proxy', 'p-proxy-hosts'], 'With an allowlist, the task network has no route out except a per-run proxy that lets through only the hosts you listed (npm, PyPI, the agent’s API…).'],
     ['Blocked request', ['b-proxy'], ['p-c-proxy'], 'A host not on the list, or a name that resolves to a private address, is refused at the proxy. You get an “Allow for this project” button; it applies from the next run.', true],
     ['MCP gateway → tools', ['b-gw', 'b-int'], ['p-c-gw', 'p-gw-int'], 'The agent calls MCP tools with a per-run token. The gateway decrypts the credentials in memory, applies tool lists and call limits, and logs each call without its arguments.'],
