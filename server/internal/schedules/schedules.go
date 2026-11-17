@@ -388,6 +388,15 @@ func (s *Service) startQueued(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		// A timed firing that waited while the owner paused the schedule
+		// does not start; a Run now the owner asked for still does.
+		if !sc.Enabled && f.Trigger == store.TriggerCron {
+			reason := "the schedule was paused while this firing waited"
+			_ = s.Store.FiringSkipped(ctx, f.ID, reason)
+			f.Outcome, f.Reason = store.FiringSkipped, &reason
+			s.firing(ctx, sc, f)
+			continue
+		}
 		task, err := s.startTask(ctx, sc, f.Trigger, f.ScheduledFor, "")
 		if err != nil {
 			_ = s.Store.FiringFailed(ctx, f.ID, err.Error())
