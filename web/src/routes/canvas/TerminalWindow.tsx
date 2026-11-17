@@ -113,7 +113,7 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
   )
 })
 
-function BarButton({ label, onClick, asLink, close, children }: { label: string; onClick?: () => void; asLink?: string; close?: boolean; children: React.ReactNode }) {
+export function BarButton({ label, onClick, asLink, close, children }: { label: string; onClick?: () => void; asLink?: string; close?: boolean; children: React.ReactNode }) {
   const cls = 'fm-icon-btn ml-0.5 flex size-[21px] items-center justify-center [&_svg]:size-3 [&_svg]:stroke-[3]'
   if (asLink) {
     return (
@@ -295,7 +295,7 @@ function Question({ item, taskId, open }: { item: Extract<TimelineItem, { kind: 
 }
 
 /** One-line composer: queues a message for the next run or starts a follow-up. */
-function Prompt({ task, stopping }: { task: TaskView; stopping: boolean }) {
+export function Prompt({ task, stopping }: { task: TaskView; stopping: boolean }) {
   const mode = composerMode(task.status)
   const send = useSendMessage(task.id)
   const action = useTaskAction(task.id)

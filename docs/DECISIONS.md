@@ -212,6 +212,7 @@ One line each. "Backend ask" marks something Fleetpocket should add.
 
 ### Client choices
 
+- 2026-11-17 — Canvas node view classifies activity on the client from the existing timeline items (tool name + summary, status), with no new event types or API fields: Codex and Cursor tools already arrive under Claude's names, MCP tools as `<server>.<tool>`/`mcp__<server>__…`. In dark mode the read, web and git lane colours are lightened so blocks keep 3:1 against the card.
 - 2026-10-26 — The new-task form shows an Agent picker only when the server has keys for more than one agent (`GET /me`); its default is the project's agent. The project form lists every agent and marks those without a key, because a key may be added later.
 - **TypeScript 6.0, not 7.** typescript-eslint supports `<6.1`; openapi-typescript and msw peer ranges are overridden in package.json.
 - **React Router** (not TanStack Router): simpler data-less routes; typed params are only `/tasks/:id` and `/projects/:id`.
