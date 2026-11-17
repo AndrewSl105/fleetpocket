@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
-import { useHealth, useStats } from '@/api/hooks'
+import { useHealth, useMode, useStats } from '@/api/hooks'
 import { useSession } from '@/auth/AuthGate'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,6 +14,7 @@ import { AutoFixSection } from './settings/AutoFixSection'
 import { CheckpointsSection } from './settings/CheckpointsSection'
 import { GlobalServersSection } from './integrations/GlobalServersSection'
 import { CostSettingsSection } from './settings/CostSettingsSection'
+import { GitHubSection } from './settings/GitHubSection'
 import { Link } from 'react-router'
 import { ChevronRight } from 'lucide-react'
 import { c } from '@/i18n/costs'
@@ -42,6 +43,7 @@ export default function SettingsPage() {
   const stats = useStats()
   const health = useHealth()
   const theme = useTheme()
+  const mode = useMode()
 
   return (
     <div className="h-full overflow-y-auto">
@@ -97,6 +99,8 @@ export default function SettingsPage() {
             </div>
           </section>
         )}
+
+        {mode === 'local' && <GitHubSection />}
 
         <ComputersSection />
 

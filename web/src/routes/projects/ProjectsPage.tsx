@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight, FolderGit2, Plus } from 'lucide-react'
-import { useProjects, useTasks } from '@/api/hooks'
+import { ChevronRight, FolderGit2, FolderPlus, Plus } from 'lucide-react'
+import { useMode, useProjects, useTasks } from '@/api/hooks'
+import { lc } from '@/i18n/local'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { t } from '@/i18n/en'
@@ -10,6 +11,7 @@ import { CostBar } from '@/components/CostBar'
 
 export default function ProjectsPage() {
   const projects = useProjects()
+  const local = useMode() === 'local'
   // The Project object has no active task count; count the active list client-side.
   const active = useTasks({ group: 'active' })
   const activeByProject = useMemo(() => {
@@ -26,11 +28,20 @@ export default function ProjectsPage() {
           <Button asChild variant="outline" className="ml-2 h-10">
             <Link to="/costs">{c.open}</Link>
           </Button>
-          <Button asChild variant="outline" className="ml-2 h-10">
-            <Link to="/projects/new">
-              <Plus /> {t.projects.new}
-            </Link>
-          </Button>
+          {/* Local mode: a project comes from a folder on this computer. */}
+          {local ? (
+            <Button asChild variant="outline" className="ml-2 h-10">
+              <Link to="/welcome?step=folder">
+                <FolderPlus /> {lc.repo.addFolder}
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline" className="ml-2 h-10">
+              <Link to="/projects/new">
+                <Plus /> {t.projects.new}
+              </Link>
+            </Button>
+          )}
         </div>
         {projects.isPending ? (
           <div className="space-y-2">
