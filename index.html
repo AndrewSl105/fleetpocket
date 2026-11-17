@@ -99,27 +99,6 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
   .cols.three{grid-template-columns:repeat(3,1fr)}
 }
 @media (max-width:600px){.shots{grid-template-columns:1fr 1fr}.shots figure:nth-child(3){display:none}header.top nav a.opt{display:none}}
-.monkey svg{display:block;width:100%;height:auto;max-height:420px;background:#E6EDD8}
-#swing{transform-origin:150px 28px;transform-box:view-box;animation:swing 3s ease-in-out infinite alternate}
-.monkey:hover #swing{animation-duration:1.2s}
-@keyframes swing{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
-#legL{transform-origin:136px 112px;transform-box:view-box;animation:kick 1.4s ease-in-out infinite alternate}
-#legR{transform-origin:164px 112px;transform-box:view-box;animation:kick 1.4s ease-in-out .7s infinite alternate-reverse}
-@keyframes kick{from{transform:rotate(-12deg)}to{transform:rotate(14deg)}}
-#armR{transform-origin:176px 160px;transform-box:view-box;animation:wave 1s ease-in-out infinite alternate;transition:transform .5s}
-@keyframes wave{from{transform:rotate(-28deg)}to{transform:rotate(6deg)}}
-.monkey.eat #armR{animation:none;transform:rotate(52deg)}
-.lid{transform-origin:150px 205px;transform-box:view-box;transform:scaleY(0);animation:blink 4.2s infinite}
-@keyframes blink{0%,93%,100%{transform:scaleY(0)}96%{transform:scaleY(1)}}
-#tongue,#nom,#banana{opacity:0;transition:opacity .25s}
-.monkey.tongue #tongue,.monkey.nom #nom,.monkey.eat #banana{opacity:1}
-#cheeks{transform-origin:150px 232px;transform-box:view-box;transition:transform .2s}
-.monkey.nom #cheeks{transform:scaleX(1.25)}
-.bite{transition:opacity .15s}.bite.gone{opacity:0}
-#peel{transition:transform 1s ease-in,opacity 1s}
-#peel.drop{transform:translate(-30px,140px) rotate(120deg);opacity:0}
-.monkey.paused *{animation-play-state:paused!important}
-.feed{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-top:12px}
 .tabs{display:flex;flex-wrap:wrap;border-bottom:1.5px solid var(--ink);margin:8px 0 16px}
 .tabs button{flex:1 1 auto;min-height:48px;padding:0 12px;border:1.5px solid var(--ink);border-bottom:0;margin-right:-1.5px;background:var(--raised);color:var(--ink);font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase;cursor:pointer}
 .tabs button[aria-selected=true]{background:var(--signal);color:var(--signal-ink)}
@@ -163,50 +142,12 @@ table.cmp{width:100%;min-width:340px;border-collapse:collapse;border-top:2px sol
       </div>
       <p class="agents">Claude Code · Codex · Cursor · self-hosted · MIT</p>
     </div>
-    <figure class="monkey" id="monkey">
-      <svg viewBox="0 0 300 330" role="img" aria-labelledby="monkey-t">
-        <title id="monkey-t">An orange-brown monkey hanging upside down by its tail from a jungle branch</title>
-        <g fill="#5E8C2F"><ellipse cx="40" cy="22" rx="26" ry="10" transform="rotate(-12 40 22)"/><ellipse cx="262" cy="26" rx="24" ry="9" transform="rotate(14 262 26)"/></g>
-        <path d="M0 30 Q150 22 300 34" stroke="#5A3A1E" stroke-width="10" fill="none" stroke-linecap="round"/>
-        <g fill="#3F5A2E"><ellipse cx="96" cy="38" rx="16" ry="6" transform="rotate(30 96 38)"/><ellipse cx="214" cy="40" rx="15" ry="6" transform="rotate(-28 214 40)"/></g>
-        <g id="swing">
-          <path d="M150 28 q-20 8 -8 22 q14 14 0 34 q-6 10 0 22" stroke="#7A3A12" stroke-width="7" fill="none" stroke-linecap="round"/>
-          <g id="legL"><path d="M136 112 L112 80" stroke="#A0521E" stroke-width="13" stroke-linecap="round"/><ellipse cx="110" cy="76" rx="9" ry="6" fill="#F3D9B1"/></g>
-          <g id="legR"><path d="M164 112 L188 80" stroke="#A0521E" stroke-width="13" stroke-linecap="round"/><ellipse cx="190" cy="76" rx="9" ry="6" fill="#F3D9B1"/></g>
-          <ellipse cx="150" cy="140" rx="32" ry="40" fill="#A0521E"/>
-          <ellipse cx="150" cy="144" rx="19" ry="27" fill="#E8C49A"/>
-          <path d="M124 160 L108 208" stroke="#A0521E" stroke-width="12" stroke-linecap="round"/><circle cx="107" cy="211" r="7" fill="#F3D9B1"/>
-          <g id="armR">
-            <path d="M176 160 L198 206" stroke="#A0521E" stroke-width="12" stroke-linecap="round"/>
-            <g id="banana">
-              <g id="peel"><path d="M199 214 q-10 10 -4 22 M199 214 q10 10 6 22" stroke="#C9A227" stroke-width="5" fill="none" stroke-linecap="round"/></g>
-              <path class="bite" d="M196 204 q-4 -10 0 -18" stroke="#F2C230" stroke-width="8" fill="none" stroke-linecap="round"/>
-              <path class="bite" d="M196 188 q4 -9 10 -14" stroke="#F2C230" stroke-width="8" fill="none" stroke-linecap="round"/>
-              <path class="bite" d="M206 174 q6 -4 10 -4" stroke="#F2C230" stroke-width="8" fill="none" stroke-linecap="round"/>
-            </g>
-            <circle cx="199" cy="209" r="7" fill="#F3D9B1"/>
-          </g>
-          <g transform="rotate(180 150 215)">
-            <circle cx="112" cy="206" r="13" fill="#A0521E"/><circle cx="112" cy="206" r="7" fill="#E8C49A"/>
-            <circle cx="188" cy="206" r="13" fill="#A0521E"/><circle cx="188" cy="206" r="7" fill="#E8C49A"/>
-            <circle cx="150" cy="215" r="40" fill="#A0521E"/>
-            <path d="M120 222 q0 -26 30 -18 q30 -8 30 18 q0 26 -30 26 q-30 0 -30 -26z" fill="#F3D9B1"/>
-            <g id="cheeks" fill="#E9A07A"><circle cx="128" cy="232" r="7"/><circle cx="172" cy="232" r="7"/></g>
-            <circle cx="138" cy="214" r="8" fill="#FFF"/><circle cx="162" cy="214" r="8" fill="#FFF"/>
-            <g id="pupils" fill="#1B1F1A"><circle cx="138" cy="215" r="4"/><circle cx="162" cy="215" r="4"/></g>
-            <g class="lid" fill="#A0521E"><ellipse cx="138" cy="214" rx="9" ry="9"/><ellipse cx="162" cy="214" rx="9" ry="9"/></g>
-            <path d="M140 237 q10 7 20 0" stroke="#5A2A10" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-            <ellipse id="tongue" cx="150" cy="242" rx="5" ry="7" fill="#D9536B"/>
-          </g>
-          <text id="nom" x="176" y="250" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="16" fill="#1B1F1A">NOM NOM</text>
-        </g>
-      </svg>
+    <figure>
+      <picture>
+        <source srcset="docs/brand/jungle-monkey-hero.webp" type="image/webp">
+        <img src="docs/brand/jungle-monkey-hero.png" alt="Jungle Monkey logo: a painted orange-brown monkey on a branch in a green jungle" width="1200" height="1200" fetchpriority="high">
+      </picture>
       <figcaption><span>Fig. 1: Field unit</span><span>Nº 01</span></figcaption>
-      <div class="feed">
-        <button type="button" class="btn" id="feed">Feed the monkey</button>
-        <span class="stamp ask" id="feed-stamp" aria-live="polite">? Needs a banana</span>
-        <span class="label">Bananas fed: <span id="fed">0</span></span>
-      </div>
     </figure>
   </div>
 </section>
@@ -341,55 +282,6 @@ document.querySelectorAll('.copy').forEach(function (b) {
     })
   })
 })
-;(function () {
-  var m = document.getElementById('monkey'), btn = document.getElementById('feed')
-  var stamp = document.getElementById('feed-stamp'), fed = document.getElementById('fed')
-  var bites = m.querySelectorAll('.bite'), peel = document.getElementById('peel'), pupils = document.getElementById('pupils')
-  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches, visible = true, eating = false, n = 0
-  new IntersectionObserver(function (e) { visible = e[0].isIntersecting; m.classList.toggle('paused', !visible) }).observe(m)
-  function set(cls, text) { stamp.className = 'stamp ' + cls; stamp.textContent = text }
-  function done() {
-    n++; fed.textContent = n
-    set('pr', '✓ PR open · #' + ('0000' + (41 + n)).slice(-4))
-    eating = false; btn.disabled = false
-  }
-  btn.addEventListener('click', function () {
-    if (eating) return
-    if (still) return done()
-    eating = true; btn.disabled = true
-    set('run', '● Running · eating')
-    bites.forEach(function (b) { b.classList.remove('gone') }); peel.classList.remove('drop')
-    m.classList.add('eat')
-    ;[900, 1700, 2500].forEach(function (t, i) {
-      setTimeout(function () {
-        bites[i].classList.add('gone'); m.classList.add('nom')
-        setTimeout(function () { m.classList.remove('nom') }, 450)
-      }, t)
-    })
-    setTimeout(function () { peel.classList.add('drop') }, 3100)
-    setTimeout(function () { m.classList.remove('eat') }, 3500)
-    setTimeout(done, 4100)
-  })
-  if (still) return
-  setInterval(function () {
-    if (!visible || eating || Math.random() < 0.5) return
-    m.classList.add('tongue'); setTimeout(function () { m.classList.remove('tongue') }, 1200)
-  }, 5000)
-  var pending = false, px = 0, py = 0
-  window.addEventListener('pointermove', function (e) {
-    px = e.clientX; py = e.clientY
-    if (pending || !visible) return
-    pending = true
-    requestAnimationFrame(function () {
-      pending = false
-      var r = m.querySelector('svg').getBoundingClientRect()
-      var cx = r.left + r.width / 2, cy = r.top + r.height * 0.65
-      var dx = px - cx, dy = py - cy, d = Math.sqrt(dx * dx + dy * dy) || 1, k = Math.min(3, d / 40) / d
-      // The head is drawn rotated 180°, so the offset is mirrored.
-      pupils.setAttribute('transform', 'translate(' + (-dx * k).toFixed(2) + ' ' + (-dy * k).toFixed(2) + ')')
-    })
-  }, { passive: true })
-})()
 var tabs = Array.prototype.slice.call(document.querySelectorAll('[role=tab]'))
 function select(t) {
   tabs.forEach(function (x) {
