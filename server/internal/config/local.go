@@ -184,6 +184,16 @@ func RunnerImageFor(version string) string {
 	return "ghcr.io/andrewsl105/fleetpocket-agent:" + tag
 }
 
+// ServerImageFor is the server image matching this binary; local mode runs
+// its egress proxy sidecar from it (`fleetpocket egress-proxy`).
+func ServerImageFor(version string) string {
+	tag := "latest"
+	if version != "" && version != "dev" {
+		tag = version
+	}
+	return "ghcr.io/andrewsl105/fleetpocket-server:" + tag
+}
+
 // loadLocal applies local mode on top of the environment.
 func (c *Config) loadLocal() error {
 	dir, err := DefaultDataDir()
@@ -202,6 +212,9 @@ func (c *Config) loadLocal() error {
 	c.LocalState = st
 	if os.Getenv("RUNNER_IMAGE") == "" {
 		c.RunnerImage = RunnerImageFor(Version)
+	}
+	if os.Getenv("EGRESS_PROXY_IMAGE") == "" {
+		c.EgressProxyImage = ServerImageFor(Version)
 	}
 	return nil
 }

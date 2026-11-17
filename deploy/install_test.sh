@@ -24,6 +24,8 @@ grep -q "^OPENAI_API_KEY='it'\\\\''s \$secret'\$" "$DIR/.env" || fail "quoting: 
 pg=$(env_value PG_PASSWORD)
 [ "${#pg}" -eq 48 ] || fail "PG_PASSWORD not generated"
 [ "$(env_value SESSION_SECRET | wc -c)" -eq 65 ] || fail "SESSION_SECRET not generated"
+sk=$(env_value SECRETS_KEY)
+[ "${#sk}" -eq 64 ] || fail "SECRETS_KEY not generated"
 [ -z "$(env_value ADMIN_PASSWORD_HASH)" ] || fail "owner must be left to the setup wizard"
 
 # Re-run: nothing changes.
@@ -39,6 +41,17 @@ case "$out" in *SIDECAR_MEMORY*) ;; *) fail "missing key not reported: $out" ;; 
 [ "$(env_value SIDECAR_MEMORY)" = 512m ] || fail "missing key not added"
 [ "$(env_value MAX_CONCURRENT_TASKS)" = 7 ] || fail "existing value changed"
 [ "$(env_value PG_PASSWORD)" = "$pg" ] || fail "PG_PASSWORD regenerated"
+[ "$(env_value SECRETS_KEY)" = "$sk" ] || fail "SECRETS_KEY regenerated"
+
+# Upgrade of an install from before SECRETS_KEY: the key is generated once.
+sed -i '/^SECRETS_KEY=/d' "$DIR/.env"
+out=$(write_env)
+case "$out" in *SECRETS_KEY*) ;; *) fail "SECRETS_KEY not added on upgrade: $out" ;; esac
+sk2=$(env_value SECRETS_KEY)
+[ "${#sk2}" -eq 64 ] || fail "SECRETS_KEY on upgrade: $sk2"
+[ "$(grep -c '^SECRETS_KEY=' "$DIR/.env")" -eq 1 ] || fail "SECRETS_KEY added twice"
+write_env >/dev/null
+[ "$(env_value SECRETS_KEY)" = "$sk2" ] || fail "SECRETS_KEY changed on a second upgrade"
 [ "$(stat -c %a "$DIR/.env")" = 600 ] || fail ".env mode after update"
 
 echo "install.sh: ok"

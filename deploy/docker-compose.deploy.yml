@@ -39,6 +39,8 @@ services:
       WORKSPACES_DIR: /srv/fleetpocket/workspaces
       ATTACHMENTS_DIR: /srv/fleetpocket/attachments
       GITHUB_APP_PRIVATE_KEY_PATH: /secrets/github-app.pem
+      # Egress proxy sidecar of allowlist projects: this same image.
+      EGRESS_PROXY_IMAGE: ghcr.io/andrewsl105/fleetpocket-server:${SERVER_TAG:-latest}
       DATABASE_URL: postgres://fleetpocket:${PG_PASSWORD}@postgres:5432/fleetpocket?sslmode=disable
     volumes:
       # Same path on the host and in the container, so bind mounts of agent

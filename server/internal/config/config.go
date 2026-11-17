@@ -4,12 +4,15 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/andrewsl105/fleetpocket/server/internal/secretbox"
 )
 
 type Config struct {
@@ -89,6 +92,17 @@ type Config struct {
 
 	// RunnerFake starts runners with FLEETPOCKET_RUNNER_FAKE=1 (tests and local dev).
 	RunnerFake bool
+
+	// SecretsKey encrypts owner-entered secrets (MCP credentials) in Postgres
+	// (internal/secretbox). Empty: those features are disabled.
+	SecretsKey string
+	// MCPGatewayURL is the server's base URL as runners and sidecars reach it
+	// (the MCP gateway and egress reports live under /api/mcp-gateway/).
+	// Default: PUBLIC_BASE_URL (server mode), host.docker.internal (local mode).
+	MCPGatewayURL string
+	// EgressProxyImage runs the egress proxy sidecar of allowlist projects
+	// (`fleetpocket egress-proxy`); the server image by default.
+	EgressProxyImage string
 }
 
 // Load reads the environment. Only settings needed by every command are
@@ -150,6 +164,10 @@ func Load() (*Config, error) {
 
 		SecretsScan: e.str("SECRETS_SCAN", "gitleaks"),
 		RunnerFake:  e.bool("FLEETPOCKET_RUNNER_FAKE", false),
+
+		SecretsKey:       e.str("SECRETS_KEY", ""),
+		MCPGatewayURL:    strings.TrimRight(e.str("MCP_GATEWAY_URL", ""), "/"),
+		EgressProxyImage: e.str("EGRESS_PROXY_IMAGE", "ghcr.io/andrewsl105/fleetpocket-server:latest"),
 	}
 	switch c.Mode {
 	case ModeServer:
@@ -190,6 +208,11 @@ func (c *Config) Validate() error {
 	}
 	if c.GitHubEnabled() && c.GitHubWebhookSecret == "" {
 		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required with GITHUB_APP_ID"))
+	}
+	if c.SecretsKey != "" {
+		if _, err := secretbox.ParseKey(c.SecretsKey); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if c.SecretsScan != "gitleaks" && c.SecretsScan != "off" {
 		errs = append(errs, errors.New(`SECRETS_SCAN must be "gitleaks" or "off"`))
@@ -272,6 +295,22 @@ func (c *Config) EnabledAgents() []string {
 }
 
 func (c *Config) Local() bool { return c.Mode == ModeLocal }
+
+// GatewayBaseURL is the URL runners and sidecars use to reach this server
+// (MCP gateway, egress reports); "" when unknown.
+func (c *Config) GatewayBaseURL() string {
+	if c.MCPGatewayURL != "" {
+		return c.MCPGatewayURL
+	}
+	if c.Local() {
+		// Containers reach the laptop's loopback through Docker Desktop's
+		// host.docker.internal (runners get it as an extra host).
+		if _, port, err := net.SplitHostPort(c.HTTPAddr); err == nil {
+			return "http://host.docker.internal:" + port
+		}
+	}
+	return c.PublicBaseURL
+}
 
 // OwnerFromEnv reports whether the owner's login comes from the environment.
 func (c *Config) OwnerFromEnv() bool { return c.AdminPasswordHash != "" && c.AdminTOTPSecret != "" }

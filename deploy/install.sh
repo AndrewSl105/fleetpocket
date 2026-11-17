@@ -223,6 +223,7 @@ env_line() { printf "%s='%s'\n" "$1" "$(printf '%s' "$2" | sed "s/'/'\\\\''/g")"
 render_env() {
 	gen_pg=$(openssl rand -hex 24)
 	gen_session=$(openssl rand -hex 32)
+	gen_secrets=$(openssl rand -hex 32)
 	while IFS= read -r line; do
 		key=${line%%=*}
 		case "$line" in
@@ -230,6 +231,7 @@ render_env() {
 		PUBLIC_BASE_URL=* | WEB_APP_URL=*) env_line "$key" "https://$DOMAIN" ;;
 		PG_PASSWORD=*) env_line "$key" "$gen_pg" ;;
 		SESSION_SECRET=*) env_line "$key" "$gen_session" ;;
+		SECRETS_KEY=*) env_line "$key" "$gen_secrets" ;;
 		DEFAULT_AGENT=*) env_line "$key" "$DEFAULT_AGENT" ;;
 		CLAUDE_CODE_OAUTH_TOKEN=*) env_line "$key" "${CLAUDE_CODE_OAUTH_TOKEN:-}" ;;
 		ANTHROPIC_API_KEY=*) env_line "$key" "${ANTHROPIC_API_KEY:-}" ;;
