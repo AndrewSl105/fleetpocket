@@ -324,10 +324,10 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
       <p class="agents"><span>Claude Code ·</span> <span>Codex ·</span> <span>Cursor ·</span> <span>parallel runs ·</span> <span>sealed containers ·</span> <span>self-hosted ·</span> <span>MIT</span></p>
     </div>
     <div class="fleet grid-bg" id="fleet" role="group" aria-label="Scripted demo: three agents running side by side on the canvas">
-      <div class="fleet-bar"><p class="label" aria-hidden="true">Canvas · 3 tasks · server</p><button type="button" class="btn sm" id="fleet-play">Pause</button></div>
+      <div class="fleet-bar"><p class="label" aria-hidden="true">Canvas · 3 tasks · 3 agents</p><button type="button" class="btn sm" id="fleet-play">Pause</button></div>
       <div class="fleet-nodes">
-        <div class="hn idle" id="hn-claude" role="group" aria-label="Task 41, Claude Code: Retry webhook deliveries">
-          <div class="hn-bar"><span class="led"></span><span class="tt">#41 · Retry webhook deliveries</span><span class="ag">Claude Code</span></div>
+        <div class="hn idle" id="hn-claude" role="group" aria-label="Task 42, Claude Code: Retry webhook deliveries">
+          <div class="hn-bar"><span class="led"></span><span class="tt">#42 · Retry webhook deliveries</span><span class="ag">Claude Code</span></div>
           <div class="hn-body">
             <span class="glyph" aria-hidden="true"></span>
             <div class="hn-now"><p class="verb">QUEUED</p><p class="tgt">waiting for a slot</p></div>
@@ -335,8 +335,8 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
             <div class="hn-foot"><span class="stamp xs">Queued</span><span class="hn-cost">$0.00</span><span class="hn-time">0s</span></div>
           </div>
         </div>
-        <div class="hn idle" id="hn-codex" role="group" aria-label="Task 42, Codex: Add CSV export to tables">
-          <div class="hn-bar"><span class="led"></span><span class="tt">#42 · Add CSV export to tables</span><span class="ag">Codex</span></div>
+        <div class="hn idle" id="hn-codex" role="group" aria-label="Task 43, Codex: Add CSV export to tables">
+          <div class="hn-bar"><span class="led"></span><span class="tt">#43 · Add CSV export to tables</span><span class="ag">Codex</span></div>
           <div class="hn-body">
             <span class="glyph" aria-hidden="true"></span>
             <div class="hn-now"><p class="verb">QUEUED</p><p class="tgt">waiting for a slot</p></div>
@@ -344,8 +344,8 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
             <div class="hn-foot"><span class="stamp xs">Queued</span><span class="hn-cost">$0.00</span><span class="hn-time">0s</span></div>
           </div>
         </div>
-        <div class="hn idle" id="hn-cursor" role="group" aria-label="Task 43, Cursor: Upgrade ESLint to v9">
-          <div class="hn-bar"><span class="led"></span><span class="tt">#43 · Upgrade ESLint to v9</span><span class="ag">Cursor</span></div>
+        <div class="hn idle" id="hn-cursor" role="group" aria-label="Task 44, Cursor: Upgrade ESLint to v9">
+          <div class="hn-bar"><span class="led"></span><span class="tt">#44 · Upgrade ESLint to v9</span><span class="ag">Cursor</span></div>
           <div class="hn-body">
             <span class="glyph" aria-hidden="true"></span>
             <div class="hn-now"><p class="verb">QUEUED</p><p class="tgt">waiting for a slot</p></div>
@@ -393,7 +393,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
     <p class="lede">A queue in front of every agent, limits on what runs at once and what it may spend, and loops that bring a task home.</p>
     <div class="feats" id="feats">
       <article class="feat">
-        <div class="mini" aria-hidden="true"><span class="cap">SERVER · 2 SLOTS</span><div class="slots"><span class="slot on">RUN</span><span class="slot on">RUN</span><span class="slot q">#44</span><span class="slot q">#45</span></div></div>
+        <div class="mini" aria-hidden="true"><span class="cap">SERVER · 2 SLOTS</span><div class="slots"><span class="slot on">RUN</span><span class="slot on">RUN</span><span class="slot q">#45</span><span class="slot q">#46</span></div></div>
         <h3>Queue and concurrency</h3>
         <p>Tasks queue and start when their host has a free slot: the server runs up to <code>MAX_CONCURRENT_TASKS</code> at once (default 2), each computer you add has its own limit (1–32). A schedule skips or queues a firing while its last task still runs.</p>
       </article>
@@ -410,7 +410,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
       <article class="feat">
         <div class="mini" aria-hidden="true"><div class="seq"><span class="stamp bad">✕ CI failed</span><span class="stamp run">● Fixing · 1/3</span><span class="stamp ok">✓ CI green</span></div></div>
         <h3>CI auto-fix</h3>
-        <p>A failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
+        <p>Off until you turn it on, globally or per project. Then a failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
       </article>
       <article class="feat">
         <div class="mini" aria-hidden="true"><div class="hosts"><span class="y">✓ linear · list_issues</span><span class="y">✓ sentry · get_issue</span><span class="x">✕ db · drop_table · not allowed</span></div></div>
@@ -550,7 +550,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
     <div class="feats four">
       <article class="feat"><h3>Web</h3><p>The task list and the open task side by side: start, answer, follow up, merge.</p></article>
       <article class="feat"><h3>Desktop canvas</h3><p>Every running task as a live node on one board, grouped by the machine it runs on.</p></article>
-      <article class="feat"><h3>Phone PWA</h3><p>Laid out for one hand. Hold to talk on the Ideas board and turn a card into a task.</p></article>
+      <article class="feat"><h3>Phone PWA</h3><p>Laid out for one hand. With the Ideas board turned on, drop in ideas (voice notes with a speech-to-text provider) and turn a card into a task.</p></article>
       <article class="feat"><h3>Telegram</h3><p>An optional bot and Mini App that ping you when an agent asks something.</p></article>
     </div>
   </div>
@@ -727,8 +727,8 @@ document.querySelectorAll('.copy').forEach(function (b) {
       ['edit', 'WRITING', 'src/lib/csv.test.ts', 'edit', 8, 0.16],
       ['test', 'TESTING', 'npm test', 'shell', 14, 0.17],
       ['git', 'COMMITTED', '7c2e1d4 · +142 −6', 'git', 3, 0.18],
-      ['git', 'PUSHING', 'agent/42-add-csv-export', 'git', 4, 0.18]
-    ], end: ['done', 'PR OPEN', '#58 · CI ✓', 'pr', '✓ PR open', 'Codex: pull request 58 open, CI passed'] },
+      ['git', 'PUSHING', 'agent/43-add-csv-export-to-tables', 'git', 4, 0.18]
+    ], end: ['done', 'PR OPEN', '#59 · CI ✓', 'pr', '✓ PR open', 'Codex: pull request 59 open, CI passed'] },
     { id: 'hn-cursor', name: 'Cursor', est: true, start: 2100, ev: [
       ['read', 'READING', 'package.json', 'read', 3, 0.01],
       ['read', 'READING', '.eslintrc.cjs', 'read', 3, 0.02],
@@ -737,7 +737,7 @@ document.querySelectorAll('.copy').forEach(function (b) {
       ['shell', 'RUNNING', 'npx eslint .', 'shell', 12, 0.08],
       ['edit', 'WRITING', 'src/app/routes.tsx', 'edit', 6, 0.1],
       ['git', 'COMMITTED', 'e41b09a · +58 −71', 'git', 3, 0.11]
-    ], end: ['done', 'BRANCH READY', 'jm/43-upgrade-eslint-to-v9', 'br', '⎇ Branch ready', 'Cursor: branch jm/43-upgrade-eslint-to-v9 ready'] }
+    ], end: ['done', 'BRANCH READY', 'jm/44-upgrade-eslint-to-v9', 'br', '⎇ Branch ready', 'Cursor: branch jm/44-upgrade-eslint-to-v9 ready'] }
   ]
   NODES.forEach(function (n) {
     var r = $(n.id)
