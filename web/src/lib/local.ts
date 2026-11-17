@@ -42,7 +42,7 @@ export function branchError(e: unknown, action?: 'merge' | 'checkout' | 'discard
   const errs = lc.branch.errors
   if (isApiError(e)) {
     if (e.code in errs) return { message: errs[e.code as keyof typeof errs], files: e.files ?? [] }
-    if (action === 'push' && e.status === 400) return { message: errs.no_remote, files: [] }
+    if (e.code === 'no_github_remote' || (action === 'push' && e.status === 400)) return { message: errs.no_remote, files: [] }
     return { message: e.message, files: [] }
   }
   return { message: e instanceof Error ? e.message : String(e), files: [] }

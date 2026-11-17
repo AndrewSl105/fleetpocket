@@ -155,7 +155,7 @@ export function localHandlers(API: string, guard: Guard, err: Err, pushEvent: (t
       const task = findTask(params.id)
       const target = branchTarget(task)
       if ('error' in target) return target.error
-      if (!GITHUB_URL.test(target.repo.remote_url)) return err(400, 'invalid', 'the repository has no GitHub origin remote')
+      if (!GITHUB_URL.test(target.repo.remote_url)) return err(400, 'no_github_remote', 'this repository has no GitHub remote')
       if (!local.github.connected) return err(503, 'github_disabled', 'GitHub is not connected')
       await delay(400)
       const n = 100 + task!.id

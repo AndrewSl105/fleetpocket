@@ -118,7 +118,7 @@ func (s *Service) PushBranch(ctx context.Context, taskID int64) (*View, error) {
 		return nil, err
 	}
 	if repo.GitHubName() == "" {
-		return nil, fmt.Errorf("%w: %v", ErrInvalid, ErrNoGitHubRemote)
+		return nil, ErrNoGitHubRemote
 	}
 	if s.PushLocal == nil {
 		return nil, ErrGitHubDisabled

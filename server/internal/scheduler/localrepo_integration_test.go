@@ -161,7 +161,7 @@ func TestLocalRepoDiscardAndPushWithoutGitHub(t *testing.T) {
 	branch := *done.LocalBranch
 
 	// No GitHub remote: Push & open PR is refused.
-	if _, err := e.svc.PushBranch(ctx, v.ID); !errors.Is(err, tasks.ErrInvalid) {
+	if _, err := e.svc.PushBranch(ctx, v.ID); !errors.Is(err, tasks.ErrNoGitHubRemote) {
 		t.Fatalf("push without a GitHub remote: %v", err)
 	}
 	// Check out, which makes Discard refuse; back on main it deletes the branch.

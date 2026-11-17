@@ -55,6 +55,8 @@ func writeErr(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusServiceUnavailable, "github_disabled", err.Error())
 	case errors.Is(err, hosts.ErrOffline):
 		writeError(w, http.StatusServiceUnavailable, "host_offline", "the computer this task runs on is offline")
+	case errors.Is(err, tasks.ErrNoGitHubRemote):
+		writeError(w, http.StatusBadRequest, "no_github_remote", err.Error())
 	case errors.Is(err, errLocalModeOnly):
 		writeError(w, http.StatusBadRequest, "local_mode_only", err.Error())
 	case errors.Is(err, localrepos.ErrInvalid), errors.Is(err, hosts.ErrLocalRepoOnNode):

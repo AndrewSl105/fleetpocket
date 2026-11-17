@@ -659,7 +659,7 @@ export interface paths {
         put?: never;
         /**
          * Push the task branch to GitHub and open a PR
-         * @description Needs a GitHub `origin` remote (`400 invalid` otherwise) and GitHub connected in local mode (`503 github_disabled` otherwise). Pushes `agent/<id>-<slug>` with the owners token from the server process, opens the PR and moves the task to `pr_open` (normal PR/CI flow, including CI auto-fix). On failure the task returns to `branch_ready` with the reason
+         * @description Needs a GitHub `origin` remote (`400 no_github_remote` otherwise) and GitHub connected in local mode (`503 github_disabled` otherwise). Pushes `agent/<id>-<slug>` with the owners token from the server process, opens the PR and moves the task to `pr_open` (normal PR/CI flow, including CI auto-fix). On failure the task returns to `branch_ready` with the reason
          */
         post: operations["branchPush"];
         delete?: never;
