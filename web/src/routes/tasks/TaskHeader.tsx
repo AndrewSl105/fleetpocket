@@ -17,15 +17,20 @@ import { CIBadge } from '@/components/CIBadge'
 import { useConfirm } from '@/components/confirm'
 import { CopyButton, copyText } from '@/components/CopyButton'
 import { can } from '@/lib/status'
+import { cn } from '@/lib/utils'
 import { Cost } from '@/components/Cost'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { taskNumber } from './TaskCard'
 import { useBudgetOverride } from '@/api/costs'
 import { c } from '@/i18n/costs'
+import { isLocalRepo, shownBranch } from '@/lib/local'
+import { BranchPanel } from './BranchPanel'
 
 export function githubUrl(task: TaskView): string | null {
   if (task.pr_url) return task.pr_url
+  // A local repository's full_name is its folder name; its branches are not on GitHub.
+  if (isLocalRepo(task.repository)) return null
   const repo = task.repository?.full_name
   if (!repo) return null
   return task.branch ? `https://github.com/${repo}/tree/${encodeURIComponent(task.branch)}` : `https://github.com/${repo}`
@@ -79,8 +84,10 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
     if (await confirm(t.task.confirmMerge(task.pr_number), t.task.actions.merge)) action.mutate('merge')
   }
 
+  const branch = shownBranch(task)
+
   function copyBranch() {
-    if (task.branch) void copyText(task.branch)
+    if (branch) void copyText(branch)
   }
 
   return (
@@ -123,7 +130,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
                 <RotateCcw /> {t.task.actions.retry}
               </DropdownMenuItem>
             )}
-            {task.branch && (
+            {branch && (
               <DropdownMenuItem className="h-10" onSelect={copyBranch}>
                 <Copy /> {t.task.actions.copyBranch}
               </DropdownMenuItem>
@@ -184,11 +191,18 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
           </button>
         )}
       </div>
-      {task.branch && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{task.branch}</p>}
+      {branch && task.status !== 'branch_ready' && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{branch}</p>}
       <HostWaiting task={task} />
       <BudgetWaiting task={task} />
-      {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused') && (
-        <div className="mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs text-danger">
+      <BranchPanel task={task} />
+      {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused' || task.status === 'branch_ready') && (
+        // branch_ready: a failed Push & open PR is an error; a run limit noted at delivery is not.
+        <div
+          className={cn(
+            'mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs',
+            task.status !== 'branch_ready' || task.status_reason.startsWith('push failed') ? 'text-danger' : 'text-muted-foreground',
+          )}
+        >
           <p className="min-w-0 flex-1 py-1 break-words">{task.status_reason}</p>
           <CopyButton text={task.status_reason} label={t.task.copyError} className="-my-0.5" />
         </div>

@@ -8,6 +8,7 @@ import { useBackButton } from '@/telegram/controls'
 import { DeepLink } from '@/telegram/DeepLinkHandler'
 import { Logo } from './Logo'
 import { OfflineBanner } from './OfflineBanner'
+import { useLocalOnboardingRedirect } from '@/local/onboarding'
 
 const DebugPanel = import.meta.env.VITE_DEBUG === '1' ? lazy(() => import('@/telegram/DebugPanel')) : null
 
@@ -43,6 +44,7 @@ export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const deep = !TAB_ROOTS.includes(pathname)
+  useLocalOnboardingRedirect()
 
   useBackButton(deep, () => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0

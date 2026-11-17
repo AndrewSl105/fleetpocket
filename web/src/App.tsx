@@ -24,6 +24,8 @@ const IntegrationsPage = lazy(() => import('@/routes/integrations/IntegrationsPa
 const CanvasPage = lazy(() => import('@/routes/canvas/CanvasPage'))
 const CostsPage = lazy(() => import('@/routes/costs/CostsPage'))
 // Only the first-run wizard needs it (and its QR code library); keep it out of the initial bundle.
+// Local mode only (npx jungle-monkey): Docker, agent, a folder, GitHub, the first task.
+const OnboardingPage = lazy(() => import('@/local/OnboardingPage'))
 const SetupPage = lazy(() => import('@/setup/SetupPage').then((m) => ({ default: m.SetupPage })))
 
 function lazyPage(Page: React.ComponentType) {
@@ -36,6 +38,7 @@ function lazyPage(Page: React.ComponentType) {
 
 export function createAppRouter() {
   return createBrowserRouter([
+    { path: '/welcome', element: lazyPage(OnboardingPage), errorElement: <CrashScreen /> },
     {
       path: '/',
       element: <AppShell />,

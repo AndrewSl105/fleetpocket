@@ -122,6 +122,7 @@ export const en = {
         push: 'PUSHING',
         commit: 'COMMITTED',
         prOpen: 'PR OPEN',
+        branchReady: 'BRANCH READY',
         done: 'DONE',
         failed: 'FAILED',
         cancelled: 'CANCELLED',

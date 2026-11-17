@@ -21,6 +21,9 @@ import { haptic } from '@/telegram/haptics'
 import { storage } from '@/lib/storage'
 import { t } from '@/i18n/en'
 import { IntegrationsLine } from '@/routes/integrations/IntegrationsLine'
+import { StartFromField } from '@/local/StartFromField'
+import { useLocalRepoStatus } from '@/api/local'
+import { isLocalRepo } from '@/lib/local'
 
 const LAST_PROJECT = 'fleetpocket.lastProject'
 const PROJECT_AGENT = 'project' // Radix Select items cannot have an empty value
@@ -35,11 +38,16 @@ const schema = z.object({
   agent: z.enum(['', 'claude', 'codex', 'cursor']),
   // '' runs on the project's host; else 'server' or a node id.
   node: z.string(),
+  // Local repositories only.
+  start_from: z.enum(['last_commit', 'working_tree']),
 })
 type Values = z.infer<typeof schema>
 
-/** Request body with blank optional fields omitted (the backend rejects unknown/empty values). */
-export function toCreateBody(v: Values) {
+/**
+ * Request body with blank optional fields omitted (the backend rejects unknown/empty values).
+ * `start_from` goes only with a local repository (`working_tree` is 400 otherwise).
+ */
+export function toCreateBody(v: Values, localRepo = false) {
   return {
     project_id: v.project_id,
     prompt: v.prompt.trim(),
@@ -47,6 +55,7 @@ export function toCreateBody(v: Values) {
     ...(v.title?.trim() ? { title: v.title.trim() } : {}),
     ...(v.agent ? { agent: v.agent } : {}),
     ...(v.node ? { node: v.node } : {}),
+    ...(localRepo ? { start_from: v.start_from } : {}),
   }
 }
 
@@ -57,7 +66,7 @@ export default function NewTaskPage() {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '' },
+    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '', start_from: 'last_commit' },
   })
   const projectId = form.watch('project_id')
   const prompt = form.watch('prompt')
@@ -70,6 +79,10 @@ export default function NewTaskPage() {
   const node = form.watch('node')
   const host = node || project?.node || SERVER
   const agentsHere = hostAgents(host, nodes.data, agents.data?.agents ?? [])
+  const repositoryId = form.watch('repository_id')
+  const repo = project?.repositories.find((r) => String(r.id) === repositoryId)
+  const local = isLocalRepo(repo)
+  const repoStatus = useLocalRepoStatus(repo?.id, local)
   const picker = useImagePicker()
   const [progress, setProgress] = useState<number | null>(null)
   useClosingConfirmation(prompt.trim().length > 0 || picker.picked.length > 0)
@@ -90,6 +103,7 @@ export default function NewTaskPage() {
     form.setValue('repository_id', def ? String(def.id) : '')
     form.setValue('agent', '')
     form.setValue('node', '')
+    form.setValue('start_from', 'last_commit')
   }, [projectId, project, form])
 
   useEffect(() => {
@@ -101,7 +115,7 @@ export default function NewTaskPage() {
       const files = picker.files
       if (files.length) setProgress(0)
       const task = await create.mutateAsync({
-        ...toCreateBody(values),
+        ...toCreateBody(values, local),
         files,
         onProgress: files.length ? setProgress : undefined,
       })
@@ -269,6 +283,14 @@ export default function NewTaskPage() {
             </div>
           </div>
         </div>
+
+        {local && (
+          <Controller
+            control={form.control}
+            name="start_from"
+            render={({ field }) => <StartFromField value={field.value} onChange={field.onChange} dirty={repoStatus.data?.dirty} />}
+          />
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="title">{t.newTask.titleLabel}</Label>

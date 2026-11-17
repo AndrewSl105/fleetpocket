@@ -335,6 +335,11 @@
     color: var(--olive-ink);
     border-color: var(--olive);
   }
+  &[data-tone='branch'] {
+    background: var(--paper);
+    color: var(--olive-text);
+    border-color: var(--olive-text);
+  }
   &[data-tone='danger'] {
     background: var(--paper);
     color: var(--danger);

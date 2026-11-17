@@ -27,7 +27,7 @@ const tc = t.canvas
 const tn = t.canvas.node
 
 const LIVE: TaskStatus[] = ['running', 'waiting_input', 'preparing', 'pushing']
-const FINISHED: TaskStatus[] = ['pr_open', 'completed']
+const FINISHED: TaskStatus[] = ['pr_open', 'branch_ready', 'completed']
 /** The node derives everything from the latest items only. */
 const MAX_ITEMS = 200
 
@@ -35,6 +35,7 @@ const LIGHT: Record<Tone, string> = {
   signal: 'var(--signal)',
   ask: 'var(--signal)',
   olive: 'var(--olive-text)',
+  branch: 'var(--olive-text)',
   danger: 'var(--danger)',
   paused: 'var(--ink-muted)',
   plain: 'var(--ink-muted)',
@@ -357,7 +358,17 @@ function TouchedList({ touched }: { touched: Touched[] }) {
 function Finished({ task, files, diff, cost }: { task: Task; files: number; diff: { insertions: number; deletions: number }; cost: number }) {
   return (
     <div className="flex shrink-0 flex-col gap-2">
-      {task.pr_number ? (
+      {task.status === 'branch_ready' && task.local_branch ? (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="fm-stamp" data-tone="branch">
+            <span aria-hidden="true">⎇</span>
+            {t.status.branch_ready}
+          </span>
+          <span className="min-w-0 truncate font-mono text-[11px]" title={task.local_branch}>
+            {task.local_branch}
+          </span>
+        </div>
+      ) : task.pr_number ? (
         <div className="flex gap-1.5">
           <span className="fm-stamp" data-tone="olive">
             {tn.pr(task.pr_number)}

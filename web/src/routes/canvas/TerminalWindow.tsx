@@ -10,6 +10,7 @@ import { usd } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { withOpenQuestion } from '@/routes/tasks/Timeline'
 import { dividerText } from '@/routes/tasks/TimelineRow'
+import { branchActionText, branchReadyText } from '@/lib/local'
 import { t } from '@/i18n/en'
 import { TITLE_H, type WindowState } from './layout'
 
@@ -237,6 +238,10 @@ const Line = memo(function Line({ item, taskId, open }: { item: TimelineItem; ta
           ✗ {item.title}: {item.message}
         </p>
       )
+    case 'branch_ready':
+      return <p className="text-[var(--term-ok)]">⎇ {branchReadyText(item)}</p>
+    case 'branch_action':
+      return <p className="text-[var(--term-dim)]">⎇ {branchActionText(item)}</p>
   }
 })
 

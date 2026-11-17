@@ -35,4 +35,17 @@ export type Stats = paths['/api/v1/stats']['get']['responses'][200]['content']['
 export type Diff = paths['/api/v1/tasks/{id}/diff']['get']['responses'][200]['content']['application/json']
 export type Health = components['responses']['Health']['content']['application/json']
 
+export type StartFrom = S['StartFrom']
+export type RepositorySource = S['RepositorySource']
+export type LocalRepoSuggestion = S['LocalRepoSuggestion']
+export type FolderListing = S['FolderListing']
+export type LocalRepoAdded = S['LocalRepoAdded']
+export type LocalRepoStatus = S['LocalRepoStatus']
+export type GitHubConnStatus = S['GitHubConnStatus']
+export type DeviceCode = S['DeviceCode']
+export type BranchReadyPayload = S['BranchReadyPayload']
+export type BranchActionPayload = S['BranchActionPayload']
+export type LocalSuggestions = paths['/api/v1/local/repos/suggestions']['get']['responses'][200]['content']['application/json']
+export type DevicePoll = paths['/api/v1/local/github/device/poll']['post']['responses'][200]['content']['application/json']
+
 export type Page<T> = { items: T[]; next_cursor: string }

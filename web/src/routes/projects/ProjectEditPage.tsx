@@ -11,6 +11,7 @@ import {
   useCreateProject,
   useAgents,
   useAutoFixDefaults,
+  useMode,
   useNodes,
   useGitHubRepos,
   useProject,
@@ -35,6 +36,10 @@ import { PrimaryAction } from '@/telegram/controls'
 import { haptic } from '@/telegram/haptics'
 import { t } from '@/i18n/en'
 import { c } from '@/i18n/costs'
+import { LocalRepoInfo } from '@/local/LocalRepoInfo'
+import { FolderBrowser } from '@/local/FolderBrowser'
+import { useAddLocalRepo } from '@/api/local'
+import { lc } from '@/i18n/local'
 import { createBody, patchBody, projectSchema, toFormValues, type ProjectFormValues } from './projectForm'
 
 const f = t.projects.fields
@@ -367,6 +372,7 @@ function Repositories({ project }: { project: Project }) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<number | null>(null)
   const remove = useRemoveRepository(project.id)
+  const local = useMode() === 'local'
   return (
     <Section title={f.repositories}>
       <ul className="divide-y fm-field">
@@ -381,10 +387,16 @@ function Repositories({ project }: { project: Project }) {
                 <div className="flex items-center gap-1.5 truncate font-mono text-sm">
                   {r.full_name}
                   {r.is_default && <Star className="size-3.5 shrink-0 fill-signal text-signal-text" aria-label={f.isDefault} />}
+                  {r.source === 'local' && (
+                    <span className="fm-stamp" data-tone="branch">
+                      {lc.repo.local}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {f.baseBranch}: <span className="font-mono">{r.base_branch}</span>
                 </div>
+                {r.source === 'local' && <LocalRepoInfo repo={r} />}
               </div>
               <Button
                 type="button"
@@ -412,13 +424,44 @@ function Repositories({ project }: { project: Project }) {
         )}
       </ul>
       {adding ? (
-        <AddRepository project={project} onDone={() => setAdding(false)} />
+        local ? (
+          <AddLocalFolder project={project} onDone={() => setAdding(false)} />
+        ) : (
+          <AddRepository project={project} onDone={() => setAdding(false)} />
+        )
       ) : (
         <Button type="button" variant="outline" className="h-10" onClick={() => setAdding(true)}>
-          <Plus /> {t.projects.addRepo}
+          <Plus /> {local ? lc.repo.addFolder : t.projects.addRepo}
         </Button>
       )}
     </Section>
+  )
+}
+
+/** Local mode: another folder on this computer into this project (POST /local/repos with project_id). */
+function AddLocalFolder({ project, onDone }: { project: Project; onDone: () => void }) {
+  const add = useAddLocalRepo()
+  return (
+    <div className="space-y-2">
+      <FolderBrowser
+        busy={add.isPending}
+        onPick={(path) =>
+          add.mutate(
+            { path, project_id: project.id },
+            {
+              onSuccess: () => {
+                toast.success(t.projects.repoAdded)
+                onDone()
+              },
+              onError: (e) => toast.error(errorMessage(e)),
+            },
+          )
+        }
+      />
+      <Button type="button" variant="ghost" className="h-11" onClick={onDone}>
+        {t.common.cancel}
+      </Button>
+    </div>
   )
 }
 

@@ -117,6 +117,17 @@ describe('TaskNode', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 
+  it('renders a delivered branch (branch_ready) as finished, with the branch', () => {
+    state.events = [...work(), ev('committed', { sha: 'abcdef1', files_changed: 3, insertions: 74, deletions: 19 })]
+    show(task({ status: 'branch_ready', local_branch: 'jm/1-retry-webhooks', pr_number: null }))
+    const node = screen.getByRole('region', { name: /Retry webhooks/ })
+    expect(within(node).getByText('BRANCH READY')).toBeInTheDocument()
+    expect(within(node).getByText('Branch ready')).toBeInTheDocument()
+    expect(within(node).getAllByText('jm/1-retry-webhooks').length).toBeGreaterThan(0)
+    expect(within(node).getByText('+74 −19')).toBeInTheDocument()
+    expect(within(node).queryByRole('textbox')).toBeNull()
+  })
+
   it('renders a failed task with its error', () => {
     state.events = [...work(), ev('error', { code: 'agent_crashed', message: 'exit status 2' })]
     show(task({ status: 'failed' }))
