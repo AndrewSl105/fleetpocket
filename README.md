@@ -44,12 +44,10 @@ You need Docker running and one agent login or key (Claude, Codex or Cursor). Th
 |---|---|---|
 | Where | a folder on your disk (`npx jungle-monkey`) | a repository your GitHub App can reach (server), or your GitHub login can reach (local) |
 | You get back | the branch `jm/<task id>-<slug>` in that repo: `⎇ BRANCH READY` | a pull request: `✓ PR OPEN` |
-| Then | Merge into current branch · Check out the branch · Discard · Push & open PR | review and merge, follow-ups, CI auto-fix |
+| Then | Merge into current branch · Check out the branch · Discard · Push & open PR | Merge, follow-ups; on a server, CI auto-fix |
 | GitHub | optional; "Push & open PR" shows when the repo has a GitHub remote and GitHub is connected | required |
 | Connecting GitHub | locally: device flow, `gh auth token` or a fine-grained PAT | server: your own GitHub App |
 | CI status | polled | server: GitHub webhooks; local: polled |
-
-The agent never writes to your folder: it works on a copy in its container, and Jungle Monkey brings the commits back as a branch.
 
 ## Features
 
