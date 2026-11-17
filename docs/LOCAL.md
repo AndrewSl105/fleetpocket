@@ -12,8 +12,14 @@ Requirements: Docker running (Docker Desktop, OrbStack, Colima or native
 Linux Docker), Node ≥ 18 for `npx`, and one agent login or key (Claude
 subscription token, Anthropic, OpenAI or Cursor key).
 
+This is the first of three ways to install (README, "Three ways to install").
 Local mode stops when the laptop sleeps. To run around the clock and reach it
-from the phone, use the server install (README, "Run it 24/7 on a server").
+from the phone, use the server installer or a self-hosted setup
+([DEPLOY.md](DEPLOY.md)):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh
+```
 
 ## Status of this first version
 
@@ -21,9 +27,12 @@ Working: start/stop, embedded Postgres and web UI, one-time login link,
 Docker discovery, runner image pull, agent keys from the keychain (including
 the ones `fleetpocket-node` stored), `doctor`, `service`, `logs`.
 
-Not yet (docs/DECISIONS.md, Server): connecting GitHub (device flow, `gh`
-token or PAT), PR/CI polling, the web onboarding steps and Settings → Remote
-access. Until then, task commits stay in the local workspace.
+Not yet (docs/DECISIONS.md, Server): local repositories (picking a folder on
+disk and getting a `jm/...` branch back in it, the `branch_ready` status and
+its Merge / Check out / Discard actions, `jungle-monkey add`), connecting
+GitHub (device flow, `gh` token or PAT), PR/CI polling, the web onboarding
+steps and Settings → Remote access. Until then, task commits stay in the local
+workspace.
 
 ## Commands
 
@@ -103,12 +112,15 @@ not built yet (DECISIONS.md). Until then use the server install for phone access
 
 ## Owner checklist
 
+0. Enable GitHub Pages for the site: Settings → Pages → Source: **GitHub
+   Actions** (the Pages workflow is still to be added, see DECISIONS.md).
+
 1. Create the GitHub OAuth App "Jungle Monkey" with **Device Flow enabled**
    (callback URL is unused by the device flow). Put its client id in
    `server/internal/config` `DefaultGitHubClientID`, or pass it at build time
    with `-ldflags "-X github.com/andrewsl105/fleetpocket/server/internal/config.DefaultGitHubClientID=<id>"`.
    No client secret is needed.
-2. Reserve the npm scope `@jungle-monkey` and the package `jungle-monkey`.
+2. Create the npm org `jungle-monkey` (scope `@jungle-monkey`) and reserve the package `jungle-monkey`.
 3. Configure npm trusted publishing for the five platform packages and the
    main package (or add an `NPM_TOKEN` secret).
 4. Add the release workflow (not in this PR, see DECISIONS.md) on a `v*` tag:
@@ -123,3 +135,4 @@ not built yet (DECISIONS.md). Until then use the server install for phone access
    On the macOS runner, check the npm-installed binary runs without a
    Gatekeeper prompt (npm does not set the quarantine attribute; the Go linker
    ad-hoc signs darwin/arm64).
+5. Push a `vX.Y.Z` tag once the release workflow exists.

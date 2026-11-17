@@ -19,6 +19,6 @@ write_files:
 runcmd:
   - >-
     set -a && . /root/fleetpocket-install.env && set +a &&
-    curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh |
+    curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh |
     sh -s -- --yes --domain fleetpocket.example.com > /var/log/fleetpocket-install.log 2>&1;
     rm -f /root/fleetpocket-install.env

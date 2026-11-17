@@ -8,23 +8,24 @@
 <meta name="description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back. Claude Code, Codex or Cursor, self-hosted, MIT.">
 <meta name="theme-color" content="#F2EFE6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14170F" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://andrewsl105.github.io/jungle_monkey/">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewsl105.github.io/jungle_monkey/">
 <meta property="og:title" content="Jungle Monkey">
 <meta property="og:description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back.">
-<meta property="og:image" content="docs/brand/jungle-monkey-og.jpg">
+<meta property="og:image" content="https://andrewsl105.github.io/jungle_monkey/docs/brand/jungle-monkey-og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Jungle Monkey">
 <meta name="twitter:description" content="Send a coding agent into your GitHub repo from your phone. Get a pull request back.">
-<meta name="twitter:image" content="docs/brand/jungle-monkey-og.jpg">
+<meta name="twitter:image" content="https://andrewsl105.github.io/jungle_monkey/docs/brand/jungle-monkey-og.jpg">
 <link rel="icon" type="image/png" sizes="32x32" href="docs/brand/jungle-monkey-icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="docs/brand/jungle-monkey-icon-16.png">
 <link rel="apple-touch-icon" href="docs/brand/jungle-monkey-icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
-<link rel="preload" as="image" href="docs/brand/jungle-monkey-hero.webp" type="image/webp">
 <style>
 /* Field Manual: ink on paper, square corners, ruled rows, stamp statuses, one orange signal colour. */
 :root{--paper:#F2EFE6;--raised:#FBF9F3;--grid:#E4E0D3;--rule:#B9B4A5;--ink:#1B1F1A;--ink2:#3D4238;--muted:#5E6357;--signal:#F06A1D;--signal-ink:#1B1F1A;--signal-text:#B23A06;--olive:#3F5A2E;--olive-ink:#F2EFE6;--danger:#A12A1C;
@@ -98,6 +99,40 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
   .cols.three{grid-template-columns:repeat(3,1fr)}
 }
 @media (max-width:600px){.shots{grid-template-columns:1fr 1fr}.shots figure:nth-child(3){display:none}header.top nav a.opt{display:none}}
+.monkey svg{display:block;width:100%;height:auto;max-height:420px;background:#E6EDD8}
+#swing{transform-origin:150px 28px;transform-box:view-box;animation:swing 3s ease-in-out infinite alternate}
+.monkey:hover #swing{animation-duration:1.2s}
+@keyframes swing{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+#legL{transform-origin:136px 112px;transform-box:view-box;animation:kick 1.4s ease-in-out infinite alternate}
+#legR{transform-origin:164px 112px;transform-box:view-box;animation:kick 1.4s ease-in-out .7s infinite alternate-reverse}
+@keyframes kick{from{transform:rotate(-12deg)}to{transform:rotate(14deg)}}
+#armR{transform-origin:176px 160px;transform-box:view-box;animation:wave 1s ease-in-out infinite alternate;transition:transform .5s}
+@keyframes wave{from{transform:rotate(-28deg)}to{transform:rotate(6deg)}}
+.monkey.eat #armR{animation:none;transform:rotate(52deg)}
+.lid{transform-origin:150px 205px;transform-box:view-box;transform:scaleY(0);animation:blink 4.2s infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(0)}96%{transform:scaleY(1)}}
+#tongue,#nom,#banana{opacity:0;transition:opacity .25s}
+.monkey.tongue #tongue,.monkey.nom #nom,.monkey.eat #banana{opacity:1}
+#cheeks{transform-origin:150px 232px;transform-box:view-box;transition:transform .2s}
+.monkey.nom #cheeks{transform:scaleX(1.25)}
+.bite{transition:opacity .15s}.bite.gone{opacity:0}
+#peel{transition:transform 1s ease-in,opacity 1s}
+#peel.drop{transform:translate(-30px,140px) rotate(120deg);opacity:0}
+.monkey.paused *{animation-play-state:paused!important}
+.feed{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-top:12px}
+.tabs{display:flex;flex-wrap:wrap;border-bottom:1.5px solid var(--ink);margin:8px 0 16px}
+.tabs button{flex:1 1 auto;min-height:48px;padding:0 12px;border:1.5px solid var(--ink);border-bottom:0;margin-right:-1.5px;background:var(--raised);color:var(--ink);font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--signal);color:var(--signal-ink)}
+.panel .cmd{background:#1B1F1A;border-color:var(--ink)}
+.panel .cmd code{color:#F2EFE6}
+.panel .cmd button{background:#F06A1D;color:#1B1F1A;border-left-color:#F2EFE6}
+.scroll{overflow-x:auto;margin-top:24px}
+table.cmp{width:100%;min-width:340px;border-collapse:collapse;border-top:2px solid var(--ink);font-size:14px}
+.cmp caption{text-align:left;padding-bottom:8px;color:var(--muted)}
+.cmp th,.cmp td{text-align:left;padding:10px 8px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.cmp thead th{font:600 12px var(--mono);letter-spacing:1px;text-transform:uppercase}
+.cmp tbody th{font:500 12px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+:focus-visible{outline:3px solid var(--signal-text);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -109,7 +144,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
     <nav aria-label="Site">
       <a class="opt" href="#how">How</a>
       <a class="opt" href="#keys">Security</a>
-      <a href="#setup">Set up</a>
+      <a href="#install">Install</a>
       <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
     </nav>
   </div>
@@ -118,29 +153,119 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
 <main>
 <section class="hero">
   <div class="wrap">
-    <figure>
-      <picture>
-        <source srcset="docs/brand/jungle-monkey-hero.webp" type="image/webp">
-        <img src="docs/brand/jungle-monkey-hero.png" alt="A painted orange-brown monkey on a branch in a green jungle" width="1200" height="1200" fetchpriority="high">
-      </picture>
-      <figcaption><span>Fig. 1: Field unit</span><span>Nº 01</span></figcaption>
-    </figure>
     <div>
       <p class="label">Agent field unit · Nº 01</p>
       <h1>Jungle Monkey</h1>
       <p class="sub">Send a coding agent into your GitHub repo from your phone. Get a pull request back.</p>
       <div class="cta">
-        <a class="btn ink" href="#setup">Set it up</a>
-        <a class="btn" href="https://github.com/AndrewSl105/jungle_monkey">View on GitHub</a>
+        <a class="btn ink" href="#install">Install</a>
+        <a class="btn" href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
       </div>
       <p class="agents">Claude Code · Codex · Cursor · self-hosted · MIT</p>
+    </div>
+    <figure class="monkey" id="monkey">
+      <svg viewBox="0 0 300 330" role="img" aria-labelledby="monkey-t">
+        <title id="monkey-t">An orange-brown monkey hanging upside down by its tail from a jungle branch</title>
+        <g fill="#5E8C2F"><ellipse cx="40" cy="22" rx="26" ry="10" transform="rotate(-12 40 22)"/><ellipse cx="262" cy="26" rx="24" ry="9" transform="rotate(14 262 26)"/></g>
+        <path d="M0 30 Q150 22 300 34" stroke="#5A3A1E" stroke-width="10" fill="none" stroke-linecap="round"/>
+        <g fill="#3F5A2E"><ellipse cx="96" cy="38" rx="16" ry="6" transform="rotate(30 96 38)"/><ellipse cx="214" cy="40" rx="15" ry="6" transform="rotate(-28 214 40)"/></g>
+        <g id="swing">
+          <path d="M150 28 q-20 8 -8 22 q14 14 0 34 q-6 10 0 22" stroke="#7A3A12" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <g id="legL"><path d="M136 112 L112 80" stroke="#A0521E" stroke-width="13" stroke-linecap="round"/><ellipse cx="110" cy="76" rx="9" ry="6" fill="#F3D9B1"/></g>
+          <g id="legR"><path d="M164 112 L188 80" stroke="#A0521E" stroke-width="13" stroke-linecap="round"/><ellipse cx="190" cy="76" rx="9" ry="6" fill="#F3D9B1"/></g>
+          <ellipse cx="150" cy="140" rx="32" ry="40" fill="#A0521E"/>
+          <ellipse cx="150" cy="144" rx="19" ry="27" fill="#E8C49A"/>
+          <path d="M124 160 L108 208" stroke="#A0521E" stroke-width="12" stroke-linecap="round"/><circle cx="107" cy="211" r="7" fill="#F3D9B1"/>
+          <g id="armR">
+            <path d="M176 160 L198 206" stroke="#A0521E" stroke-width="12" stroke-linecap="round"/>
+            <g id="banana">
+              <g id="peel"><path d="M199 214 q-10 10 -4 22 M199 214 q10 10 6 22" stroke="#C9A227" stroke-width="5" fill="none" stroke-linecap="round"/></g>
+              <path class="bite" d="M196 204 q-4 -10 0 -18" stroke="#F2C230" stroke-width="8" fill="none" stroke-linecap="round"/>
+              <path class="bite" d="M196 188 q4 -9 10 -14" stroke="#F2C230" stroke-width="8" fill="none" stroke-linecap="round"/>
+              <path class="bite" d="M206 174 q6 -4 10 -4" stroke="#F2C230" stroke-width="8" fill="none" stroke-linecap="round"/>
+            </g>
+            <circle cx="199" cy="209" r="7" fill="#F3D9B1"/>
+          </g>
+          <g transform="rotate(180 150 215)">
+            <circle cx="112" cy="206" r="13" fill="#A0521E"/><circle cx="112" cy="206" r="7" fill="#E8C49A"/>
+            <circle cx="188" cy="206" r="13" fill="#A0521E"/><circle cx="188" cy="206" r="7" fill="#E8C49A"/>
+            <circle cx="150" cy="215" r="40" fill="#A0521E"/>
+            <path d="M120 222 q0 -26 30 -18 q30 -8 30 18 q0 26 -30 26 q-30 0 -30 -26z" fill="#F3D9B1"/>
+            <g id="cheeks" fill="#E9A07A"><circle cx="128" cy="232" r="7"/><circle cx="172" cy="232" r="7"/></g>
+            <circle cx="138" cy="214" r="8" fill="#FFF"/><circle cx="162" cy="214" r="8" fill="#FFF"/>
+            <g id="pupils" fill="#1B1F1A"><circle cx="138" cy="215" r="4"/><circle cx="162" cy="215" r="4"/></g>
+            <g class="lid" fill="#A0521E"><ellipse cx="138" cy="214" rx="9" ry="9"/><ellipse cx="162" cy="214" rx="9" ry="9"/></g>
+            <path d="M140 237 q10 7 20 0" stroke="#5A2A10" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse id="tongue" cx="150" cy="242" rx="5" ry="7" fill="#D9536B"/>
+          </g>
+          <text id="nom" x="176" y="250" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="16" fill="#1B1F1A">NOM NOM</text>
+        </g>
+      </svg>
+      <figcaption><span>Fig. 1: Field unit</span><span>Nº 01</span></figcaption>
+      <div class="feed">
+        <button type="button" class="btn" id="feed">Feed the monkey</button>
+        <span class="stamp ask" id="feed-stamp" aria-live="polite">? Needs a banana</span>
+        <span class="label">Bananas fed: <span id="fed">0</span></span>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section class="block" id="install" aria-labelledby="install-h">
+  <div class="wrap">
+    <p class="label">Section 01 · Deployment</p>
+    <h2 id="install-h">Install</h2>
+    <div class="tabs" role="tablist" aria-label="Ways to install">
+      <button type="button" role="tab" id="tab-npx" aria-controls="panel-npx" aria-selected="true">On your computer · npx</button>
+      <button type="button" role="tab" id="tab-curl" aria-controls="panel-curl" aria-selected="false" tabindex="-1">On a server · curl</button>
+      <button type="button" role="tab" id="tab-self" aria-controls="panel-self" aria-selected="false" tabindex="-1">Self-hosted · your way</button>
+    </div>
+    <div class="panel" role="tabpanel" id="panel-npx" aria-labelledby="tab-npx" tabindex="0">
+      <div class="cmd"><code>npx jungle-monkey</code><button type="button" class="copy" aria-label="Copy the npx command">Copy</button></div>
+      <ul class="req">
+        <li>Server, database and web app on your machine; the browser opens logged in</li>
+        <li>Needs Docker and one agent login or key (Claude, Codex or Cursor)</li>
+        <li>No domain, server or <code>.env</code>; stops when the computer sleeps</li>
+      </ul>
+      <p><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/LOCAL.md">Local mode guide →</a></p>
+    </div>
+    <div class="panel" role="tabpanel" id="panel-curl" aria-labelledby="tab-curl" tabindex="0" hidden>
+      <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/AndrewSl105/jungle_monkey/main/deploy/install.sh | sh</code><button type="button" class="copy" aria-label="Copy the install command">Copy</button></div>
+      <ul class="req">
+        <li>A small Linux server (Ubuntu 24.04) and a domain; Docker is installed if needed</li>
+        <li>Runs 24/7: phone app (PWA), optional Telegram bot, your own GitHub App, PRs and CI</li>
+        <li>Run it again later to update; it keeps your <code>.env</code></li>
+      </ul>
+      <p><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md#quick-setup">Server setup guide →</a></p>
+    </div>
+    <div class="panel" role="tabpanel" id="panel-self" aria-labelledby="tab-self" tabindex="0" hidden>
+      <div class="cmd"><code>docker compose -f docker-compose.deploy.yml up -d</code><button type="button" class="copy" aria-label="Copy the compose command">Copy</button></div>
+      <ul class="req">
+        <li><code>deploy/docker-compose.deploy.yml</code> with Caddy, the web app, the server, Postgres and a Docker socket proxy</li>
+        <li><code>deploy/cloud-init.yaml</code> for unattended installs on Hetzner or DigitalOcean</li>
+        <li>Or every step by hand, to control each piece</li>
+      </ul>
+      <p><a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md#manual-setup">Manual setup guide →</a></p>
+    </div>
+    <div class="scroll">
+    <table class="cmp">
+      <caption class="label">Compare</caption>
+      <thead><tr><th scope="col"></th><th scope="col">Computer</th><th scope="col">Server</th><th scope="col">Your way</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Runs on</th><td>your laptop</td><td>a Linux VPS</td><td>anywhere</td></tr>
+        <tr><th scope="row">GitHub needed</th><td>not to start</td><td>yes, own App</td><td>yes, own App</td></tr>
+        <tr><th scope="row">Phone access</th><td>own tunnel</td><td>PWA, Telegram</td><td>PWA, Telegram</td></tr>
+        <tr><th scope="row">Runs 24/7</th><td>no</td><td>yes</td><td>yes</td></tr>
+        <tr><th scope="row">Setup</th><td>~1 min</td><td>~10 min</td><td>your pace</td></tr>
+      </tbody>
+    </table>
     </div>
   </div>
 </section>
 
 <section class="block" id="how">
   <div class="wrap">
-    <p class="label">Section 01 · Procedure</p>
+    <p class="label">Section 02 · Procedure</p>
     <h2>How it works</h2>
     <ol class="ledger" style="border-top:2px solid var(--ink)">
       <li><span class="n">01</span><div><h3>Describe the change.</h3><p>Type it on your phone and attach screenshots or files.</p></div></li>
@@ -157,7 +282,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
 
 <section class="block" aria-labelledby="shots-h">
   <div class="wrap">
-    <p class="label">Section 02 · Exhibits</p>
+    <p class="label">Section 03 · Exhibits</p>
     <h2 id="shots-h">The field log</h2>
     <div class="shots">
       <figure><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tasks-phone-dark.png"><img src="docs/screenshots/tasks-phone-light.png" alt="Task list with running, waiting and paused tasks" width="390" height="844" loading="lazy" decoding="async"></picture><figcaption>Task list</figcaption></figure>
@@ -170,7 +295,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
 
 <section class="block" id="keys" aria-labelledby="keys-h">
   <div class="wrap">
-    <p class="label">Section 03 · Security</p>
+    <p class="label">Section 04 · Security</p>
     <h2 id="keys-h">Your keys stay with you</h2>
     <table class="spec">
       <tr><th scope="row">Owner</th><td>One: you. It runs on your own server.</td></tr>
@@ -186,7 +311,7 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
 
 <section class="block" aria-labelledby="where-h">
   <div class="wrap">
-    <p class="label">Section 04 · Terrain</p>
+    <p class="label">Section 05 · Terrain</p>
     <h2 id="where-h">Run it on your phone, desktop or Mac</h2>
     <div class="cols three">
       <div><p class="label">Phone</p><h3>Install it as an app</h3><p>A progressive web app: add it to your home screen and it opens full screen. Also works as a Telegram Mini App.</p></div>
@@ -196,21 +321,6 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
   </div>
 </section>
 
-<section class="block" id="setup" aria-labelledby="setup-h">
-  <div class="wrap">
-    <p class="label">Section 05 · Deployment</p>
-    <h2 id="setup-h">Set it up</h2>
-    <p>Run the installer on your server. It installs Docker if needed, asks for your domain, agents and keys, starts everything and prints a setup link. Run it again later to update.</p>
-    <div class="cmd"><code id="cmd">curl -fsSL https://raw.githubusercontent.com/AndrewSl105/FleetOps/main/deploy/install.sh | sh</code><button type="button" id="copy" aria-label="Copy the install command">Copy</button></div>
-    <ul class="req">
-      <li>A small Linux server (Ubuntu 24.04 with Docker) and a domain</li>
-      <li>A key for at least one agent: a Claude subscription or Anthropic API key, an OpenAI API key for Codex, or a Cursor API key</li>
-      <li>A GitHub account, for your own GitHub App</li>
-      <li>Optional: a Telegram bot, and a Mac for local tasks</li>
-    </ul>
-    <p style="margin-top:20px"><a href="docs/DEPLOY.md">Read the full setup guide →</a></p>
-  </div>
-</section>
 </main>
 
 <footer>
@@ -218,19 +328,88 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
     <img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="48" height="48" loading="lazy">
     <nav aria-label="Footer">
       <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
-      <a href="docs/DEPLOY.md">Setup guide</a>
-      <a href="docs/OPERATIONS.md">Operations</a>
-      <a href="LICENSE">License</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/DEPLOY.md">Setup guide</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/docs/LOCAL.md">Local mode</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/README.md#docs">Docs</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey/blob/main/LICENSE">License</a>
     </nav>
     <span class="mit">MIT</span>
   </div>
 </footer>
 <script>
-document.getElementById('copy').addEventListener('click', function () {
-  var b = this
-  navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(function () {
-    b.textContent = 'Copied'
-    setTimeout(function () { b.textContent = 'Copy' }, 1600)
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    navigator.clipboard.writeText(b.previousElementSibling.textContent).then(function () {
+      b.textContent = 'Copied ✓'
+      setTimeout(function () { b.textContent = 'Copy' }, 1600)
+    })
+  })
+})
+;(function () {
+  var m = document.getElementById('monkey'), btn = document.getElementById('feed')
+  var stamp = document.getElementById('feed-stamp'), fed = document.getElementById('fed')
+  var bites = m.querySelectorAll('.bite'), peel = document.getElementById('peel'), pupils = document.getElementById('pupils')
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches, visible = true, eating = false, n = 0
+  new IntersectionObserver(function (e) { visible = e[0].isIntersecting; m.classList.toggle('paused', !visible) }).observe(m)
+  function set(cls, text) { stamp.className = 'stamp ' + cls; stamp.textContent = text }
+  function done() {
+    n++; fed.textContent = n
+    set('pr', '✓ PR open · #' + ('0000' + (41 + n)).slice(-4))
+    eating = false; btn.disabled = false
+  }
+  btn.addEventListener('click', function () {
+    if (eating) return
+    if (still) return done()
+    eating = true; btn.disabled = true
+    set('run', '● Running · eating')
+    bites.forEach(function (b) { b.classList.remove('gone') }); peel.classList.remove('drop')
+    m.classList.add('eat')
+    ;[900, 1700, 2500].forEach(function (t, i) {
+      setTimeout(function () {
+        bites[i].classList.add('gone'); m.classList.add('nom')
+        setTimeout(function () { m.classList.remove('nom') }, 450)
+      }, t)
+    })
+    setTimeout(function () { peel.classList.add('drop') }, 3100)
+    setTimeout(function () { m.classList.remove('eat') }, 3500)
+    setTimeout(done, 4100)
+  })
+  if (still) return
+  setInterval(function () {
+    if (!visible || eating || Math.random() < 0.5) return
+    m.classList.add('tongue'); setTimeout(function () { m.classList.remove('tongue') }, 1200)
+  }, 5000)
+  var pending = false, px = 0, py = 0
+  window.addEventListener('pointermove', function (e) {
+    px = e.clientX; py = e.clientY
+    if (pending || !visible) return
+    pending = true
+    requestAnimationFrame(function () {
+      pending = false
+      var r = m.querySelector('svg').getBoundingClientRect()
+      var cx = r.left + r.width / 2, cy = r.top + r.height * 0.65
+      var dx = px - cx, dy = py - cy, d = Math.sqrt(dx * dx + dy * dy) || 1, k = Math.min(3, d / 40) / d
+      // The head is drawn rotated 180°, so the offset is mirrored.
+      pupils.setAttribute('transform', 'translate(' + (-dx * k).toFixed(2) + ' ' + (-dy * k).toFixed(2) + ')')
+    })
+  }, { passive: true })
+})()
+var tabs = Array.prototype.slice.call(document.querySelectorAll('[role=tab]'))
+function select(t) {
+  tabs.forEach(function (x) {
+    var on = x === t
+    x.setAttribute('aria-selected', on)
+    x.tabIndex = on ? 0 : -1
+    document.getElementById(x.getAttribute('aria-controls')).hidden = !on
+  })
+}
+tabs.forEach(function (t, i) {
+  t.addEventListener('click', function () { select(t) })
+  t.addEventListener('keydown', function (e) {
+    var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+    if (!d) return
+    var n = tabs[(i + d + tabs.length) % tabs.length]
+    select(n); n.focus()
   })
 })
 </script>
