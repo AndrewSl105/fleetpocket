@@ -320,9 +320,10 @@ function ColumnHeader({ x, width, name, online, server, count, accent }: { x: nu
       <span className="flex size-8 items-center justify-center rounded-md text-white" style={{ background: accent }}>
         <Icon className="size-4" aria-hidden="true" />
       </span>
-      <div className="min-w-0 text-white">
+      {/* Ink on the paper board (4.5:1 or more in both themes); the plate used to be white text. */}
+      <div className="min-w-0 text-foreground">
         <div className="truncate text-[15px] leading-tight font-bold">{name}</div>
-        <div className="text-xs">
+        <div className="text-xs text-muted-foreground">
           {online ? t.computers.online : t.computers.offline}, {tc.tasks(count)}
         </div>
       </div>
