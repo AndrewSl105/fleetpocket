@@ -501,6 +501,7 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 		msg = fmt.Sprintf("Loop iteration %d: fix the failing check", max(t.LoopIteration, 1))
 	}
 	return runnermgr.NewRun(runnermgr.RunCommand{
+		Subagents:          s.subagents(t, p),
 		TaskID:             strconv.FormatInt(t.ID, 10),
 		Prompt:             run.Input,
 		AppendSystemPrompt: SystemPrompt(t, repo, branch, p.Instructions),
@@ -522,6 +523,39 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 			AllowEmpty: t.PRAlways && (run.Kind == tasks.RunInitial || run.Kind == tasks.RunRetry),
 		},
 	})
+}
+
+// subagents are the default subagents of a Claude run when the project has
+// them on: cheap explorer and test-runner, a reviewer on the task's model.
+// Codex and Cursor have no subagent option in their SDKs (docs/DECISIONS.md).
+func (s *Scheduler) subagents(t *store.Task, p *store.Project) []runnermgr.Subagent {
+	if t.Agent != "claude" || !p.Subagents {
+		return nil
+	}
+	cheap := s.Cfg.CheapModelClaude
+	return []runnermgr.Subagent{
+		{
+			Name:        "explorer",
+			Description: "Finds and summarises code: where things are defined, how they connect. Use it to explore the repository instead of reading many files yourself.",
+			Prompt:      "You explore a code repository. Find the code the request asks about and summarise it concisely with file paths and line numbers. Never edit files.",
+			Model:       cheap,
+			Tools:       []string{"Read", "Grep", "Glob"},
+		},
+		{
+			Name:        "test-runner",
+			Description: "Runs the project's tests and linters and reports the failures concisely.",
+			Prompt:      "Detect how this project runs its tests and lint (Makefile, package.json, go.mod, pyproject, ...), run them, and report only the failures: command, failing test or file, and the relevant error lines. Do not fix anything.",
+			Model:       cheap,
+			Tools:       []string{"Bash", "Read"},
+		},
+		{
+			Name:        "reviewer",
+			Description: "Reviews the current diff against the task and reports problems.",
+			Prompt:      "Review the working tree's changes (git diff, git status) against the task you are given. Report bugs, missed requirements, risky changes and missing tests as a short list. Do not edit files.",
+			Model:       s.model(t, p),
+			Tools:       []string{"Read", "Grep", "Bash"},
+		},
+	}
 }
 
 // wireOutput leaves "pr" off the wire so today's run command is unchanged.

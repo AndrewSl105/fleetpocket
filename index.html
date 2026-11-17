@@ -608,6 +608,11 @@ footer .mit{margin-left:auto;font:600 12px var(--mono);letter-spacing:2px}
         <p>Your playbooks as SKILL.md skills with templates. Tick which ones a project's tasks get, or add one to a single task. Four diagram skills included, off until you enable them.</p>
       </article>
       <article class="feat">
+        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><rect x="14" y="20" width="48" height="24" class="pap-f ink-s" stroke-width="1.5"/><text x="22" y="36" class="mt">lead</text><path class="draw sig-s" d="M62 32 H84 M84 14 V50 M84 14 H104 M84 32 H104 M84 50 H104" stroke-width="2.5" fill="none"/><text x="108" y="18" class="mt">explorer</text><text x="108" y="36" class="mt">test-runner</text><text x="108" y="54" class="mt">reviewer</text></svg></div>
+        <h3>Subagents</h3>
+        <p>Claude hands exploring and test runs to subagents on a cheap model, and a reviewer checks the diff. Their steps show as "via explorer", their cost counts toward the run, and the same sandbox policy applies. Claude only.</p>
+      </article>
+      <article class="feat">
         <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><circle cx="34" cy="32" r="18" class="pap-f ink-s" stroke-width="1.5"/><path d="M34 32 V20 M34 32 L43 37" class="ink-s" stroke-width="2"/><path class="draw sig-s" d="M62 32 H96 C108 32 108 14 120 14 C132 14 132 32 144 32 H156" stroke-width="2.5" fill="none"/><text x="140" y="56" class="mt">✓ check</text><text x="66" y="56" class="mt">0 3 * * 1-5</text></svg></div>
         <h3>Schedules and loops</h3>
         <p>Start a task on a timetable with its own budgets, or let a task loop until your check passes; the PR or local branch arrives once, at the end.</p>

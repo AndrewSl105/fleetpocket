@@ -406,6 +406,8 @@ A **skill** is a `SKILL.md` folder (Claude Agent Skills format) the runner write
 
 Projects: `PATCH /projects/{id}` takes `skills` (slugs; replaces the list, unknown slugs ignored) and `default_output`; `Project` returns both.
 
+`subagents` (boolean, default `true`) on `Project` and in `POST`/`PATCH /projects`: Claude runs of the project get the default subagents (`explorer`, `test-runner`, `reviewer`; SPEC-server "Subagents"). It has no effect on Codex or Cursor. Runner events from a subagent (`assistant_text`, `tool_use`, `tool_result`) carry `subagent: "<name>"` in their payload.
+
 Seeded once on first start (deletable, off by default): `db-schema`, `system-design-c4`, `sequence-flow`, `infra-map`.
 
 ## WebSocket

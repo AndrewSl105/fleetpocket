@@ -27,6 +27,17 @@ export const Skill = z.object({
 });
 export type Skill = z.infer<typeof Skill>;
 
+// A subagent the lead Claude agent may delegate to (Claude only; Codex and
+// Cursor ignore the list). tools are a subset of the runner's own tools.
+export const Subagent = z.object({
+  name: z.string().regex(/^[a-z][a-z0-9-]{1,31}$/),
+  description: z.string().min(1),
+  prompt: z.string().min(1),
+  model: z.string().min(1).optional(),
+  tools: z.array(z.string().min(1)),
+});
+export type Subagent = z.infer<typeof Subagent>;
+
 export const RunCommand = z.object({
   type: z.literal("run"),
   task_id: z.union([z.string(), z.number()]).transform(String),
@@ -76,6 +87,8 @@ export const RunCommand = z.object({
       timeout_sec: z.number().int().positive().max(3600).default(600),
     })
     .optional(),
+  // Subagents of the lead agent (≤ 5); absent or empty: none.
+  subagents: z.array(Subagent).max(5).optional(),
 });
 
 export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;
@@ -125,9 +138,10 @@ export type EventBody =
   // auth: how the agent is authenticated, when the runner knows (Claude):
   // "subscription" (OAuth token) makes the reported cost API-equivalent.
   | { type: "started"; session_id: string; model: string; auth?: "api_key" | "subscription" }
-  | { type: "assistant_text"; text: string }
-  | { type: "tool_use"; tool: string; summary: string }
-  | { type: "tool_result"; tool: string; ok: boolean; summary?: string }
+  // subagent: the subagent that produced the event (absent: the lead agent).
+  | { type: "assistant_text"; text: string; subagent?: string }
+  | { type: "tool_use"; tool: string; summary: string; subagent?: string }
+  | { type: "tool_result"; tool: string; ok: boolean; summary?: string; subagent?: string }
   | { type: "question"; question_id: string; text: string; options?: string[] }
   // input_tokens includes the cache reads and writes; cache_*_tokens count
   // them on their own when the agent reports them.

@@ -200,6 +200,8 @@ Exit codes: `0` done, `1` error, `2` cancelled, `3` paused, `4` limit exceeded (
 
 **Important:** SDK option and message names change between versions. Read the installed package's type definitions and current docs before coding; do not rely on memory.
 
+**Subagents.** A Claude run may delegate to subagents (`RunCommand.subagents`, PROTOCOL.md "Subagents"). The scheduler sends three defaults when the project's `subagents` setting is on (default on): `explorer` (`CHEAP_MODEL_CLAUDE`, `Read Grep Glob`, finds and summarises code, never edits), `test-runner` (`CHEAP_MODEL_CLAUDE`, `Bash Read`, runs the project's tests/lint and reports failures concisely) and `reviewer` (the task's model, `Read Grep Bash`, reviews the diff against the task). Subagents use only the runner's pre-approved tools and the run's MCP tools, never `AskUserQuestion`; the policy hook applies to their tool calls. Their events carry `subagent: <name>` and their usage is part of the run's totals. Exploring and running tests on the cheap model keeps those tokens off the expensive one. Codex and Cursor ignore the list (DECISIONS.md).
+
 **Fake mode.** With `FLEETPOCKET_RUNNER_FAKE=1`, do not call Claude: emit a scripted sequence (started, a few tool events, one question, wait for the answer, write a file, commit, done). The backend's integration tests use it.
 
 **Dockerfile**
@@ -250,6 +252,7 @@ A single Go binary: REST + WebSocket API, Telegram bot, scheduler, Docker orches
 | `RUNNER_MEMORY` / `RUNNER_CPUS` | `3g` / `2` | per runner, hard limits |
 | `SIDECAR_MEMORY` | `512m` | per sidecar |
 | `DEFAULT_MODEL` | empty (SDK default) |  |
+| `CHEAP_MODEL_CLAUDE` | `haiku` | model of the cheap Claude subagents (`explorer`, `test-runner`): an SDK alias or a full id |
 | `DEFAULT_MAX_TURNS` / `DEFAULT_MAX_BUDGET_USD` / `DEFAULT_MAX_DURATION` | `150` / `5` / `2h` |  |
 | `QUESTION_TIMEOUT` | `20m` |  |
 | `EVENT_RETENTION` | `720h` (30 days) |  |

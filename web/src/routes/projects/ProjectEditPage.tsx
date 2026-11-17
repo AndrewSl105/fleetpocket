@@ -217,6 +217,19 @@ function ProjectForm({ project }: { project?: Project }) {
           <Field id="model" label={f.model} hint={f.modelHint}>
             <Input id="model" placeholder={t.common.serverDefault} className="h-11 font-mono" {...form.register('model')} />
           </Field>
+          <Controller
+            control={form.control}
+            name="subagents"
+            render={({ field }) => (
+              <label className="flex min-h-11 items-center justify-between gap-3 fm-group px-3 py-2">
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{f.subagents}</span>
+                  <span className="block text-xs text-muted-foreground">{f.subagentsHint}</span>
+                </span>
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              </label>
+            )}
+          />
         </Section>
 
         <Section title={f.services}>

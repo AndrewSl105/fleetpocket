@@ -77,6 +77,19 @@ type RunCommand struct {
 	// Check makes the run a loop iteration: after a done session and its
 	// commit the runner runs the command in /workspace and emits `check`.
 	Check *CheckConfig `json:"check,omitempty"`
+	// Subagents the lead agent may delegate to (Claude only; ≤ 5).
+	Subagents []Subagent `json:"subagents,omitempty"`
+}
+
+// Subagent is one subagent of the lead agent (docs/PROTOCOL.md,
+// "Subagents"). Name matches ^[a-z][a-z0-9-]{1,31}$; Model empty inherits
+// the lead agent's model.
+type Subagent struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Prompt      string   `json:"prompt"`
+	Model       string   `json:"model,omitempty"`
+	Tools       []string `json:"tools"`
 }
 
 // CheckConfig is a loop's check command (docs/PROTOCOL.md, "Loops").
@@ -173,19 +186,22 @@ type Event struct {
 	TS   time.Time `json:"ts"`
 	Seq  int64     `json:"seq"`
 
-	RunnerVersion string   `json:"runner_version,omitempty"`
-	SessionID     string   `json:"session_id,omitempty"`
-	Model         string   `json:"model,omitempty"`
-	Auth          string   `json:"auth,omitempty"` // started: api_key | subscription
-	Text          string   `json:"text,omitempty"`
-	Tool          string   `json:"tool,omitempty"`
-	Summary       string   `json:"summary,omitempty"`
-	OK            *bool    `json:"ok,omitempty"`
-	QuestionID    string   `json:"question_id,omitempty"`
-	Options       []string `json:"options,omitempty"`
-	CostUSDTotal  float64  `json:"cost_usd_total,omitempty"`
-	InputTokens   int64    `json:"input_tokens,omitempty"`
-	OutputTokens  int64    `json:"output_tokens,omitempty"`
+	RunnerVersion string `json:"runner_version,omitempty"`
+	SessionID     string `json:"session_id,omitempty"`
+	Model         string `json:"model,omitempty"`
+	Auth          string `json:"auth,omitempty"` // started: api_key | subscription
+	Text          string `json:"text,omitempty"`
+	Tool          string `json:"tool,omitempty"`
+	Summary       string `json:"summary,omitempty"`
+	// Subagent names the subagent behind an assistant_text, tool_use or
+	// tool_result event (empty: the lead agent).
+	Subagent     string   `json:"subagent,omitempty"`
+	OK           *bool    `json:"ok,omitempty"`
+	QuestionID   string   `json:"question_id,omitempty"`
+	Options      []string `json:"options,omitempty"`
+	CostUSDTotal float64  `json:"cost_usd_total,omitempty"`
+	InputTokens  int64    `json:"input_tokens,omitempty"`
+	OutputTokens int64    `json:"output_tokens,omitempty"`
 	// CacheReadTokens and CacheWriteTokens are part of InputTokens.
 	CacheReadTokens  int64  `json:"cache_read_tokens,omitempty"`
 	CacheWriteTokens int64  `json:"cache_write_tokens,omitempty"`

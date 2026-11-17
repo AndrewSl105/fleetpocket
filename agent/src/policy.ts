@@ -34,6 +34,7 @@ export function checkTool(toolName: string, input: unknown, workspace: string, o
     for (const p of paths) {
       if (isUnderGithubDir(p, workspace)) return deny(githubReason(p));
       if (isUnderAttachments(p, workspace)) return deny(attachmentsReason(p));
+      if (!isInsideWorkspace(p, workspace)) return deny(outsideReason(p));
       if (opts.artifactsOnly && !isUnderOut(p, workspace)) return deny(artifactsReason(p));
     }
   }
@@ -68,6 +69,17 @@ export function isUnderOut(p: string, workspace: string): boolean {
   const abs = isAbsolute(unquoted) ? normalize(unquoted) : resolve(workspace, unquoted);
   const out = resolve(workspace, OUT_DIR);
   return abs.startsWith(out + "/");
+}
+
+// File tools write inside the workspace (or the temp dir for scratch files);
+// the server only ever ships the workspace's diff.
+const outsideReason = (p: string) => `Writing outside the workspace is not allowed (${p}). Keep changes under the repository; use /tmp for scratch files.`;
+
+export function isInsideWorkspace(p: string, workspace: string): boolean {
+  const unquoted = p.replace(/^['"]|['"]$/g, "");
+  const abs = isAbsolute(unquoted) ? normalize(unquoted) : resolve(workspace, unquoted);
+  const ws = resolve(workspace);
+  return abs === ws || abs.startsWith(ws + "/") || abs === "/tmp" || abs.startsWith("/tmp/");
 }
 
 // Attached images are mounted read-only at /attachments; reading them is

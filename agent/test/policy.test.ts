@@ -146,3 +146,10 @@ test("other agents' key names are not Claude credentials", () => {
   assert.equal(checkBash("grep -rn OPENAI_API_KEY src").allow, true);
   assert.equal(checkBash("CURSOR_API_KEY=test npm test").allow, true);
 });
+
+test("file tools may not write outside the workspace (except /tmp)", () => {
+  assert.equal(checkTool("Write", { file_path: "/etc/hosts" }, "/workspace").allow, false);
+  assert.equal(checkTool("Edit", { file_path: "../other/x" }, "/workspace").allow, false);
+  assert.equal(checkTool("Write", { file_path: "/tmp/scratch.txt" }, "/workspace").allow, true);
+  assert.equal(checkTool("Read", { file_path: "/etc/hosts" }, "/workspace").allow, true);
+});

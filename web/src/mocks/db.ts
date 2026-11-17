@@ -52,6 +52,7 @@ function project(id: string, name: string, repositories: Repository[], extra: Pa
     ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null },
     budget: null,
     default_output: null,
+    subagents: true,
     skills: [],
     month_cost_usd: 0,
     month_cost_unknown: false,

@@ -238,6 +238,7 @@ export const handlers = [
       ci_autofix: { enabled: null, max_attempts: null, checks: null, budget_usd: null, allow_ci_changes: null, ...body.ci_autofix },
       budget: body.budget ?? null,
       default_output: null,
+      subagents: body.subagents ?? true,
       skills: [],
       month_cost_usd: 0,
       month_cost_unknown: false,

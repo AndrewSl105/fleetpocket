@@ -148,6 +148,7 @@ export const en = {
       openPr: 'Open pull request →',
       reply: 'Reply…',
       activity: (verb: string, target: string) => (target ? `${verb}: ${target}` : verb),
+      via: (name: string) => `via ${name}`,
     },
   },
   status: {
@@ -376,6 +377,8 @@ export const en = {
       envHint: 'Non-secret variables only. Keys like NODE_ENV.',
       model: 'Model',
       modelHint: "A model of the project's agent; empty uses the agent's default.",
+      subagents: 'Subagents',
+      subagentsHint: 'explorer, test-runner and reviewer on cheaper models. Subagents: Claude only.',
       limits: 'Limits',
       maxTurns: 'Max turns',
       maxBudget: 'Budget, USD',

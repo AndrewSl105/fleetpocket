@@ -39,6 +39,8 @@ type Project struct {
 	MonthCostUnknown bool `json:"month_cost_unknown"`
 	// DefaultOutput is the output new tasks get; nil means "pr".
 	DefaultOutput *string `json:"default_output"`
+	// Subagents: Claude runs get the default subagents (explorer, test-runner, reviewer).
+	Subagents bool `json:"subagents"`
 	// Skills are the slugs enabled for the project's tasks.
 	Skills       []string     `json:"skills"`
 	Archived     bool         `json:"archived"`
@@ -88,7 +90,7 @@ func scanRepo(row interface{ Scan(...any) error }, r *Repository) error {
 
 const projectCols = `id, name, instructions, services, env, runner_image, model, max_turns,
 	max_budget_usd::float8, EXTRACT(EPOCH FROM max_duration)::bigint, runner_memory, runner_cpus::float8,
-	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix, budget, default_output,
+	telegram_thread_id, archived, created_at, updated_at, agent, node, ci_autofix, budget, default_output, subagents,
 	coalesce((SELECT array_agg(s.slug ORDER BY s.slug) FROM project_skills ps JOIN skills s ON s.id = ps.skill_id
 		WHERE ps.project_id = projects.id), '{}')`
 
@@ -97,7 +99,7 @@ func scanProject(row interface{ Scan(...any) error }) (*Project, error) {
 	var env, autofix, budget []byte
 	err := row.Scan(&p.ID, &p.Name, &p.Instructions, &p.Services, &env, &p.RunnerImage, &p.Model, &p.MaxTurns,
 		&p.MaxBudgetUSD, &p.MaxDurationSec, &p.RunnerMemory, &p.RunnerCPUs,
-		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix, &budget, &p.DefaultOutput, &p.Skills)
+		&p.TelegramThreadID, &p.Archived, &p.CreatedAt, &p.UpdatedAt, &p.Agent, &p.Node, &autofix, &budget, &p.DefaultOutput, &p.Subagents, &p.Skills)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +150,8 @@ type ProjectFields struct {
 	Budget *ProjectBudget `json:"budget"`
 	// DefaultOutput: "" resets to nil ("pr").
 	DefaultOutput *string `json:"default_output"`
+	// Subagents turns the default subagents of Claude runs on or off.
+	Subagents *bool `json:"subagents"`
 	// Skills replaces the project's enabled skills (slugs; unknown slugs are ignored).
 	Skills *[]string `json:"skills"`
 }
@@ -249,6 +253,9 @@ func (s *Store) UpdateProject(ctx context.Context, id string, f ProjectFields) (
 	}
 	if f.DefaultOutput != nil {
 		add("default_output", nilIfEmpty(*f.DefaultOutput))
+	}
+	if f.Subagents != nil {
+		add("subagents", *f.Subagents)
 	}
 	err := s.Tx(ctx, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE projects SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)

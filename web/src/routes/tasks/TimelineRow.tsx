@@ -83,7 +83,7 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
   const label = item.summary.startsWith(item.tool) ? name : item.tool
   const failed = item.ok === false
   return (
-    <div>
+    <div className={cn(item.subagent && 'ml-5 border-l border-border pl-1')}>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
@@ -95,6 +95,7 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
         <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} aria-hidden="true" />
         <span className="shrink-0 font-medium text-foreground/80">{label}</span>
         {target && <span className="truncate font-mono">· {target}</span>}
+        {item.subagent && <span className="shrink-0 text-[11px]">{t.canvas.node.via(item.subagent)}</span>}
         {failed && <CircleX className="ml-auto size-3.5 shrink-0" aria-label="failed" />}
       </button>
       {open && (

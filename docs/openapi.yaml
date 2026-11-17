@@ -2074,6 +2074,7 @@ components:
           type: [string, 'null']
           enum: [pr, artifacts, pr_and_artifacts, '', null]
           description: Output new tasks get; empty or null is `pr`. Values other than `pr` are refused with 400 until diagram collection ships
+        subagents: { type: boolean, description: Claude runs get the default subagents (explorer, test-runner, reviewer) }
         skills: { type: array, items: { type: string }, description: Replaces the project's enabled skills (slugs; unknown slugs are ignored) }
 
     CIAutoFixSettings:
@@ -2222,6 +2223,7 @@ components:
         month_cost_usd: { type: number, description: Cost of the project's runs started this calendar month }
         month_cost_unknown: { type: boolean, description: Some of those runs have no price; month_cost_usd is a lower bound }
         default_output: { type: [string, 'null'], enum: [pr, artifacts, pr_and_artifacts, null], description: null is `pr` }
+        subagents: { type: boolean, description: Claude runs get the default subagents (explorer, test-runner, reviewer); default true }
         skills: { type: array, items: { type: string }, description: Slugs of the skills enabled for the project's tasks }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -2814,6 +2816,7 @@ components:
           properties:
             type: { type: string, enum: [assistant_text] }
             text: { type: string }
+            subagent: { type: string, description: The subagent that produced the event (Claude); absent for the lead agent }
 
     ToolUseEvent:
       allOf:
@@ -2835,6 +2838,7 @@ components:
             type: { type: string, enum: [tool_use] }
             tool: { type: string }
             summary: { type: string, description: 'Short, human-readable, e.g. "Edit src/tables/export.ts"' }
+            subagent: { type: string, description: The subagent that produced the event (Claude); absent for the lead agent }
 
     ToolResultEvent:
       allOf:
@@ -2857,6 +2861,7 @@ components:
             tool: { type: string }
             ok: { type: boolean }
             summary: { type: string, description: Only when ok is false; first line of the error }
+            subagent: { type: string, description: The subagent that produced the event (Claude); absent for the lead agent }
 
     QuestionEvent:
       allOf:

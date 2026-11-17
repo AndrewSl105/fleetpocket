@@ -6,6 +6,8 @@ import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sd
 import type { EventBody } from "./protocol.ts";
 
 export const ASK_TOOL = "AskUserQuestion";
+// The SDK's subagent tool: "Agent" in the installed SDK, "Task" before.
+const SUBAGENT_TOOLS = new Set(["Agent", "Task"]);
 const SUMMARY_MAX = 80;
 const RESULT_SUMMARY_MAX = 120;
 export const TEXT_MAX = 4000;
@@ -50,6 +52,10 @@ export function toolSummary(tool: string, input: unknown, workspace: string): st
       break;
     case "WebSearch":
       s = `WebSearch ${String(i.query ?? "")}`;
+      break;
+    case "Agent":
+    case "Task":
+      s = `${tool} ${String(i.subagent_type ?? "")}: ${String(i.description ?? "")}`;
       break;
     case "TodoWrite":
       s = `TodoWrite (${Array.isArray(i.todos) ? i.todos.length : 0} items)`;
@@ -114,6 +120,8 @@ export class Mapper {
   sessionId = "";
   model = "";
   private readonly tools = new Map<string, string>();
+  // subagent tool_use id → the subagent's name (its subagent_type).
+  private readonly subagents = new Map<string, string>();
   private started = false;
 
   private readonly workspace: string;
@@ -134,22 +142,26 @@ export class Mapper {
         }
         return [];
       case "assistant": {
-        // Subagent frames are folded into the parent's tool_use; skip their detail.
-        if (msg.parent_tool_use_id) return [];
+        // Subagent frames carry the subagent's name so the timeline nests them.
+        const via = this.via(msg.parent_tool_use_id);
         const out: EventBody[] = [];
         for (const block of msg.message.content) {
           if (block.type === "text" && block.text.trim()) {
-            out.push({ type: "assistant_text", text: block.text.length > TEXT_MAX ? block.text.slice(0, TEXT_MAX) + "…" : block.text });
+            out.push({ type: "assistant_text", text: block.text.length > TEXT_MAX ? block.text.slice(0, TEXT_MAX) + "…" : block.text, ...via });
           } else if (block.type === "tool_use") {
             this.tools.set(block.id, block.name);
+            if (SUBAGENT_TOOLS.has(block.name)) {
+              const name = (block.input as { subagent_type?: unknown } | undefined)?.subagent_type;
+              this.subagents.set(block.id, typeof name === "string" && name ? name : "subagent");
+            }
             if (block.name === ASK_TOOL) continue; // surfaced as `question`
-            out.push({ type: "tool_use", tool: block.name, summary: toolSummary(block.name, block.input, this.workspace) });
+            out.push({ type: "tool_use", tool: block.name, summary: toolSummary(block.name, block.input, this.workspace), ...via });
           }
         }
         return out;
       }
       case "user": {
-        if (msg.parent_tool_use_id) return [];
+        const via = this.via(msg.parent_tool_use_id);
         const content = msg.message.content;
         if (typeof content === "string") return [];
         const out: EventBody[] = [];
@@ -158,7 +170,7 @@ export class Mapper {
           const tool = this.tools.get(block.tool_use_id) ?? "unknown";
           if (tool === ASK_TOOL) continue;
           const ok = !block.is_error;
-          const ev: EventBody = { type: "tool_result", tool, ok };
+          const ev: EventBody = { type: "tool_result", tool, ok, ...via };
           if (!ok) {
             const summary = resultSummary(block.content);
             if (summary) ev.summary = summary;
@@ -168,10 +180,16 @@ export class Mapper {
         return out;
       }
       case "result":
+        // modelUsage and total_cost_usd include the subagents' calls.
         return [{ type: "usage", ...usageFromResult(msg) }];
       default:
         return [];
     }
+  }
+
+  private via(parent: string | null | undefined): { subagent?: string } {
+    if (!parent) return {};
+    return { subagent: this.subagents.get(parent) ?? "subagent" };
   }
 }
 
