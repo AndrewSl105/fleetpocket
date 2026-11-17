@@ -49,7 +49,9 @@ test("usage sums across turns; failures are recorded and reset by a new turn", (
   const mp = new CodexMapper("m");
   const usage = { input_tokens: 100, cached_input_tokens: 40, cache_write_input_tokens: 0, output_tokens: 10, reasoning_output_tokens: 3 };
   mp.map(e({ type: "turn.completed", usage }));
-  assert.deepEqual(mp.map(e({ type: "turn.completed", usage })), [{ type: "usage", cost_usd_total: 0, input_tokens: 200, output_tokens: 20, turns: 2 }]);
+  assert.deepEqual(mp.map(e({ type: "turn.completed", usage })), [
+    { type: "usage", cost_usd_total: 0, input_tokens: 200, output_tokens: 20, turns: 2, cache_read_tokens: 80, cache_write_tokens: 0 },
+  ]);
   mp.map(e({ type: "turn.failed", error: { message: "401 Unauthorized" } }));
   assert.equal(mp.failure, "401 Unauthorized");
   mp.map(e({ type: "turn.started" }));

@@ -34,6 +34,13 @@ test("system init → started once", () => {
   assert.equal(mp.sessionId, sid);
 });
 
+test("started reports a subscription (OAuth) or an API key", () => {
+  const oauth = new Mapper(WS).map(m({ type: "system", subtype: "init", model: "claude-x", session_id: sid, apiKeySource: "none" }));
+  assert.deepEqual(oauth, [{ type: "started", session_id: sid, model: "claude-x", auth: "subscription" }]);
+  const key = new Mapper(WS).map(m({ type: "system", subtype: "init", model: "claude-x", session_id: sid, apiKeySource: "ANTHROPIC_API_KEY" }));
+  assert.deepEqual(key, [{ type: "started", session_id: sid, model: "claude-x", auth: "api_key" }]);
+});
+
 test("assistant text and tool_use; tool_result ok and error", () => {
   const mp = new Mapper(WS);
   const evs = mp.map(
@@ -93,7 +100,9 @@ test("AskUserQuestion and subagent frames are not mapped to tool events", () => 
 
 test("result → usage", () => {
   const mp = new Mapper(WS);
-  assert.deepEqual(mp.map(result()), [{ type: "usage", cost_usd_total: 0.42, input_tokens: 115, output_tokens: 50, turns: 3 }]);
+  assert.deepEqual(mp.map(result()), [
+    { type: "usage", cost_usd_total: 0.42, input_tokens: 115, output_tokens: 50, turns: 3, cache_read_tokens: 10, cache_write_tokens: 5 },
+  ]);
 });
 
 test("tool summaries are short and relative", () => {

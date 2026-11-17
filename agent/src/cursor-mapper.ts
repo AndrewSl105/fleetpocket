@@ -82,6 +82,8 @@ export class CursorMapper {
   failure = "";
   input = 0;
   output = 0;
+  cacheRead = 0;
+  cacheWrite = 0;
   turns = 0;
 
   private readonly workspace: string;
@@ -137,7 +139,19 @@ export class CursorMapper {
         this.turns++;
         this.input += msg.usage.inputTokens + msg.usage.cacheReadTokens + msg.usage.cacheWriteTokens;
         this.output += msg.usage.outputTokens;
-        return [{ type: "usage", cost_usd_total: 0, input_tokens: this.input, output_tokens: this.output, turns: this.turns }];
+        this.cacheRead += msg.usage.cacheReadTokens;
+        this.cacheWrite += msg.usage.cacheWriteTokens;
+        return [
+          {
+            type: "usage",
+            cost_usd_total: 0,
+            input_tokens: this.input,
+            output_tokens: this.output,
+            turns: this.turns,
+            cache_read_tokens: this.cacheRead,
+            cache_write_tokens: this.cacheWrite,
+          },
+        ];
       case "status":
         if (msg.status === "ERROR" || msg.status === "EXPIRED") this.failure = msg.message || msg.status.toLowerCase();
         return [];

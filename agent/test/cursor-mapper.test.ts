@@ -52,7 +52,9 @@ test("text, usage and status", () => {
   assert.equal(mp.summary, "All done.");
   const usage = { inputTokens: 10, outputTokens: 5, cacheReadTokens: 3, cacheWriteTokens: 2, totalTokens: 20 };
   mp.map(m({ ...base, type: "usage", usage }));
-  assert.deepEqual(mp.map(m({ ...base, type: "usage", usage })), [{ type: "usage", cost_usd_total: 0, input_tokens: 30, output_tokens: 10, turns: 2 }]);
+  assert.deepEqual(mp.map(m({ ...base, type: "usage", usage })), [
+    { type: "usage", cost_usd_total: 0, input_tokens: 30, output_tokens: 10, turns: 2, cache_read_tokens: 6, cache_write_tokens: 4 },
+  ]);
   mp.map(m({ ...base, type: "status", status: "ERROR", message: "unauthorized" }));
   assert.equal(mp.failure, "unauthorized");
 });

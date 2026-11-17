@@ -78,16 +78,36 @@ export interface UsageSnapshot {
   input_tokens: number;
   output_tokens: number;
   turns: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
 }
 
 export function usageFromResult(r: SDKResultMessage): UsageSnapshot {
   let input = 0;
   let output = 0;
+  let cacheRead = 0;
+  let cacheWrite = 0;
   for (const m of Object.values(r.modelUsage ?? {})) {
     input += m.inputTokens + m.cacheReadInputTokens + m.cacheCreationInputTokens;
     output += m.outputTokens;
+    cacheRead += m.cacheReadInputTokens;
+    cacheWrite += m.cacheCreationInputTokens;
   }
-  return { cost_usd_total: r.total_cost_usd, input_tokens: input, output_tokens: output, turns: r.num_turns };
+  return {
+    cost_usd_total: r.total_cost_usd,
+    input_tokens: input,
+    output_tokens: output,
+    turns: r.num_turns,
+    cache_read_tokens: cacheRead,
+    cache_write_tokens: cacheWrite,
+  };
+}
+
+// authOf maps the SDK's apiKeySource: "none" is a claude.ai OAuth login (the
+// runner gets either CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY).
+export function authOf(apiKeySource: string | undefined): "api_key" | "subscription" | undefined {
+  if (!apiKeySource) return undefined;
+  return apiKeySource === "none" ? "subscription" : "api_key";
 }
 
 export class Mapper {
@@ -109,7 +129,8 @@ export class Mapper {
         if (msg.subtype === "init" && !this.started) {
           this.started = true;
           this.model = msg.model;
-          return [{ type: "started", session_id: msg.session_id, model: msg.model }];
+          const auth = authOf(msg.apiKeySource);
+          return [{ type: "started", session_id: msg.session_id, model: msg.model, ...(auth ? { auth } : {}) }];
         }
         return [];
       case "assistant": {

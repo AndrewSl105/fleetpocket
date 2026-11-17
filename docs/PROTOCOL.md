@@ -32,12 +32,12 @@ Every event has `type`, `ts` (RFC 3339, UTC, milliseconds) and `seq` (monotonic 
 | type | fields |
 |---|---|
 | `ready` | `runner_version` |
-| `started` | `session_id`, `model` |
+| `started` | `session_id`, `model`, `auth?` (`api_key` \| `subscription`) |
 | `assistant_text` | `text` |
 | `tool_use` | `tool`, `summary` (short, human-readable, e.g. "Edit src/tables/export.ts") |
 | `tool_result` | `tool`, `ok`, `summary?` |
 | `question` | `question_id`, `text`, `options?` (string array) |
-| `usage` | `cost_usd_total`, `input_tokens`, `output_tokens`, `turns` |
+| `usage` | `cost_usd_total`, `input_tokens`, `output_tokens`, `turns`, `cache_read_tokens?`, `cache_write_tokens?` |
 | `committed` | `sha`, `files_changed`, `insertions`, `deletions` |
 | `done` | `session_id`, `summary`, `no_changes`, `cost_usd_total` |
 | `paused` | `session_id`, `reason` (`question_timeout`), `question_id` |
@@ -57,7 +57,9 @@ Error codes: `no_auth`, `bad_command`, `commit_failed`, `limit_exceeded`, `sdk_e
 | `cursor` | `@cursor/sdk` (local agent) | Cursor agent id (state in `~/.cursor` → `~/.claude/cursor`) | prepended to the first prompt of a new agent | none (`askQuestion` disallowed) | duration |
 
 - `model` is passed to the agent as is; without it Codex uses its default (`started.model` is `default`) and Cursor uses `auto`.
-- Codex and Cursor report tokens but no cost: their `usage` and `done` carry `cost_usd_total: 0`, and `turns` counts model turns (one per input).
+- Codex and Cursor report tokens but no cost: their `usage` and `done` carry `cost_usd_total: 0`, and `turns` counts model turns (one per input). Their token counts cover this run only; the server estimates the cost from its price table (SPEC-server, "Costs and budgets").
+- `input_tokens` counts all input, cache reads and writes included; `cache_read_tokens` and `cache_write_tokens` count those on their own (Claude: `cacheReadInputTokens`/`cacheCreationInputTokens` of `modelUsage`; Codex: `cached_input_tokens`/`cache_write_input_tokens`, which OpenAI counts inside `input_tokens`; Cursor: `cacheReadTokens`/`cacheWriteTokens`). Older runners omit them.
+- `started.auth` is set by the Claude runner from the SDK's `apiKeySource` (`"none"`, a claude.ai OAuth login, is `subscription`; anything else `api_key`). With a subscription the reported cost is what the same tokens would cost on the API ("API-equivalent"). Absent for Codex, Cursor, the fake runner and older runners.
 - Codex and Cursor get the images listed under "Attached images" as image inputs. Commands they run see no auth variables (Codex: `shell_environment_policy`; Cursor: the key is removed from the runner's environment and passed to the SDK). The tool policy below (`PreToolUse`) exists only for Claude.
 - Both run without their own sandbox and without approvals (Codex `danger-full-access` and `approval_policy = "never"`, Cursor `sandboxOptions.enabled: false`): the container is the sandbox.
 
@@ -77,7 +79,7 @@ Notes for the backend:
 
 - `question_id` is unique within one run (`q1`, `q2`, …) and restarts in the next run; the backend prefixes it with the run id. One `AskUserQuestion` call with several questions produces several `question` events, answered one after another.
 - After a `paused` run, the pending question has been withdrawn from the Claude session. The resume run must carry the answer in its `prompt` (with `resume_session_id`), e.g. `The answer to your question "…" is: …`.
-- `cost_usd_total` (in `usage` and `done`) is cumulative for the Claude **session**: a resumed session starts from the total its transcript saved, so the first `usage` of a resume run already includes earlier runs. Per-run cost = this run's last total minus the previous run's last total for the same session.
+- `cost_usd_total` (in `usage` and `done`) and Claude's token counts are cumulative for the Claude **session**: a resumed session starts from the total its transcript saved, so the first `usage` of a resume run already includes earlier runs. Per-run cost (and tokens) = this run's last total minus what the earlier runs of the same session recorded.
 - `limits.max_budget_usd` is passed to the SDK (`maxBudgetUsd`), which counts only spend since the run started.
 - `tool_result.summary` is set only when `ok` is false (first non-empty line of the error, ≤120 chars); successful results never carry content.
 

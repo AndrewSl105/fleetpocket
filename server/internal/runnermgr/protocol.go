@@ -120,6 +120,7 @@ type Event struct {
 	RunnerVersion string   `json:"runner_version,omitempty"`
 	SessionID     string   `json:"session_id,omitempty"`
 	Model         string   `json:"model,omitempty"`
+	Auth          string   `json:"auth,omitempty"` // started: api_key | subscription
 	Text          string   `json:"text,omitempty"`
 	Tool          string   `json:"tool,omitempty"`
 	Summary       string   `json:"summary,omitempty"`
@@ -129,15 +130,18 @@ type Event struct {
 	CostUSDTotal  float64  `json:"cost_usd_total,omitempty"`
 	InputTokens   int64    `json:"input_tokens,omitempty"`
 	OutputTokens  int64    `json:"output_tokens,omitempty"`
-	Turns         int      `json:"turns,omitempty"`
-	SHA           string   `json:"sha,omitempty"`
-	FilesChanged  int      `json:"files_changed,omitempty"`
-	Insertions    int      `json:"insertions,omitempty"`
-	Deletions     int      `json:"deletions,omitempty"`
-	NoChanges     bool     `json:"no_changes,omitempty"`
-	Reason        string   `json:"reason,omitempty"`
-	Code          string   `json:"code,omitempty"`
-	Message       string   `json:"message,omitempty"`
+	// CacheReadTokens and CacheWriteTokens are part of InputTokens.
+	CacheReadTokens  int64  `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens int64  `json:"cache_write_tokens,omitempty"`
+	Turns            int    `json:"turns,omitempty"`
+	SHA              string `json:"sha,omitempty"`
+	FilesChanged     int    `json:"files_changed,omitempty"`
+	Insertions       int    `json:"insertions,omitempty"`
+	Deletions        int    `json:"deletions,omitempty"`
+	NoChanges        bool   `json:"no_changes,omitempty"`
+	Reason           string `json:"reason,omitempty"`
+	Code             string `json:"code,omitempty"`
+	Message          string `json:"message,omitempty"`
 
 	Raw json.RawMessage `json:"-"`
 }

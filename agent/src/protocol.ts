@@ -91,12 +91,24 @@ export function parseCommand(line: string): { ok: true; command: Command } | { o
 
 export type EventBody =
   | { type: "ready"; runner_version: string }
-  | { type: "started"; session_id: string; model: string }
+  // auth: how the agent is authenticated, when the runner knows (Claude):
+  // "subscription" (OAuth token) makes the reported cost API-equivalent.
+  | { type: "started"; session_id: string; model: string; auth?: "api_key" | "subscription" }
   | { type: "assistant_text"; text: string }
   | { type: "tool_use"; tool: string; summary: string }
   | { type: "tool_result"; tool: string; ok: boolean; summary?: string }
   | { type: "question"; question_id: string; text: string; options?: string[] }
-  | { type: "usage"; cost_usd_total: number; input_tokens: number; output_tokens: number; turns: number }
+  // input_tokens includes the cache reads and writes; cache_*_tokens count
+  // them on their own when the agent reports them.
+  | {
+      type: "usage";
+      cost_usd_total: number;
+      input_tokens: number;
+      output_tokens: number;
+      turns: number;
+      cache_read_tokens?: number;
+      cache_write_tokens?: number;
+    }
   | { type: "committed"; sha: string; files_changed: number; insertions: number; deletions: number }
   | { type: "done"; session_id: string; summary: string; no_changes: boolean; cost_usd_total: number }
   | { type: "paused"; session_id: string; reason: "question_timeout"; question_id: string }
