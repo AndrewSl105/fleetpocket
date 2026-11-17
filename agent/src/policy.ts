@@ -97,13 +97,15 @@ export function matchGlob(glob: string, file: string): boolean {
 }
 
 function matchSegs(g: string[], f: string[]): boolean {
-  if (g.length === 0) return f.length === 0;
-  if (g[0] === "**") {
-    for (let i = 0; i <= f.length; i++) if (matchSegs(g.slice(1), f.slice(i))) return true;
+  const [head, ...rest] = g;
+  if (head === undefined) return f.length === 0;
+  if (head === "**") {
+    for (let i = 0; i <= f.length; i++) if (matchSegs(rest, f.slice(i))) return true;
     return false;
   }
-  if (f.length === 0 || !segRegex(g[0]).test(f[0])) return false;
-  return matchSegs(g.slice(1), f.slice(1));
+  const [file, ...files] = f;
+  if (file === undefined || !segRegex(head).test(file)) return false;
+  return matchSegs(rest, files);
 }
 
 function segRegex(seg: string): RegExp {
