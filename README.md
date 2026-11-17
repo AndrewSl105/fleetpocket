@@ -62,6 +62,15 @@ You need Docker running and one agent login or key (Claude, Codex or Cursor). Th
 - **Ideas board** (off until you turn it on in Settings). A kanban for ideas: hold to talk and the voice note is transcribed (with `STT_PROVIDER`) into a card, or drop text, links, screenshots and files, or send `/idea` in Telegram. Drag cards between columns (long-press on a phone), then **Start task** from a card: the card moves to In progress, to Done when its PR merges, and shows ✕ if the task fails.
 - **Skill library.** Keep your playbooks as skills (`SKILL.md` folders: instructions plus templates) and tick which ones each project's tasks get; a task can add or drop one in the composer. Four diagram skills come with it (database schema, C4, sequence flow, infrastructure map), off until you enable them; import a `SKILL.md` or `.zip`, edit, duplicate or export any of them.
 
+## Teams (self-hosted)
+
+Off by default: a single owner sees nothing new. In Settings → Team, the owner creates a team and becomes its first admin, signing in exactly as before. One install is one team; nothing is shared with other installs or any outside service.
+
+- **Invites and roles.** Admins send single-use invite links (optional email lock, 7-day default). New people choose a password and enrol an authenticator app before their account exists. Admins manage everything. Members create tasks, schedules and ideas and act on their own tasks. Viewers read. The server enforces every role check.
+- **Keys stay with each person.** Everyone adds their own Claude, Codex or Cursor key in Settings → My keys. Keys are encrypted with `SECRETS_KEY`, and you can replace them but never read them back. A task runs with its creator's key. Without one it waits as "needs key", unless an admin allows the server's shared keys as a fallback. Subscription tokens are personal: for a shared company key, use an API key and the fallback.
+- **Ownership.** Initials on every task, card and canvas node; Mine | Everyone and person filters; "Requested by" on PRs and `Co-authored-by` on commits; costs by person and optional monthly budgets per person; questions go to the task's creator (Telegram) and, if unanswered, to the admins; each person links their own Telegram account with `/link`; an audit log of every admin change.
+- The owner's original login stays a break-glass admin login ([operations](docs/OPERATIONS.md)). Local mode (`npx jungle-monkey`) stays single-user.
+
 ## Your keys stay with you
 
 Jungle Monkey runs for one owner: you. The agent works in a sealed container with only the code it was asked to change. It gets no GitHub token, no Docker access and no host network. Jungle Monkey keeps every key and does the pushing and the pull requests itself, after checking the diff (no `.github/` changes, size limits, a secrets scan). MCP credentials stay in the gateway; with an allowlist, the container's only way out is the egress proxy. On a server you sign in with a password and a code from your authenticator app; locally, the CLI opens a one-time login link on `127.0.0.1`.
