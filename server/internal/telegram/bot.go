@@ -387,6 +387,7 @@ type payload struct {
 	Name     string   `json:"name"`
 	Question string   `json:"question_id"`
 	Options  []string `json:"options"`
+	Branch   string   `json:"branch"`
 }
 
 func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
@@ -423,6 +424,10 @@ func (b *Bot) onEvent(ctx context.Context, ev *store.Event) {
 		if text := renderAutoFix(t, ev.Payload); text != "" {
 			_, _ = b.sendTask(ctx, t, "autofix", text, b.taskButtons(ctx, t, b.targetPrivate(ctx, t)), true)
 		}
+	case "branch_force_pushed":
+		b.notify(ctx, ev.TaskID, "force_push", func(t *store.Task) string {
+			return fmt.Sprintf("⏪ <b>#%d · branch rewritten</b>\nRestored to a checkpoint: <code>%s</code> was force-pushed with a lease (PR #%d).", t.ID, esc(cut(p.Branch, 100)), p.Number)
+		})
 	case "egress_blocked":
 		b.sendEgressBlocked(ctx, ev)
 	case "budget":

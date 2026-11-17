@@ -206,6 +206,13 @@ func TestFakeRunQueuedToCommit(t *testing.T) {
 	}
 
 	types := strings.Join(e.eventTypes(v.ID), ",")
+	// Checkpoints are off by default: nothing changes for existing installs.
+	if strings.Contains(types, "checkpoint") {
+		t.Fatalf("checkpoint without the setting: %s", types)
+	}
+	if refs, _ := exec.Command("git", "-C", wsDir, "for-each-ref", "refs/jm/").Output(); len(refs) != 0 {
+		t.Fatalf("checkpoint refs without the setting: %s", refs)
+	}
 	for _, want := range []string{"run_started", "started", "question", "answer", "committed", "done", "run_finished"} {
 		if !strings.Contains(types, want) {
 			t.Errorf("missing event %s in %s", want, types)

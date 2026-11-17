@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/andrewsl105/fleetpocket/server/internal/attachments"
@@ -71,6 +72,11 @@ type Service struct {
 	AutoFix AutoFixer
 	// OnBudgetOverride counts owner budget overrides (metrics); may be nil.
 	OnBudgetOverride func(project string)
+	// CheckpointDiff reads what a restore discards from the task's host; nil
+	// leaves the restore preview without a diff.
+	CheckpointDiff CheckpointDiffFunc
+	// WorkspaceRetention is WORKSPACE_RETENTION (shown when checkpoints are gone).
+	WorkspaceRetention time.Duration
 }
 
 // ServerNode is the placement value for the server itself.

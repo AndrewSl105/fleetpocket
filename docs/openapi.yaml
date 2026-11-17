@@ -855,6 +855,89 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
+  /api/v1/tasks/{id}/checkpoints:
+    get:
+      operationId: listTaskCheckpoints
+      tags: [tasks]
+      summary: The task's checkpoints, oldest first
+      description: Empty unless checkpoints were on (GET /settings/checkpoints) while the task ran. `available` is false, with a `reason`, while the task is busy, once its PR is closed, and after WORKSPACE_RETENTION removed the workspace (and the checkpoint refs with it).
+      parameters: [{ $ref: '#/components/parameters/TaskID' }]
+      responses:
+        '200':
+          description: Checkpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Checkpoint' } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/checkpoints/{checkpointId}:
+    get:
+      operationId: previewTaskCheckpoint
+      tags: [tasks]
+      summary: What restoring a checkpoint discards
+      description: Counts of what came after the checkpoint and `git diff <checkpoint> HEAD` from the task's host. A checkpoint whose commit is no longer in the workspace comes back with `available` false and a reason.
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - { name: checkpointId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: Preview
+          content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointPreview' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/checkpoints/{checkpointId}/restore:
+    post:
+      operationId: restoreTaskCheckpoint
+      tags: [tasks]
+      summary: Roll the task back to a checkpoint and continue
+      description: 'Queues a `restore` run: the scheduler resets the workspace to the checkpoint on the task branch, then the agent continues with `instruction` (empty: "Continue the task from here."). Claude resumes its session at the checkpoint as a fork (`mode` fork); Codex and Cursor start a new session seeded with a summary of the timeline up to the checkpoint (`mode` summary). Records a `checkpoint_restored` event; the later events stay in the timeline. If commits after the checkpoint were already pushed, the next push rewrites the branch with --force-with-lease (only agent/<id> branches) and records `branch_force_pushed`. 409 while the task is busy, after its PR closed, or after WORKSPACE_RETENTION.'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - { name: checkpointId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instruction: { type: string, description: Follow-up for the agent, e.g. "…then do it with a migration instead" }
+      responses:
+        '200': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/settings/checkpoints:
+    get:
+      operationId: getCheckpointSettings
+      tags: [settings]
+      summary: Whether runners take checkpoints
+      description: Off by default. When on, every run commits the working tree to hidden refs after each step that changed files and before each question (docs/PROTOCOL.md, "Checkpoints").
+      responses:
+        '200':
+          description: The setting
+          content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
+    put:
+      operationId: putCheckpointSettings
+      tags: [settings]
+      summary: Turn checkpoints on or off
+      parameters: [{ $ref: '#/components/parameters/XRequestedWith' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
+      responses:
+        '200':
+          description: Saved
+          content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointSettings' } } }
+        '400': { $ref: '#/components/responses/Error' }
+
   /api/v1/stats:
     get:
       operationId: getStats
@@ -1917,7 +2000,7 @@ components:
       properties:
         id: { type: integer, format: int64 }
         task_id: { type: integer, format: int64 }
-        kind: { type: string, enum: [initial, resume, followup, retry] }
+        kind: { type: string, enum: [initial, resume, followup, retry, restore] }
         input: { type: string }
         container_id: { type: [string, 'null'] }
         exit_code: { type: [integer, 'null'] }
@@ -1991,6 +2074,8 @@ components:
         - $ref: '#/components/schemas/IntegrationsEvent'
         - $ref: '#/components/schemas/BudgetEvent'
         - $ref: '#/components/schemas/CheckpointEvent'
+        - $ref: '#/components/schemas/CheckpointRestoredEvent'
+        - $ref: '#/components/schemas/BranchForcePushedEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -2024,10 +2109,12 @@ components:
           integrations: '#/components/schemas/IntegrationsEvent'
           budget: '#/components/schemas/BudgetEvent'
           checkpoint: '#/components/schemas/CheckpointEvent'
+          checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
+          branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, checkpoint_restored, branch_force_pushed]
 
     EventBase:
       type: object
@@ -2451,7 +2538,7 @@ components:
       required: [run_id, kind]
       properties:
         run_id: { type: integer, format: int64 }
-        kind: { type: string, enum: [initial, resume, followup, retry] }
+        kind: { type: string, enum: [initial, resume, followup, retry, restore] }
 
     RunFinishedEvent:
       allOf:
@@ -2557,6 +2644,93 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+
+    CheckpointRestoredEvent:
+      description: The owner restored a checkpoint. Events after `checkpoint_event_id` up to this one are the abandoned branch (kept, shown greyed).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [checkpoint_restored] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/CheckpointRestoredPayload' }
+
+    CheckpointRestoredPayload:
+      type: object
+      required: [checkpoint_id, n, run_id, ref_sha, mode, instruction, via, restore_run_id]
+      properties:
+        checkpoint_id: { type: integer, format: int64 }
+        checkpoint_event_id: { type: integer, format: int64, description: The checkpoint's timeline event (absent once event retention removed it) }
+        n: { type: integer }
+        run_id: { type: integer, format: int64, description: The run the checkpoint belongs to }
+        restore_run_id: { type: integer, format: int64 }
+        ref_sha: { type: string }
+        mode: { type: string, enum: [fork, summary] }
+        instruction: { type: string }
+        via: { type: string }
+
+    BranchForcePushedEvent:
+      description: A push after a restore rewrote the task branch with --force-with-lease (also commented on the PR and sent to Telegram).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, seq, payload]
+          properties:
+            type: { type: string, enum: [branch_force_pushed] }
+            seq: { type: 'null' }
+            payload: { $ref: '#/components/schemas/BranchForcePushedPayload' }
+
+    BranchForcePushedPayload:
+      type: object
+      required: [branch, from, reason, number]
+      properties:
+        branch: { type: string }
+        from: { type: string, description: The remote commit that was replaced }
+        reason: { type: string, enum: [restore] }
+        number: { type: integer, description: PR number }
+
+    CheckpointSettings:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+
+    Checkpoint:
+      type: object
+      required: [id, task_id, run_id, event_id, n, ref_sha, turn, files_changed, reason, created_at, ref, mode, available]
+      properties:
+        id: { type: integer, format: int64 }
+        task_id: { type: integer, format: int64 }
+        run_id: { type: integer, format: int64 }
+        event_id: { type: [integer, 'null'], format: int64, description: Its `checkpoint` timeline event }
+        n: { type: integer }
+        ref_sha: { type: string }
+        turn: { type: integer }
+        files_changed: { type: integer }
+        reason: { type: string, enum: [turn, question] }
+        created_at: { type: string, format: date-time }
+        ref: { type: string, description: 'refs/jm/checkpoints/<run_id>/<n> (workspace only, never pushed)' }
+        mode: { type: string, enum: [fork, summary] }
+        available: { type: boolean }
+        unavailable_reason: { type: string, description: Why it cannot be restored now (absent when available) }
+
+    CheckpointPreview:
+      allOf:
+        - $ref: '#/components/schemas/Checkpoint'
+        - type: object
+          required: [discarded, diff, truncated]
+          properties:
+            discarded:
+              type: object
+              required: [runs, steps, messages, commits]
+              properties:
+                runs: { type: integer }
+                steps: { type: integer }
+                messages: { type: integer }
+                commits: { type: integer }
+            diff: { type: string, description: 'git diff <checkpoint> HEAD: the file changes a restore discards' }
+            truncated: { type: boolean }
 
     MCPServer:
       type: object

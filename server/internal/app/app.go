@@ -100,7 +100,14 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	met := metrics.New(st)
 	hub := events.NewHub()
 	taskSvc := &tasks.Service{Store: st, Hub: hub, Files: files, DefaultAgent: cfg.DefaultAgent, AgentEnabled: cfg.AgentEnabled,
-		OnBudgetOverride: met.BudgetOverride}
+		OnBudgetOverride: met.BudgetOverride, WorkspaceRetention: cfg.WorkspaceRetention,
+		CheckpointDiff: func(ctx context.Context, t *store.Task, ref, sha string, limit int) (string, bool, error) {
+			d, trunc, err := registry.For(t.Node).CheckpointDiff(ctx, t.ID, ref, sha, limit)
+			if errors.Is(err, workspace.ErrCheckpointGone) {
+				err = fmt.Errorf("%w: %v", tasks.ErrCheckpointGone, err)
+			}
+			return d, trunc, err
+		}}
 	sched := scheduler.New(&scheduler.Scheduler{
 		Cfg: cfg, Store: st, Hub: hub, Tasks: taskSvc, Hosts: registry, Files: files,
 		Hooks: scheduler.Hooks{RunFinished: met.RunFinished, AutoFixOutcome: met.AutoFixOutcome,

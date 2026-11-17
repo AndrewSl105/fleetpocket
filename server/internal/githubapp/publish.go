@@ -31,7 +31,18 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 		return nil, err
 	}
 	wsRepo := workspace.Repo{FullName: repo.FullName, InstallationID: repo.InstallationID, BaseBranch: repo.BaseBranch}
-	if err := h.Push(ctx, t.ID, wsRepo, in.Branch); err != nil {
+	forcedFrom := ""
+	if in.Force {
+		// A restore discarded commits that were already pushed.
+		old, err := h.ForcePush(ctx, t.ID, wsRepo, in.Branch)
+		if errors.Is(err, workspace.ErrNotAgentBranch) {
+			return nil, fmt.Errorf("%w: a restore rewrote branch %s, which Jungle Monkey did not create, so it is not force-pushed", scheduler.ErrRejected, in.Branch)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("force push (with lease): %w", err)
+		}
+		forcedFrom = old
+	} else if err := h.Push(ctx, t.ID, wsRepo, in.Branch); err != nil {
 		return nil, fmt.Errorf("push: %w", err)
 	}
 	stat, _ := h.DiffStat(ctx, t.ID, repo.BaseBranch)
@@ -49,9 +60,9 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 		if err != nil {
 			return nil, err
 		}
-		return &scheduler.PublishResult{PRNumber: pr.Number, PRURL: pr.URL, Created: true}, nil
+		return &scheduler.PublishResult{PRNumber: pr.Number, PRURL: pr.URL, Created: true, ForcedFrom: forcedFrom}, nil
 	}
-	if err := p.App.Comment(ctx, repo.FullName, repo.InstallationID, number, p.comment(in, stat)); err != nil {
+	if err := p.App.Comment(ctx, repo.FullName, repo.InstallationID, number, p.comment(in, stat, forcedFrom)); err != nil {
 		return nil, err
 	}
 	url := ""
@@ -60,7 +71,7 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 	} else {
 		url = fmt.Sprintf("https://github.com/%s/pull/%d", repo.FullName, number)
 	}
-	return &scheduler.PublishResult{PRNumber: number, PRURL: url}, nil
+	return &scheduler.PublishResult{PRNumber: number, PRURL: url, ForcedFrom: forcedFrom}, nil
 }
 
 func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
@@ -85,9 +96,12 @@ func (p *Publisher) body(in scheduler.PublishInput, stat string) string {
 	return b.String()
 }
 
-func (p *Publisher) comment(in scheduler.PublishInput, stat string) string {
+func (p *Publisher) comment(in scheduler.PublishInput, stat, forcedFrom string) string {
 	var b strings.Builder
 	b.WriteString("### New run pushed\n\n")
+	if forcedFrom != "" {
+		fmt.Fprintf(&b, "> [!NOTE]\n> The owner restored this task to an earlier checkpoint, so Jungle Monkey rewrote `%s` with `--force-with-lease` (it was at %s). The commits after the checkpoint are no longer on this branch.\n\n", in.Branch, shortSHA(forcedFrom))
+	}
 	if in.Summary != "" {
 		fmt.Fprintf(&b, "%s\n\n", in.Summary)
 	}
@@ -107,4 +121,11 @@ func quote(s string) string {
 		lines[i] = "> " + l
 	}
 	return strings.Join(lines, "\n")
+}
+
+func shortSHA(s string) string {
+	if len(s) > 12 {
+		return s[:12]
+	}
+	return s
 }

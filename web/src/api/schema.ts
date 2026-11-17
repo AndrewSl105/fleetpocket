@@ -608,6 +608,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{id}/checkpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The task's checkpoints, oldest first
+         * @description Empty unless checkpoints were on (GET /settings/checkpoints) while the task ran. `available` is false, with a `reason`, while the task is busy, once its PR is closed, and after WORKSPACE_RETENTION removed the workspace (and the checkpoint refs with it).
+         */
+        get: operations["listTaskCheckpoints"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/checkpoints/{checkpointId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What restoring a checkpoint discards
+         * @description Counts of what came after the checkpoint and `git diff <checkpoint> HEAD` from the task's host. A checkpoint whose commit is no longer in the workspace comes back with `available` false and a reason.
+         */
+        get: operations["previewTaskCheckpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/checkpoints/{checkpointId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll the task back to a checkpoint and continue
+         * @description Queues a `restore` run: the scheduler resets the workspace to the checkpoint on the task branch, then the agent continues with `instruction` (empty: "Continue the task from here."). Claude resumes its session at the checkpoint as a fork (`mode` fork); Codex and Cursor start a new session seeded with a summary of the timeline up to the checkpoint (`mode` summary). Records a `checkpoint_restored` event; the later events stay in the timeline. If commits after the checkpoint were already pushed, the next push rewrites the branch with --force-with-lease (only agent/<id> branches) and records `branch_force_pushed`. 409 while the task is busy, after its PR closed, or after WORKSPACE_RETENTION.
+         */
+        post: operations["restoreTaskCheckpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/checkpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether runners take checkpoints
+         * @description Off by default. When on, every run commits the working tree to hidden refs after each step that changed files and before each question (docs/PROTOCOL.md, "Checkpoints").
+         */
+        get: operations["getCheckpointSettings"];
+        /** Turn checkpoints on or off */
+        put: operations["putCheckpointSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats": {
         parameters: {
             query?: never;
@@ -1485,7 +1566,7 @@ export interface components {
             /** Format: int64 */
             task_id: number;
             /** @enum {string} */
-            kind: "initial" | "resume" | "followup" | "retry";
+            kind: "initial" | "resume" | "followup" | "retry" | "restore";
             input: string;
             container_id?: string | null;
             exit_code?: number | null;
@@ -1550,9 +1631,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"] | components["schemas"]["CheckpointRestoredEvent"] | components["schemas"]["BranchForcePushedEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint" | "checkpoint_restored" | "branch_force_pushed";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -2004,7 +2085,7 @@ export interface components {
             /** Format: int64 */
             run_id: number;
             /** @enum {string} */
-            kind: "initial" | "resume" | "followup" | "retry";
+            kind: "initial" | "resume" | "followup" | "retry" | "restore";
         };
         RunFinishedEvent: components["schemas"]["EventBase"] & {
             /** @enum {string} */
@@ -2110,6 +2191,105 @@ export interface components {
         };
         DiffRejectedPayload: {
             reason: string;
+        };
+        /** @description The owner restored a checkpoint. Events after `checkpoint_event_id` up to this one are the abandoned branch (kept, shown greyed). */
+        CheckpointRestoredEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "checkpoint_restored";
+            seq: null;
+            payload: components["schemas"]["CheckpointRestoredPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "checkpoint_restored";
+        };
+        CheckpointRestoredPayload: {
+            /** Format: int64 */
+            checkpoint_id: number;
+            /**
+             * Format: int64
+             * @description The checkpoint's timeline event (absent once event retention removed it)
+             */
+            checkpoint_event_id?: number;
+            n: number;
+            /**
+             * Format: int64
+             * @description The run the checkpoint belongs to
+             */
+            run_id: number;
+            /** Format: int64 */
+            restore_run_id: number;
+            ref_sha: string;
+            /** @enum {string} */
+            mode: "fork" | "summary";
+            instruction: string;
+            via: string;
+        };
+        /** @description A push after a restore rewrote the task branch with --force-with-lease (also commented on the PR and sent to Telegram). */
+        BranchForcePushedEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "branch_force_pushed";
+            seq: null;
+            payload: components["schemas"]["BranchForcePushedPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "branch_force_pushed";
+        };
+        BranchForcePushedPayload: {
+            branch: string;
+            /** @description The remote commit that was replaced */
+            from: string;
+            /** @enum {string} */
+            reason: "restore";
+            /** @description PR number */
+            number: number;
+        };
+        CheckpointSettings: {
+            enabled: boolean;
+        };
+        Checkpoint: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            task_id: number;
+            /** Format: int64 */
+            run_id: number;
+            /**
+             * Format: int64
+             * @description Its `checkpoint` timeline event
+             */
+            event_id: number | null;
+            n: number;
+            ref_sha: string;
+            turn: number;
+            files_changed: number;
+            /** @enum {string} */
+            reason: "turn" | "question";
+            /** Format: date-time */
+            created_at: string;
+            /** @description refs/jm/checkpoints/<run_id>/<n> (workspace only, never pushed) */
+            ref: string;
+            /** @enum {string} */
+            mode: "fork" | "summary";
+            available: boolean;
+            /** @description Why it cannot be restored now (absent when available) */
+            unavailable_reason?: string;
+        };
+        CheckpointPreview: components["schemas"]["Checkpoint"] & {
+            discarded: {
+                runs: number;
+                steps: number;
+                messages: number;
+                commits: number;
+            };
+            /** @description git diff <checkpoint> HEAD: the file changes a restore discards */
+            diff: string;
+            truncated: boolean;
         };
         MCPServer: {
             /** Format: int64 */
@@ -3598,6 +3778,138 @@ export interface operations {
             };
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+        };
+    };
+    listTaskCheckpoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Checkpoints */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Checkpoint"][];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    previewTaskCheckpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TaskID"];
+                checkpointId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckpointPreview"];
+                };
+            };
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    restoreTaskCheckpoint: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+                checkpointId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Follow-up for the agent */
+                    instruction?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getCheckpointSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The setting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckpointSettings"];
+                };
+            };
+        };
+    };
+    putCheckpointSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckpointSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckpointSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
         };
     };
     getStats: {

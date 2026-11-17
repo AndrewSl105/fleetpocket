@@ -152,6 +152,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/v1/settings/costs", a(s.putCostSettings))
 	mux.HandleFunc("GET /api/v1/costs", a(s.getCosts))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/budget-override", a(s.budgetOverride))
+	mux.HandleFunc("GET /api/v1/settings/checkpoints", a(s.getCheckpointSettings))
+	mux.HandleFunc("PUT /api/v1/settings/checkpoints", a(s.putCheckpointSettings))
+	mux.HandleFunc("GET /api/v1/tasks/{id}/checkpoints", a(s.listCheckpoints))
+	mux.HandleFunc("GET /api/v1/tasks/{id}/checkpoints/{checkpointId}", a(s.previewCheckpoint))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/checkpoints/{checkpointId}/restore", a(s.restoreCheckpoint))
 	if s.Nodes != nil {
 		mux.HandleFunc("GET /api/v1/nodes", a(s.listNodes))
 		mux.HandleFunc("POST /api/v1/nodes", a(s.createNode))

@@ -137,7 +137,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /tasks/{id}` | task view (see above) |
 | `GET /tasks/{id}/events?after_id=` | timeline, oldest first; `after_id` (or `cursor`) is the last event id you have. Heartbeats are not returned |
 | `GET /tasks/{id}/events?before_id=` | timeline backwards, **newest first**: events older than `before_id`; `before_id=0` starts at the newest event. Pass `next_cursor` back as `before_id` (not as `cursor`, which means `after_id`). Combining `before_id` with `after_id`/`cursor` is `400 invalid` |
-| `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, autofix_attempt, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup` or `retry`; `cost_usd` and the token counts are the run's own (not the session's); `cost_source` is `reported`, `estimated`, `unknown` (tokens but no price, cost 0) or `null` (no usage yet, or a run from before it was recorded); `auth` is `subscription` (Claude OAuth: API-equivalent cost), `api_key` or `null`. Paginated with `limit`/`cursor` |
+| `GET /tasks/{id}/runs` | the task's runs, oldest first, including a queued one (`started_at: null`): `{id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd, turns, autofix_attempt, agent, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_source, auth, started_at, finished_at}`. `kind` is `initial`, `resume`, `followup`, `retry` or `restore` (a run from a checkpoint); `cost_usd` and the token counts are the run's own (not the session's); `cost_source` is `reported`, `estimated`, `unknown` (tokens but no price, cost 0) or `null` (no usage yet, or a run from before it was recorded); `auth` is `subscription` (Claude OAuth: API-equivalent cost), `api_key` or `null`. Paginated with `limit`/`cursor` |
 | `GET /tasks/{id}/diff` | `{"diff", "truncated", "base", "branch"}`: `git diff base...branch` from the workspace, capped at 1 MB. `409 no_workspace` before cloning or after cleanup; `503 host_offline` while the task's node is offline |
 | `POST /tasks/{id}/answer` `{question_id, text}` | the first answer wins; a second gets `409 already_answered`. Answering a `paused` task resumes it. The CI auto-fix question (`…-autofix_guard`): `Push anyway` pushes the held fix, anything else discards it |
 | `POST /tasks/{id}/message` `{text}` (multipart: plus `files[]`) | `queued`/`preparing`/`running`/`waiting_input`/`pushing`: **queued** (a run handles one prompt; nothing is injected into a live session). The text is kept in `queued_message` and starts the next run (same branch, same session) as soon as the current run ends: on `pr_open`/`completed` as a follow-up, on `paused` as a resume. If the task fails or is cancelled first, the text is dropped and a `message_dropped` event shows it. `paused`/`pr_open`/`completed`: starts a new run right away. Otherwise `409` |
@@ -153,6 +153,11 @@ A **project** groups repositories and holds run settings. All override fields ar
 | `GET /settings/costs` | `{monthly_budget_usd, price_table: {updated, prices: [{agent, model, input_usd, cached_input_usd, cache_write_usd, output_usd}]}, price_table_is_default}` |
 | `PUT /settings/costs` `{monthly_budget_usd, price_table}` | replaces both; `monthly_budget_usd` `null`/`0` removes the global cap, `price_table: null` restores the built-in table. `400 invalid` for an unknown agent, an empty model, a negative price or a model listed twice |
 | `GET /costs?from=&to=&period=` | the cost report, see [Costs and budgets](#costs-and-budgets) |
+| `GET /settings/checkpoints` | `{enabled}`: whether runners take checkpoints (default `false`) |
+| `PUT /settings/checkpoints` `{enabled}` | turns them on or off for the runs that start from now on |
+| `GET /tasks/{id}/checkpoints` | `{items}`, see [Checkpoints](#checkpoints) |
+| `GET /tasks/{id}/checkpoints/{checkpointId}` | the restore preview: the checkpoint plus `{discarded: {runs, steps, messages, commits}, diff, truncated}` |
+| `POST /tasks/{id}/checkpoints/{checkpointId}/restore` `{instruction?}` | rolls the task back to the checkpoint and continues; returns the task view (`queued`). `409` while the task is busy, once its PR is closed, or after `WORKSPACE_RETENTION` |
 
 ### Timeline events
 
@@ -166,7 +171,7 @@ A **project** groups repositories and holds run settings. All override fields ar
 
 Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` discriminated by the envelope's `type` (`ToolUseEvent`, `StatusEvent`, …), each with its own `payload` schema (`ToolUsePayload`, `StatusPayload`, …). Generate client types from it; `switch (event.type)` narrows the payload.
 
-- **Runner events** have `seq` (and `run_id`) set and `payload` is the runner event exactly as described in [PROTOCOL.md](PROTOCOL.md), including its own `type`, `ts` and `seq`: `ready`, `started`, `assistant_text`, `tool_use`, `tool_result`, `question`, `usage`, `committed`, `done`, `paused`, `error`. In a `question` payload, `question_id` is the runner-local id (`q1`); the API question id (for `/answer`) is `<run_id>-<question_id>`, as in `open_question.id`.
+- **Runner events** have `seq` (and `run_id`) set and `payload` is the runner event exactly as described in [PROTOCOL.md](PROTOCOL.md), including its own `type`, `ts` and `seq`: `ready`, `started`, `assistant_text`, `tool_use`, `tool_result`, `question`, `usage`, `committed`, `checkpoint`, `done`, `paused`, `error`. In a `question` payload, `question_id` is the runner-local id (`q1`); the API question id (for `/answer`) is `<run_id>-<question_id>`, as in `open_question.id`.
 - **Backend events** have `seq: null`; their payload has no `type`, `ts` or `seq` (use the envelope's `type` and `created_at`):
 
   | type | payload |
@@ -177,7 +182,7 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `message` | `{text, delivery: "queued"\|"new_run", attachments?}` (`"injected"` only in timelines recorded before messages were queued; `attachments` only when files were sent) |
   | `message_dropped` | `{text, reason: "failed"\|"cancelled"}`: a queued message that never started a run |
   | `interrupt` | `{}` |
-  | `run_started` | `{run_id, kind}` (`initial`, `resume`, `followup`, `retry`) |
+  | `run_started` | `{run_id, kind}` (`initial`, `resume`, `followup`, `retry`, `restore`) |
   | `run_finished` | `{run_id, exit_code, cost_usd?, cost_source?, auth?}` (the cost fields once the run reported usage) |
   | `pr_opened` | `{number, url}` |
   | `pr_updated` | `{number, url}` (a later run pushed to the same PR) |
@@ -190,6 +195,8 @@ Every event type has a typed schema in `openapi.yaml`: `Event` is a `oneOf` disc
   | `mcp_call` | `{server, tool, ok, duration_ms, args_bytes, result_bytes, denied?, error?}`: one call through the MCP gateway (`denied`: `denied` = tool not allowed, `limit` = `max_calls` reached; `tool: ""` = connection failed). Never arguments, results or credentials |
   | `egress_blocked` | `{host}`: the egress proxy refused a host (once per host and run); also sent to Telegram with an "Allow for this project" button |
   | `budget` | `{phase, scope?, project_id?, level?, spent_usd?, limit_usd?, via?}`: a monthly budget step, see [Costs and budgets](#costs-and-budgets) |
+  | `checkpoint_restored` | `{checkpoint_id, checkpoint_event_id?, n, run_id, restore_run_id, ref_sha, mode: "fork"\|"summary", instruction, via}`: the owner rolled back; the events between `checkpoint_event_id` and this one are the abandoned branch |
+  | `branch_force_pushed` | `{branch, from, reason: "restore", number}`: the push after a restore rewrote the task branch with `--force-with-lease` (also a PR comment and a Telegram message) |
 
 ### CI auto-fix
 
@@ -217,6 +224,20 @@ Budgets, all off by default: the per-run `max_budget_usd` (as before), a monthly
 ```
 
 Every sum has the fields of `total`. `by_period` lists every day, week (from Monday) or month of the range, empty ones included; `rows` is one row per day, project and agent (the web client's CSV export).
+
+### Checkpoints
+
+Off by default (`PUT /settings/checkpoints {"enabled": true}`). While on, every run commits the working tree to hidden refs in the task workspace after each step that changed files and before each question; each shows in the timeline as a `checkpoint` runner event and in `GET /tasks/{id}/checkpoints`:
+
+```json
+{"items": [{"id": 4, "task_id": 12, "run_id": 3, "event_id": 57, "n": 2, "ref_sha": "…", "turn": 5,
+            "files_changed": 2, "reason": "turn", "created_at": "…",
+            "ref": "refs/jm/checkpoints/3/2", "mode": "fork", "available": true}]}
+```
+
+`mode` is how the agent continues after a restore: `fork` (Claude resumes its session at that point as a new fork) or `summary` (Codex, Cursor: a new session whose prompt summarises the timeline up to the checkpoint). `available` is `false`, with `unavailable_reason`, while the task is busy, once its PR is closed, and after `WORKSPACE_RETENTION` removed the workspace and the refs with it (the preview also reports a checkpoint whose commit is gone).
+
+`POST …/restore` queues a `restore` run: the scheduler resets the workspace to the checkpoint on the task branch (HEAD back to the commit the checkpoint was taken on, its files uncommitted), then the agent continues with `instruction`. Later events stay in the timeline; clients show the events between the checkpoint and the `checkpoint_restored` event as an abandoned branch. If commits after the checkpoint were already pushed, the push at the end of the run rewrites the branch with `--force-with-lease` (only `agent/<id>…` branches Jungle Monkey created; any other branch fails the task instead), comments on the PR and records `branch_force_pushed`.
 
 ### Attachments
 

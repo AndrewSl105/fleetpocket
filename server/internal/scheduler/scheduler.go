@@ -49,12 +49,17 @@ type PublishInput struct {
 	CostUSD float64
 	Turns   int
 	Limit   string // non-empty when the run stopped at a limit
+	// Force rewrites the branch with --force-with-lease (a restore
+	// discarded commits that were already pushed).
+	Force bool
 }
 
 type PublishResult struct {
 	PRNumber int
 	PRURL    string
 	Created  bool
+	// ForcedFrom is the remote commit a forced push replaced.
+	ForcedFrom string
 }
 
 // Publisher validates the diff, pushes the branch and opens or updates the PR.
@@ -348,6 +353,10 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 			cmd.ResumeSessionID = *t.SessionID
 		}
 	}
+	if err := s.applyCheckpoints(ctx, h, t, run, &cmd); err != nil {
+		s.failOrRequeue(ctx, t, run, "restore checkpoint", err)
+		return
+	}
 	_ = s.Store.CloseOpenQuestions(ctx, t.ID, "")
 
 	if err := s.Store.MarkRunStarting(ctx, run.ID); err != nil {
@@ -452,6 +461,9 @@ func (s *Scheduler) runCommand(t *store.Task, run *store.Run, p *store.Project, 
 	msg := t.Title
 	if run.Kind == tasks.RunFollowup || run.Kind == tasks.RunResume {
 		msg = "Follow-up: " + tasks.TitleFromPrompt(run.Input)
+	}
+	if run.Kind == tasks.RunRestore {
+		msg = "Continue from a restored checkpoint"
 	}
 	return runnermgr.NewRun(runnermgr.RunCommand{
 		TaskID:             strconv.FormatInt(t.ID, 10),
@@ -713,6 +725,9 @@ func (s *Scheduler) handleEvent(ctx context.Context, t *store.Task, runID int64,
 		s.log(t, runID).Error("persist event", "err", err, "type", ev.Type)
 		return
 	}
+	if ev.Type == runnermgr.EvCheckpoint {
+		s.recordCheckpoint(ctx, t, runID, ev, stored)
+	}
 	if stored == nil {
 		return // already persisted (replay)
 	}
@@ -870,6 +885,10 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	branch := deref(t.Branch, "")
 	h := s.host(t)
 	unpushed, err := h.UnpushedCommits(ctx, t.ID, repo.BaseBranch, branch)
+	force := false
+	if err == nil {
+		force, err = s.needsForce(ctx, h, t, branch)
+	}
 	if err != nil {
 		if hosts.IsOffline(err) {
 			// Stays pushing; the node's reconnect resumes it.
@@ -894,7 +913,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 		s.stopAutoFix(ctx, t, "auto-fix budget or limit reached: "+limit)
 		guard = false
 	}
-	if unpushed == 0 {
+	if unpushed == 0 && !force {
 		switch {
 		case limit != "" && t.PRNumber == nil:
 			s.fail(ctx, t, limit)
@@ -963,7 +982,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	s.recordPush(ctx, t)
 	res, err := s.Publisher.Publish(ctx, PublishInput{
 		Host: h, Task: t, Repo: repo, Project: project, Branch: branch,
-		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit,
+		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit, Force: force,
 	})
 	if err != nil {
 		if hosts.IsOffline(err) {
@@ -982,6 +1001,11 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	typ := "pr_updated"
 	if res.Created {
 		typ = "pr_opened"
+	}
+	if res.ForcedFrom != "" {
+		s.addEvent(ctx, t.ID, nil, "branch_force_pushed", map[string]any{
+			"branch": branch, "from": res.ForcedFrom, "reason": "restore", "number": res.PRNumber,
+		})
 	}
 	s.addEvent(ctx, t.ID, nil, typ, map[string]any{"number": res.PRNumber, "url": res.PRURL})
 	s.afterPush(ctx, t, fix)
