@@ -13,6 +13,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/config"
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
+	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
 
 var (
@@ -77,6 +78,12 @@ type Service struct {
 	CheckpointDiff CheckpointDiffFunc
 	// WorkspaceRetention is WORKSPACE_RETENTION (shown when checkpoints are gone).
 	WorkspaceRetention time.Duration
+	// LocalHost is the host of a task on a local repository (local mode);
+	// nil refuses the branch actions.
+	LocalHost func(t *store.Task) LocalBranches
+	// PushLocal pushes a branch_ready task to GitHub and opens its PR
+	// (scheduler.PushLocal); nil when GitHub is not connected.
+	PushLocal func(ctx context.Context, taskID int64) error
 }
 
 // ServerNode is the placement value for the server itself.
@@ -104,7 +111,10 @@ type CreateInput struct {
 	// SkillsAdd/SkillsRemove change the project's skills for this task (slugs).
 	SkillsAdd    []string `json:"skills_add"`
 	SkillsRemove []string `json:"skills_remove"`
-	Source       string   `json:"-"`
+	// StartFrom (local repositories): "last_commit" (default) or
+	// "working_tree" (with the uncommitted changes).
+	StartFrom string `json:"start_from"`
+	Source    string `json:"-"`
 	// Images are validated uploads (attachments.Process).
 	Images []*attachments.Image `json:"-"`
 }
@@ -169,6 +179,18 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 	if !ValidOutput(output) {
 		return nil, fmt.Errorf("%w: output must be one of %s", ErrInvalid, strings.Join(Outputs, ", "))
 	}
+	if in.StartFrom != "" && in.StartFrom != workspace.StartLastCommit && in.StartFrom != workspace.StartWorkingTree {
+		return nil, fmt.Errorf("%w: start_from must be last_commit or working_tree", ErrInvalid)
+	}
+	if in.StartFrom == workspace.StartWorkingTree {
+		repo := repoOf(p, repoID)
+		if repo == nil || !repo.Local() {
+			return nil, fmt.Errorf("%w: start_from working_tree is only for local repositories", ErrInvalid)
+		}
+	}
+	if repo := repoOf(p, repoID); repo != nil && repo.Local() && nodeID(node) != nil {
+		return nil, fmt.Errorf("%w: local repositories are not supported for nodes; run the task on this computer", ErrInvalid)
+	}
 	if output != "pr" && !ArtifactsEnabled {
 		return nil, fmt.Errorf("%w: output %q is not available yet (diagram collection is not implemented)", ErrInvalid, output)
 	}
@@ -177,7 +199,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*View, error) {
 		return nil, err
 	}
 	t, err := s.Store.CreateTask(ctx, store.Task{ProjectID: p.ID, RepositoryID: repoID, Title: title, Prompt: in.Prompt, Source: in.Source, Agent: agent, Node: nodeID(node),
-		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove}, up)
+		Output: output, SkillsAdd: in.SkillsAdd, SkillsRemove: in.SkillsRemove, StartFrom: in.StartFrom}, up)
 	release()
 	if err != nil {
 		return nil, err
@@ -273,6 +295,15 @@ func (s *Service) upload(imgs []*attachments.Image) (*store.Upload, func(), erro
 		up.Items = append(up.Items, store.NewAttachment{Name: im.Name, Mime: im.Mime, Size: int64(len(im.Data)), Width: im.Width, Height: im.Height})
 	}
 	return up, s.Files.Hold(), nil
+}
+
+func repoOf(p *store.Project, id int64) *store.Repository {
+	for i := range p.Repositories {
+		if p.Repositories[i].ID == id {
+			return &p.Repositories[i]
+		}
+	}
+	return nil
 }
 
 func hasRepo(p *store.Project, id int64) bool {
@@ -538,7 +569,7 @@ func (s *Service) Merge(ctx context.Context, taskID int64) (*View, error) {
 	if t.Branch != nil {
 		branch = *t.Branch
 	}
-	if err := s.GitHub.MergePR(ctx, repo.FullName, repo.InstallationID, *t.PRNumber, branch, t.Title); err != nil {
+	if err := s.GitHub.MergePR(ctx, repo.GitHubName(), repo.InstallationID, *t.PRNumber, branch, t.Title); err != nil {
 		return nil, err
 	}
 	ev, _ := s.Store.AddBackendEvent(ctx, taskID, nil, "pr_closed", map[string]any{"number": *t.PRNumber, "merged": true})

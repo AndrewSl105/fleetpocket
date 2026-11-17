@@ -431,3 +431,63 @@ func TestLocalRepoMissing(t *testing.T) {
 		t.Fatalf("%+v %v", st, err)
 	}
 }
+
+func TestGitHubFullName(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://github.com/AndrewSl105/jungle_monkey.git": "AndrewSl105/jungle_monkey",
+		"https://github.com/o/r":                           "o/r",
+		"git@github.com:o/r.git":                           "o/r",
+		"ssh://git@github.com/o/r.git":                     "o/r",
+		"https://gitlab.com/o/r.git":                       "",
+		"/home/me/repo":                                    "",
+		"https://github.com/o":                             "",
+		"":                                                 "",
+	} {
+		if got := GitHubFullName(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
+	}
+}
+
+// "Push & open PR": a local repository's workspace pushes to its GitHub
+// repository, not to the folder it was copied from.
+func TestLocalPushGoesToGitHub(t *testing.T) {
+	ctx := context.Background()
+	repo := newLocalRepo(t)
+	bare := filepath.Join(t.TempDir(), "gh.git")
+	lgit(t, filepath.Dir(bare), "init", "-q", "--bare", bare)
+	m := &Manager{Dir: t.TempDir(), RemoteURL: func(full string) string {
+		if full != "o/my-app" {
+			t.Fatalf("remote for %q", full)
+		}
+		return bare
+	}}
+	r := Repo{LocalPath: repo, BaseBranch: "main", FullName: "o/my-app"}
+	if err := m.Prepare(ctx, 9, r, "agent/9-x"); err != nil {
+		t.Fatal(err)
+	}
+	agentCommit(t, m.Path(9), "p.txt", "p\n")
+	if err := m.Push(ctx, 9, r, "agent/9-x"); err != nil {
+		t.Fatal(err)
+	}
+	if lgit(t, bare, "rev-parse", "agent/9-x") != lgit(t, m.Path(9), "rev-parse", "HEAD") {
+		t.Fatal("not pushed to the GitHub remote")
+	}
+	if branchExists(ctx, repo, "agent/9-x") {
+		t.Fatal("pushed into the owner's folder")
+	}
+}
+
+func TestMergeLocalRefusesToOverwriteUntracked(t *testing.T) {
+	ctx := context.Background()
+	repo := newLocalRepo(t)
+	b := deliverOne(t, repo, 6, "new.txt", "agent\n")
+	lwrite(t, filepath.Join(repo, "new.txt"), "mine\n")
+	_, err := MergeLocal(ctx, repo, b)
+	if !errors.Is(err, ErrGitRefused) || !strings.Contains(err.Error(), "new.txt") {
+		t.Fatalf("%v", err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repo, "new.txt")); string(b) != "mine\n" {
+		t.Fatal("the owner's file was overwritten")
+	}
+}

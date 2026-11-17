@@ -588,6 +588,183 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{id}/branch/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge the delivered branch into the current branch of the local repository
+         * @description Fast-forward when possible, else a merge commit; completes the task ("branch merged into <branch>") and records `branch_action {merged}`. `409`: `dirty` (uncommitted changes to tracked files), `detached` (no current branch), `current_branch`, `merge_conflict` (aborted; `files` lists the conflicts), `git_refused` (e.g. untracked files would be overwritten; nothing changed), `branch_gone`, `repo_missing`, or `conflict` when the task is not `branch_ready`
+         */
+        post: operations["branchMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/branch/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check out the delivered branch in the local repository
+         * @description The task stays `branch_ready`; records `branch_action {checked_out}`. `409`: `dirty`, `git_refused`, `branch_gone`, `repo_missing`, `conflict`
+         */
+        post: operations["branchCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/branch/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete the delivered branch and complete the task
+         * @description Records `branch_action {discarded}` and sets `local_branch` to null. `409`: `current_branch` (check out another branch first), `repo_missing`, `conflict`
+         */
+        post: operations["branchDiscard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/branch/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push the task branch to GitHub and open a PR
+         * @description Needs a GitHub `origin` remote (`400 invalid` otherwise) and GitHub connected in local mode (`503 github_disabled` otherwise). Pushes `agent/<id>-<slug>` with the owners token from the server process, opens the PR and moves the task to `pr_open` (normal PR/CI flow, including CI auto-fix). On failure the task returns to `branch_ready` with the reason
+         */
+        post: operations["branchPush"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Git work trees found on this computer (local mode)
+         * @description Scans ~/code, ~/Projects, ~/projects, ~/dev, ~/src, ~/repos, ~/Documents/GitHub, ~/work and the directory the CLI was started in, 3 levels deep, skipping node_modules, hidden folders and symlink loops. At most 200 results within 2 s, newest commit first; cached for 60 s. `400 local_mode_only` in server mode
+         */
+        get: operations["localRepoSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/fs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Folder browser limited to the home directory (local mode)
+         * @description Lists the subfolders (no files, no hidden folders) of `path` (default: the home directory) and marks git repositories. The resolved path must stay inside the home directory: `403 outside_home` otherwise; symlinks that lead out of it are not listed
+         */
+        get: operations["localBrowse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a folder as a local repository (local mode)
+         * @description The folder must be the top of a non-bare git work tree with at least one commit, outside the Jungle Monkey data directory. Without `project_id` a project named after the folder is created (id: its slug, `-2`… when taken). Idempotent: an added folder returns its repository (`200`, `created: false`). Also accepts the CLI's control token (`Authorization: Bearer`) for `jungle-monkey add`
+         */
+        post: operations["addLocalRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos/{repoId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Branch and dirty state of a local repository's folder */
+        get: operations["localRepoStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local/repos/{repoId}/locate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Point a local repository at its folder after it was moved ("Locate…")
+         * @description Deliveries that waited for the folder (`pushing`, reason "repository folder not found") resume
+         */
+        post: operations["locateLocalRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/{id}/budget-override": {
         parameters: {
             query?: never;
@@ -1194,6 +1371,8 @@ export interface components {
             error: {
                 code: string;
                 message: string;
+                /** @description `merge_conflict` only: the files the merge could not combine */
+                files?: string[];
             };
         };
         SessionInfo: {
@@ -1445,6 +1624,46 @@ export interface components {
             path: string;
             /** @description Origin remote of a local repository, if any (informational; "" otherwise) */
             remote_url: string;
+        };
+        LocalRepoSuggestion: {
+            name: string;
+            path: string;
+            /** @description "" on a detached HEAD */
+            branch: string;
+            /** @description Uncommitted changes to tracked files */
+            dirty: boolean;
+            /** Format: date-time */
+            last_commit: string;
+            /** @description Already a local repository of some project */
+            added: boolean;
+        };
+        FolderListing: {
+            path: string;
+            /** @description null at the home directory */
+            parent: string | null;
+            home: string;
+            is_git: boolean;
+            entries: {
+                name: string;
+                path: string;
+                is_git: boolean;
+            }[];
+        };
+        LocalRepoAdded: {
+            project: components["schemas"]["Project"];
+            repository: components["schemas"]["Repository"];
+            /** @description false when the folder was already added */
+            created: boolean;
+        };
+        LocalRepoStatus: {
+            /** Format: int64 */
+            repository_id: number;
+            path: string;
+            /** @description The folder is gone (moved or deleted): offer "Locate…" */
+            missing: boolean;
+            branch: string;
+            detached: boolean;
+            dirty: boolean;
         };
         /**
          * @description `local` (a folder on the owner's disk) exists only in local mode (`npx jungle-monkey`)
@@ -3089,10 +3308,26 @@ export interface operations {
                     base_branch?: components["schemas"]["BranchName"];
                     /** @default false */
                     is_default?: boolean;
+                    /** @enum {string} */
+                    source?: "github";
+                } | {
+                    /** @enum {string} */
+                    source: "local";
+                    /** @description Absolute path of the work tree */
+                    path: string;
                 };
             };
         };
         responses: {
+            /** @description Local repository that was already added (idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"];
+                };
+            };
             /** @description Added */
             201: {
                 headers: {
@@ -3102,7 +3337,15 @@ export interface operations {
                     "application/json": components["schemas"]["Repository"];
                 };
             };
-            400: components["responses"]["Error"];
+            /** @description `invalid`, or `local_mode_only` for a local repository in server mode */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
         };
@@ -3451,6 +3694,8 @@ export interface operations {
                     skills_add?: string[];
                     /** @description Skill slugs removed from the project's skills for this task */
                     skills_remove?: string[];
+                    /** @description `working_tree` only for local repositories (400 otherwise); default `last_commit` */
+                    start_from?: components["schemas"]["StartFrom"];
                 };
                 "multipart/form-data": {
                     project_id: string;
@@ -3471,6 +3716,7 @@ export interface operations {
                     skills_add?: string;
                     /** @description Comma-separated skill slugs */
                     skills_remove?: string;
+                    start_from?: components["schemas"]["StartFrom"];
                     /** @description PNG, JPEG, WebP or GIF (not animated), at most 40 MB each, 100 MB together; type detected from the content */
                     "files[]"?: string[];
                 };
@@ -3822,6 +4068,267 @@ export interface operations {
                 };
             };
             503: components["responses"]["Error"];
+        };
+    };
+    branchMerge: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    branchCheckout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    branchDiscard: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    branchPush: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                id: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    localRepoSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["LocalRepoSuggestion"][];
+                        /** @description The repository the CLI was started in, when it is one ("this folder") */
+                        start: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    localBrowse: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderListing"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    addLocalRepo: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Absolute path */
+                    path: string;
+                    /** @description Attach to this project instead of creating one */
+                    project_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Already added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalRepoAdded"];
+                };
+            };
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalRepoAdded"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    localRepoStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repoId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalRepoStatus"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    locateLocalRepo: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Requested-With": components["parameters"]["XRequestedWith"];
+            };
+            path: {
+                repoId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    path: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The repository */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     overrideTaskBudget: {

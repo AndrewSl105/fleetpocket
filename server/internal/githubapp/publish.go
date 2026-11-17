@@ -30,7 +30,7 @@ func (p *Publisher) Publish(ctx context.Context, in scheduler.PublishInput) (*sc
 		}
 		return nil, err
 	}
-	wsRepo := workspace.Repo{FullName: repo.FullName, InstallationID: repo.InstallationID, BaseBranch: repo.BaseBranch}
+	wsRepo := scheduler.WorkspaceRepo(repo, t)
 	forcedFrom := ""
 	if in.Force {
 		// A restore discarded commits that were already pushed.

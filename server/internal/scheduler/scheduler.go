@@ -293,8 +293,7 @@ func (s *Scheduler) execute(ctx context.Context, t *store.Task) {
 		return
 	}
 	h := s.host(t)
-	wsRepo := workspace.Repo{FullName: repo.FullName, InstallationID: repo.InstallationID, BaseBranch: repo.BaseBranch}
-	if err := h.PrepareWorkspace(ctx, t.ID, wsRepo, branch); err != nil {
+	if err := h.PrepareWorkspace(ctx, t.ID, WorkspaceRepo(repo, t), branch); err != nil {
 		s.failOrRequeue(ctx, t, run, "prepare workspace", err)
 		return
 	}
@@ -915,6 +914,11 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	}
 	if unpushed == 0 && !force {
 		switch {
+		case t.PRNumber == nil && t.LocalBranch != nil:
+			// A follow-up on a delivered local branch that changed nothing.
+			if _, err := s.Tasks.SetStatus(ctx, t.ID, tasks.BranchReady, limit); err != nil {
+				s.log(t, 0).Error("set branch_ready", "err", err)
+			}
 		case limit != "" && t.PRNumber == nil:
 			s.fail(ctx, t, limit)
 		case t.PRNumber != nil:
@@ -927,6 +931,11 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 				s.log(t, 0).Error("set completed", "err", err)
 			}
 		}
+		return
+	}
+
+	if repo.Local() && t.PRNumber == nil {
+		s.deliverLocal(ctx, h, t, repo, branch, force, limit)
 		return
 	}
 
@@ -981,7 +990,7 @@ func (s *Scheduler) afterRun(ctx context.Context, t *store.Task, summary string,
 	}
 	s.recordPush(ctx, t)
 	res, err := s.Publisher.Publish(ctx, PublishInput{
-		Host: h, Task: t, Repo: repo, Project: project, Branch: branch,
+		Host: h, Task: t, Repo: GitHubRepo(repo), Project: project, Branch: branch,
 		Summary: summary, CostUSD: t.CostUSDTotal, Turns: turns, Limit: limit, Force: force,
 	})
 	if err != nil {

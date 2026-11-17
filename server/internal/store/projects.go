@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 	"strings"
 	"time"
 
@@ -68,6 +69,16 @@ const (
 
 // Local reports whether the repository is a folder on the owner's disk.
 func (r *Repository) Local() bool { return r.Source == SourceLocal }
+
+// GitHubName is the repository's "owner/name" on GitHub: FullName, or for
+// a local repository the GitHub repository of its origin remote ("" when
+// it has none).
+func (r *Repository) GitHubName() string {
+	if r.Local() {
+		return workspace.GitHubFullName(r.RemoteURL)
+	}
+	return r.FullName
+}
 
 const repoCols = `id, project_id, full_name, base_branch, installation_id, is_default, source, path, remote_url`
 

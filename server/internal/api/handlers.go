@@ -194,6 +194,10 @@ func (s *Server) addRepository(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
+	if in.Source == "local" {
+		s.addRepositoryLocal(w, r, in)
+		return
+	}
 	repo, err := s.Projects.AddRepository(r.Context(), r.PathValue("id"), in)
 	if err != nil {
 		writeErr(w, r, err)
@@ -288,7 +292,7 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var in tasks.CreateInput
 	if isMultipart(r) {
-		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove")
+		f, imgs, ok := readMultipart(w, r, "project_id", "repository_id", "title", "prompt", "agent", "node", "output", "skills_add", "skills_remove", "start_from")
 		if !ok {
 			return
 		}
@@ -298,7 +302,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		in = tasks.CreateInput{ProjectID: f["project_id"], RepositoryID: repoID, Title: f["title"], Prompt: f["prompt"], Agent: f["agent"], Node: f["node"], Images: imgs,
-			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"])}
+			Output: f["output"], SkillsAdd: splitList(f["skills_add"]), SkillsRemove: splitList(f["skills_remove"]), StartFrom: f["start_from"]}
 	} else if !decode(w, r, &in) {
 		return
 	}

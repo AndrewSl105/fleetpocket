@@ -270,6 +270,23 @@ ends with commits, the branch is fetched into the original repository as
 `branch_ready` (event `branch_ready`). The owner's checked-out branch, index and
 working tree are never touched by delivery.
 
+| | |
+|---|---|
+| `GET /local/repos/suggestions` | `{items: [{name, path, branch, dirty, last_commit, added}], start}`: git work trees under `~/code`, `~/Projects`, `~/projects`, `~/dev`, `~/src`, `~/repos`, `~/Documents/GitHub`, `~/work` and the CLI's start directory (`start`, when it is a repository), 3 levels deep, skipping `node_modules`, hidden folders and symlink loops. At most 200 within 2 s, newest commit first, cached 60 s. `dirty` = uncommitted changes to tracked files |
+| `GET /local/fs?path=` | folder browser: `{path, parent, home, is_git, entries: [{name, path, is_git}]}`, subfolders only. `path` defaults to the home directory; its real path must stay inside it (`403 outside_home`) |
+| `POST /local/repos` `{path, project_id?}` | adds a work tree (top level, not bare, has a commit, not inside the data directory; else `400 invalid`) as a repository, in a new project named after the folder or in `project_id`. Idempotent: `200` with `created: false` when already added, `201` otherwise; body `{project, repository, created}`. Also takes the CLI's control token (`jungle-monkey add`) |
+| `POST /projects/{id}/repositories` `{source: "local", path}` | the same, into project `id`; returns the repository |
+| `GET /local/repos/{repoId}/status` | `{repository_id, path, missing, branch, detached, dirty}` for the project page; `missing` offers "Locate…" |
+| `POST /local/repos/{repoId}/locate` `{path}` | the folder moved: points the repository at it; deliveries waiting for it (`pushing`, reason `repository folder not found: …`) resume |
+| `POST /tasks/{id}/branch/merge` | `branch_ready` only: merges `local_branch` into the owner's current branch (fast-forward when possible, else a merge commit) and completes the task. `409`: `dirty`, `detached`, `current_branch`, `merge_conflict` (aborted; `error.files` lists the files), `git_refused` (e.g. untracked files would be overwritten; nothing changed), `branch_gone`, `repo_missing` |
+| `POST /tasks/{id}/branch/checkout` | checks `local_branch` out (`409 dirty` on uncommitted changes); the task stays `branch_ready` |
+| `POST /tasks/{id}/branch/discard` | deletes `local_branch` (`409 current_branch` while it is checked out) and completes the task |
+| `POST /tasks/{id}/branch/push` | "Push & open PR": needs a GitHub `origin` remote (`400`) and GitHub connected (`503 github_disabled`). Pushes `agent/<id>-<slug>` with the owner's token (held by the server process, never the runner), opens the PR, and the task becomes `pr_open` with the usual CI and auto-fix flow. On failure it returns to `branch_ready` |
+
+`POST /tasks` takes `start_from`: `last_commit` (default) or `working_tree` (local repositories only): the copy starts from the commit checked out in the folder plus its uncommitted changes and untracked, not ignored files, committed as `WIP: working tree at start`.
+
+A follow-up on a `branch_ready` task continues the same task branch and re-delivers it: `local_branch` is fast-forwarded, or, when it is checked out or the owner committed on it, the update goes to a new `-2`… branch (`branch_ready.previous`). Server mode answers every `/local` endpoint and `source: "local"` with `400 local_mode_only`.
+
 ## Integrations (MCP servers and egress)
 
 MCP servers reach the agent only through the server's MCP gateway; their credentials never reach the runner. They need `SECRETS_KEY` (encryption of the stored secrets): without it, writes answer `503 secrets_disabled` and runs get no MCP servers; everything else works.

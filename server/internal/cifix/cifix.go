@@ -163,7 +163,7 @@ func (s *Service) Evaluate(ctx context.Context, taskID int64, sha string, failur
 	if err != nil {
 		return err
 	}
-	checks, err := s.GitHub.CheckRuns(ctx, repo.FullName, repo.InstallationID, sha)
+	checks, err := s.GitHub.CheckRuns(ctx, repo.GitHubName(), repo.InstallationID, sha)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (s *Service) logs(ctx context.Context, repo *store.Repository, failed []aut
 		l := autofix.FailureLog{Check: c}
 		raw := c.Output
 		if c.App == "github-actions" {
-			log, steps, err := s.GitHub.JobLog(ctx, repo.FullName, repo.InstallationID, c.ID)
+			log, steps, err := s.GitHub.JobLog(ctx, repo.GitHubName(), repo.InstallationID, c.ID)
 			l.FailedSteps = steps
 			if err != nil {
 				slog.Warn("ci auto-fix: job log", "repo", repo.FullName, "check", c.Name, "err", err)

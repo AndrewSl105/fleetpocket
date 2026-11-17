@@ -23,6 +23,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/events"
 	"github.com/andrewsl105/fleetpocket/server/internal/githubapp"
 	"github.com/andrewsl105/fleetpocket/server/internal/hosts"
+	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
 	"github.com/andrewsl105/fleetpocket/server/internal/maintenance"
 	"github.com/andrewsl105/fleetpocket/server/internal/mcpgateway"
 	"github.com/andrewsl105/fleetpocket/server/internal/metrics"
@@ -52,6 +53,13 @@ type Options struct {
 	// Stopping is called after the HTTP server stopped, before the scheduler
 	// and its runners are waited for.
 	Stopping func(ctx context.Context, st *store.Store)
+
+	// Local repositories (local mode): the owner's home directory (scanned
+	// and browsable), the directory the CLI was started in and the data
+	// directory (which cannot be added).
+	Home     string
+	StartDir string
+	DataDir  string
 }
 
 // Serve runs the service until ctx ends or cancel is called (restart after
@@ -225,6 +233,18 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 
 	if gh != nil {
 		srv.GitHub = gh
+	}
+	if cfg.Local() {
+		projSvc := srv.Projects
+		srv.LocalRepos = &localrepos.Service{
+			Store: st, Home: opts.Home, Start: opts.StartDir, DataDir: opts.DataDir,
+			CreateProject: func(ctx context.Context, id, name string) (*store.Project, error) {
+				return projSvc.Create(ctx, projects.CreateInput{ID: id, ProjectFields: store.ProjectFields{Name: &name}})
+			},
+		}
+		srv.ResumeDeliveries = sched.ResumeDeliveries
+		taskSvc.LocalHost = func(t *store.Task) tasks.LocalBranches { return registry.For(t.Node) }
+		taskSvc.PushLocal = sched.PushLocal
 	}
 
 	var wg sync.WaitGroup

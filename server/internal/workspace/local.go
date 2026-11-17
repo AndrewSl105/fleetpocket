@@ -49,7 +49,21 @@ var (
 	ErrCurrentBranch = errors.New("the branch is checked out; check out another branch first")
 	// ErrBranchGone: the delivered branch no longer exists in the repository.
 	ErrBranchGone = errors.New("the branch no longer exists in your repository")
+	// ErrGitRefused: git refused a merge or checkout without changing
+	// anything (e.g. untracked files would be overwritten); git says why.
+	ErrGitRefused = errors.New("git refused")
 )
+
+// refused keeps git's own explanation (its stderr) for the owner.
+func refused(err error) error {
+	msg := err.Error()
+	if i := strings.Index(msg, ": "); i >= 0 {
+		if j := strings.Index(msg[i+2:], ": "); j >= 0 {
+			msg = msg[i+2+j+2:]
+		}
+	}
+	return fmt.Errorf("%w: %s", ErrGitRefused, msg)
+}
 
 // MergeConflictError lists the files a merge could not combine. The merge
 // was aborted, so the owner's branch is as it was.
@@ -416,7 +430,7 @@ func MergeLocal(ctx context.Context, path, branch string) (*MergeResult, error) 
 	if _, err := localGit(ctx, path, nil, "merge-base", "--is-ancestor", "HEAD", branch); err == nil {
 		res.FastForward = true
 		if _, err := localGit(ctx, path, nil, "merge", "--quiet", "--ff-only", branch); err != nil {
-			return nil, err
+			return nil, refused(err)
 		}
 		return res, nil
 	}
@@ -426,13 +440,13 @@ func MergeLocal(ctx context.Context, path, branch string) (*MergeResult, error) 
 	}
 	if _, err := localGit(ctx, path, nil, args...); err != nil {
 		files, _ := localGit(ctx, path, nil, "diff", "--name-only", "--diff-filter=U")
-		if _, abortErr := localGit(ctx, path, nil, "merge", "--abort"); abortErr != nil {
+		if _, abortErr := localGit(ctx, path, nil, "merge", "--abort"); abortErr != nil && !strings.Contains(abortErr.Error(), "MERGE_HEAD missing") {
 			return nil, fmt.Errorf("%v; and the merge could not be aborted: %w", err, abortErr)
 		}
 		if list := strings.Fields(files); len(list) > 0 {
 			return nil, &MergeConflictError{Files: list}
 		}
-		return nil, err
+		return nil, refused(err)
 	}
 	return res, nil
 }
@@ -457,8 +471,10 @@ func CheckoutLocal(ctx context.Context, path, branch string) error {
 	} else if dirty {
 		return ErrDirty
 	}
-	_, err := localGit(ctx, path, nil, "checkout", "--quiet", branch)
-	return err
+	if _, err := localGit(ctx, path, nil, "checkout", "--quiet", branch); err != nil {
+		return refused(err)
+	}
+	return nil
 }
 
 // DiscardLocal deletes branch from the owner's repository; it refuses while

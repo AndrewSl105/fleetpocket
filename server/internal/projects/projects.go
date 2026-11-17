@@ -149,9 +149,16 @@ type RepoInput struct {
 	BaseBranch     string `json:"base_branch"`
 	InstallationID int64  `json:"installation_id"`
 	IsDefault      bool   `json:"is_default"`
+	// Source "local" with Path adds a local repository (local mode only;
+	// the API handles it, see internal/localrepos).
+	Source string `json:"source"`
+	Path   string `json:"path"`
 }
 
 func (s *Service) AddRepository(ctx context.Context, projectID string, in RepoInput) (*store.Repository, error) {
+	if in.Source != "" && in.Source != store.SourceGitHub {
+		return nil, fmt.Errorf("%w: source must be github or local", ErrInvalid)
+	}
 	if !repoRe.MatchString(in.FullName) {
 		return nil, fmt.Errorf("%w: full_name must be owner/repo", ErrInvalid)
 	}

@@ -349,6 +349,9 @@ func (r *Remote) repo(ctx context.Context, repo workspace.Repo) (RepoParams, err
 // ---- Host ----
 
 func (r *Remote) PrepareWorkspace(ctx context.Context, taskID int64, repo workspace.Repo, branch string) error {
+	if repo.LocalPath != "" {
+		return ErrLocalRepoOnNode
+	}
 	rp, err := r.repo(ctx, repo)
 	if err != nil {
 		return err
@@ -622,3 +625,15 @@ func short(id string) string {
 	}
 	return id
 }
+
+func (r *Remote) DeliverLocal(context.Context, int64, LocalDelivery) (*workspace.Delivery, error) {
+	return nil, ErrLocalRepoOnNode
+}
+
+func (r *Remote) MergeLocal(context.Context, string, string) (*workspace.MergeResult, error) {
+	return nil, ErrLocalRepoOnNode
+}
+
+func (r *Remote) CheckoutLocal(context.Context, string, string) error { return ErrLocalRepoOnNode }
+
+func (r *Remote) DiscardLocal(context.Context, string, string) error { return ErrLocalRepoOnNode }

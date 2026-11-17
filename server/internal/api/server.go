@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
 	"net/http"
 	"time"
 
@@ -67,6 +68,11 @@ type Server struct {
 	UI http.Handler
 	// Local is set in local mode only.
 	Local *Local
+	// LocalRepos serves the /local repository endpoints; nil (server mode)
+	// answers them with 400 local_mode_only.
+	LocalRepos *localrepos.Service
+	// ResumeDeliveries retries deliveries that waited for a moved folder.
+	ResumeDeliveries func(ctx context.Context, repoID int64)
 	// Gateway is the MCP gateway (also the MCP server registry); its own
 	// endpoints under /api/mcp-gateway/ take the run token, no session.
 	Gateway *mcpgateway.Gateway
@@ -136,6 +142,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/tasks/{id}/cancel", a(s.control(s.Tasks.Cancel)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/retry", a(s.control(s.Tasks.Retry)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/merge", a(s.control(s.Tasks.Merge)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/merge", a(s.control(s.Tasks.MergeBranch)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/checkout", a(s.control(s.Tasks.CheckoutBranch)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/discard", a(s.control(s.Tasks.DiscardBranch)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/branch/push", a(s.control(s.Tasks.PushBranch)))
+	mux.HandleFunc("GET /api/v1/local/repos/suggestions", a(s.localRepos(s.localSuggestions)))
+	mux.HandleFunc("GET /api/v1/local/fs", a(s.localRepos(s.localBrowse)))
+	mux.HandleFunc("POST /api/v1/local/repos", s.sessionOrControl(s.localRepos(s.addLocalRepo)))
+	mux.HandleFunc("GET /api/v1/local/repos/{id}/status", a(s.localRepos(s.localRepoStatus)))
+	mux.HandleFunc("POST /api/v1/local/repos/{id}/locate", a(s.localRepos(s.locateLocalRepo)))
 	mux.HandleFunc("GET /api/v1/stats", a(s.stats))
 	mux.HandleFunc("GET /api/v1/mcp-servers", a(s.listMCPServers))
 	mux.HandleFunc("POST /api/v1/mcp-servers", a(s.createMCPServer))

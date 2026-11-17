@@ -263,3 +263,19 @@ func readAll(path string) ([]byte, error) {
 	defer f.Close()
 	return io.ReadAll(io.LimitReader(f, 64<<20))
 }
+
+func (l *Local) DeliverLocal(ctx context.Context, taskID int64, d LocalDelivery) (*workspace.Delivery, error) {
+	return l.Workspace.Deliver(ctx, taskID, d.Path, d.Base, d.Branch, d.Want, d.Current, d.Force)
+}
+
+func (l *Local) MergeLocal(ctx context.Context, path, branch string) (*workspace.MergeResult, error) {
+	return workspace.MergeLocal(ctx, path, branch)
+}
+
+func (l *Local) CheckoutLocal(ctx context.Context, path, branch string) error {
+	return workspace.CheckoutLocal(ctx, path, branch)
+}
+
+func (l *Local) DiscardLocal(ctx context.Context, path, branch string) error {
+	return workspace.DiscardLocal(ctx, path, branch)
+}

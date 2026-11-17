@@ -330,19 +330,31 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [full_name, installation_id]
-              additionalProperties: false
-              properties:
-                full_name: { type: string, example: andrewsl105/vatary-server }
-                installation_id: { type: integer, format: int64 }
-                base_branch: { allOf: [{ $ref: '#/components/schemas/BranchName' }], default: dev }
-                is_default: { type: boolean, default: false }
+              oneOf:
+                - type: object
+                  required: [full_name, installation_id]
+                  additionalProperties: false
+                  properties:
+                    full_name: { type: string, example: andrewsl105/vatary-server }
+                    installation_id: { type: integer, format: int64 }
+                    base_branch: { allOf: [{ $ref: '#/components/schemas/BranchName' }], default: dev }
+                    is_default: { type: boolean, default: false }
+                    source: { type: string, enum: [github] }
+                - type: object
+                  description: 'A local repository (local mode only; `400 local_mode_only` otherwise). Same as `POST /local/repos` with this project'
+                  required: [source, path]
+                  additionalProperties: false
+                  properties:
+                    source: { type: string, enum: [local] }
+                    path: { type: string, description: Absolute path of the work tree }
       responses:
         '201':
           description: Added
           content: { application/json: { schema: { $ref: '#/components/schemas/Repository' } } }
-        '400': { $ref: '#/components/responses/Error' }
+        '200':
+          description: 'Local repository that was already added (idempotent)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Repository' } } }
+        '400': { description: '`invalid`, or `local_mode_only` for a local repository in server mode', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
@@ -574,6 +586,7 @@ paths:
                 output: { $ref: '#/components/schemas/TaskOutput', description: "Defaults to the project's default_output, else `pr`. `artifacts` and `pr_and_artifacts` are refused with 400 until diagram collection ships" }
                 skills_add: { type: array, items: { type: string }, description: Skill slugs added to the project's skills for this task }
                 skills_remove: { type: array, items: { type: string }, description: Skill slugs removed from the project's skills for this task }
+                start_from: { $ref: '#/components/schemas/StartFrom', description: '`working_tree` only for local repositories (400 otherwise); default `last_commit`' }
           multipart/form-data:
             schema:
               type: object
@@ -589,6 +602,7 @@ paths:
                 output: { $ref: '#/components/schemas/TaskOutput' }
                 skills_add: { type: string, description: Comma-separated skill slugs }
                 skills_remove: { type: string, description: Comma-separated skill slugs }
+                start_from: { $ref: '#/components/schemas/StartFrom' }
                 'files[]':
                   type: array
                   maxItems: 10
@@ -840,6 +854,159 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { description: 'Not pr_open (`conflict`), or GitHub refused the merge (`not_mergeable`; the message says why)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/merge:
+    post:
+      operationId: branchMerge
+      tags: [local]
+      summary: Merge the delivered branch into the current branch of the local repository
+      description: 'Fast-forward when possible, else a merge commit; completes the task ("branch merged into <branch>") and records `branch_action {merged}`. `409`: `dirty` (uncommitted changes to tracked files), `detached` (no current branch), `current_branch`, `merge_conflict` (aborted; `files` lists the conflicts), `git_refused` (e.g. untracked files would be overwritten; nothing changed), `branch_gone`, `repo_missing`, or `conflict` when the task is not `branch_ready`'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/checkout:
+    post:
+      operationId: branchCheckout
+      tags: [local]
+      summary: Check out the delivered branch in the local repository
+      description: 'The task stays `branch_ready`; records `branch_action {checked_out}`. `409`: `dirty`, `git_refused`, `branch_gone`, `repo_missing`, `conflict`'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/discard:
+    post:
+      operationId: branchDiscard
+      tags: [local]
+      summary: Delete the delivered branch and complete the task
+      description: 'Records `branch_action {discarded}` and sets `local_branch` to null. `409`: `current_branch` (check out another branch first), `repo_missing`, `conflict`'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /api/v1/tasks/{id}/branch/push:
+    post:
+      operationId: branchPush
+      tags: [local]
+      summary: Push the task branch to GitHub and open a PR
+      description: 'Needs a GitHub `origin` remote (`400 invalid` otherwise) and GitHub connected in local mode (`503 github_disabled` otherwise). Pushes `agent/<id>-<slug>` with the owners token from the server process, opens the PR and moves the task to `pr_open` (normal PR/CI flow, including CI auto-fix). On failure the task returns to `branch_ready` with the reason'
+      parameters:
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200': { description: The task view, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/local/repos/suggestions:
+    get:
+      operationId: localRepoSuggestions
+      tags: [local]
+      summary: Git work trees found on this computer (local mode)
+      description: 'Scans ~/code, ~/Projects, ~/projects, ~/dev, ~/src, ~/repos, ~/Documents/GitHub, ~/work and the directory the CLI was started in, 3 levels deep, skipping node_modules, hidden folders and symlink loops. At most 200 results within 2 s, newest commit first; cached for 60 s. `400 local_mode_only` in server mode'
+      responses:
+        '200':
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, start]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/LocalRepoSuggestion' } }
+                  start: { type: [string, 'null'], description: 'The repository the CLI was started in, when it is one ("this folder")' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/fs:
+    get:
+      operationId: localBrowse
+      tags: [local]
+      summary: Folder browser limited to the home directory (local mode)
+      description: 'Lists the subfolders (no files, no hidden folders) of `path` (default: the home directory) and marks git repositories. The resolved path must stay inside the home directory: `403 outside_home` otherwise; symlinks that lead out of it are not listed'
+      parameters:
+        - { name: path, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: Listing, content: { application/json: { schema: { $ref: '#/components/schemas/FolderListing' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/repos:
+    post:
+      operationId: addLocalRepo
+      tags: [local]
+      summary: Add a folder as a local repository (local mode)
+      description: 'The folder must be the top of a non-bare git work tree with at least one commit, outside the Jungle Monkey data directory. Without `project_id` a project named after the folder is created (id: its slug, `-2`… when taken). Idempotent: an added folder returns its repository (`200`, `created: false`). Also accepts the CLI''s control token (`Authorization: Bearer`) for `jungle-monkey add`'
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              additionalProperties: false
+              properties:
+                path: { type: string, description: Absolute path }
+                project_id: { type: string, description: Attach to this project instead of creating one }
+      responses:
+        '201': { description: Added, content: { application/json: { schema: { $ref: '#/components/schemas/LocalRepoAdded' } } } }
+        '200': { description: Already added, content: { application/json: { schema: { $ref: '#/components/schemas/LocalRepoAdded' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/repos/{repoId}/status:
+    get:
+      operationId: localRepoStatus
+      tags: [local]
+      summary: Branch and dirty state of a local repository's folder
+      parameters:
+        - { name: repoId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/LocalRepoStatus' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/local/repos/{repoId}/locate:
+    post:
+      operationId: locateLocalRepo
+      tags: [local]
+      summary: Point a local repository at its folder after it was moved ("Locate…")
+      description: 'Deliveries that waited for the folder (`pushing`, reason "repository folder not found") resume'
+      parameters:
+        - { name: repoId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - $ref: '#/components/parameters/XRequestedWith'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [path], additionalProperties: false, properties: { path: { type: string } } }
+      responses:
+        '200': { description: The repository, content: { application/json: { schema: { $ref: '#/components/schemas/Repository' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 
   /api/v1/tasks/{id}/budget-override:
     post:
@@ -1624,6 +1791,7 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+            files: { type: array, items: { type: string }, description: '`merge_conflict` only: the files the merge could not combine' }
 
     SessionInfo:
       type: object
@@ -1878,6 +2046,54 @@ components:
         source: { $ref: '#/components/schemas/RepositorySource' }
         path: { type: string, description: 'Absolute work tree of a local repository ("" for GitHub)' }
         remote_url: { type: string, description: 'Origin remote of a local repository, if any (informational; "" otherwise)' }
+
+    LocalRepoSuggestion:
+      type: object
+      required: [name, path, branch, dirty, last_commit, added]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        branch: { type: string, description: '"" on a detached HEAD' }
+        dirty: { type: boolean, description: Uncommitted changes to tracked files }
+        last_commit: { type: string, format: date-time }
+        added: { type: boolean, description: Already a local repository of some project }
+
+    FolderListing:
+      type: object
+      required: [path, parent, home, is_git, entries]
+      properties:
+        path: { type: string }
+        parent: { type: [string, 'null'], description: null at the home directory }
+        home: { type: string }
+        is_git: { type: boolean }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [name, path, is_git]
+            properties:
+              name: { type: string }
+              path: { type: string }
+              is_git: { type: boolean }
+
+    LocalRepoAdded:
+      type: object
+      required: [project, repository, created]
+      properties:
+        project: { $ref: '#/components/schemas/Project' }
+        repository: { $ref: '#/components/schemas/Repository' }
+        created: { type: boolean, description: false when the folder was already added }
+
+    LocalRepoStatus:
+      type: object
+      required: [repository_id, path, missing, branch, detached, dirty]
+      properties:
+        repository_id: { type: integer, format: int64 }
+        path: { type: string }
+        missing: { type: boolean, description: 'The folder is gone (moved or deleted): offer "Locate…"' }
+        branch: { type: string }
+        detached: { type: boolean }
+        dirty: { type: boolean }
 
     RepositorySource:
       type: string

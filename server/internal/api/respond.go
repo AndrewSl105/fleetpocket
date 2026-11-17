@@ -9,15 +9,19 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/andrewsl105/fleetpocket/server/internal/localrepos"
 	"github.com/andrewsl105/fleetpocket/server/internal/projects"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
+	"github.com/andrewsl105/fleetpocket/server/internal/workspace"
 )
 
 type errorBody struct {
 	Error struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
+		// Files lists the conflicting files of a refused merge (merge_conflict).
+		Files []string `json:"files,omitempty"`
 	} `json:"error"`
 }
 
@@ -35,6 +39,7 @@ func writeError(w http.ResponseWriter, status int, code, msg string) {
 
 // writeErr maps service errors to HTTP responses.
 func writeErr(w http.ResponseWriter, r *http.Request, err error) {
+	var conflict *workspace.MergeConflictError
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", err.Error())
@@ -50,6 +55,28 @@ func writeErr(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusServiceUnavailable, "github_disabled", err.Error())
 	case errors.Is(err, hosts.ErrOffline):
 		writeError(w, http.StatusServiceUnavailable, "host_offline", "the computer this task runs on is offline")
+	case errors.Is(err, errLocalModeOnly):
+		writeError(w, http.StatusBadRequest, "local_mode_only", err.Error())
+	case errors.Is(err, localrepos.ErrInvalid), errors.Is(err, hosts.ErrLocalRepoOnNode):
+		writeError(w, http.StatusBadRequest, "invalid", err.Error())
+	case errors.Is(err, localrepos.ErrOutsideHome):
+		writeError(w, http.StatusForbidden, "outside_home", err.Error())
+	case errors.As(err, &conflict):
+		var b errorBody
+		b.Error.Code, b.Error.Message, b.Error.Files = "merge_conflict", conflict.Error(), conflict.Files
+		writeJSON(w, http.StatusConflict, b)
+	case errors.Is(err, workspace.ErrDirty):
+		writeError(w, http.StatusConflict, "dirty", err.Error())
+	case errors.Is(err, workspace.ErrDetached):
+		writeError(w, http.StatusConflict, "detached", err.Error())
+	case errors.Is(err, workspace.ErrCurrentBranch):
+		writeError(w, http.StatusConflict, "current_branch", err.Error())
+	case errors.Is(err, workspace.ErrBranchGone):
+		writeError(w, http.StatusConflict, "branch_gone", err.Error())
+	case errors.Is(err, workspace.ErrGitRefused):
+		writeError(w, http.StatusConflict, "git_refused", err.Error())
+	case errors.Is(err, workspace.ErrRepoMissing):
+		writeError(w, http.StatusConflict, "repo_missing", err.Error())
 	default:
 		slog.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "internal error")
