@@ -25,7 +25,17 @@ Describe a change from your phone. The agent you pick does the work in an isolat
 
 FleetOps runs on your server, for one owner: you. The agent works in a sealed container with only the code it was asked to change. It gets no GitHub token, no Docker access and no host network. Your server keeps every key and does the pushing and the pull requests itself. You sign in with a password and a code from your authenticator app.
 
-## Set it up
+## Quick start: on your computer
+
+```sh
+npx jungle-monkey
+```
+
+You need Docker running, a key or subscription for one agent (Claude, Codex or Cursor) and a GitHub account. The server, its database and the web app start on your machine and the browser opens, logged in. No domain, server or `.env`. Commands, data locations and uninstall: [docs/LOCAL.md](docs/LOCAL.md).
+
+Local or server? Local stops when your laptop sleeps. A server runs tasks around the clock and is reachable from your phone.
+
+## Run it 24/7 on a server
 
 You need a small Linux server (Ubuntu 24.04 with Docker), a domain, a key for at least one agent (a Claude subscription or Anthropic API key, an OpenAI API key for Codex, or a Cursor API key) and a GitHub account. Below, `fleetpocket.example.com` stands for your domain.
 

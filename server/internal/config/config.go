@@ -13,6 +13,15 @@ import (
 )
 
 type Config struct {
+	// Mode is ModeServer (default) or ModeLocal (set by the jungle-monkey CLI).
+	Mode string
+	// DataDir holds everything of local mode (db, workspaces, config.json).
+	DataDir string
+	// LocalState is config.json of local mode (nil in server mode).
+	LocalState *LocalState
+	// GitHubClientID is the OAuth App used by the device flow in local mode.
+	GitHubClientID string
+
 	HTTPAddr      string
 	PublicBaseURL string
 	DatabaseURL   string
@@ -88,6 +97,9 @@ func Load() (*Config, error) {
 	var errs []error
 	e := envReader{errs: &errs}
 	c := &Config{
+		Mode:           strings.ToLower(e.str("MODE", ModeServer)),
+		GitHubClientID: e.str("JM_GITHUB_CLIENT_ID", DefaultGitHubClientID),
+
 		HTTPAddr:        e.str("HTTP_ADDR", ":8080"),
 		PublicBaseURL:   strings.TrimRight(e.str("PUBLIC_BASE_URL", ""), "/"),
 		DatabaseURL:     e.str("DATABASE_URL", ""),
@@ -139,6 +151,15 @@ func Load() (*Config, error) {
 		SecretsScan: e.str("SECRETS_SCAN", "gitleaks"),
 		RunnerFake:  e.bool("FLEETPOCKET_RUNNER_FAKE", false),
 	}
+	switch c.Mode {
+	case ModeServer:
+	case ModeLocal:
+		if err := c.loadLocal(); err != nil {
+			errs = append(errs, err)
+		}
+	default:
+		errs = append(errs, errors.New(`MODE must be "server" or "local"`))
+	}
 	if c.MaxConcurrentTasks < 1 {
 		errs = append(errs, errors.New("MAX_CONCURRENT_TASKS must be >= 1"))
 	}
@@ -152,6 +173,7 @@ func Load() (*Config, error) {
 // Telegram are optional so the service can start before they are set up.
 func (c *Config) Validate() error {
 	var errs []error
+
 	req := func(name, v string) {
 		if v == "" {
 			errs = append(errs, fmt.Errorf("%s is required", name))
@@ -248,6 +270,8 @@ func (c *Config) EnabledAgents() []string {
 	}
 	return out
 }
+
+func (c *Config) Local() bool { return c.Mode == ModeLocal }
 
 // OwnerFromEnv reports whether the owner's login comes from the environment.
 func (c *Config) OwnerFromEnv() bool { return c.AdminPasswordHash != "" && c.AdminTOTPSecret != "" }

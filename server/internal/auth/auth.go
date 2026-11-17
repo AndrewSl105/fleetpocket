@@ -40,6 +40,9 @@ type Manager struct {
 	ownerMu        sync.RWMutex
 	SessionSecret  []byte
 	CookieInsecure bool
+	// SameSiteStrict is set in local mode: no Telegram iframe needs the
+	// cookie there, so cross-site requests never carry it.
+	SameSiteStrict bool
 	Now            func() time.Time
 }
 
@@ -164,6 +167,9 @@ func (m *Manager) setCookie(w http.ResponseWriter, value string, ttl time.Durati
 	c := &http.Cookie{
 		Name: CookieName, Value: value, Path: "/", HttpOnly: true,
 		Secure: !m.CookieInsecure, SameSite: http.SameSiteLaxMode,
+	}
+	if m.SameSiteStrict {
+		c.SameSite = http.SameSiteStrictMode
 	}
 	if ttl < 0 {
 		c.MaxAge = -1

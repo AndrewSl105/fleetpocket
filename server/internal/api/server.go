@@ -58,7 +58,12 @@ type Server struct {
 	Setup *setup.Wizard
 	// Restart restarts the process after the wizard created the GitHub App.
 	Restart func()
-	Now     func() time.Time
+	// UI serves the embedded web app at / (builds with the embedweb tag);
+	// nil when nginx serves it (server mode default).
+	UI http.Handler
+	// Local is set in local mode only.
+	Local *Local
+	Now   func() time.Time
 }
 
 func (s *Server) githubConfigured() bool {
@@ -131,6 +136,12 @@ func (s *Server) Handler() http.Handler {
 		// The node's own WebSocket: bearer node token, no session.
 		mux.HandleFunc("GET /api/v1/node/connect", s.Nodes.Serve)
 	}
+	if s.Local != nil {
+		mux.HandleFunc("GET /auth/local", s.localLogin)
+		mux.HandleFunc("POST /api/v1/local/login-code", s.requireControl(s.localLoginCode))
+		mux.HandleFunc("GET /api/v1/local/status", s.requireControl(s.localStatus))
+		mux.HandleFunc("POST /api/v1/local/shutdown", s.requireControl(s.localShutdown))
+	}
 	mux.HandleFunc("POST /api/v1/ws/ticket", a(s.wsTicket))
 	mux.HandleFunc("GET /api/v1/ws", s.requireSessionOrTicket(s.websocket))
 
@@ -150,8 +161,20 @@ func (s *Server) Handler() http.Handler {
 	api := s.cors(csrf(mux))
 	root := http.NewServeMux()
 	root.Handle("/webhooks/", mux)
-	root.Handle("/", api)
-	return logRequests(s.setupGate(root))
+	if s.UI != nil {
+		root.Handle("/api/", api)
+		root.Handle("/auth/", api)
+		root.Handle("/healthz", api)
+		root.Handle("/metrics", api)
+		root.Handle("/", s.UI)
+	} else {
+		root.Handle("/", api)
+	}
+	var h http.Handler = s.setupGate(root)
+	if s.Local != nil {
+		h = s.localHostCheck(h)
+	}
+	return logRequests(h)
 }
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {

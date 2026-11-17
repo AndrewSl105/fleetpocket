@@ -672,3 +672,37 @@ func binds(s RunnerSpec) []string {
 	}
 	return b
 }
+
+// PullImageProgress pulls an image and reports the bytes downloaded across
+// all layers (the local-mode CLI's first start). A present image is reused.
+func (m *Manager) PullImageProgress(ctx context.Context, image string, progress func(done, total int64)) error {
+	if _, err := m.Docker.ImageInspect(ctx, image); err == nil {
+		return nil
+	}
+	resp, err := m.Docker.ImagePull(ctx, image, client.ImagePullOptions{})
+	if err != nil {
+		return fmt.Errorf("pull %s: %w", image, err)
+	}
+	type layer struct{ cur, total int64 }
+	layers := map[string]layer{}
+	for msg, err := range resp.JSONMessages(ctx) {
+		if err != nil {
+			return fmt.Errorf("pull %s: %w", image, err)
+		}
+		if msg.Error != nil {
+			return fmt.Errorf("pull %s: %s", image, msg.Error.Message)
+		}
+		if msg.ID == "" || msg.Progress == nil || msg.Status != "Downloading" {
+			continue
+		}
+		layers[msg.ID] = layer{msg.Progress.Current, msg.Progress.Total}
+		var done, total int64
+		for _, l := range layers {
+			done, total = done+l.cur, total+l.total
+		}
+		if progress != nil {
+			progress(done, total)
+		}
+	}
+	return nil
+}

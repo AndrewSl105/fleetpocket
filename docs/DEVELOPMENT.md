@@ -34,3 +34,15 @@ Open `http://localhost:5173` and log in with the password and a code from your a
 | `make screenshots` | README screenshots and `demo.gif` in `docs/screenshots` (mock mode; the GIF needs `ffmpeg`) |
 
 Every API change goes into `docs/openapi.yaml` and `docs/API.md` in the same commit as the code, with `make gen-api`.
+
+## Local mode binary (`jungle-monkey`)
+
+| | |
+|---|---|
+| `cd server && go run ./cmd/jungle-monkey --no-open --verbose` | local mode without the embedded UI (run `npm run dev` in `web/` for the UI) |
+| `make jungle-monkey` | `bin/jungle-monkey` with `web/dist` embedded (`embedweb` tag, `CGO_ENABLED=0`) |
+| `make jungle-monkey-all JM_VERSION=v1.2.3` | the five release targets in `bin/` |
+| `make npm-pack JM_VERSION=v1.2.3` | npm packages in `npm/dist` (`node npm/build.mjs`) |
+| `make test-npm` | launcher tests (`node --test`) |
+
+Use `--data-dir /tmp/jm` (or `JM_DATA_DIR`) to keep a dev instance apart from your real one. `FLEETPOCKET_TEST_EMBEDDED_PG=1 go test ./internal/pgembed/` downloads Postgres and tests start/stop and the stale lock. See [LOCAL.md](LOCAL.md).
