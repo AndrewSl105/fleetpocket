@@ -14,6 +14,7 @@ Describe a change from your phone. The agent you pick works in a sealed containe
 2. **The agent works on a new branch.** Pick Claude Code, Codex or Cursor per project or per task, and follow every step live.
 3. **Answer its questions.** When Claude needs a decision, the task shows its question with answer buttons. Codex and Cursor make their own choices and list open questions in the summary.
 4. **Get a pull request.** Read the summary, the PR and the CI result, and send a follow-up if something needs changing.
+5. **Get it back green** (optional). Turn on CI auto-fix and a failing check starts a minimal fix from the trimmed CI logs, up to a few attempts. A fix that touches CI config or tests waits for your OK.
 
 ## Steer from anywhere
 

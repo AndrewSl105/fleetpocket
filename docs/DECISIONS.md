@@ -133,11 +133,27 @@ Deviations from the specs (`docs/SPEC-server.md` for server and agent, `docs/SPE
   - `SECRETS_SCAN` defaults to `off` locally: gitleaks ships in the server image, not on laptops; set `SECRETS_SCAN=gitleaks` with gitleaks on `PATH` to keep it.
   - **Not in this iteration** (next PR): GitHub device flow / `gh auth token` / PAT connect and the `GitHubClient` interface over App and user tokens; PR/CI polling in place of webhooks; the web onboarding steps and Settings → Remote access; the landing page tabs. Until then a local instance runs tasks whose commits stay in the local workspace, like server mode without a GitHub App. The OAuth App `client_id` slot exists (`config.DefaultGitHubClientID`, `JM_GITHUB_CLIENT_ID`).
   - Telegram in local mode: the bot uses telego long polling (`bot.Run`), so it works from a laptop without a public URL when `TELEGRAM_BOT_TOKEN` is set; the Mini App needs the public URL of the remote-access section and is not wired yet.
-- 2026-11-17 — Task #101 (six stacked PRs: CI auto-fix, MCP gateway, costs, checkpoints, schedules/loops, ideas): the runner can only deliver one branch per task (Jungle Monkey opens one PR, agents may not push or create branches), and the run's budget covers far less than all six. This iteration ships only the first slice of PR 1: `internal/autofix`, the pure decision core of the CI auto-fix loop (guards, log trimming, failure signature, diff guard, instruction text), with tests. It is not wired into `OnCIFailed` yet, so behaviour is unchanged; the rest is split into follow-up tasks.
+- 2026-11-17 — Task #101 (six stacked PRs: CI auto-fix, MCP gateway, costs, checkpoints, schedules/loops, ideas): the runner can only deliver one branch per task (Jungle Monkey opens one PR, agents may not push or create branches), and the run's budget covers far less than all six. This iteration ships only the first slice of PR 1: `internal/autofix`, the pure decision core of the CI auto-fix loop (guards, log trimming, failure signature, diff guard, instruction text), with tests. 2026-11-17 update: PR 1 is now wired (`internal/cifix` behind `OnCIFailed`, off by default); the other five PRs remain follow-up tasks.
   - Auto-fix guards run in a fixed order: off / not our PR / cancelled / check not listed / failing SHA ≠ last system push / run active → skip silently; attempt cap, same signature twice in a row, loop budget → "needs you". Skips before the cap so a human push never consumes an attempt.
   - Failure signature = first 16 hex chars of SHA-256 over the lower-cased check name and the first three error-pattern lines with timestamps, durations, line numbers and hex IDs normalised, so a re-run of the same failure matches.
   - Diff guard flags `.github/workflows/**`, `.circleci/**`, well-known CI/lint/coverage config files, deleted test files, added `t.Skip`/`it.skip`/`xit`/pytest skip markers, and added lines mentioning coverage thresholds; false positives only cost an owner tap.
   - Local mode has no CI polling yet (see the local-mode "Not in this iteration" note), so there is nothing to route through `OnCIFailed` there; when polling lands it must call the same hook.
+- 2026-11-17 — CI auto-fix wiring (PR 1):
+  - Settings are one jsonb column `projects.ci_autofix` and one `settings` row `ci_autofix` holding `{enabled, max_attempts, checks, budget_usd, allow_ci_changes}` with null = inherit, instead of five `ci_autofix_*` keys: one object to validate, replace and expose in the API; the names map one to one.
+  - The global default gets its own endpoint (`GET/PUT /api/v1/settings/ci-autofix`) rather than a generic settings API: the settings table also holds the owner's password hash, TOTP secret and webhook secret.
+  - The last pushed commit is the runner's last `committed` sha, stored before the push: hosts have no rev-parse and nodes would need a protocol change, and storing it before the push means CI webhooks for our own push can never race it.
+  - A human push is detected from CI events (new checks or a failure on a commit other than the last system push), not `push` webhooks: the App manifest does not subscribe to `push`, and changing it would not reach existing installs.
+  - Auto-fix acts only once every check run of the commit has completed, and claims each head commit once (`tasks.autofix_handled_sha`): one failure arrives as a `check_suite` and a `workflow_run`, often for several workflows. Green is the same check: all check runs completed without a failure.
+  - The `checks` filter matches check-run (job) names from `ListCheckRunsForRef`, not the webhook's suite or workflow name.
+  - GitHub Actions job logs are fetched with `GetWorkflowJobLogs(check run id)`: an Actions check run's id is its job id. The pre-signed download is fetched without the token. "Keep the failing steps" is the failed step names from `GetWorkflowJobByID` at the top of each check's log plus the 400-line tail and error lines; the log text has no reliable step boundaries.
+  - The signature of an attempt is that of the alphabetically first failing check, so "same signature twice in a row" is deterministic when several checks fail.
+  - The diff guard runs on `git diff origin/<branch>...HEAD` (only the fix), before `workspace.Validate`. A held fix keeps the task `pr_open` (no slot, no state-machine change for waiting) with a question stored like a runner question of the attempt's run (id `<run>-autofix_guard`), so the web card, Telegram buttons and `POST /answer` work unchanged; `tasks.Service.Answer` routes it to the scheduler. `pr_open → pushing` is a new transition for "Push anyway".
+  - Fixes touching `.github/` can only be discarded: `workspace.Validate` rejects `.github/` changes and the App has no `workflows` permission.
+  - Discard removes the workspace; the next run re-clones the branch from GitHub. Hosts have no reset operation, and removing the workspace works the same on nodes.
+  - A follow-up message cancels the loop but its run pushes whatever the workspace holds, including a held fix: the owner chose to continue by hand.
+  - A push by any run that is not an auto-fix attempt resets the loop, so the next failure starts a new loop with fresh attempts; only an active loop is cancelled by a human push, follow-up or PR close.
+  - "Budget hit" is an attempt run that stops at a limit (its own budget, turns or duration): what it committed is pushed and the loop ends as needs you. There is no loop-wide budget beyond attempts × per-attempt budget.
+  - An attempt that commits nothing ends the loop (CI would never run again); so does a failed attempt run.
 
 ## Agent
 
@@ -244,6 +260,8 @@ One line each. "Backend ask" marks something Fleetpocket should add.
 - Kept `--olive-text` (#3f5a2e light / #9fc27f dark) next to the brief's palette: olive `#3F5A2E` as text on the dark ground is below 4.5:1.
 - Prompt library and Skill library (brief sections 5 and 6) are not implemented in this change; the landing and README do not mention them until they ship.
 
+
+- 2026-11-17 — CI auto-fix: the CI stamp sits next to the status stamp in the task header (dashed "ask" tone for needs you); the held-fix question card is answerable on a `pr_open` task when `autofix_state` is `held`. Project overrides use a three-way select (default/on/off) because null means "inherit the global default". The mock seeds tasks 10 (green after one fix) and 11 (held fix) with older timestamps so the existing screenshots and e2e ids stay the same.
 
 ### Integration with the real backend
 

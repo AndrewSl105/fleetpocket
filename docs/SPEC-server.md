@@ -37,7 +37,7 @@ One repo, `fleetpocket-server`, holds the Go backend and the TypeScript runner, 
 
 **Not in v1** (keep the design open for them, do not build them)
 
-- Automatic CI fixing. Store CI results and notify only; the hook point must exist. (In progress: the decision core lives in `internal/autofix`, not yet wired; see DECISIONS.)
+- Automatic CI fixing is opt-in (off by default): see "CI auto-fix" in section 5.
 - Any web UI or HTML in this repo.
 - Multiple users, roles, organisations.
 - Docker access from inside the runner, Docker-in-Docker.
@@ -258,7 +258,17 @@ Project-level settings override defaults (section 6).
 - Clone with `--filter=blob:none`, base branch from the repository record, branch `agent/<id>-<slug>` (slug from the title, ASCII, max 40 chars). Commits are authored as `fleetpocket[bot]`.
 - Before push, validate the diff against the base: reject changes under `.github/`; reject files over 5 MB; reject total diff over 20 000 changed lines; run a secrets scan (e.g. `gitleaks` binary in the Fleetpocket image) and reject on findings. A rejection sets the task to `failed` with the reason and keeps the workspace for inspection.
 - PR: title from the task, body with the task prompt, Claude's summary, files changed, cost, turns, and a link to the task. Create it once; later runs push to the same branch and add a PR comment with the new summary.
-- Webhooks at `POST /webhooks/github`: verify `X-Hub-Signature-256`, store CI conclusions on the task, notify via Telegram, mark the task `completed` when its PR is merged or closed. Leave a clearly marked hook (`OnCIFailed`) for future auto-fixing.
+- Webhooks at `POST /webhooks/github`: verify `X-Hub-Signature-256`, store CI conclusions on the task, notify via Telegram, mark the task `completed` when its PR is merged or closed. `OnCIFailed` (and `OnCI`, `OnPRClosed`) drive CI auto-fix.
+
+**CI auto-fix** (`internal/autofix` decides, `internal/cifix` acts; off unless enabled)
+
+- Settings, per project (`projects.ci_autofix`, null fields inherit) over a global default (settings key `ci_autofix`, `GET/PUT /api/v1/settings/ci-autofix`): `enabled` (default false), `max_attempts` (2, at most 5), `checks` (check names; empty = all), `budget_usd` per attempt (default: the project's task budget ÷ 2), `allow_ci_changes` (false).
+- Jungle Monkey records the commit it pushes (`tasks.last_pushed_sha`, the runner's last `committed` sha, written before the push). A failed `check_suite`/`workflow_run` on that commit, for a PR Jungle Monkey opened, while the task is `pr_open` and the loop is not stopped, makes the server list the commit's check runs with the installation token. It acts only when no check is still running; each head commit is handled once (`autofix_handled_sha`).
+- For each failed check in scope it downloads the GitHub Actions job log (pre-signed URL, fetched without the token; other apps' checks give their output text), strips ANSI, keeps the last 400 lines plus error-pattern lines and names the failed steps. The failure signature is a hash of the first failing check's name and its first normalised error lines.
+- Guards in a fixed order: off, not our PR, loop stopped, check not listed, failing commit ≠ last system push (a human push), run active → skip; attempts used up, same signature as the previous attempt, budget → "needs you" with a notification that says why and links the checks' logs.
+- An attempt saves the trimmed logs as a task attachment and queues a `followup` run on the same branch (`runs.autofix_attempt`, `runs.max_budget_usd`) whose prompt names the failing checks, the signature and the attachment and says: fix the cause, keep the change minimal, do not skip, delete or weaken tests, do not edit CI configuration. The runner gets no token.
+- Before an attempt's commits are pushed, the scheduler inspects `git diff origin/<branch>...HEAD`: changes under `.github/workflows/` or other CI config, deleted test files, added skip markers, coverage threshold changes (or a diff too large to read). Unless `allow_ci_changes`, it does not push: the loop is `held`, the task stays `pr_open` with an open question "The fix changes CI or tests. Push anyway?" (`Push anyway` / `Discard`; changes under `.github/` can only be discarded). Discard removes the workspace (the next run re-clones the branch).
+- After the push the loop waits for CI. All checks passing ends it as `green` ("✓ CI green after N fixes"). A fix run with no changes, a run that hits a limit, or a failed run ends it as `needs_you`. New checks on a commit Jungle Monkey did not push, a follow-up message from the owner, or the PR closing cancel it. Every step is an `autofix` timeline event and a Telegram notification.
 
 **Workspace cleanup.** Delete the workspace and the Claude state volume 7 days after the task becomes terminal.
 

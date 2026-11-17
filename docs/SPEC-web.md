@@ -92,9 +92,10 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 
 **3. Task detail**
 
-- Header: title, status badge, project/repo, branch, cost and turns, PR link button when it exists, overflow menu (Cancel, Interrupt, Retry, Copy branch, Open on GitHub).
+- Header: title, status badge, CI stamp (`CI ✓`, `CI ✕`, `CI …`, and with CI auto-fix `CI ✕ · fixing 1/2` or `CI ✕ · needs you`), project/repo, branch, cost and turns, PR link button when it exists, overflow menu (Cancel, Interrupt, Retry, Copy branch, Open on GitHub).
 - Tabs: **Activity** (default), **Diff**, **Info**.
 - Activity is a chat-like timeline built from events: Claude's text as message bubbles (markdown), tool use collapsed into compact rows ("Edit · src/tables/export.ts", expandable to show the summary), status changes as small dividers, commits and PR events as cards, errors in red. Auto-scroll to the newest event unless the user scrolled up; then show a "New activity" pill.
+- **CI auto-fix** steps (`autofix` events): an "Auto-fix attempt n/m" card with the failing checks (links to their logs), the failure signature and the trimmed-log attachment; "pushed", "discarded" and "cancelled" as dividers; a dashed card when the loop needs the owner (with the reason or the guarded changes); "✓ CI green after N fixes" as an olive card. A held fix's question ("The fix changes CI or tests. Push anyway?") is answerable on a `pr_open` task.
 - A **question** renders as a highlighted card: question text, option buttons when `options` exist, and a text field. Answering disables the card and shows "Answered via web/Telegram". Only one open question at a time.
 - Composer at the bottom: sends `POST …/message`. Its placeholder depends on state: "Message Claude…" while running, "Follow-up for a new run…" in `paused`/`pr_open`/`completed`, hidden in states where the backend returns `409`.
 - Running indicator: a subtle animated "Claude is working" line with the latest tool summary.
@@ -103,11 +104,11 @@ Six screens cover everything; the task screen is the heart of the app and gets m
 
 **4. Projects**
 
-- List with repo count and active task count. Detail/edit form: name, instructions (multi-line, appended to Claude's system prompt), services (Postgres, Redis toggles), env (key/value editor, non-secret only), model, limits (turns, budget USD, duration, memory, CPUs), repos (add from `GET /api/v1/github/repositories` picker, base branch, default flag, remove).
+- List with repo count and active task count. Detail/edit form: name, instructions (multi-line, appended to Claude's system prompt), services (Postgres, Redis toggles), env (key/value editor, non-secret only), model, limits (turns, budget USD, duration, memory, CPUs), CI auto-fix overrides (fix failing CI default/on/off, attempts, checks, budget per attempt, push CI and test changes without asking; empty inherits the global default), repos (add from `GET /api/v1/github/repositories` picker, base branch, default flag, remove).
 
 **5. Settings**
 
-- Stats from `GET /api/v1/stats` (running, queued, cost today and this month), theme override in browser mode (system/light/dark), logout (browser mode only), app version and backend health.
+- Stats from `GET /api/v1/stats` (running, queued, cost today and this month), the CI auto-fix default for all projects (`GET/PUT /api/v1/settings/ci-autofix`), theme override in browser mode (system/light/dark), logout (browser mode only), app version and backend health.
 
 **6. System screens**
 
