@@ -634,7 +634,7 @@ No service publishes ports. The reverse proxy (Caddy or Nginx Proxy Manager on t
 **Workflows**
 
 - `ci.yml` on pull requests: `go vet`, `go test ./...` (with a Postgres service), `golangci-lint`, runner `npm ci && npm run typecheck && npm test`.
-- `release.yml` on push to `main`: build and push both images, then SSH to the server (secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`), run `docker pull` for **both** the Fleetpocket and runner images (Fleetpocket starts runners from the local image and does not pull), then `docker compose -f docker-compose.deploy.yml up -d`.
+- `release.yml`, run by hand from `main` (manual only, see DECISIONS): build and push both images, then SSH to the server (secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`), run `docker pull` for **both** the Fleetpocket and runner images (Fleetpocket starts runners from the local image and does not pull), then `docker compose -f docker-compose.deploy.yml up -d`.
 - Migrations run automatically on Fleetpocket startup.
 
 **Observability**

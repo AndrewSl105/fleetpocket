@@ -1,7 +1,7 @@
 {
   "name": "jungle-monkey",
   "version": "0.0.0",
-  "description": "AI coding agents on your computer: npx jungle-monkey",
+  "description": "Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/AndrewSl105/jungle_monkey.git", "directory": "npm/jungle-monkey" },
   "bin": { "jungle-monkey": "bin/jungle-monkey.js" },

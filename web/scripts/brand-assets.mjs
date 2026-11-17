@@ -63,13 +63,14 @@ const ogArt = await sharp(src).resize(630, 630).png().toBuffer()
 const wordmark = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="570" height="630">
   <rect width="570" height="630" fill="${PAPER}"/>
   <rect x="0" y="0" width="3" height="630" fill="${INK}"/>
-  <text x="48" y="230" font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="20" letter-spacing="3" fill="#5E6357">AGENT FIELD UNIT · Nº 01</text>
-  <text x="48" y="310" font-family="IBM Plex Sans, DejaVu Sans, sans-serif" font-weight="700" font-size="64" fill="${INK}">Jungle Monkey</text>
-  <rect x="48" y="340" width="474" height="3" fill="${INK}"/>
-  <text x="48" y="390" font-family="IBM Plex Sans, DejaVu Sans, sans-serif" font-size="24" fill="#3D4238">Send a coding agent into your repo</text>
-  <text x="48" y="424" font-family="IBM Plex Sans, DejaVu Sans, sans-serif" font-size="24" fill="#3D4238">from your phone. Get a PR back.</text>
-  <rect x="48" y="470" width="150" height="40" fill="#F06A1D" stroke="${INK}" stroke-width="3"/>
-  <text x="62" y="497" font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-weight="700" font-size="16" letter-spacing="2" fill="${INK}">● RUNNING</text>
+  <text x="48" y="200" font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="20" letter-spacing="3" fill="#5E6357">AGENT ORCHESTRATOR · Nº 01</text>
+  <text x="48" y="276" font-family="IBM Plex Sans, DejaVu Sans, sans-serif" font-weight="700" font-size="60" fill="${INK}">Jungle Monkey</text>
+  <rect x="48" y="304" width="474" height="3" fill="${INK}"/>
+  <text x="48" y="356" font-family="IBM Plex Sans, DejaVu Sans, sans-serif" font-weight="700" font-size="30" fill="${INK}">Every coding agent.</text>
+  <text x="48" y="396" font-family="IBM Plex Sans, DejaVu Sans, sans-serif" font-weight="700" font-size="30" fill="${INK}">One control room.</text>
+  <text x="48" y="440" font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="18" fill="#3D4238">Claude Code · Codex · Cursor</text>
+  <rect x="48" y="476" width="176" height="40" fill="#F06A1D" stroke="${INK}" stroke-width="3"/>
+  <text x="62" y="503" font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-weight="700" font-size="16" letter-spacing="2" fill="${INK}">● 3 RUNNING</text>
 </svg>`)
 await sharp({ create: { width: 1200, height: 630, channels: 4, background: PAPER } })
   .composite([{ input: ogArt, left: 0, top: 0 }, { input: wordmark, left: 630, top: 0 }])

@@ -315,7 +315,7 @@ fleetpocket-web/
 **Workflows**
 
 - `ci.yml` on pull requests: typecheck, lint, unit tests, check that `src/api/schema.ts` matches the OpenAPI file, build, bundle-size check against section 7.
-- `release.yml` on push to `main`: build and push the image, SSH to the server, `docker compose pull fleetpocket-web && docker compose up -d fleetpocket-web`.
+- `release.yml`, run by hand from `main` (manual only, see DECISIONS): build and push the image, SSH to the server, `docker compose pull fleetpocket-web && docker compose up -d fleetpocket-web`.
 
 **Config.** Build-time variables only: `VITE_APP_VERSION` (git sha) and `VITE_DEBUG`. No API URL is needed in production because everything is same-origin.
 

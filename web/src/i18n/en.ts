@@ -1,6 +1,6 @@
 // All UI strings. Add a uk.ts with the same shape to translate.
 export const en = {
-  app: { name: 'Jungle Monkey', kicker: 'Jungle Monkey · Field log' },
+  app: { name: 'Jungle Monkey', kicker: 'Jungle Monkey · Field log', tagline: 'Self-hosted orchestrator for coding agents: Claude Code, Codex, Cursor' },
   nav: { tasks: 'Tasks', new: 'New', canvas: 'Canvas', projects: 'Projects', skills: 'Skills', schedules: 'Schedules', ideas: 'Ideas', record: 'Record an idea', costs: 'Costs', settings: 'Settings' },
   common: {
     cancel: 'Cancel',
@@ -444,11 +444,11 @@ export const en = {
     secrets_disabled: 'SECRETS_KEY is not set on the server: MCP servers are disabled',
     secrets_unreadable: 'The stored secrets cannot be decrypted (SECRETS_KEY changed); enter them again',
     forbidden: 'Your role does not allow this',
-    secrets_key_missing: 'Team mode needs SECRETS_KEY on the server (rerun deploy/install.sh)',
+    secrets_key_missing: 'Team mode needs SECRETS_KEY on the server',
     not_available_in_local_mode: 'Teams are not available in local mode',
     team_off: 'Team mode is off',
-    invite_gone: 'This invite link is invalid, used, revoked or expired',
-    bad_code: 'That code is not right; check the time on your phone and try again',
+    invite_gone: 'This invite link no longer works',
+    bad_code: 'Wrong code; try again',
   },
 } as const
 

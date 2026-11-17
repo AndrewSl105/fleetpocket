@@ -153,7 +153,8 @@ not built yet (DECISIONS.md). Until then use the server install for phone access
 ## Owner checklist
 
 1. **GitHub Pages**: Settings → Pages → Source: **GitHub Actions**
-   (`.github/workflows/pages.yml` deploys `index.html` and `docs/brand/`).
+   (`.github/workflows/pages.yml` deploys `index.html` and `docs/brand/`;
+   it runs by hand: Actions → pages → Run workflow).
 2. **npm org**: create the npm organization `jungle-monkey` (scope
    `@jungle-monkey`, for the platform packages) and make sure the package
    name `jungle-monkey` is yours.
@@ -168,7 +169,9 @@ not built yet (DECISIONS.md). Until then use the server install for phone access
    `-ldflags "-X github.com/andrewsl105/fleetpocket/server/internal/config.DefaultGitHubClientID=<id>"`;
    `JM_GITHUB_CLIENT_ID` overrides it at run time. Without it, "Sign in with
    GitHub" is hidden and the `gh` and token options remain.
-5. **Release**: push a `vX.Y.Z` tag. `release.yml` builds the binaries for
+5. **Release**: create and push a `vX.Y.Z` tag, then Actions → release →
+   Run workflow, Use workflow from that tag (a tag push alone runs nothing).
+   `release.yml` builds the binaries for
    every target in `npm/platforms.json`, pushes
    `ghcr.io/andrewsl105/fleetpocket-agent:vX.Y.Z`, creates the GitHub Release
    with the binaries and `checksums.txt`, and publishes the platform packages,

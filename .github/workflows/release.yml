@@ -1,21 +1,18 @@
 name: release
 
-# Push to main: build and push only the images whose paths changed, copy the
-# deploy files to the server, pull the changed images (and always the agent
-# image: the server never pulls it) and `docker compose up -d`.
-# Run it by hand (workflow_dispatch) to build and deploy everything, e.g. the
-# first time.
+# Manual only. Run workflow → Use workflow from: main = build + deploy; a vX.Y.Z tag = npm release.
 #
-# Push a version tag (vX.Y.Z): the npm release of `npx jungle-monkey` (jobs
-# jm-*): binaries for every target in npm/platforms.json with the web app
+# From main: build and push every image (the `changes` outputs are true for
+# workflow_dispatch), copy the deploy files to the server, pull the images and
+# `docker compose up -d`.
+# From a version tag (vX.Y.Z): only the npm release of `npx jungle-monkey`
+# (jobs jm-*): binaries for every target in npm/platforms.json with the web app
 # embedded, the agent image tagged with the same version, a GitHub Release
 # with the binaries and checksums.txt, then npm publish (platform packages
-# first, jungle-monkey last). The deploy jobs above do not run for tags.
+# first, jungle-monkey last). The deploy jobs do not run for tags.
+# Nothing runs on push or on tag push.
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*.*.*']
   workflow_dispatch:
 
 permissions:

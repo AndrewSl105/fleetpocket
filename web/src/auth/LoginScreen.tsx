@@ -76,6 +76,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'teleg
               <h1 className="text-[18px] font-bold">{t.auth.title}</h1>
             </div>
           </div>
+          <p className="text-muted-foreground text-[14px]">{t.app.tagline}</p>
           {team && (
             <div className="space-y-1">
               <Label htmlFor="email">{t.auth.email}</Label>
