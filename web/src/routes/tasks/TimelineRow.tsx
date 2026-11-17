@@ -26,6 +26,8 @@ import { useAllowEgress, useTask } from '@/api/hooks'
 import { t } from '@/i18n/en'
 import { c } from '@/i18n/costs'
 import { usd } from '@/lib/format'
+import { cp } from '@/i18n/checkpoints'
+import { CheckpointRow } from './CheckpointRow'
 
 const tl = t.task.timeline
 
@@ -357,9 +359,59 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       return <MCPRow item={item} />
     case 'egress':
       return <EgressRow item={item} taskId={taskId} />
+    case 'checkpoint':
+      return <CheckpointRow item={item} taskId={taskId} />
+    case 'restored':
+      return (
+        <Divider>
+          {cp.restored(item.n, item.mode)}
+          {item.instruction && <span className="block italic">“{item.instruction}”</span>}
+        </Divider>
+      )
+    case 'force_push':
+      return <Divider warn>{cp.forcePushed(item.branch, item.from)}</Divider>
+    case 'abandoned':
+      return <AbandonedRow item={item} taskId={taskId} />
     case 'question':
       return null
   }
+}
+
+/** Steps a restore discarded: collapsed and greyed, never deleted. */
+function AbandonedRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'abandoned' }>; taskId: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border border-dashed border-border opacity-60">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex min-h-11 w-full items-center gap-2 px-3 text-left font-mono text-xs uppercase tracking-wide text-muted-foreground"
+      >
+        <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} aria-hidden="true" />
+        <span className="flex-1 line-through decoration-muted-foreground/50">{cp.abandoned(item.items.length)}</span>
+        <span>{open ? cp.hideAbandoned : cp.showAbandoned}</span>
+      </button>
+      {open && (
+        <div className="space-y-2 px-2 pb-2 grayscale">
+          {item.items.map((child) =>
+            child.kind === 'question' ? (
+              <p key={child.key} className="px-2 text-sm text-muted-foreground">
+                {child.text}
+                {child.answer && <span className="block">→ {child.answer.text}</span>}
+              </p>
+            ) : child.kind === 'checkpoint' ? (
+              <p key={child.key} className="px-2 font-mono text-xs uppercase text-muted-foreground">
+                {cp.marker(child.n, child.reason, child.files)}
+              </p>
+            ) : (
+              <TimelineRowImpl key={child.key} item={child} taskId={taskId} />
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export const TimelineRow = memo(TimelineRowImpl)

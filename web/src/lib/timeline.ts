@@ -36,6 +36,14 @@ export type TimelineItem =
   | { kind: 'mcp'; key: string; server: string; tool: string; ok: boolean; ms: number; denied?: 'denied' | 'limit'; error?: string; at: string }
   /** The egress proxy refused a host (allowlist mode). */
   | { kind: 'egress'; key: string; host: string; at: string }
+  /** A checkpoint the task can be restored to (docs/API.md "Checkpoints"). */
+  | { kind: 'checkpoint'; key: string; eventId: number; n: number; reason: string; files: number; at: string }
+  /** The owner restored a checkpoint. */
+  | { kind: 'restored'; key: string; n: number; mode: string; instruction: string; at: string }
+  /** A push after a restore rewrote the branch. */
+  | { kind: 'force_push'; key: string; branch: string; from: string; at: string }
+  /** Steps a restore discarded: kept, shown collapsed and greyed. */
+  | { kind: 'abandoned'; key: string; items: TimelineItem[]; at: string }
   /** One CI auto-fix step (docs/API.md "CI auto-fix"). */
   | {
       kind: 'autofix'
@@ -251,11 +259,62 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
       case 'diff_rejected':
         items.push({ kind: 'error', key, title: 'diff_rejected', message: e.payload.reason, at })
         break
+      case 'checkpoint': {
+        const c = e.payload
+        items.push({ kind: 'checkpoint', key, eventId: e.id, n: c.n, reason: c.reason ?? 'turn', files: c.files_changed, at })
+        break
+      }
+      case 'checkpoint_restored': {
+        const r = e.payload
+        items.push({ kind: 'restored', key, n: r.n, mode: r.mode, instruction: r.instruction, at })
+        break
+      }
+      case 'branch_force_pushed':
+        items.push({ kind: 'force_push', key, branch: e.payload.branch, from: e.payload.from, at })
+        break
       default:
         // ready, started, heartbeat and unknown types are not shown.
         break
     }
   }
 
-  return items
+  return groupAbandoned(items, abandonedRanges(all))
+}
+
+/**
+ * Event id ranges a restore discarded: after the restored checkpoint's
+ * event, before the checkpoint_restored event (both exclusive).
+ */
+export function abandonedRanges(events: ApiEvent[]): Array<[number, number]> {
+  const out: Array<[number, number]> = []
+  for (const e of events) {
+    if (e.type === 'checkpoint_restored' && e.payload.checkpoint_event_id != null && e.id > 0) {
+      out.push([e.payload.checkpoint_event_id, e.id])
+    }
+  }
+  return out
+}
+
+/** Folds each run of consecutive discarded items into one `abandoned` item. */
+export function groupAbandoned(items: TimelineItem[], ranges: Array<[number, number]>): TimelineItem[] {
+  if (ranges.length === 0) return items
+  const discarded = (key: string) => {
+    const id = Number(key)
+    return Number.isInteger(id) && id > 0 && ranges.some(([from, to]) => id > from && id < to)
+  }
+  const out: TimelineItem[] = []
+  let group: Extract<TimelineItem, { kind: 'abandoned' }> | null = null
+  for (const item of items) {
+    if (!discarded(item.key)) {
+      group = null
+      out.push(item)
+      continue
+    }
+    if (!group) {
+      group = { kind: 'abandoned', key: `abandoned-${item.key}`, items: [], at: item.at }
+      out.push(group)
+    }
+    group.items.push(item)
+  }
+  return out
 }

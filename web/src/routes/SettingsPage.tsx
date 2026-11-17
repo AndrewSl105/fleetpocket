@@ -11,6 +11,7 @@ import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
 import { ComputersSection } from './settings/ComputersSection'
 import { AutoFixSection } from './settings/AutoFixSection'
+import { CheckpointsSection } from './settings/CheckpointsSection'
 import { GlobalServersSection } from './integrations/GlobalServersSection'
 import { CostSettingsSection } from './settings/CostSettingsSection'
 import { Link } from 'react-router'
@@ -100,6 +101,8 @@ export default function SettingsPage() {
         <ComputersSection />
 
         <AutoFixSection />
+
+        <CheckpointsSection />
         <CostSettingsSection />
         <GlobalServersSection />
 

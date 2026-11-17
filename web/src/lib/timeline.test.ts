@@ -180,3 +180,32 @@ describe('integrations events', () => {
     expect(items[3]).toMatchObject({ tone: 'muted' })
   })
 })
+
+describe('checkpoints', () => {
+  it('shows checkpoints and folds what a restore discarded into an abandoned branch', () => {
+    const items = buildTimeline([
+      ev('tool_use', { tool: 'Edit', summary: 'Edit a.sql' }, { id: 10 }),
+      ev('checkpoint', { n: 1, ref_sha: 'x', turn: 1, session_ref: 's/u', files_changed: 1, reason: 'turn' }, { id: 11 }),
+      ev('tool_use', { tool: 'Write', summary: 'Write b.ts' }, { id: 12 }),
+      ev('checkpoint', { n: 2, ref_sha: 'y', turn: 2, session_ref: 's/v', files_changed: 1, reason: 'turn' }, { id: 13 }),
+      ev('committed', { sha: 'abc', files_changed: 2, insertions: 3, deletions: 0 }, { id: 14 }),
+      ev('checkpoint_restored', { checkpoint_id: 4, checkpoint_event_id: 11, n: 1, run_id: 3, restore_run_id: 4, ref_sha: 'x', mode: 'fork', instruction: 'use a migration', via: 'web' }, { id: 15, runner: false }),
+      ev('run_started', { run_id: 4, kind: 'restore' }, { id: 16, runner: false }),
+      ev('branch_force_pushed', { branch: 'agent/1-x', from: 'abc', reason: 'restore', number: 5 }, { id: 17, runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['tool', 'checkpoint', 'abandoned', 'restored', 'divider', 'force_push'])
+    const cp = items[1] as Extract<(typeof items)[number], { kind: 'checkpoint' }>
+    expect(cp).toMatchObject({ eventId: 11, n: 1, files: 1, reason: 'turn' })
+    const group = items[2] as Extract<(typeof items)[number], { kind: 'abandoned' }>
+    expect(group.items.map((i) => i.key)).toEqual(['12', '13', '14'])
+    expect(items[3]).toMatchObject({ kind: 'restored', n: 1, mode: 'fork', instruction: 'use a migration' })
+  })
+
+  it('leaves the timeline alone without a restore', () => {
+    const items = buildTimeline([
+      ev('checkpoint', { n: 1, ref_sha: 'x', turn: 1, session_ref: '', files_changed: 0, reason: 'question' }, { id: 30 }),
+      ev('tool_use', { tool: 'Edit', summary: 'Edit a' }, { id: 31 }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['checkpoint', 'tool'])
+  })
+})

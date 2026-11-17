@@ -5,6 +5,7 @@ import { addAttachment, addEvent, db, makeTask, MOCK_AGENTS, node, startRun, tas
 import { emitStatus, interruptRun, resumeAfterAnswer, setPush } from './simulator'
 import { integrationHandlers } from './integrations'
 import { costHandlers, monthCost, monthUnknown } from './costs'
+import { checkpointHandlers } from './checkpoints'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -139,6 +140,7 @@ function pushTask(task: Task) {
 export const handlers = [
   ...integrationHandlers(API, guard, err),
   ...costHandlers(API, guard, err),
+  ...checkpointHandlers(API, guard, err, pushEvent),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')
