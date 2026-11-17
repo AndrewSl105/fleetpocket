@@ -1,0 +1,31 @@
+# Link check for README.md, index.html and docs/**/*.md (ci.yml, job "links").
+include_fragments = "anchor-only"
+max_retries = 3
+retry_wait_time = 5
+timeout = 30
+accept = ["200..=299", "429"]
+exclude_loopback = true
+exclude_private = true
+
+exclude = [
+  # npmjs.com answers bots with 403; the jungle-monkey package is not published yet.
+  '^https://(www\.)?npmjs\.com/',
+  # GitHub Pages is not enabled until pages.yml has run once.
+  '^https://andrewsl105\.github\.io/jungle_monkey',
+  # The installer lives on main; a branch that changes it would check the old copy.
+  '^https://raw\.githubusercontent\.com/AndrewSl105/jungle_monkey/',
+  # Placeholders, local and in-container hosts.
+  '^https?://([a-z0-9-]+\.)*example\.(com|org|net)',
+  '^https?://host\.docker\.internal',
+  '^https?://localhost',
+  '^https?://127\.0\.0\.1',
+  '^https?://0\.0\.0\.0',
+  # Auth-gated pages.
+  '^https://github\.com/settings/',
+  '^https://github\.com/organizations/',
+  '^https://github\.com/apps/[^/]+/installations/new',
+  '^https://my\.telegram\.org',
+  '^https://console\.anthropic\.com',
+  '^https://platform\.openai\.com',
+  '^https://cursor\.com/dashboard',
+]
