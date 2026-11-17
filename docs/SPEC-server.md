@@ -364,6 +364,8 @@ CREATE TABLE auth_sessions (
 );
 ```
 
+Skill library and diagram outputs (migration `00011_skills_artifacts.sql`): `skills (id, slug unique, name, description, body, files jsonb, enabled_by_default, created_at, updated_at)`, `project_skills (project_id, skill_id)`, `tasks.skills` (slugs the last run used) with the per-task overrides `tasks.skills_add`/`tasks.skills_remove`, `tasks.output` (`pr` default | `artifacts` | `pr_and_artifacts`), `projects.default_output` (nullable → `pr`) and `task_artifacts (id, task_id, run_id, path, kind, title, summary, confidence, sources jsonb, content, sha256, version, created_at)`, unique per `(task_id, path, version)`. The scheduler resolves a run's skills as project skills + `enabled_by_default` skills + task additions − task removals and sends them in the run command (PROTOCOL.md). Diagram collection is not live yet (DECISIONS.md, Server).
+
 Backend-generated events (status changes, PR opened, CI result) go into `events` with `seq` NULL, so the web client reads one timeline per task. A first answer wins: answering an already answered question returns `409`.
 
 ## 7. REST API, WebSocket and auth

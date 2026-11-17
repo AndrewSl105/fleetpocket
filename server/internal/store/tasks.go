@@ -44,6 +44,14 @@ type Task struct {
 	// input of the next run when the current one ends.
 	QueuedMessage *string `json:"queued_message"`
 
+	// Output is "pr" (default), "artifacts" or "pr_and_artifacts".
+	Output string `json:"output"`
+	// Skills is the resolved list the last run used; SkillsAdd/SkillsRemove
+	// are the task's changes to the project's skills.
+	Skills       []string `json:"skills"`
+	SkillsAdd    []string `json:"skills_add"`
+	SkillsRemove []string `json:"skills_remove"`
+
 	// StatusEvents are the timeline events written by the status change that
 	// returned this task, oldest first (empty otherwise); publishers send them along.
 	StatusEvents []*Event `json:"-"`
@@ -51,13 +59,14 @@ type Task struct {
 
 const taskCols = `id, project_id, repository_id, title, prompt, status, status_reason, branch, session_id,
 	pr_number, pr_url, ci_status, cost_usd_total::float8, turns, source, created_at, updated_at, finished_at, paused_at, cleaned_at,
-	last_activity, last_activity_at, queued_message, agent, node`
+	last_activity, last_activity_at, queued_message, agent, node, output, skills, skills_add, skills_remove`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	err := row.Scan(&t.ID, &t.ProjectID, &t.RepositoryID, &t.Title, &t.Prompt, &t.Status, &t.StatusReason, &t.Branch,
 		&t.SessionID, &t.PRNumber, &t.PRURL, &t.CIStatus, &t.CostUSDTotal, &t.Turns, &t.Source, &t.CreatedAt, &t.UpdatedAt,
-		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node)
+		&t.FinishedAt, &t.PausedAt, &t.CleanedAt, &t.LastActivity, &t.LastActivityAt, &t.QueuedMessage, &t.Agent, &t.Node,
+		&t.Output, &t.Skills, &t.SkillsAdd, &t.SkillsRemove)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +80,10 @@ func (s *Store) CreateTask(ctx context.Context, t Task, up *Upload) (*Task, erro
 	err := s.Tx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = scanTask(tx.QueryRow(ctx, `INSERT INTO tasks (project_id, repository_id, title, prompt, status, source,
-				last_activity, last_activity_at, agent, node)
-			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7) RETURNING `+taskCols,
-			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node))
+				last_activity, last_activity_at, agent, node, output, skills_add, skills_remove)
+			VALUES ($1, $2, $3, $4, 'queued', $5, 'queued', now(), coalesce(nullif($6, ''), 'claude'), $7,
+				coalesce(nullif($8, ''), 'pr'), coalesce($9::text[], '{}'), coalesce($10::text[], '{}')) RETURNING `+taskCols,
+			t.ProjectID, t.RepositoryID, t.Title, t.Prompt, t.Source, t.Agent, t.Node, t.Output, t.SkillsAdd, t.SkillsRemove))
 		if err != nil {
 			return err
 		}

@@ -139,7 +139,12 @@ Deviations from the specs (`docs/SPEC-server.md` for server and agent, `docs/SPE
   - Diff guard flags `.github/workflows/**`, `.circleci/**`, well-known CI/lint/coverage config files, deleted test files, added `t.Skip`/`it.skip`/`xit`/pytest skip markers, and added lines mentioning coverage thresholds; false positives only cost an owner tap.
   - Local mode has no CI polling yet (see the local-mode "Not in this iteration" note), so there is nothing to route through `OnCIFailed` there; when polling lands it must call the same hook.
 
+- **Skill library (2026-11-17).** Seeded skills are written once, guarded by a `skills_seeded` row in `settings`, so deleting one sticks across restarts. `enabled_by_default` skills join every project's defaults (the brief named the flag but not its effect). `PATCH /projects` ignores unknown skill slugs instead of failing, like a deleted skill silently leaving a project. The skill secrets scan runs `gitleaks dir` on a temporary copy of the files, the same binary and `SECRETS_SCAN` switch the publisher uses (the publisher scans commits, skills are not in git). Skill updates are `PUT` (whole skill, validated together) rather than `PATCH`.
+- **Diagrams output: gated (2026-11-17).** The `tasks.output`/`projects.default_output` columns, `task_artifacts` table, the run command's `output`, the system-prompt output contract and the runner's artifacts-only policy landed, but `hosts.Host.CollectOutputs`, manifest parsing, the `afterRun` branches, save-to-repo and the web Diagrams tab did not. Until they do, the API refuses outputs other than `pr` (`tasks.ArtifactsEnabled`): without the server side an `artifacts` task on Codex/Cursor would still push and open a PR, which breaks "artifacts never push".
+
 ## Agent
+- **Skills delivery.** Claude: `.claude/skills/<slug>/` (the SDK 0.3.299 loads project skills through `settingSources: ["project"]`; the `skills` option is left unset, which keeps the CLI default of all discovered skills). Cursor: `.cursor/skills/<slug>/` (`@cursor/sdk` 1.0.40 discovers `.cursor/skills` with `settingSources: ["project"]`, not `.claude/skills`). Codex: `@openai/codex-sdk` 0.164.0 has no skills input, so each skill's name, description and body are appended to `developer_instructions`. Written folders are added to `.git/info/exclude` as `/<dir>/<slug>/`; a folder the repository already has wins and the skip is noted with an `assistant_text` event (no new event type).
+- **Artifacts mode in the runner.** Only Write/Edit/MultiEdit/NotebookEdit are restricted to `.fleetpocket/out/`; Bash writes are not parsed for it (the server discards repository changes anyway, as for Codex/Cursor). The final commit is skipped, so `done.no_changes` is `true`.
 
 - Runner `seq` continues across runs of a task (read from `.fleetpocket/events.jsonl`), so replay is a simple `seq > last persisted` filter per task.
 - On exit 4 (limit exceeded) the runner commits work in progress before exiting, so a follow-up run continues from it instead of losing it.
@@ -242,7 +247,7 @@ One line each. "Backend ask" marks something Fleetpocket should add.
 - The task list summary strip keeps the real server-side groups (Active / PR open / Done / Failed, `?group=`) instead of the brief's ALL / ACTIVE / ASKING / DONE: there is no "all" or "asking" group in the API, and waiting tasks are already pinned first with a dashed border. Counts per cell are not shown because the list endpoint returns no per-group totals.
 - Mobile bottom bar has three tabs (Tasks / Projects / Settings); New moved to the task list header (and the top of the desktop rail). Task numbers are the zero-padded task id (`0142`).
 - Kept `--olive-text` (#3f5a2e light / #9fc27f dark) next to the brief's palette: olive `#3F5A2E` as text on the dark ground is below 4.5:1.
-- Prompt library and Skill library (brief sections 5 and 6) are not implemented in this change; the landing and README do not mention them until they ship.
+- Prompt library (brief section 5) is not implemented; the landing and README do not mention it until it ships. Skill library: the server, API and runner parts landed (see Server and Agent); its web screens (Skills route, project toggles, composer chips, Info tab list) are not built yet, so the landing and README do not mention it yet either.
 
 
 ### Integration with the real backend

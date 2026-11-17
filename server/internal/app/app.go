@@ -28,6 +28,7 @@ import (
 	"github.com/andrewsl105/fleetpocket/server/internal/runnermgr"
 	"github.com/andrewsl105/fleetpocket/server/internal/scheduler"
 	"github.com/andrewsl105/fleetpocket/server/internal/setup"
+	"github.com/andrewsl105/fleetpocket/server/internal/skills"
 	"github.com/andrewsl105/fleetpocket/server/internal/store"
 	"github.com/andrewsl105/fleetpocket/server/internal/tasks"
 	"github.com/andrewsl105/fleetpocket/server/internal/telegram"
@@ -59,6 +60,9 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 	defer st.Close()
 	if err := st.Migrate(ctx); err != nil {
 		return err
+	}
+	if err := st.SeedSkills(ctx, seedSkills()); err != nil {
+		return fmt.Errorf("seed skills: %w", err)
 	}
 
 	settings, err := st.Settings(ctx)
@@ -145,13 +149,18 @@ func Serve(ctx context.Context, cancel context.CancelFunc, cfg *config.Config, o
 		slog.Warn("GitHub App not configured: commits stay in local workspaces")
 	}
 
+	var skillScan skills.SecretsScanner
+	if cfg.SecretsScan == "gitleaks" {
+		skillScan = skills.Gitleaks("gitleaks")
+	}
 	srv := &api.Server{
-		Webhook:  webhook,
-		Metrics:  met.Handler(),
-		Cfg:      cfg,
-		Store:    st,
-		Tasks:    taskSvc,
-		Projects: &projects.Service{Store: st},
+		SkillScanner: skillScan,
+		Webhook:      webhook,
+		Metrics:      met.Handler(),
+		Cfg:          cfg,
+		Store:        st,
+		Tasks:        taskSvc,
+		Projects:     &projects.Service{Store: st},
 		Auth: &auth.Manager{
 			Store: st, PasswordHash: owner.PasswordHash, TOTPSecret: owner.TOTPSecret,
 			SessionSecret: []byte(cfg.SessionSecret), CookieInsecure: cfg.CookieInsecure,
@@ -274,4 +283,18 @@ func taskURL(cfg *config.Config) func(int64) string {
 		}
 		return fmt.Sprintf("%s/tasks/%d", base, id)
 	}
+}
+
+// seedSkills converts the embedded diagram skills for the first-run seed.
+func seedSkills() []store.Skill {
+	var out []store.Skill
+	for _, sk := range skills.Seed() {
+		name, desc, _ := skills.Frontmatter(sk.Body)
+		files := []store.SkillFile{}
+		for _, f := range sk.Files {
+			files = append(files, store.SkillFile{Path: f.Path, Content: f.Content})
+		}
+		out = append(out, store.Skill{Slug: sk.Slug, Name: name, Description: desc, Body: sk.Body, Files: files})
+	}
+	return out
 }

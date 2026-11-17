@@ -16,7 +16,12 @@ const PROC_ENVIRON = /\/proc\/[^\s/'"]+\/environ\b/;
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const READ_TOOLS = new Set(["Read", "Grep", "Glob", "NotebookRead"]);
 
-export function checkTool(toolName: string, input: unknown, workspace: string): PolicyDecision {
+export interface PolicyOptions {
+  // Artifacts mode: file tools may only write under .fleetpocket/out/.
+  artifactsOnly?: boolean;
+}
+
+export function checkTool(toolName: string, input: unknown, workspace: string, opts: PolicyOptions = {}): PolicyDecision {
   const inp = (input ?? {}) as Record<string, unknown>;
   if (toolName === "Bash") return checkBash(String(inp.command ?? ""));
   if (toolName === "WebFetch" && CLAUDE_SHARE.test(String(inp.url ?? ""))) return deny(claudeShareReason);
@@ -29,6 +34,7 @@ export function checkTool(toolName: string, input: unknown, workspace: string): 
     for (const p of paths) {
       if (isUnderGithubDir(p, workspace)) return deny(githubReason(p));
       if (isUnderAttachments(p, workspace)) return deny(attachmentsReason(p));
+      if (opts.artifactsOnly && !isUnderOut(p, workspace)) return deny(artifactsReason(p));
     }
   }
   if (WRITE_TOOLS.has(toolName) || READ_TOOLS.has(toolName)) {
@@ -50,6 +56,19 @@ const claudeShareReason =
 const environReason = "Reading process environments (/proc/*/environ) is not allowed in this sandbox.";
 const githubReason = (p: string) =>
   `Changes under .github/ are not allowed (${p}). CI configuration is managed by the repository owner; describe the change you would make in your summary instead.`;
+
+// In artifacts mode the deliverables are files under .fleetpocket/out/; the
+// repository stays untouched (the server discards any change anyway).
+export const OUT_DIR = ".fleetpocket/out";
+const artifactsReason = (p: string) =>
+  `This task produces diagrams, not code changes: write deliverables only under ${OUT_DIR}/ (${p} is outside it). Do not modify repository files.`;
+
+export function isUnderOut(p: string, workspace: string): boolean {
+  const unquoted = p.replace(/^['"]|['"]$/g, "");
+  const abs = isAbsolute(unquoted) ? normalize(unquoted) : resolve(workspace, unquoted);
+  const out = resolve(workspace, OUT_DIR);
+  return abs.startsWith(out + "/");
+}
 
 // Attached images are mounted read-only at /attachments; reading them is
 // allowed, changing them is not (the mount enforces it, this explains it).

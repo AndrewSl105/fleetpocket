@@ -2,6 +2,7 @@ import { Control } from "./control.ts";
 import { Emitter } from "./emitter.ts";
 import { fakeSession } from "./fake.ts";
 import { commitAll } from "./git.ts";
+import { writeSkills } from "./skills.ts";
 import { ExitCode, RUNNER_VERSION, type AgentKind, type RunCommand } from "./protocol.ts";
 import type { Session, SessionOutcome } from "./session.ts";
 
@@ -47,6 +48,18 @@ async function main(): Promise<number> {
       return ExitCode.Error;
     }
 
+    if (cmd.skills.length > 0) {
+      try {
+        const { skipped } = writeSkills(workspace, cmd.agent, cmd.skills);
+        for (const slug of skipped) {
+          emitter.emit({ type: "assistant_text", text: `Skill "${slug}" skipped: the repository has its own copy, which wins.` });
+        }
+      } catch (err) {
+        emitter.emit({ type: "error", code: "skills_failed", message: errMessage(err) });
+        return ExitCode.Error;
+      }
+    }
+
     let durationHit = false;
     const durationTimer = setTimeout(() => {
       durationHit = true;
@@ -75,9 +88,10 @@ function finish(cmd: RunCommand, outcome: SessionOutcome, workspace: string, emi
   switch (outcome.kind) {
     case "done":
     case "limit": {
-      let committed;
+      let committed = null;
       try {
-        committed = commitAll(workspace, cmd.commit.message, cmd.commit.author_name, cmd.commit.author_email);
+        // Artifacts mode delivers .fleetpocket/out/ only; the repository is never committed.
+        if (cmd.output !== "artifacts") committed = commitAll(workspace, cmd.commit.message, cmd.commit.author_name, cmd.commit.author_email);
       } catch (err) {
         emitter.emit({ type: "error", code: "commit_failed", message: errMessage(err), session_id: outcome.session_id });
         return ExitCode.Error;
