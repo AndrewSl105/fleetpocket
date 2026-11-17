@@ -4,25 +4,25 @@ import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-[3px] text-sm whitespace-nowrap outline-none focus-visible:outline-1 focus-visible:outline-offset-[-4px] focus-visible:outline-dotted focus-visible:outline-foreground disabled:pointer-events-none disabled:text-muted-foreground disabled:opacity-60 aria-invalid:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:pointer-events-none disabled:text-muted-foreground disabled:opacity-60 aria-invalid:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "win-default font-bold text-foreground active:win-pressed",
+          "fm-btn-primary",
         destructive:
-          "win-raised font-bold text-destructive active:win-pressed",
-        outline: "win-raised text-foreground active:win-pressed",
-        secondary: "win-raised text-foreground active:win-pressed",
-        ghost: "text-foreground hover:win-raised active:win-pressed",
+          "fm-btn text-destructive border-destructive",
+        outline: "fm-btn text-foreground active:fm-pressed",
+        secondary: "fm-btn text-foreground active:fm-pressed",
+        ghost: "text-foreground hover:bg-grid",
         link: "text-link underline underline-offset-2",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        default: "h-11 px-4 py-2 has-[>svg]:px-3",
         xs: "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        icon: "size-11",
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
         "icon-lg": "size-10",

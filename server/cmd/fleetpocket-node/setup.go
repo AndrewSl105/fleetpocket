@@ -40,18 +40,18 @@ const keychainService = "fleetpocket-node"
 // running at login: Docker, agent keys (Keychain), pairing, the agent image.
 func setup(args []string) error {
 	fs := flag.NewFlagSet("setup", flag.ExitOnError)
-	server := fs.String("server", os.Getenv("FLEETPOCKET_SERVER"), "Fleetpocket server URL")
+	server := fs.String("server", os.Getenv("FLEETPOCKET_SERVER"), "Jungle Monkey server URL")
 	_ = fs.Parse(args)
 	srv := strings.TrimRight(*server, "/")
 	if srv == "" {
-		return errors.New("set --server (the address of your Fleetpocket)")
+		return errors.New("set --server (the address of your Jungle Monkey)")
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	in := bufio.NewReader(os.Stdin)
 	ui := &ui{in: in}
 
-	ui.title("Fleetpocket: add this computer to " + srv)
+	ui.title("Jungle Monkey: add this computer to " + srv)
 	if runtime.GOOS != "darwin" {
 		ui.note("This setup is made for macOS; on Linux it pairs the computer and prints how to run the node.")
 	}
@@ -78,7 +78,7 @@ func setup(args []string) error {
 	}
 
 	// 3. Pairing
-	ui.step("Connect to your Fleetpocket")
+	ui.step("Connect to your Jungle Monkey")
 	res, err := pair(ctx, ui, srv, agents)
 	if err != nil {
 		return err
@@ -360,7 +360,7 @@ func pair(ctx context.Context, u *ui, srv string, agents []string) (*pairResult,
 	defer stopLocal()
 
 	fmt.Printf("\n    Pairing code:  \033[1m%s\033[0m\n\n", start.Code)
-	u.note("In Fleetpocket open Settings → Computers: on this computer it offers \"Connect " + host + "\" (one click);")
+	u.note("In Jungle Monkey open Settings → Computers: on this computer it offers \"Connect " + host + "\" (one click);")
 	u.note("on another device, enter the code there. Opening it in your browser…")
 	if runtime.GOOS == "darwin" && start.ApproveURL != "" {
 		_ = exec.Command("open", start.ApproveURL).Start()
@@ -423,7 +423,7 @@ func apiCall(ctx context.Context, method, u string, body []byte, out any) error 
 }
 
 // serveLocalPairing answers GET http://127.0.0.1:47641/pairing with the code,
-// readable only by pages of the Fleetpocket origin, so the app open on this
+// readable only by pages of the Jungle Monkey origin, so the app open on this
 // computer can connect it with one click. Returns a stop function.
 func serveLocalPairing(srv, code, host string) func() {
 	origin := srv

@@ -19,6 +19,7 @@ import { can } from '@/lib/status'
 import { usd } from '@/lib/format'
 import { useRuntime } from '@/telegram/runtime'
 import { t } from '@/i18n/en'
+import { taskNumber } from './TaskCard'
 
 export function githubUrl(task: TaskView): string | null {
   if (task.pr_url) return task.pr_url
@@ -34,7 +35,7 @@ function HostWaiting({ task }: { task: TaskView }) {
   const h = hostInfo(task.node, nodes.data)
   if (h.online || ['completed', 'failed', 'cancelled'].includes(task.status)) return null
   return (
-    <p className="mt-2 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-800 dark:text-amber-300">{t.hosts.waitingFor(h.name)}</p>
+    <p className="mt-2 bg-grid px-2.5 py-1.5 text-xs text-signal-text">{t.hosts.waitingFor(h.name)}</p>
   )
 }
 
@@ -75,6 +76,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
           </Button>
         )}
         <div className="min-w-0 flex-1 pt-1.5">
+          <p className="fm-label text-muted-foreground">{t.task.number(taskNumber(task.id))}</p>
           <h1 className="text-lg leading-snug font-bold break-words">{task.title}</h1>
         </div>
         <DropdownMenu>
@@ -137,7 +139,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
             href={task.pr_url}
             target="_blank"
             rel="noreferrer"
-            className="win-raised inline-flex h-7 items-center gap-1 px-2.5 text-link underline active:win-pressed"
+            className="fm-btn inline-flex h-7 items-center gap-1 px-2.5 text-link underline active:fm-pressed"
           >
             <GitPullRequest className="size-3.5" aria-hidden="true" />
             {t.task.actions.openPr(task.pr_number)}
@@ -148,7 +150,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
             type="button"
             onClick={merge}
             disabled={action.isPending}
-            className="win-default inline-flex h-7 items-center gap-1 px-2.5 font-bold text-foreground active:win-pressed disabled:text-muted-foreground"
+            className="fm-btn-primary inline-flex h-7 items-center gap-1 px-2.5 font-semibold disabled:opacity-60"
           >
             <GitMerge className="size-3.5" aria-hidden="true" />
             {t.task.actions.merge}
@@ -158,7 +160,7 @@ export function TaskHeader({ task, stopping }: { task: TaskView; stopping: boole
       {task.branch && <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">{task.branch}</p>}
       <HostWaiting task={task} />
       {task.status_reason && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'paused') && (
-        <div className="mt-2 flex items-start gap-1 rounded-md bg-red-500/10 py-1.5 pr-1 pl-2.5 text-xs text-red-700 dark:text-red-300">
+        <div className="mt-2 flex items-start gap-1 bg-grid py-1.5 pr-1 pl-2.5 text-xs text-danger">
           <p className="min-w-0 flex-1 py-1 break-words">{task.status_reason}</p>
           <CopyButton text={task.status_reason} label={t.task.copyError} className="-my-0.5" />
         </div>

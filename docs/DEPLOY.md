@@ -1,6 +1,6 @@
 # Deployment
 
-How to run Fleetpocket on one server, and how CI/CD builds and deploys it. Back to the [README](../README.md); day-to-day operations are in [OPERATIONS.md](OPERATIONS.md).
+How to run Jungle Monkey on one server, and how CI/CD builds and deploys it. Back to the [README](../README.md); day-to-day operations are in [OPERATIONS.md](OPERATIONS.md).
 
 One server, one domain. `/srv/fleetpocket/docker-compose.deploy.yml` runs `caddy` (TLS, the only service with ports), `web` (nginx with the client), `server`, `postgres` and `docker-proxy`. Caddy serves `https://<domain>`: `/api/*` (including the WebSocket `/api/v1/ws`), `/webhooks/*` and `/healthz` go to `server:8080`, everything else to `web:80`; `/metrics` answers 404 from outside. Agent containers are started by the server, each in its own task network.
 
@@ -103,7 +103,7 @@ On GitHub: **Settings → Developer settings → GitHub Apps → New GitHub App*
 - **Subscribe to events**: Pull request, Check suite, Workflow run.
 - **Where can this App be installed**: Only on this account.
 
-After creating it, note the **App ID** (`GITHUB_APP_ID`), generate a **private key**, and save it as `/srv/fleetpocket/secrets/github-app.pem` (`sudo chown 1000:1000` and `chmod 600`). Then **Install App** on the repositories Fleetpocket may work on; the web app's "add repository" picker lists them.
+After creating it, note the **App ID** (`GITHUB_APP_ID`), generate a **private key**, and save it as `/srv/fleetpocket/secrets/github-app.pem` (`sudo chown 1000:1000` and `chmod 600`). Then **Install App** on the repositories Jungle Monkey may work on; the web app's "add repository" picker lists them.
 
 ## 6. Telegram bot and Mini App
 
@@ -115,7 +115,7 @@ The bot uses long polling; no Telegram webhook or domain setting is needed. For 
 
 Voice messages are disabled by default. Set `STT_PROVIDER=openai` and `OPENAI_API_KEY` to use the file transcription API. The transcript is shown before task creation and echoed when voice is sent as a task reply. The OpenAI adapter uses `gpt-transcribe` and accepts Ukrainian and English without forcing a language.
 
-For a local sidecar, run the `whisper-server` binary from whisper.cpp with `--host 0.0.0.0 --convert --language auto`, keep it on a Docker network reachable only by the server, then set `STT_PROVIDER=whispercpp` and `WHISPERCPP_URL=http://whispercpp:8080`. Fleetpocket posts multipart audio to its `/inference` endpoint; `--convert` is required for Telegram's OGG and other non-WAV audio.
+For a local sidecar, run the `whisper-server` binary from whisper.cpp with `--host 0.0.0.0 --convert --language auto`, keep it on a Docker network reachable only by the server, then set `STT_PROVIDER=whispercpp` and `WHISPERCPP_URL=http://whispercpp:8080`. Jungle Monkey posts multipart audio to its `/inference` endpoint; `--convert` is required for Telegram's OGG and other non-WAV audio.
 
 ## 7. GitHub secrets
 

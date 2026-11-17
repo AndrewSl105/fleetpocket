@@ -3,170 +3,80 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Windows XP (Luna) look. Light is the classic blue Luna scheme on a beige
-   window face; dark is a dimmed variant with the same geometry. The --win-*
-   colours drive the win-* utilities below. The palette applies in both run
-   modes: in Telegram mode src/telegram/theme.ts only switches light/dark. */
+/* Field Manual: an expedition logbook. Ink on paper, square corners, ruled
+   rows, rubber-stamp statuses and one orange signal colour (docs/SPEC-web.md §7).
+   Light is "paper", dark is "Night shift". The shadcn tokens below are mapped
+   onto the brand tokens so the ui/* components pick them up unchanged. */
 :root {
-  --radius: 3px;
-  --background: #ece9d8;
-  --foreground: #000000;
-  --card: #ece9d8;
-  --card-foreground: #000000;
-  --popover: #ffffff;
-  --popover-foreground: #000000;
-  --primary: #0054e3;
-  --primary-foreground: #ffffff;
-  --secondary: #ece9d8;
-  --secondary-foreground: #000000;
-  --muted: #f4f3ee;
-  --muted-foreground: #5f5d52;
-  --accent: #dde7f7;
-  --accent-foreground: #000000;
-  --destructive: #c1272d;
-  --border: #aca899;
-  --input: #7f9db9;
-  --ring: #000000;
-  --link: #0066cc;
-  --surface: #ece9d8;
-  --field: #ffffff;
-  --desktop: #3a6ea5;
-  --win-hi: #ffffff;
-  --win-light: #f1efe2;
-  --win-shadow: #aca899;
-  --win-dark: #716f64;
-  /* Window frame and title bar. */
-  --win-frame: #0054e3;
-  --win-frame-edge: #00138c;
-  --win-title-from: #0058ee;
-  --win-title-1: #0997ff;
-  --win-title-2: #0053ee;
-  --win-title-3: #0066ff;
-  --win-title-4: #003dd7;
-  --win-title-fg: #ffffff;
-  --win-title-shadow: #0f1089;
-  --win-title-inactive-1: #a6b8f0;
-  --win-title-inactive-2: #7b98e5;
-  --win-title-inactive-3: #6a88dc;
-  --win-title-inactive-fg: #d8e4f8;
-  /* Push buttons. */
-  --win-btn-border: #003c74;
-  --win-btn-from: #ffffff;
-  --win-btn-mid: #ecebe6;
-  --win-btn-to: #d6d0c5;
-  --win-btn-press-from: #cdcac3;
-  --win-btn-press-mid: #e3e3db;
-  --win-btn-press-to: #f2f2f1;
-  --win-hover-1: #fff0cf;
-  --win-hover-2: #fbc761;
-  --win-hover-3: #e5a01a;
-  --win-focus-1: #cee7ff;
-  --win-focus-2: #98b8ea;
-  --win-focus-3: #6982ee;
-  /* Tabs, group boxes, scroll bars, progress. */
-  --win-tab-border: #919b9c;
-  --win-tab-hot: #e68b2c;
-  --win-tab-hot-2: #ffc73c;
-  --win-group: #d0d0bf;
-  --win-scroll-track: #f4f4f0;
-  --win-scroll-1: #c9d7fc;
-  --win-scroll-2: #b1c6f8;
-  --win-scroll-border: #8eaaf2;
-  --win-chunk-1: #acedad;
-  --win-chunk-2: #2ed330;
-  --win-chunk-3: #8fe791;
-  --win-select: #316ac5;
-  --win-select-fg: #ffffff;
-  /* Taskbar and Start button. */
-  --win-taskbar-1: #3168d5;
-  --win-taskbar-2: #245edb;
-  --win-taskbar-3: #1941a5;
-  --win-start-1: #3c9c3c;
-  --win-start-2: #48b648;
-  --win-start-3: #2e862e;
-  --win-start-panel: #d3e5fa;
+  --paper: #f2efe6;
+  --paper-raised: #fbf9f3;
+  --grid: #e4e0d3;
+  --rule: #b9b4a5;
+  --ink: #1b1f1a;
+  --ink-2: #3d4238;
+  --ink-muted: #5e6357;
+  --signal: #f06a1d;
+  --signal-ink: #1b1f1a;
+  --signal-text: #b23a06;
+  --olive: #3f5a2e;
+  --olive-ink: #f2efe6;
+  --olive-text: #3f5a2e;
+  --danger: #a12a1c;
+  --paused-bg: #e4e0d3;
+
+  --radius: 0px;
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper);
+  --secondary-foreground: var(--ink);
+  --muted: var(--grid);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--grid);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --border: var(--rule);
+  --input: var(--ink);
+  --ring: var(--signal);
+  --link: var(--signal-text);
+  --surface: var(--paper);
+  --field: var(--paper-raised);
   --safe-top: 0px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-height: 100dvh;
 }
 
 .dark {
-  --background: #2f3138;
-  --foreground: #f0f0f0;
-  --card: #2f3138;
-  --card-foreground: #f0f0f0;
-  --popover: #24262c;
-  --popover-foreground: #f0f0f0;
-  --primary: #5b8cff;
-  --primary-foreground: #ffffff;
-  --secondary: #2f3138;
-  --secondary-foreground: #f0f0f0;
-  --muted: #26282e;
-  --muted-foreground: #b4b6bd;
-  --accent: #34405a;
-  --accent-foreground: #f0f0f0;
-  --destructive: #ff6b6b;
-  --border: #4a4d57;
-  --input: #50648a;
-  --ring: #f0f0f0;
-  --link: #8ab4ff;
-  --surface: #2f3138;
-  --field: #1b1c21;
-  --desktop: #1d3557;
-  --win-hi: #4a4d57;
-  --win-light: #393b43;
-  --win-shadow: #1e1f24;
-  --win-dark: #111215;
-  --win-frame: #0a3aa8;
-  --win-frame-edge: #00093f;
-  --win-title-from: #0a3aa8;
-  --win-title-1: #2a6fd6;
-  --win-title-2: #0a3aa8;
-  --win-title-3: #1349c2;
-  --win-title-4: #062a86;
-  --win-title-shadow: #00093f;
-  --win-title-inactive-1: #55607e;
-  --win-title-inactive-2: #444d68;
-  --win-title-inactive-3: #3a4259;
-  --win-title-inactive-fg: #aab4cc;
-  --win-btn-border: #6b8fd0;
-  --win-btn-from: #4c4f59;
-  --win-btn-mid: #3d4049;
-  --win-btn-to: #33363e;
-  --win-btn-press-from: #26282e;
-  --win-btn-press-mid: #2d2f36;
-  --win-btn-press-to: #393b43;
-  --win-hover-1: #8a6a2a;
-  --win-hover-2: #c48a2a;
-  --win-hover-3: #e5a01a;
-  --win-focus-1: #3a5a8a;
-  --win-focus-2: #4a74b8;
-  --win-focus-3: #5b8cff;
-  --win-tab-border: #4f5360;
-  --win-group: #4a4d57;
-  --win-scroll-track: #24262c;
-  --win-scroll-1: #4a5878;
-  --win-scroll-2: #3c4864;
-  --win-scroll-border: #5b6c94;
-  --win-select: #2f5fb3;
-  --win-taskbar-1: #1d4596;
-  --win-taskbar-2: #173a85;
-  --win-taskbar-3: #0e2660;
-  --win-start-1: #2d7a2d;
-  --win-start-2: #379037;
-  --win-start-3: #215f21;
-  --win-start-panel: #28344a;
+  --paper: #14170f;
+  --paper-raised: #1c2016;
+  --grid: #23281c;
+  --rule: #3a3f33;
+  --ink: #ece8dc;
+  --ink-2: #d4d0c4;
+  --ink-muted: #a8ab9c;
+  --signal: #f2793a;
+  --signal-ink: #14170f;
+  --signal-text: #ff9a5c;
+  --olive: #3f5a2e;
+  --olive-ink: #ece8dc;
+  --olive-text: #9fc27f;
+  --danger: #ff7a66;
+  --paused-bg: #23281c;
 }
 
 @theme inline {
-  /* Luna rounds only a little; every radius step collapses to --radius (3 px). */
-  --radius-xs: var(--radius);
-  --radius-sm: var(--radius);
-  --radius-md: var(--radius);
-  --radius-lg: var(--radius);
-  --radius-xl: var(--radius);
-  --radius-2xl: var(--radius);
-  --radius-3xl: var(--radius);
+  --radius-xs: 0px;
+  --radius-sm: 2px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -188,51 +98,45 @@
   --color-link: var(--link);
   --color-surface: var(--surface);
   --color-field: var(--field);
-  --color-desktop: var(--desktop);
-  --font-sans: Tahoma, 'Segoe UI', Verdana, Geneva, 'DejaVu Sans', sans-serif;
-  --font-title: 'Trebuchet MS', Tahoma, 'Segoe UI', Verdana, sans-serif;
-  --font-mono: 'Lucida Console', Consolas, 'Courier New', ui-monospace, monospace;
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-grid: var(--grid);
+  --color-rule: var(--rule);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-signal-text: var(--signal-text);
+  --color-olive: var(--olive);
+  --color-olive-ink: var(--olive-ink);
+  --color-olive-text: var(--olive-text);
+  --color-danger: var(--danger);
+  --color-paused: var(--paused-bg);
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-title: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring;
   }
-  /* XP focus: a dotted rectangle inside the control. */
   :focus-visible {
-    outline: 1px dotted var(--ring);
-    outline-offset: -4px;
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
   }
   ::selection {
-    background: var(--win-select);
-    color: var(--win-select-fg);
+    background: var(--signal);
+    color: var(--signal-ink);
   }
-  /* Luna scroll bars (WebKit/Blink; Firefox gets plain colours). */
   * {
-    scrollbar-color: var(--win-scroll-2) var(--win-scroll-track);
-  }
-  ::-webkit-scrollbar {
-    width: 16px;
-    height: 16px;
-  }
-  ::-webkit-scrollbar-track {
-    background: var(--win-scroll-track);
-  }
-  ::-webkit-scrollbar-thumb {
-    border: 1px solid var(--win-scroll-border);
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--win-scroll-1), var(--win-scroll-2));
-    box-shadow: inset 1px 1px var(--win-hi);
-  }
-  ::-webkit-scrollbar-thumb:horizontal {
-    background: linear-gradient(180deg, var(--win-scroll-1), var(--win-scroll-2));
-  }
-  ::-webkit-scrollbar-corner {
-    background: var(--background);
+    scrollbar-color: var(--rule) transparent;
+    scrollbar-width: thin;
   }
   html,
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -251,214 +155,222 @@
   }
 }
 
-/* Luna controls. Borders are inset box-shadows so the 98-era box sizes hold. */
-@utility win-raised {
-  border-radius: 3px;
-  background-color: var(--win-btn-mid);
-  background-image: linear-gradient(180deg, var(--win-btn-from), var(--win-btn-mid) 86%, var(--win-btn-to));
-  box-shadow: inset 0 0 0 1px var(--win-btn-border);
+/* Controls. Every border is 1.5 px ink; nothing is rounded. */
+@utility fm-btn {
+  border: 1.5px solid var(--ink);
+  background-color: var(--paper-raised);
+  color: var(--ink);
+  transition: background-color 120ms;
   &:where(button, a, [role='button']):where(:not(:disabled)):hover {
-    box-shadow:
-      inset 0 0 0 1px var(--win-btn-border),
-      inset 0 2px var(--win-hover-1),
-      inset 0 -3px var(--win-hover-3),
-      inset 2px 0 var(--win-hover-2),
-      inset -2px 0 var(--win-hover-2);
+    background-color: var(--grid);
   }
 }
-/* The dialog's default button: a push button with the blue focus glow. */
-@utility win-default {
-  border-radius: 3px;
-  background-color: var(--win-btn-mid);
-  background-image: linear-gradient(180deg, var(--win-btn-from), var(--win-btn-mid) 86%, var(--win-btn-to));
-  box-shadow:
-    inset 0 0 0 1px var(--win-btn-border),
-    inset 0 2px var(--win-focus-1),
-    inset 0 -3px var(--win-focus-3),
-    inset 2px 0 var(--win-focus-2),
-    inset -2px 0 var(--win-focus-2);
-  &:where(button, a, [role='button']):where(:not(:disabled)):hover {
-    box-shadow:
-      inset 0 0 0 1px var(--win-btn-border),
-      inset 0 2px var(--win-hover-1),
-      inset 0 -3px var(--win-hover-3),
-      inset 2px 0 var(--win-hover-2),
-      inset -2px 0 var(--win-hover-2);
+/* The primary action: ink fill, a flat ink offset shadow while pressed. */
+@utility fm-btn-primary {
+  border: 1.5px solid var(--ink);
+  background-color: var(--ink);
+  color: var(--paper);
+  &:where(button, a, [role='button']):where(:not(:disabled)):active {
+    transform: translate(-2px, -2px);
+    box-shadow: 2px 2px 0 var(--signal);
   }
 }
-/* Held down, or a toggle that is on. */
-@utility win-pressed {
-  border-radius: 3px;
-  background-image: linear-gradient(180deg, var(--win-btn-press-from), var(--win-btn-press-mid) 8%, var(--win-btn-press-mid) 94%, var(--win-btn-press-to));
-  box-shadow: inset 0 0 0 1px var(--win-btn-border);
+/* The orange "New" action: signal fill, always with ink text. */
+@utility fm-btn-signal {
+  border: 1.5px solid var(--ink);
+  background-color: var(--signal);
+  color: var(--signal-ink);
+  font-weight: 600;
+  &:where(button, a, [role='button']):where(:not(:disabled)):active {
+    transform: translate(-2px, -2px);
+    box-shadow: 2px 2px 0 var(--ink);
+  }
 }
-/* A window: blue frame, rounded top. Pair with a win-titlebar child. */
-@utility win-window {
-  border-radius: 8px 8px 0 0;
-  background-color: var(--card);
-  box-shadow:
-    inset 0 0 0 1px var(--win-frame-edge),
-    inset 0 0 0 3px var(--win-frame),
-    2px 3px 10px rgb(0 0 0 / 0.3);
+/* A toggle that is on, or a selected cell: inverted. */
+@utility fm-pressed {
+  border: 1.5px solid var(--ink);
+  background-color: var(--ink);
+  color: var(--paper);
 }
-/* A plain raised surface: cards, toolbars, chat bubbles. */
-@utility win-panel {
-  border-radius: 3px;
-  background-color: var(--card);
-  background-image: linear-gradient(180deg, var(--win-hi), transparent 60%);
-  box-shadow:
-    inset 0 0 0 1px var(--win-shadow),
-    0 1px 2px rgb(0 0 0 / 0.12);
+/* A ruled panel with a mono title strip (fm-strip). */
+@utility fm-panel {
+  border: 1.5px solid var(--ink);
+  background-color: var(--paper-raised);
 }
-/* Context menus, list boxes and toasts: white with a thin frame. */
-@utility win-menu {
+@utility fm-card {
+  border: 1.5px solid var(--ink);
+  background-color: var(--paper-raised);
+}
+@utility fm-menu {
+  border: 1.5px solid var(--ink);
   background-color: var(--popover);
-  box-shadow:
-    inset 0 0 0 1px var(--win-shadow),
-    2px 2px 4px rgb(0 0 0 / 0.3);
 }
-@utility win-sunken {
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 1px var(--win-shadow);
+@utility fm-well {
+  border: 1px solid var(--rule);
 }
-@utility win-field {
-  background-color: var(--field);
-  box-shadow: inset 0 0 0 1px var(--input);
-}
-/* Group box frame. */
-@utility win-etched {
-  border: 1px solid var(--win-group);
-  border-radius: 4px;
-}
-/* A thin status-bar well. */
-@utility win-status {
+@utility fm-field {
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px var(--win-shadow);
+  background-color: var(--paper-raised);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
 }
-@utility win-titlebar {
-  border-radius: 7px 7px 0 0;
-  background: linear-gradient(180deg, var(--win-title-1), var(--win-title-2) 8%, var(--win-title-2) 40%, var(--win-title-3) 88%, var(--win-title-3) 93%, var(--win-title-4) 97%);
-  color: var(--win-title-fg);
-  font-family: var(--font-title);
-  font-weight: 700;
-  text-shadow: 1px 1px var(--win-title-shadow);
+/* A labelled group: thin rule frame. */
+@utility fm-group {
+  border: 1px solid var(--rule);
 }
-@utility win-titlebar-inactive {
-  border-radius: 7px 7px 0 0;
-  background: linear-gradient(180deg, var(--win-title-inactive-1), var(--win-title-inactive-2) 10%, var(--win-title-inactive-2) 88%, var(--win-title-inactive-3));
-  color: var(--win-title-inactive-fg);
-  font-family: var(--font-title);
-  font-weight: 700;
+@utility fm-status {
+  border: 1px solid var(--rule);
 }
-/* Title bar buttons: white-rimmed blue squares; data-close makes the red X. */
-@utility win-caption {
-  border: 1px solid #ffffff;
-  border-radius: 3px;
-  color: #ffffff;
-  background: radial-gradient(circle at 90% 90%, #0054e9, #2263d5 55%, #4479e4 90%, #a3bbec);
+/* Section/panel title strip: mono uppercase label on a 2 px ink rule. */
+@utility fm-strip {
+  border-bottom: 2px solid var(--ink);
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+@utility fm-strip-muted {
+  border-bottom: 1px solid var(--rule);
+  background-color: var(--paper);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+@utility fm-icon-btn {
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+  background: var(--paper-raised);
   &:hover {
-    filter: brightness(1.15);
+    background: var(--grid);
   }
-  &:active {
-    filter: brightness(0.85);
-  }
-  &[data-close] {
-    background: radial-gradient(circle at 90% 90%, #c13004, #e04a1f 55%, #ee7a55 90%, #f8c8b4);
+  &[data-close]:hover {
+    background: var(--danger);
+    color: var(--paper);
   }
 }
-/* Property-sheet tabs: data-state=active (Radix) or aria-selected marks the front tab. */
-@utility win-tab {
-  border-radius: 3px 3px 0 0;
-  background: linear-gradient(180deg, var(--win-hi), var(--win-btn-mid) 70%, var(--win-btn-to));
-  box-shadow:
-    inset 1px 0 var(--win-tab-border),
-    inset -1px 0 var(--win-tab-border),
-    inset 0 1px var(--win-tab-border);
+/* Tabs: mono labels; the active one sits on a 2 px ink underline. */
+@utility fm-tab {
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1px;
   &:where([data-state='active'], [aria-selected='true']) {
-    background: var(--field);
-    box-shadow:
-      inset 1px 0 var(--win-tab-border),
-      inset -1px 0 var(--win-tab-border),
-      inset 0 3px var(--win-tab-hot-2),
-      inset 0 1px var(--win-tab-hot);
+    border-bottom-color: var(--ink);
+    color: var(--ink);
+    font-weight: 600;
   }
 }
-@utility win-selected {
-  background-color: var(--win-select);
-  color: var(--win-select-fg);
+@utility fm-selected {
+  background-color: var(--ink);
+  color: var(--paper);
 }
-/* "Bliss": blue sky over green hills. */
-@utility win-desktop {
-  background-color: var(--desktop);
+/* The 24 px technical-drawing grid (landing hero, empty states, canvas board). */
+@utility fm-ground {
+  background-color: var(--paper);
   background-image:
-    radial-gradient(140% 55% at 15% 100%, #7cc34d 0%, #4f9a2d 60%, transparent 61%),
-    radial-gradient(120% 45% at 90% 100%, #69b23f 0%, #3f8a24 58%, transparent 59%),
-    radial-gradient(40% 14% at 70% 28%, rgb(255 255 255 / 0.7), transparent 70%),
-    radial-gradient(30% 10% at 25% 18%, rgb(255 255 255 / 0.55), transparent 70%),
-    linear-gradient(180deg, #1c5ccf 0%, #4a8de6 35%, #a4c8f2 62%, #d3e6f8 72%);
-  background-attachment: fixed;
-  .dark & {
-    background-image:
-      radial-gradient(140% 55% at 15% 100%, #2f5a22 0%, #1f3f17 60%, transparent 61%),
-      radial-gradient(120% 45% at 90% 100%, #2a5020 0%, #1a3512 58%, transparent 59%),
-      linear-gradient(180deg, #0b1b3d 0%, #173361 45%, #2b4f80 72%);
-  }
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
-/* Separator: a groove (shadow line above a highlight line). */
-@utility win-groove {
-  border-top: 1px solid var(--win-shadow);
-  border-bottom: 1px solid var(--win-hi);
+@utility fm-rule {
+  border-top: 1px solid var(--rule);
 }
-/* The taskbar and its window buttons. */
-@utility win-taskbar {
-  background: linear-gradient(180deg, #3c81f3 0%, var(--win-taskbar-1) 6%, var(--win-taskbar-2) 15%, var(--win-taskbar-2) 85%, var(--win-taskbar-3));
-  color: #ffffff;
+/* Mobile bottom bar and its tabs. */
+@utility fm-bar {
+  border-top: 2px solid var(--ink);
+  background-color: var(--paper);
+  color: var(--ink);
 }
-@utility win-task {
-  border-radius: 3px;
-  color: #ffffff;
-  background: linear-gradient(180deg, #5d9cf8, #3c81f3 15%, #3a7ff1 85%, #2d6ad8);
-  box-shadow:
-    inset 0 0 0 1px #1c4bb0,
-    inset 1px 1px rgb(255 255 255 / 0.3);
+@utility fm-bar-item {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink);
   &:where([aria-current='page'], [aria-pressed='true']) {
-    background: linear-gradient(180deg, #1941a5, #1e52b7 15%, #1e52b7 85%, #2560c8);
-    box-shadow:
-      inset 0 0 0 1px #10307c,
-      inset 1px 1px rgb(0 0 0 / 0.3);
+    background-color: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
   }
 }
-/* The green Start button. */
-@utility win-start {
-  border-radius: 0 10px 10px 0;
-  color: #ffffff;
-  font-family: var(--font-title);
-  font-style: italic;
-  font-weight: 700;
-  text-shadow: 1px 1px rgb(0 0 0 / 0.45);
-  background: linear-gradient(180deg, #78c46b, var(--win-start-2) 12%, var(--win-start-1) 60%, var(--win-start-3));
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 0.4),
-    inset -1px -1px rgb(0 0 0 / 0.25);
-  &:where([aria-current='page']) {
-    background: linear-gradient(180deg, var(--win-start-3), var(--win-start-1) 40%, var(--win-start-1));
+/* Mono kicker/label: uppercase with letter spacing. */
+@utility fm-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+/* A rubber stamp: status, tags. Tone via data-tone. */
+@utility fm-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1.5px solid var(--ink);
+  padding: 2px 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--paper-raised);
+  color: var(--ink);
+  &[data-tone='signal'] {
+    background: var(--signal);
+    color: var(--signal-ink);
+  }
+  &[data-tone='ask'] {
+    background: var(--paper);
+    border-style: dashed;
+  }
+  &[data-tone='olive'] {
+    background: var(--olive);
+    color: var(--olive-ink);
+    border-color: var(--olive);
+  }
+  &[data-tone='danger'] {
+    background: var(--paper);
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  &[data-tone='paused'] {
+    background: var(--paused-bg);
+    color: var(--ink-muted);
+    border-color: var(--rule);
+  }
+}
+/* Anything waiting on the user: dashed ink border. */
+@utility fm-ask {
+  border: 1.5px dashed var(--ink);
+  background-color: var(--paper);
+}
+
+/* The slow blink on the ● of RUNNING. */
+.fm-blink {
+  animation: fm-blink 1.6s steps(2, jump-none) infinite;
+}
+@keyframes fm-blink {
+  50% {
+    opacity: 0.25;
   }
 }
 
-/* XP indeterminate progress: green chunks sliding across a field. */
+/* Indeterminate progress: an ink bar sliding along a rule. */
 .fp-progress {
   width: 40%;
-  border-radius: 2px;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 8px, var(--field) 8px 10px),
-    linear-gradient(180deg, var(--win-chunk-1), var(--win-chunk-2) 45%, var(--win-chunk-3));
-  animation: fp-progress 1.6s linear infinite;
+  background: var(--ink);
+  animation: fp-progress 1.4s linear infinite;
 }
-/* Determinate progress: the same chunks, width set inline. */
+/* Determinate progress, width set inline. */
 .fp-chunks {
-  background:
-    repeating-linear-gradient(90deg, transparent 0 6px, var(--field) 6px 8px),
-    linear-gradient(180deg, var(--win-chunk-1), var(--win-chunk-2) 45%, var(--win-chunk-3));
+  background: var(--signal);
 }
 @keyframes fp-progress {
   from {

@@ -525,9 +525,9 @@ func AttachmentBlock(agent string, cur, earlier []*store.Attachment) string {
 // developer instructions; Cursor: ahead of the first prompt).
 func SystemPrompt(t *store.Task, repo *store.Repository, branch, projectInstructions string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "You are running unattended inside Fleetpocket on task #%d.\n", t.ID)
+	fmt.Fprintf(&b, "You are running unattended inside Jungle Monkey on task #%d.\n", t.ID)
 	fmt.Fprintf(&b, "Repository %s is checked out in /workspace on branch %s (base %s).\n", repo.FullName, branch, repo.BaseBranch)
-	b.WriteString("Do not push, change git remotes or touch .github/: Fleetpocket commits your changes and opens the pull request.\n")
+	b.WriteString("Do not push, change git remotes or touch .github/: Jungle Monkey commits your changes and opens the pull request.\n")
 	if t.Agent == "" || t.Agent == "claude" {
 		b.WriteString("If a decision needs the owner, ask with the AskUserQuestion tool and keep options short.\n")
 	} else {

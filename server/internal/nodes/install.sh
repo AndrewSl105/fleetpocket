@@ -1,9 +1,9 @@
 #!/bin/sh
-# Fleetpocket: add this computer to {{.Server}}
+# Jungle Monkey: add this computer to {{.Server}}
 # Usage: curl -fsSL {{.Server}}/api/v1/node/install | sh
 # Installs fleetpocket-node into ~/.fleetpocket/bin (no sudo) and runs
 # `fleetpocket-node setup`, which checks Docker, connects your agents and
-# pairs the computer with your Fleetpocket.
+# pairs the computer with your Jungle Monkey.
 set -eu
 
 SERVER='{{.Server}}'
@@ -15,7 +15,7 @@ case "$(uname -s)/$(uname -m)" in
   Linux/x86_64 | Linux/amd64) target=linux-amd64 ;;
   Linux/aarch64 | Linux/arm64) target=linux-arm64 ;;
   *)
-    echo "Fleetpocket: $(uname -s)/$(uname -m) is not supported yet." >&2
+    echo "Jungle Monkey: $(uname -s)/$(uname -m) is not supported yet." >&2
     exit 1
     ;;
 esac

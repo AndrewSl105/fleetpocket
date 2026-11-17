@@ -58,7 +58,7 @@ export const cursorSession: Session = async ({ cmd, workspace, emitter, control 
   control.abort.signal.addEventListener("abort", onCancel, { once: true });
 
   // Cursor has no appendable system prompt (`systemPrompt` replaces its own),
-  // so a new agent gets Fleetpocket's instructions ahead of the first prompt.
+  // so a new agent gets Jungle Monkey's instructions ahead of the first prompt.
   const text = cmd.append_system_prompt && !cmd.resume_session_id ? `${cmd.append_system_prompt}\n\n${cmd.prompt}` : cmd.prompt;
   const images = promptImages(cmd.prompt).map(image);
   let input: string | SDKUserMessage = images.length ? { text, images } : text;

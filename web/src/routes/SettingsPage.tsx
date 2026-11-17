@@ -16,7 +16,7 @@ const version = import.meta.env.VITE_APP_VERSION || 'dev'
 
 function Stat({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
   return (
-    <div className={cn('win-sunken px-3.5 py-3', className)}>
+    <div className={cn('fm-well px-3.5 py-3', className)}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-xl font-semibold tabular-nums">{value}</div>
     </div>
@@ -39,7 +39,7 @@ export default function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl space-y-8 px-4 pt-4 pb-8">
-        <h1 className="win-titlebar flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{s.title}</h1>
+        <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{s.title}</h1>
 
         <section>
           <h2 className="mb-3 text-sm font-bold">{s.stats}</h2>
@@ -72,8 +72,8 @@ export default function SettingsPage() {
                   aria-checked={theme.choice === value}
                   onClick={() => theme.setChoice(value)}
                   className={cn(
-                    'win-raised flex h-11 items-center justify-center gap-2 text-sm',
-                    theme.choice === value && 'win-pressed bg-muted font-bold',
+                    'fm-btn flex h-11 items-center justify-center gap-2 text-sm',
+                    theme.choice === value && 'fm-pressed bg-muted font-bold',
                   )}
                 >
                   <Icon className="size-4" aria-hidden="true" />
@@ -88,7 +88,7 @@ export default function SettingsPage() {
 
         <section>
           <h2 className="mb-3 text-sm font-bold">{s.about}</h2>
-          <dl className="divide-y win-field px-3.5 text-sm">
+          <dl className="divide-y fm-field px-3.5 text-sm">
             <div className="flex justify-between gap-4 py-2.5">
               <dt className="shrink-0 text-muted-foreground">{s.version}</dt>
               <dd className="min-w-0 truncate font-mono" title={version}>
@@ -99,7 +99,7 @@ export default function SettingsPage() {
               <dt className="text-muted-foreground">{s.backend}</dt>
               <dd className="text-right">
                 {health.data ? (
-                  <span className={health.data.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}>
+                  <span className={health.data.ok ? 'text-olive-text' : 'text-danger'}>
                     {health.data.ok ? s.healthy : s.unhealthy}
                     <span className="block font-mono text-xs text-muted-foreground">
                       {Object.entries(health.data.checks)

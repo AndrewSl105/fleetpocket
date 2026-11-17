@@ -23,10 +23,10 @@ var commandList = []telego.BotCommand{
 	{Command: "retry", Description: "Retry a failed task"},
 	{Command: "projects", Description: "List projects"},
 	{Command: "bind", Description: "Bind this topic"},
-	{Command: "app", Description: "Open Fleetpocket"},
+	{Command: "app", Description: "Open Jungle Monkey"},
 }
 
-const help = `<b>Fleetpocket</b>
+const help = `<b>Jungle Monkey</b>
 Send text, photos, files, or a voice message to draft a task.
 Reply to any task card or notification to talk to that task.
 
@@ -199,12 +199,12 @@ func (b *Bot) handleCommand(ctx context.Context, m *telego.Message, cmd, args st
 		_, err := b.reply(ctx, m, fmt.Sprintf("This topic is now <b>%s</b>.", esc(args)), nil)
 		return err
 	case "app":
-		btn, ok := b.appButton("📱 Open Fleetpocket", "/", m.Chat.Type == "private")
+		btn, ok := b.appButton("📱 Open Jungle Monkey", "/", m.Chat.Type == "private")
 		if !ok {
 			_, err := b.reply(ctx, m, "WEB_APP_URL is not configured.", nil)
 			return err
 		}
-		_, err := b.reply(ctx, m, "Fleetpocket", tu.InlineKeyboard(tu.InlineKeyboardRow(btn)))
+		_, err := b.reply(ctx, m, "Jungle Monkey", tu.InlineKeyboard(tu.InlineKeyboardRow(btn)))
 		return err
 	default:
 		_, err := b.reply(ctx, m, help, nil)

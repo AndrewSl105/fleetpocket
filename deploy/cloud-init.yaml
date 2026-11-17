@@ -1,6 +1,6 @@
 #cloud-config
 # User data for a fresh Ubuntu 24.04 VPS (Hetzner, DigitalOcean, …): installs
-# Docker and Fleetpocket without questions. Fill in the domain (or replace
+# Docker and Jungle Monkey without questions. Fill in the domain (or replace
 # `--domain …` with `--sslip`) and one agent key, then get the setup link with
 #   ssh root@<server> tail -n 5 /var/log/fleetpocket-install.log
 #

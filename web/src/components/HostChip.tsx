@@ -22,7 +22,7 @@ export function HostChip({ node, always, className }: { node: string | null | un
       <span className="truncate">{h.name}</span>
       {h.id && (
         <span
-          className={cn('size-1.5 shrink-0 rounded-full', h.online ? 'bg-emerald-500' : 'bg-muted-foreground/40')}
+          className={cn('size-1.5 shrink-0 rounded-full', h.online ? 'bg-olive' : 'bg-muted-foreground/40')}
           aria-label={h.online ? t.computers.online : t.computers.offline}
         />
       )}
