@@ -10,7 +10,7 @@ There are three ways to install Jungle Monkey:
 2. **On a server in one command**: the installer below ([Quick setup](#quick-setup)). A 24/7 server with phone/PWA/Telegram access, your own GitHub App, pull requests and CI.
 3. **Self-hosted, your way**: `deploy/docker-compose.deploy.yml`, `deploy/cloud-init.yaml` (Hetzner/DigitalOcean) or the fully [manual setup](#manual-setup), for controlling every piece.
 
-The README has a [comparison table](../README.md#three-ways-to-install). This guide covers 2 and 3: server mode (`MODE=server`, the default).
+The README has a [comparison table](../README.md#install-three-paths). This guide covers 2 and 3: server mode (`MODE=server`, the default).
 
 Target: a fresh Ubuntu 24.04 VPS with Docker Engine and the Compose plugin, nothing else. Open ports 22, 80 and 443 (and 443/udp for HTTP/3). Below, `fleetpocket.example.com` stands for your domain.
 
@@ -30,7 +30,7 @@ The server starts in **setup mode** because `.env` has no `ADMIN_PASSWORD_HASH`/
 
 ## Manual setup
 
-The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#three-ways-to-install), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
+The steps the installer and the wizard automate, for setting up by hand or for the **Advanced** options (an existing GitHub App, owner credentials in `.env`). **Two ways to deploy.** With the published images (`ghcr.io/andrewsl105/fleetpocket-*`, public), follow steps 1–6, download `deploy/docker-compose.deploy.yml`, `deploy/Caddyfile` and `deploy/.env.example` (as `.env`) into `/srv/fleetpocket` as in the [README](../README.md#install-three-paths), and start the stack as in step 8; skip step 7. Steps 7–9 set up automatic deploys from the repository with GitHub Actions; they use the repository's own secrets and image names.
 
 **DNS**: create an A record (and AAAA for IPv6) for `fleetpocket.example.com` pointing at the server, and wait until `dig +short fleetpocket.example.com` returns its address before the first start: Caddy needs it to get the certificate.
 
