@@ -29,6 +29,7 @@ const (
 	EvUsage         = "usage"
 	EvCommitted     = "committed"
 	EvCheckpoint    = "checkpoint"
+	EvCheck         = "check"
 	EvDone          = "done"
 	EvPaused        = "paused"
 	EvError         = "error"
@@ -48,6 +49,9 @@ type CommitInfo struct {
 	Message     string `json:"message"`
 	AuthorName  string `json:"author_name"`
 	AuthorEmail string `json:"author_email"`
+	// AllowEmpty commits a clean tree as an empty commit (a schedule whose
+	// "open a PR only if there are changes" is off). Ignored with Check.
+	AllowEmpty bool `json:"allow_empty,omitempty"`
 }
 
 type RunCommand struct {
@@ -70,6 +74,15 @@ type RunCommand struct {
 	// conversation at that point as a new fork (Claude). Sent instead of
 	// ResumeSessionID.
 	ResumeSessionRef string `json:"resume_session_ref,omitempty"`
+	// Check makes the run a loop iteration: after a done session and its
+	// commit the runner runs the command in /workspace and emits `check`.
+	Check *CheckConfig `json:"check,omitempty"`
+}
+
+// CheckConfig is a loop's check command (docs/PROTOCOL.md, "Loops").
+type CheckConfig struct {
+	Command    string `json:"command"`
+	TimeoutSec int    `json:"timeout_sec,omitempty"`
 }
 
 // CheckpointsConfig names the run in the checkpoint refs
@@ -188,6 +201,12 @@ type Event struct {
 	SessionRef string `json:"session_ref,omitempty"`
 	NoChanges  bool   `json:"no_changes,omitempty"`
 	Reason     string `json:"reason,omitempty"`
+	// check
+	Command    string `json:"command,omitempty"`
+	ExitCode   *int   `json:"exit_code,omitempty"`
+	Output     string `json:"output,omitempty"`
+	DurationMS int64  `json:"duration_ms,omitempty"`
+	TimedOut   bool   `json:"timed_out,omitempty"`
 	Code       string `json:"code,omitempty"`
 	Message    string `json:"message,omitempty"`
 
@@ -196,7 +215,7 @@ type Event struct {
 
 var knownEvents = map[string]bool{
 	EvReady: true, EvStarted: true, EvAssistantText: true, EvToolUse: true, EvToolResult: true,
-	EvQuestion: true, EvUsage: true, EvCommitted: true, EvCheckpoint: true, EvDone: true, EvPaused: true,
+	EvQuestion: true, EvUsage: true, EvCommitted: true, EvCheckpoint: true, EvCheck: true, EvDone: true, EvPaused: true,
 	EvError: true, EvHeartbeat: true,
 }
 
@@ -235,6 +254,10 @@ func ParseEvent(line []byte) (Event, error) {
 	case EvCheckpoint:
 		if ev.N <= 0 || ev.RefSHA == "" {
 			return ev, errors.New("checkpoint needs n and ref_sha")
+		}
+	case EvCheck:
+		if ev.ExitCode == nil {
+			return ev, errors.New("check needs exit_code")
 		}
 	case EvError:
 		if ev.Code == "" {

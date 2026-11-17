@@ -45,6 +45,9 @@ export const RunCommand = z.object({
     message: z.string().min(1),
     author_name: z.string().min(1),
     author_email: z.string().min(1),
+    // Commit even when nothing changed (an empty commit), so a PR is opened
+    // anyway (a schedule with "open a PR only if there are changes" off).
+    allow_empty: z.boolean().optional(),
   }),
   // The run's MCP servers, all behind Jungle Monkey's gateway. The token is
   // the run's gateway token (no third-party credential): it expires when the
@@ -65,6 +68,14 @@ export const RunCommand = z.object({
   // conversation at that point as a new fork (Claude only; replaces
   // resume_session_id, which the server then leaves out).
   resume_session_ref: z.string().min(1).optional(),
+  // A loop iteration: after a `done` session (and its commit) the runner
+  // runs this command in /workspace and emits `check` before `done`.
+  check: z
+    .object({
+      command: z.string().min(1).max(2000),
+      timeout_sec: z.number().int().positive().max(3600).default(600),
+    })
+    .optional(),
 });
 
 export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;
@@ -139,8 +150,11 @@ export type EventBody =
       turn: number;
       session_ref: string;
       files_changed: number;
-      reason: "turn" | "question";
+      reason: "turn" | "question" | "iteration";
     }
+  // The loop check: output is the tail of stdout+stderr (≤ 256 KiB);
+  // exit_code 124 with timed_out when the timeout killed it.
+  | { type: "check"; command: string; exit_code: number; output: string; duration_ms: number; timed_out: boolean }
   | { type: "done"; session_id: string; summary: string; no_changes: boolean; cost_usd_total: number }
   | { type: "paused"; session_id: string; reason: "question_timeout"; question_id: string }
   | { type: "error"; code: string; message: string; session_id?: string }

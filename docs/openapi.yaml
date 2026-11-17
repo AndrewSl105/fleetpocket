@@ -2074,6 +2074,7 @@ components:
         - $ref: '#/components/schemas/IntegrationsEvent'
         - $ref: '#/components/schemas/BudgetEvent'
         - $ref: '#/components/schemas/CheckpointEvent'
+        - $ref: '#/components/schemas/CheckEvent'
         - $ref: '#/components/schemas/CheckpointRestoredEvent'
         - $ref: '#/components/schemas/BranchForcePushedEvent'
       discriminator:
@@ -2109,12 +2110,13 @@ components:
           integrations: '#/components/schemas/IntegrationsEvent'
           budget: '#/components/schemas/BudgetEvent'
           checkpoint: '#/components/schemas/CheckpointEvent'
+          check: '#/components/schemas/CheckEvent'
           checkpoint_restored: '#/components/schemas/CheckpointRestoredEvent'
           branch_force_pushed: '#/components/schemas/BranchForcePushedEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, checkpoint_restored, branch_force_pushed]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint, check, checkpoint_restored, branch_force_pushed]
 
     EventBase:
       type: object
@@ -2324,7 +2326,34 @@ components:
             turn: { type: integer, description: The agent step (tool round) of the run at which it was taken }
             session_ref: { type: string, description: 'What the agent needs to resume at this point; "" when it cannot (Codex, Cursor)' }
             files_changed: { type: integer, description: Files changed since the previous checkpoint of the run (or HEAD) }
-            reason: { type: string, enum: [turn, question] }
+            reason: { type: string, enum: [turn, question, iteration], description: '`iteration`: the checkpoint that ends a loop iteration' }
+
+    CheckEvent:
+      description: The check command of a loop iteration ran in the runner container after the agent's work was committed (docs/PROTOCOL.md, "Loops"). Exit code 0 passes.
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, run_id, seq, payload]
+          properties:
+            type: { type: string, enum: [check] }
+            run_id: { type: integer, format: int64 }
+            seq: { type: integer, format: int64 }
+            payload: { $ref: '#/components/schemas/CheckPayload' }
+
+    CheckPayload:
+      allOf:
+        - $ref: '#/components/schemas/RunnerPayloadBase'
+        - type: object
+          required: [type, command, exit_code, output, duration_ms, timed_out]
+          properties:
+            type: { type: string, enum: [check] }
+            command: { type: string }
+            exit_code: { type: integer, description: '0 passes; 124 when the timeout killed it' }
+            output: { type: string, description: The end of stdout and stderr, trimmed like CI logs (the last 400 lines plus earlier error lines) }
+            duration_ms: { type: integer, format: int64 }
+            timed_out: { type: boolean }
+            iteration: { type: integer, description: The loop iteration (added by the server) }
+            max_iterations: { type: integer, description: The loop's max_iterations (added by the server) }
 
     CommittedPayload:
       allOf:

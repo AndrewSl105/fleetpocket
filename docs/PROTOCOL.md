@@ -9,13 +9,13 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 1. The runner starts and emits `ready`.
 2. The backend writes exactly one `run` command. The runner works in `/workspace` (a git checkout on the task branch).
 3. While the session runs the backend may write `answer`, `message`, `interrupt` or `cancel`.
-4. The runner ends with one of the exit codes below. Before exiting with `0` it commits (never pushes) and emits `committed` (only when the tree changed) and then `done`.
+4. The runner ends with one of the exit codes below. Before exiting with `0` it commits (never pushes) and emits `committed` (only when the tree changed, or with `commit.allow_empty`), then for a loop iteration `checkpoint` (reason `iteration`, only with `checkpoints`) and `check`, and then `done`.
 
 ## Commands (stdin)
 
 | type | fields | meaning |
 |---|---|---|
-| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}`, `checkpoints?{run_id}`, `resume_session_ref?` | first line, starts the session |
+| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email, allow_empty?}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}`, `checkpoints?{run_id}`, `resume_session_ref?`, `check?{command, timeout_sec}` (`timeout_sec` default 600, max 3600) | first line, starts the session |
 | `answer` | `question_id`, `text` | reply to a pending question. An answer that arrives before its question is kept and used when the question is asked. |
 | `message` | `text` | extra user message injected into the running session. A run handles one prompt: input closes after the first turn's result, so a message that arrives after that is dropped. Codex and Cursor cannot take input mid-turn: a message that arrives during the turn runs as one more turn after it. **Fleetpocket does not send it**: it queues messages and starts them as the next run (API.md). |
 | `interrupt` | — | stop the current turn, keep the session. The run then ends as `done` (summary "Interrupted by the user.") with whatever was committed; send a follow-up as a new run with `resume_session_id`. |
@@ -37,6 +37,12 @@ A checkpoint is a commit of the whole working tree (`.gitignore` and `.git/info/
 
 `resume_session_ref` (restore): a checkpoint's `session_ref`. The server sends it instead of `resume_session_id`; the agent resumes that conversation at that point as a new fork. Claude: `session_ref` is `<session id>/<message uuid>` (the last transcript entry that leaves no tool call open at the checkpoint), and the runner passes `resume`, `resumeSessionAt` and `forkSession: true` (installed `@anthropic-ai/claude-agent-sdk`). Codex and Cursor cannot resume at a point (`resumeThread(id)` / `Agent.resume(id)` only), so their `session_ref` is `""` and the server starts a new session whose prompt carries a summary of the timeline up to the checkpoint. The server resets the workspace to the checkpoint before it starts the run (SPEC-server, "Checkpoints").
 
+### Loops
+
+`check` is present only for a run of a task with an active loop (SPEC-server, "Loops"); without it nothing changes. After a session that ends `done` (not on a limit, pause, cancel or error) the runner commits as usual, takes a checkpoint with reason `iteration` when `checkpoints` is present (even when nothing changed since the last one), then runs `sh -c <command>` in `/workspace` as itself: the same container, user, sandbox and network as the agent, no new privileges. Its environment is the runner's minus the agent credentials (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CURSOR_API_KEY`, `FLEETPOCKET_MCP_TOKEN`). stdout and stderr are kept interleaved, the last 256 KiB. After `timeout_sec` the whole process group is killed and `exit_code` is `124` with `timed_out: true`. A `cancel` during the check kills it and the runner exits `2` without `check` or `done`. Then the runner emits `check` and `done`. What the command leaves in the working tree is not committed by this run (the next iteration's commit includes it). The server trims `output` like CI logs before it stores the event and decides whether another iteration runs.
+
+`commit.allow_empty`: when the tree is clean the runner makes an empty commit (and `committed`), so the server opens a PR anyway. Ignored for runs with `check` (a loop needs to see when an iteration changed nothing) and when the session did not end `done`.
+
 An invalid line produces an `error` event with `code: "bad_command"`; the runner keeps running. A second `run` is also `bad_command`.
 
 ## Events (stdout)
@@ -55,7 +61,8 @@ Every event has `type`, `ts` (RFC 3339, UTC, milliseconds) and `seq` (monotonic 
 | `question` | `question_id`, `text`, `options?` (string array) |
 | `usage` | `cost_usd_total`, `input_tokens`, `output_tokens`, `turns`, `cache_read_tokens?`, `cache_write_tokens?` |
 | `committed` | `sha`, `files_changed`, `insertions`, `deletions` |
-| `checkpoint` | `n` (1-based within the run), `ref_sha`, `turn` (the step of the run), `session_ref` (`""` when the agent cannot resume there), `files_changed` (since the previous checkpoint), `reason` (`turn` \| `question`). Only with `checkpoints`. |
+| `checkpoint` | `n` (1-based within the run), `ref_sha`, `turn` (the step of the run), `session_ref` (`""` when the agent cannot resume there), `files_changed` (since the previous checkpoint), `reason` (`turn` \| `question` \| `iteration`). Only with `checkpoints`. |
+| `check` | `command`, `exit_code` (`0` passes; `124` on timeout), `output` (tail of stdout+stderr, ≤ 256 KiB), `duration_ms`, `timed_out`. Only with `check`. |
 | `done` | `session_id`, `summary`, `no_changes`, `cost_usd_total` |
 | `paused` | `session_id`, `reason` (`question_timeout`), `question_id` |
 | `error` | `code`, `message`, `session_id?` |

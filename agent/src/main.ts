@@ -1,3 +1,4 @@
+import { runCheck } from "./check.ts";
 import { Checkpointer } from "./checkpoint.ts";
 import { Control } from "./control.ts";
 import { Emitter } from "./emitter.ts";
@@ -95,20 +96,31 @@ async function main(): Promise<number> {
     if (durationHit && outcome.kind !== "done") {
       outcome = { kind: "limit", session_id: sessionIdOf(outcome), message: `max_duration_sec ${cmd.limits.max_duration_sec} exceeded` };
     }
-    return finish(cmd, outcome, workspace, emitter);
+    return await finish(cmd, outcome, workspace, emitter, control, checkpointer);
   } finally {
     clearInterval(heartbeat);
   }
 }
 
-function finish(cmd: RunCommand, outcome: SessionOutcome, workspace: string, emitter: Emitter): number {
+async function finish(
+  cmd: RunCommand,
+  outcome: SessionOutcome,
+  workspace: string,
+  emitter: Emitter,
+  control: Control,
+  checkpointer: Checkpointer | null,
+): Promise<number> {
   switch (outcome.kind) {
     case "done":
     case "limit": {
       let committed = null;
       try {
         // Artifacts mode delivers .fleetpocket/out/ only; the repository is never committed.
-        if (cmd.output !== "artifacts") committed = commitAll(workspace, cmd.commit.message, cmd.commit.author_name, cmd.commit.author_email);
+        if (cmd.output !== "artifacts") {
+          // A loop iteration needs to see whether it changed files: no empty commits there.
+          const allowEmpty = cmd.commit.allow_empty === true && outcome.kind === "done" && !cmd.check;
+          committed = commitAll(workspace, cmd.commit.message, cmd.commit.author_name, cmd.commit.author_email, allowEmpty);
+        }
       } catch (err) {
         emitter.emit({ type: "error", code: "commit_failed", message: errMessage(err), session_id: outcome.session_id });
         return ExitCode.Error;
@@ -117,6 +129,13 @@ function finish(cmd: RunCommand, outcome: SessionOutcome, workspace: string, emi
       if (outcome.kind === "limit") {
         emitter.emit({ type: "error", code: "limit_exceeded", message: outcome.message, session_id: outcome.session_id });
         return ExitCode.LimitExceeded;
+      }
+      if (cmd.check) {
+        // A loop iteration ends with a checkpoint (when they are on), then the check.
+        checkpointer?.final();
+        const r = await runCheck(cmd.check.command, { cwd: workspace, timeoutMs: cmd.check.timeout_sec * 1000, signal: control.abort.signal });
+        if (control.abort.signal.aborted) return ExitCode.Cancelled;
+        emitter.emit({ type: "check", command: cmd.check.command, ...r });
       }
       emitter.emit({
         type: "done",
