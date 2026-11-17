@@ -209,3 +209,24 @@ describe('checkpoints', () => {
     expect(items.map((i) => i.kind)).toEqual(['checkpoint', 'tool'])
   })
 })
+
+describe('loops in the timeline', () => {
+  it('groups runs under iteration headers and stamps each check', () => {
+    const items = buildTimeline([
+      ev('loop', { phase: 'iteration', iteration: 1, max_iterations: 3, check_command: 'npm test' }, { runner: false }),
+      ev('run_started', { run_id: 3, kind: 'initial' }, { runner: false }),
+      ev('check', { command: 'npm test', exit_code: 1, output: 'FAIL', duration_ms: 1200, timed_out: false, iteration: 1, max_iterations: 3 }),
+      ev('loop', { phase: 'iteration', iteration: 2, max_iterations: 3, exit_code: 1 }, { runner: false }),
+      ev('run_started', { run_id: 4, kind: 'loop' }, { runner: false }),
+      ev('check', { command: 'npm test', exit_code: 0, output: 'ok', duration_ms: 900, timed_out: false, iteration: 2, max_iterations: 3 }, { run: 4 }),
+      ev('loop', { phase: 'stopped', state: 'passed', iteration: 2, reason: 'check passed in iteration 2/3' }, { runner: false }),
+    ])
+    expect(items.map((i) => i.kind)).toEqual(['iteration', 'divider', 'check', 'iteration', 'divider', 'check', 'loop_end'])
+    const checks = items.filter((i) => i.kind === 'check')
+    expect(checks.map((c) => [c.iteration, c.max, c.exitCode])).toEqual([
+      [1, 3, 1],
+      [2, 3, 0],
+    ])
+    expect(items.at(-1)).toMatchObject({ kind: 'loop_end', state: 'passed' })
+  })
+})

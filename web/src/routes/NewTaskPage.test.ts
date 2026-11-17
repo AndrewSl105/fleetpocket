@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { toCreateBody } from './NewTaskPage'
 
 describe('toCreateBody', () => {
-  const base = { project_id: 'p', repository_id: '', title: '', prompt: ' Do it ', agent: '' as const, node: '', skills_add: [] as string[], skills_remove: [] as string[], start_from: 'last_commit' as const }
+  const base = { project_id: 'p', repository_id: '', title: '', prompt: ' Do it ', agent: '' as const, node: '', skills_add: [] as string[], skills_remove: [] as string[], loop: { enabled: false, check: '', max: 3, budget: '' }, start_from: 'last_commit' as const }
 
   it('omits blank optional fields, including the agent and host (the project decides)', () => {
     expect(toCreateBody(base)).toEqual({ project_id: 'p', prompt: 'Do it' })
@@ -29,6 +29,20 @@ describe('toCreateBody', () => {
       prompt: 'Do it',
       skills_add: ['infra-map'],
       skills_remove: ['db-schema'],
+    })
+  })
+
+  it('sends the loop only when it is on, without an empty budget', () => {
+    expect(toCreateBody({ ...base, loop: { enabled: false, check: 'npm test', max: 3, budget: '' } })).not.toHaveProperty('loop')
+    expect(toCreateBody({ ...base, loop: { enabled: true, check: ' npm test ', max: 5, budget: '' } })).toEqual({
+      project_id: 'p',
+      prompt: 'Do it',
+      loop: { check_command: 'npm test', max_iterations: 5 },
+    })
+    expect(toCreateBody({ ...base, loop: { enabled: true, check: 'make lint', max: 3, budget: '2.5' } }).loop).toEqual({
+      check_command: 'make lint',
+      max_iterations: 3,
+      budget_usd: 2.5,
     })
   })
 })

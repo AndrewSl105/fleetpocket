@@ -2,6 +2,7 @@ import { seedIntegrations } from './integrations'
 import { seedCosts } from './costs'
 import { seedCheckpoints } from './checkpoints'
 import { seedSkills } from './skills'
+import { seedSchedules } from './schedules'
 import type {
   Agent,
   ApiEvent,
@@ -411,6 +412,7 @@ export function seed() {
   seedCosts()
   seedCheckpoints()
   seedSkills()
+  seedSchedules()
 }
 
 /** CI auto-fix: a PR that went green after one fix, and one whose fix waits for the owner. */

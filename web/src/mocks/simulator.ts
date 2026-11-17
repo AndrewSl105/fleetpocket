@@ -124,8 +124,17 @@ export function startSimulator(intervalMs = 2500) {
         script[step](task)
       } else if (step === script.length) {
         emit(task.id, 'committed', { sha: Math.random().toString(16).slice(2, 12), files_changed: 3, insertions: 74, deletions: 19 })
-        const summary = script === LOCAL_SCRIPT ? 'Limited failed logins with a token bucket; tests pass.' : 'Switched the audit log to keyset pagination; tests pass.'
-        emit(task.id, 'done', { session_id: 's', summary, no_changes: false, cost_usd_total: task.cost_usd_total })
+        if (task.loop && task.loop_state === 'running') {
+          // A loop's check passes in the first iteration in mock mode.
+          const n = task.loop_iteration || 1
+          emit(task.id, 'check', { command: task.loop.check_command, exit_code: 0, output: 'ok', duration_ms: 2100, timed_out: false, iteration: n, max_iterations: task.loop.max_iterations })
+          emit(task.id, 'done', { session_id: 's', summary: 'The check passes.', no_changes: false, cost_usd_total: task.cost_usd_total })
+          Object.assign(task, { loop_state: 'passed' })
+          emit(task.id, 'loop', { phase: 'stopped', state: 'passed', iteration: n, max_iterations: task.loop.max_iterations, reason: `check passed in iteration ${n}/${task.loop.max_iterations}` }, false)
+        } else {
+          const summary = script === LOCAL_SCRIPT ? 'Limited failed logins with a token bucket; tests pass.' : 'Switched the audit log to keyset pagination; tests pass.'
+          emit(task.id, 'done', { session_id: 's', summary, no_changes: false, cost_usd_total: task.cost_usd_total })
+        }
         emitStatus(task, 'pushing')
         progress.set(task.id, step + 1)
       }

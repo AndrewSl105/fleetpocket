@@ -25,6 +25,9 @@ import { StartFromField } from '@/local/StartFromField'
 import { useLocalRepoStatus } from '@/api/local'
 import { isLocalRepo } from '@/lib/local'
 import { ComposerSkills } from '@/routes/skills/ComposerSkills'
+import { LoopFields } from '@/routes/loops/LoopFields'
+import { loopInput, NO_LOOP } from '@/routes/schedules/scheduleForm'
+import { lp } from '@/i18n/loops'
 
 const LAST_PROJECT = 'fleetpocket.lastProject'
 const PROJECT_AGENT = 'project' // Radix Select items cannot have an empty value
@@ -44,6 +47,10 @@ const schema = z.object({
   // Changes to the project's skills for this task (slugs).
   skills_add: z.array(z.string()),
   skills_remove: z.array(z.string()),
+  // "Loop until…" (off: today's behaviour).
+  loop: z
+    .object({ enabled: z.boolean(), check: z.string(), max: z.number().int().min(1).max(10), budget: z.string() })
+    .refine((l) => !l.enabled || l.check.trim() !== '', { message: lp.checkRequired, path: ['check'] }),
 })
 type Values = z.infer<typeof schema>
 
@@ -62,6 +69,7 @@ export function toCreateBody(v: Values, localRepo = false) {
     ...(localRepo ? { start_from: v.start_from } : {}),
     ...(v.skills_add.length ? { skills_add: v.skills_add } : {}),
     ...(v.skills_remove.length ? { skills_remove: v.skills_remove } : {}),
+    ...(v.loop.enabled ? { loop: loopInput(v.loop) ?? undefined } : {}),
   }
 }
 
@@ -72,7 +80,7 @@ export default function NewTaskPage() {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '', skills_add: [], skills_remove: [], start_from: 'last_commit' },
+    defaultValues: { project_id: '', repository_id: '', title: '', prompt: '', agent: '', node: '', skills_add: [], skills_remove: [], loop: NO_LOOP, start_from: 'last_commit' },
   })
   const projectId = form.watch('project_id')
   const prompt = form.watch('prompt')
@@ -307,6 +315,12 @@ export default function NewTaskPage() {
             form.setValue('skills_add', add)
             form.setValue('skills_remove', remove)
           }}
+        />
+
+        <Controller
+          control={form.control}
+          name="loop"
+          render={({ field }) => <LoopFields value={field.value} onChange={field.onChange} error={errors.loop?.check?.message} />}
         />
 
         <div className="space-y-2">
