@@ -95,7 +95,9 @@ func (s *Scheduler) prepareIntegrations(ctx context.Context, h hosts.Host, t *st
 		}
 	}
 	gwHost, gwPort := hostPort(base)
-	if gwHost == "host.docker.internal" && s.Cfg.Local() {
+	if gwHost == "host.docker.internal" {
+		// Docker Desktop resolves it by itself; a Linux Docker host needs
+		// the mapping (local mode, the dev stack, CI).
 		in.hosts = []string{"host.docker.internal:host-gateway"}
 	}
 	if len(servers) > 0 {
