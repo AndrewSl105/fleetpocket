@@ -506,17 +506,19 @@ type Run struct {
 	CacheWriteTokens int64   `json:"cache_write_tokens"`
 	CostSource       *string `json:"cost_source"`
 	Auth             *string `json:"auth"`
+	// RestoreCheckpointID is the checkpoint a `restore` run starts from.
+	RestoreCheckpointID *int64 `json:"-"`
 }
 
 const runCols = `id, task_id, kind, input, container_id, exit_code, last_seq, cost_usd::float8, turns, started_at, finished_at,
 	autofix_attempt, max_budget_usd::float8, agent, model, coalesce(input_tokens, 0), coalesce(output_tokens, 0),
-	coalesce(cache_read_tokens, 0), coalesce(cache_write_tokens, 0), cost_source, auth`
+	coalesce(cache_read_tokens, 0), coalesce(cache_write_tokens, 0), cost_source, auth, restore_checkpoint_id`
 
 func scanRun(row interface{ Scan(...any) error }) (*Run, error) {
 	var r Run
 	if err := row.Scan(&r.ID, &r.TaskID, &r.Kind, &r.Input, &r.ContainerID, &r.ExitCode, &r.LastSeq, &r.CostUSD, &r.Turns, &r.StartedAt, &r.FinishedAt,
 		&r.AutoFixAttempt, &r.MaxBudgetUSD, &r.Agent, &r.Model, &r.InputTokens, &r.OutputTokens,
-		&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostSource, &r.Auth); err != nil {
+		&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostSource, &r.Auth, &r.RestoreCheckpointID); err != nil {
 		return nil, err
 	}
 	return &r, nil

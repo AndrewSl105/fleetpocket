@@ -140,7 +140,7 @@ func recomputeTaskCostTx(ctx context.Context, tx q, taskID int64) (*Task, error)
 }
 
 // SessionBaseline is what earlier runs of the same Claude session already
-// reported: runs since the last fresh (initial/retry) run. Claude reports
+// reported: runs since the last fresh (initial/retry/restore) run. Claude reports
 // cost and tokens cumulatively per session, so a resumed run's own usage
 // is its reported total minus this baseline (docs/PROTOCOL.md).
 func (s *Store) SessionBaseline(ctx context.Context, taskID, runID int64) (float64, costs.Tokens, error) {
@@ -150,7 +150,7 @@ func (s *Store) SessionBaseline(ctx context.Context, taskID, runID int64) (float
 			coalesce(sum(output_tokens), 0)::bigint, coalesce(sum(cache_read_tokens), 0)::bigint, coalesce(sum(cache_write_tokens), 0)::bigint
 		FROM runs
 		WHERE task_id = $1 AND id < $2 AND started_at IS NOT NULL
-		AND id >= coalesce((SELECT max(id) FROM runs WHERE task_id = $1 AND id < $2 AND kind IN ('initial', 'retry')), 0)`,
+		AND id >= coalesce((SELECT max(id) FROM runs WHERE task_id = $1 AND id < $2 AND kind IN ('initial', 'retry', 'restore')), 0)`,
 		taskID, runID).Scan(&c, &t.Input, &t.Output, &t.CacheRead, &t.CacheWrite)
 	return c, t, err
 }

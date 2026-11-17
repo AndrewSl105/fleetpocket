@@ -46,4 +46,20 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if _, err := st.AddBudgetAlert(ctx, "global", "", time.Now(), 80); err != nil {
 		t.Fatalf("budget_alerts: %v", err)
 	}
+	// 00016: checkpoints and restore runs.
+	repo, err := st.AddRepository(ctx, store.Repository{ProjectID: "p", FullName: "o/r", BaseBranch: "main", InstallationID: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := st.CreateTask(ctx, store.Task{ProjectID: "p", RepositoryID: repo.ID, Title: "t", Prompt: "p", Source: "api"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, _ := st.PendingRun(ctx, task.ID)
+	if _, err := st.AddCheckpoint(ctx, store.Checkpoint{TaskID: task.ID, RunID: run.ID, N: 1, RefSHA: "abc"}); err != nil {
+		t.Fatalf("checkpoints: %v", err)
+	}
+	if r, err := st.GetRun(ctx, run.ID); err != nil || r.RestoreCheckpointID != nil {
+		t.Fatalf("runs.restore_checkpoint_id: %+v %v", r, err)
+	}
 }
