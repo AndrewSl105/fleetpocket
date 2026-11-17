@@ -448,6 +448,8 @@ Checkpoints (migration `00016_checkpoints.sql`): `checkpoints (id, task_id, run_
 
 Schedules and loops (migration `00017_schedules_loops.sql`): `schedules (id, name, project_id, repository_id, prompt, agent, skills, mcp_servers, cron, timezone, run_budget_usd, monthly_budget_usd, concurrency, pr_only_if_changes, ends_at, loop jsonb, enabled, next_run_at, created_at, updated_at)`, `schedule_firings (id, schedule_id, scheduled_for, trigger, outcome, reason, task_id, created_at)`, and on `tasks` the nullable `schedule_id` (ON DELETE SET NULL), `mcp_servers`, `run_budget_usd`, `pr_always`, `loop`, `loop_state`, `loop_iteration`, `loop_idle`, plus `runs.loop_iteration`.
 
+Ideas board (migration `00019_ideas.sql`): `ideas (id, project_id → projects ON DELETE SET NULL, title, body, column_id, position float8, tags text[], auto_note, source, archived_at, created_at, updated_at)`, `idea_attachments (id, idea_id, kind file|voice|link, original_name, mime, size_bytes, width, height, duration_ms, transcript, url, link_title, has_thumb, created_at)` with files under `<ATTACHMENTS_DIR>/ideas/<idea_id>/`, and `idea_tasks (idea_id, task_id)`. The setting is the `settings` row `ideas` (`{enabled, columns}`; missing = off with the five default columns).
+
 Backend-generated events (status changes, PR opened, CI result) go into `events` with `seq` NULL, so the web client reads one timeline per task. A first answer wins: answering an already answered question returns `409`.
 
 ## 7. REST API, WebSocket and auth

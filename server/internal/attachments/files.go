@@ -185,8 +185,8 @@ func (f *Files) Watch(ctx context.Context, st *store.Store, hub *events.Hub) {
 }
 
 // SweepAll sweeps every task folder under Dir; folders of tasks that no
-// longer exist or have no live attachments are removed. Entries that are
-// not task folders are left alone.
+// longer exist or have no live attachments are removed. The ideas folder
+// is swept by idea rows; other entries are left alone.
 func (f *Files) SweepAll(ctx context.Context, st *store.Store) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -206,6 +206,9 @@ func (f *Files) SweepAll(ctx context.Context, st *store.Store) error {
 		if err := f.sweep(ctx, st, id); err != nil {
 			errs = append(errs, fmt.Errorf("task %d: %w", id, err))
 		}
+	}
+	if err := f.sweepIdeas(ctx, st); err != nil {
+		errs = append(errs, fmt.Errorf("ideas: %w", err))
 	}
 	return errors.Join(errs...)
 }

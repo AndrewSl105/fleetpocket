@@ -75,4 +75,12 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err != nil || lt.LoopState == nil || lt.ScheduleID == nil {
 		t.Fatalf("tasks loop/schedule: %+v %v", lt, err)
 	}
+	// 00019: ideas, their attachments and linked tasks.
+	idea, err := st.CreateIdea(ctx, store.IdeaFields{Title: "i"}, []store.NewIdeaAttachment{{Kind: store.IdeaLink, Name: "l"}}, nil)
+	if err != nil || len(idea.Attachments) != 1 {
+		t.Fatalf("ideas: %+v %v", idea, err)
+	}
+	if err := st.LinkIdeaTask(ctx, idea.ID, lt.ID); err != nil {
+		t.Fatalf("idea_tasks: %v", err)
+	}
 }
