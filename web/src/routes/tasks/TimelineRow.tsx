@@ -28,6 +28,7 @@ import { c } from '@/i18n/costs'
 import { usd } from '@/lib/format'
 import { cp } from '@/i18n/checkpoints'
 import { CheckpointRow } from './CheckpointRow'
+import { lp } from '@/i18n/loops'
 
 const tl = t.task.timeline
 
@@ -372,9 +373,58 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       return <Divider warn>{cp.forcePushed(item.branch, item.from)}</Divider>
     case 'abandoned':
       return <AbandonedRow item={item} taskId={taskId} />
+    case 'iteration':
+      return (
+        <div className="flex min-h-9 items-center gap-2 border-y-2 border-ink bg-grid px-3 py-1.5" role="separator" aria-label={lp.iteration(item.n, item.max)}>
+          <span className="fm-label font-semibold">{lp.iteration(item.n, item.max)}</span>
+          {item.command && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{item.command}</span>}
+        </div>
+      )
+    case 'check':
+      return <CheckRow item={item} />
+    case 'loop_end':
+      return (
+        <Divider warn={item.state !== 'passed'}>
+          {lp.ended(item.state)}
+          {item.reason && item.state !== 'passed' ? ` · ${item.reason}` : ''}
+        </Divider>
+      )
     case 'question':
       return null
   }
+}
+
+/** The check that ended a loop iteration: a stamp, then its output on demand. */
+function CheckRow({ item }: { item: Extract<TimelineItem, { kind: 'check' }> }) {
+  const [open, setOpen] = useState(false)
+  const passed = item.exitCode === 0 && !item.timedOut
+  return (
+    <div className="fm-group px-3 py-2.5" data-testid="loop-check">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="fm-stamp" data-tone={passed ? 'olive' : 'danger'}>
+          {passed ? lp.checkPassed : lp.checkFailed(item.iteration, item.max)}
+        </span>
+        <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{item.command}</span>
+        <span className="ml-auto font-mono text-xs text-muted-foreground">
+          {item.timedOut ? lp.checkTimedOut : lp.exitCode(item.exitCode)} · {(item.ms / 1000).toFixed(1)}s
+        </span>
+      </div>
+      {item.output.trim() && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="mt-1 flex min-h-11 items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} aria-hidden="true" />
+            {open ? lp.hideOutput : lp.showOutput}
+          </button>
+          {open && <pre className="max-h-72 overflow-auto bg-grid p-2 font-mono text-[11px] leading-snug whitespace-pre-wrap break-words">{item.output}</pre>}
+        </>
+      )}
+    </div>
+  )
 }
 
 /** Steps a restore discarded: collapsed and greyed, never deleted. */

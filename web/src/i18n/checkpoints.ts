@@ -5,7 +5,11 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 export const cp = {
   marker: (n: number, reason: string, files: number) =>
-    reason === 'question' ? `Checkpoint ${n} · before a question` : `Checkpoint ${n} · ${plural(files, 'file')} changed`,
+    reason === 'question'
+      ? `Checkpoint ${n} · before a question`
+      : reason === 'iteration'
+        ? `Checkpoint ${n} · end of the iteration`
+        : `Checkpoint ${n} · ${plural(files, 'file')} changed`,
   restoreHere: 'Restore here',
   unavailable: 'Restore unavailable',
   abandoned: (n: number) => `Abandoned branch · ${plural(n, 'entry', 'entries')}`,

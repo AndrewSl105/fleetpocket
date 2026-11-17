@@ -25,6 +25,10 @@ const CanvasPage = lazy(() => import('@/routes/canvas/CanvasPage'))
 const CostsPage = lazy(() => import('@/routes/costs/CostsPage'))
 const SkillsPage = lazy(() => import('@/routes/skills/SkillsPage'))
 const SkillEditPage = lazy(() => import('@/routes/skills/SkillEditPage'))
+// One chunk for the three Schedules screens.
+const SchedulesPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.SchedulesPage })))
+const ScheduleDetailPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.ScheduleDetailPage })))
+const ScheduleEditPage = lazy(() => import('@/routes/schedules/screens').then((m) => ({ default: m.ScheduleEditPage })))
 // Only the first-run wizard needs it (and its QR code library); keep it out of the initial bundle.
 const SetupPage = lazy(() => import('@/setup/SetupPage').then((m) => ({ default: m.SetupPage })))
 
@@ -61,6 +65,10 @@ export function createAppRouter() {
         { path: 'skills', element: lazyPage(SkillsPage) },
         { path: 'skills/new', element: lazyPage(SkillEditPage) },
         { path: 'skills/:id', element: lazyPage(SkillEditPage) },
+        { path: 'schedules', element: lazyPage(SchedulesPage) },
+        { path: 'schedules/new', element: lazyPage(ScheduleEditPage) },
+        { path: 'schedules/:id', element: lazyPage(ScheduleDetailPage) },
+        { path: 'schedules/:id/edit', element: lazyPage(ScheduleEditPage) },
         { path: '*', element: <NotFound /> },
       ],
     },

@@ -147,6 +147,15 @@ test.describe('screens', () => {
     await shot(page, 'skills')
   })
 
+  test('schedules', async ({ page }) => {
+    test.skip(isDesktop())
+    await open(page, '/')
+    await login(page)
+    await page.goto('/schedules')
+    await expect(page.getByText('Nightly test fixer')).toBeVisible()
+    await shot(page, 'schedules')
+  })
+
   test('new task', async ({ page }) => {
     test.skip(isDesktop())
     await open(page, '/')

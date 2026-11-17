@@ -1,5 +1,5 @@
 import { http, HttpResponse, ws, delay } from 'msw'
-import type { Agent, ApiEvent, HostNode, Project, Task } from '@/api/types'
+import type { Agent, ApiEvent, HostNode, LoopInput, Project, Task } from '@/api/types'
 import { GROUPS } from '@/lib/status'
 import { addAttachment, addEvent, db, makeTask, MOCK_AGENTS, node, startRun, taskView } from './db'
 import { emitStatus, interruptRun, resumeAfterAnswer, setPush } from './simulator'
@@ -7,6 +7,7 @@ import { integrationHandlers } from './integrations'
 import { costHandlers, monthCost, monthUnknown } from './costs'
 import { checkpointHandlers } from './checkpoints'
 import { knownSlugs, skillHandlers, taskSkills } from './skills'
+import { mockLoop, scheduleHandlers } from './schedules'
 
 const SESSION_KEY = 'fleetpocket.mock.session'
 const PASSWORD = 'fleetpocket'
@@ -143,6 +144,7 @@ export const handlers = [
   ...costHandlers(API, guard, err),
   ...checkpointHandlers(API, guard, err, pushEvent),
   ...skillHandlers(API, guard, err),
+  ...scheduleHandlers(API, guard, err),
   socket.addEventListener('connection', ({ client }) => {
     if (!session()) {
       client.close(1008, 'unauthorized')
@@ -333,7 +335,7 @@ export const handlers = [
   http.post(`${API}/tasks`, async ({ request }) => {
     const denied = guard(request)
     if (denied) return denied
-    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'output', 'skills_add', 'skills_remove'])
+    const read = await readBody(request, ['project_id', 'prompt', 'repository_id', 'title', 'agent', 'node', 'output', 'skills_add', 'skills_remove', 'loop'])
     if ('error' in read) return read.error
     const f = read.fields
     const body = { project_id: f.project_id, prompt: f.prompt ?? '', repository_id: f.repository_id ? Number(f.repository_id) : undefined, title: f.title }
@@ -366,6 +368,8 @@ export const handlers = [
     })
     const attachments = await storeImages(task.id, read.files)
     addEvent(task.id, 'created', { attachments })
+    // JSON sends the loop as an object, multipart as a JSON string.
+    mockLoop(task, typeof f.loop === 'string' ? JSON.parse(f.loop) : (f.loop as LoopInput | undefined))
     startRun(task.id, 'initial', task.prompt)
     addEvent(task.id, 'status', { status: 'queued' })
     pushTask(task)

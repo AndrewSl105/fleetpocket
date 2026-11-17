@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { BookOpen, FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
+import { BookOpen, CalendarClock, FolderGit2, ListTodo, Plus, Receipt, Settings, SquareTerminal } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/en'
@@ -20,12 +20,13 @@ const NAV = [
   { to: '/settings', label: t.nav.settings, icon: Settings, end: true },
 ] as const
 
-/** The sidebar adds the canvas, a desktop view, Skills and Costs (on phones: from Settings and Projects). */
+/** The sidebar adds the canvas, a desktop view, Skills, Schedules and Costs (on phones: from Settings and Projects). */
 const SIDEBAR_NAV = [
   NAV[0],
   { to: '/canvas', label: t.nav.canvas, icon: SquareTerminal, end: true },
   ...NAV.slice(1, 3),
   { to: '/skills', label: t.nav.skills, icon: BookOpen, end: false },
+  { to: '/schedules', label: t.nav.schedules, icon: CalendarClock, end: false },
   { to: '/costs', label: t.nav.costs, icon: Receipt, end: true },
   NAV[3],
 ] as const
@@ -38,6 +39,7 @@ function isActive(pathname: string, to: string) {
 export function parentPath(pathname: string): string {
   if (pathname.startsWith('/projects/')) return '/projects'
   if (pathname.startsWith('/skills/')) return '/skills'
+  if (pathname.startsWith('/schedules/')) return '/schedules'
   return '/'
 }
 

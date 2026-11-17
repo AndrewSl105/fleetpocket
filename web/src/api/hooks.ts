@@ -18,7 +18,6 @@ import {
   type EventsData,
 } from './cache'
 import type {
-  Agent,
   ApiEvent,
   Attachment,
   CIAutoFixSettings,
@@ -32,6 +31,7 @@ import type {
   TaskView,
 } from './types'
 import { isApiError } from './errors'
+import type { paths } from './schema'
 import { GROUPS } from '@/lib/status'
 import { t } from '@/i18n/en'
 import { haptic } from '@/telegram/haptics'
@@ -182,7 +182,7 @@ function useTaskResult() {
   }
 }
 
-type CreateBody = { project_id: string; prompt: string; repository_id?: number; title?: string; agent?: Agent; node?: string; skills_add?: string[]; skills_remove?: string[] }
+type CreateBody = paths['/api/v1/tasks']['post']['requestBody']['content']['application/json']
 
 /** Multipart body: the JSON fields as form fields plus files[] (API.md, "Attachments"). */
 export function toFormData(fields: Record<string, string | number | undefined>, files: File[]): FormData {
@@ -200,8 +200,11 @@ export function useCreateTask() {
       files.length
         ? uploadForm<TaskView>(
             '/api/v1/tasks',
-            // Multipart takes the skill slugs comma-separated.
-            toFormData({ ...body, skills_add: body.skills_add?.join(','), skills_remove: body.skills_remove?.join(',') }, files),
+            // Multipart takes the skill slugs comma-separated and the loop as JSON.
+            toFormData(
+              { ...body, skills_add: body.skills_add?.join(','), skills_remove: body.skills_remove?.join(','), loop: body.loop ? JSON.stringify(body.loop) : undefined },
+              files,
+            ),
             onProgress,
           )
         : call(api.POST('/api/v1/tasks', { params: { header: CSRF }, body })),

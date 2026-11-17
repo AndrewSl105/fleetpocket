@@ -42,6 +42,12 @@ export type TimelineItem =
   | { kind: 'restored'; key: string; n: number; mode: string; instruction: string; at: string }
   /** A push after a restore rewrote the branch. */
   | { kind: 'force_push'; key: string; branch: string; from: string; at: string }
+  /** A loop iteration starts (docs/API.md "Loops"): the runs below belong to it. */
+  | { kind: 'iteration'; key: string; n: number; max: number; command?: string; at: string }
+  /** The check that ended a loop iteration. */
+  | { kind: 'check'; key: string; iteration: number; max: number; exitCode: number; timedOut: boolean; output: string; command: string; ms: number; at: string }
+  /** The loop ended (state says why). */
+  | { kind: 'loop_end'; key: string; state: string; reason?: string; at: string }
   /** Steps a restore discarded: kept, shown collapsed and greyed. */
   | { kind: 'abandoned'; key: string; items: TimelineItem[]; at: string }
   /** One CI auto-fix step (docs/API.md "CI auto-fix"). */
@@ -272,6 +278,28 @@ export function buildTimeline(events: ApiEvent[], local: ApiEvent[] = []): Timel
       case 'branch_force_pushed':
         items.push({ kind: 'force_push', key, branch: e.payload.branch, from: e.payload.from, at })
         break
+      case 'loop': {
+        const l = e.payload
+        if (l.phase === 'iteration') items.push({ kind: 'iteration', key, n: l.iteration, max: l.max_iterations ?? l.iteration, command: l.check_command, at })
+        else items.push({ kind: 'loop_end', key, state: l.state ?? 'stopped', reason: l.reason, at })
+        break
+      }
+      case 'check': {
+        const c = e.payload
+        items.push({
+          kind: 'check',
+          key,
+          iteration: c.iteration ?? 1,
+          max: c.max_iterations ?? c.iteration ?? 1,
+          exitCode: c.exit_code,
+          timedOut: c.timed_out,
+          output: c.output,
+          command: c.command,
+          ms: c.duration_ms,
+          at,
+        })
+        break
+      }
       default:
         // ready, started, heartbeat and unknown types are not shown.
         break
