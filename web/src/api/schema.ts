@@ -1550,9 +1550,9 @@ export interface components {
          *     have `seq` set and their `payload` is the runner event verbatim
          *     (including `type`, `ts`, `seq`); backend events have `seq: null`.
          */
-        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"];
+        Event: components["schemas"]["ReadyEvent"] | components["schemas"]["StartedEvent"] | components["schemas"]["AssistantTextEvent"] | components["schemas"]["ToolUseEvent"] | components["schemas"]["ToolResultEvent"] | components["schemas"]["QuestionEvent"] | components["schemas"]["UsageEvent"] | components["schemas"]["CommittedEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["PausedEvent"] | components["schemas"]["ErrorEvent"] | components["schemas"]["CreatedEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["AnswerEvent"] | components["schemas"]["MessageEvent"] | components["schemas"]["MessageDroppedEvent"] | components["schemas"]["InterruptEvent"] | components["schemas"]["RunStartedEvent"] | components["schemas"]["RunFinishedEvent"] | components["schemas"]["PrOpenedEvent"] | components["schemas"]["PrUpdatedEvent"] | components["schemas"]["PrClosedEvent"] | components["schemas"]["CiEvent"] | components["schemas"]["DiffRejectedEvent"] | components["schemas"]["AutoFixEvent"] | components["schemas"]["MCPCallEvent"] | components["schemas"]["EgressBlockedEvent"] | components["schemas"]["IntegrationsEvent"] | components["schemas"]["BudgetEvent"] | components["schemas"]["CheckpointEvent"];
         /** @enum {string} */
-        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget";
+        EventType: "ready" | "started" | "assistant_text" | "tool_use" | "tool_result" | "question" | "usage" | "committed" | "done" | "paused" | "error" | "created" | "status" | "answer" | "message" | "message_dropped" | "interrupt" | "run_started" | "run_finished" | "pr_opened" | "pr_updated" | "pr_closed" | "ci" | "diff_rejected" | "autofix" | "mcp_call" | "egress_blocked" | "integrations" | "budget" | "checkpoint";
         EventBase: {
             /** Format: int64 */
             id: number;
@@ -1754,6 +1754,37 @@ export interface components {
              * @enum {string}
              */
             type: "committed";
+        };
+        /** @description The runner committed the working tree to the hidden ref refs/jm/checkpoints/<run_id>/<n> (docs/PROTOCOL.md, "Checkpoints"). Only with checkpoints on (GET /settings/checkpoints). */
+        CheckpointEvent: components["schemas"]["EventBase"] & {
+            /** @enum {string} */
+            type: "checkpoint";
+            /** Format: int64 */
+            run_id: number;
+            /** Format: int64 */
+            seq: number;
+            payload: components["schemas"]["CheckpointPayload"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "checkpoint";
+        };
+        CheckpointPayload: components["schemas"]["RunnerPayloadBase"] & {
+            /** @enum {string} */
+            type: "checkpoint";
+            /** @description 1-based within the run */
+            n: number;
+            ref_sha: string;
+            /** @description The agent step (tool round) of the run at which it was taken */
+            turn: number;
+            /** @description What the agent needs to resume at this point; "" when it cannot (Codex, Cursor) */
+            session_ref: string;
+            /** @description Files changed since the previous checkpoint of the run (or HEAD) */
+            files_changed: number;
+            /** @enum {string} */
+            reason?: "turn" | "question";
         };
         CommittedPayload: components["schemas"]["RunnerPayloadBase"] & {
             /** @enum {string} */

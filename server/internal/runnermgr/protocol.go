@@ -28,6 +28,7 @@ const (
 	EvQuestion      = "question"
 	EvUsage         = "usage"
 	EvCommitted     = "committed"
+	EvCheckpoint    = "checkpoint"
 	EvDone          = "done"
 	EvPaused        = "paused"
 	EvError         = "error"
@@ -63,6 +64,27 @@ type RunCommand struct {
 	MCP    *MCPConfig `json:"mcp,omitempty"`
 	Skills []Skill    `json:"skills,omitempty"`
 	Output string     `json:"output,omitempty"` // "pr" (default) | "artifacts" | "pr_and_artifacts"
+	// Checkpoints is set only when checkpoints are on (nil: none taken).
+	Checkpoints *CheckpointsConfig `json:"checkpoints,omitempty"`
+	// ResumeSessionRef is a checkpoint's session_ref: the agent resumes that
+	// conversation at that point as a new fork (Claude). Sent instead of
+	// ResumeSessionID.
+	ResumeSessionRef string `json:"resume_session_ref,omitempty"`
+}
+
+// CheckpointsConfig names the run in the checkpoint refs
+// (refs/jm/checkpoints/<run_id>/<n>).
+type CheckpointsConfig struct {
+	RunID string `json:"run_id"`
+}
+
+// CheckpointRefPrefix is where the runner keeps checkpoint commits. They are
+// never pushed: the server pushes only HEAD:refs/heads/<branch>.
+const CheckpointRefPrefix = "refs/jm/checkpoints/"
+
+// CheckpointRef is the ref of checkpoint n of a run.
+func CheckpointRef(runID int64, n int) string {
+	return fmt.Sprintf("%s%d/%d", CheckpointRefPrefix, runID, n)
 }
 
 // MCPConfig gives the agent its MCP servers through the gateway. Token is
@@ -159,17 +181,22 @@ type Event struct {
 	FilesChanged     int    `json:"files_changed,omitempty"`
 	Insertions       int    `json:"insertions,omitempty"`
 	Deletions        int    `json:"deletions,omitempty"`
-	NoChanges        bool   `json:"no_changes,omitempty"`
-	Reason           string `json:"reason,omitempty"`
-	Code             string `json:"code,omitempty"`
-	Message          string `json:"message,omitempty"`
+	// checkpoint
+	N          int    `json:"n,omitempty"`
+	RefSHA     string `json:"ref_sha,omitempty"`
+	Turn       int    `json:"turn,omitempty"`
+	SessionRef string `json:"session_ref,omitempty"`
+	NoChanges  bool   `json:"no_changes,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	Code       string `json:"code,omitempty"`
+	Message    string `json:"message,omitempty"`
 
 	Raw json.RawMessage `json:"-"`
 }
 
 var knownEvents = map[string]bool{
 	EvReady: true, EvStarted: true, EvAssistantText: true, EvToolUse: true, EvToolResult: true,
-	EvQuestion: true, EvUsage: true, EvCommitted: true, EvDone: true, EvPaused: true,
+	EvQuestion: true, EvUsage: true, EvCommitted: true, EvCheckpoint: true, EvDone: true, EvPaused: true,
 	EvError: true, EvHeartbeat: true,
 }
 
@@ -204,6 +231,10 @@ func ParseEvent(line []byte) (Event, error) {
 	case EvCommitted:
 		if ev.SHA == "" {
 			return ev, errors.New("committed needs sha")
+		}
+	case EvCheckpoint:
+		if ev.N <= 0 || ev.RefSHA == "" {
+			return ev, errors.New("checkpoint needs n and ref_sha")
 		}
 	case EvError:
 		if ev.Code == "" {

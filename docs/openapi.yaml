@@ -1990,6 +1990,7 @@ components:
         - $ref: '#/components/schemas/EgressBlockedEvent'
         - $ref: '#/components/schemas/IntegrationsEvent'
         - $ref: '#/components/schemas/BudgetEvent'
+        - $ref: '#/components/schemas/CheckpointEvent'
       discriminator:
         propertyName: type
         mapping:
@@ -2022,10 +2023,11 @@ components:
           egress_blocked: '#/components/schemas/EgressBlockedEvent'
           integrations: '#/components/schemas/IntegrationsEvent'
           budget: '#/components/schemas/BudgetEvent'
+          checkpoint: '#/components/schemas/CheckpointEvent'
 
     EventType:
       type: string
-      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget]
+      enum: [ready, started, assistant_text, tool_use, tool_result, question, usage, committed, done, paused, error, created, status, answer, message, message_dropped, interrupt, run_started, run_finished, pr_opened, pr_updated, pr_closed, ci, diff_rejected, autofix, mcp_call, egress_blocked, integrations, budget, checkpoint]
 
     EventBase:
       type: object
@@ -2210,6 +2212,32 @@ components:
             run_id: { type: integer, format: int64 }
             seq: { type: integer, format: int64 }
             payload: { $ref: '#/components/schemas/CommittedPayload' }
+
+    CheckpointEvent:
+      description: The runner committed the working tree to the hidden ref refs/jm/checkpoints/<run_id>/<n> (docs/PROTOCOL.md, "Checkpoints"). Only with checkpoints on (GET /settings/checkpoints).
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [type, run_id, seq, payload]
+          properties:
+            type: { type: string, enum: [checkpoint] }
+            run_id: { type: integer, format: int64 }
+            seq: { type: integer, format: int64 }
+            payload: { $ref: '#/components/schemas/CheckpointPayload' }
+
+    CheckpointPayload:
+      allOf:
+        - $ref: '#/components/schemas/RunnerPayloadBase'
+        - type: object
+          required: [type, n, ref_sha, turn, session_ref, files_changed]
+          properties:
+            type: { type: string, enum: [checkpoint] }
+            n: { type: integer, description: 1-based within the run }
+            ref_sha: { type: string }
+            turn: { type: integer, description: The agent step (tool round) of the run at which it was taken }
+            session_ref: { type: string, description: 'What the agent needs to resume at this point; "" when it cannot (Codex, Cursor)' }
+            files_changed: { type: integer, description: Files changed since the previous checkpoint of the run (or HEAD) }
+            reason: { type: string, enum: [turn, question] }
 
     CommittedPayload:
       allOf:

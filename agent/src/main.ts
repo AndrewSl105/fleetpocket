@@ -1,3 +1,4 @@
+import { Checkpointer } from "./checkpoint.ts";
 import { Control } from "./control.ts";
 import { Emitter } from "./emitter.ts";
 import { fakeSession } from "./fake.ts";
@@ -66,14 +67,30 @@ async function main(): Promise<number> {
       control.cancel();
     }, cmd.limits.max_duration_sec * 1000);
 
+    // Artifacts mode never commits the repository, so it takes no checkpoints.
+    let checkpointer: Checkpointer | null = null;
+    if (cmd.checkpoints && cmd.output !== "artifacts") {
+      const cp = new Checkpointer({
+        workspace,
+        runId: cmd.checkpoints.run_id,
+        author: { name: cmd.commit.author_name, email: cmd.commit.author_email },
+        emit: (ev) => emitter.emit(ev),
+        warn: (m) => process.stderr.write(`${m}\n`),
+      });
+      emitter.before = (ev) => cp.before(ev);
+      emitter.after = (ev) => cp.observe(ev);
+      checkpointer = cp;
+    }
+
     const session: Session = fake ? fakeSession : await loadSession(cmd.agent);
     let outcome: SessionOutcome;
     try {
-      outcome = await session({ cmd, workspace, emitter, control });
+      outcome = await session({ cmd, workspace, emitter, control, checkpointer });
     } catch (err) {
       outcome = { kind: "error", code: "internal", message: err instanceof Error ? err.message : String(err) };
     } finally {
       clearTimeout(durationTimer);
+      emitter.before = emitter.after = null;
     }
     if (durationHit && outcome.kind !== "done") {
       outcome = { kind: "limit", session_id: sessionIdOf(outcome), message: `max_duration_sec ${cmd.limits.max_duration_sec} exceeded` };

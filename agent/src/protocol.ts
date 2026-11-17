@@ -57,6 +57,14 @@ export const RunCommand = z.object({
     .optional(),
   skills: z.array(Skill).default([]),
   output: z.enum(OUTPUTS).default("pr"),
+  // Present only when checkpoints are on: after each step that changed files
+  // and before each question, the runner commits the working tree to
+  // refs/jm/checkpoints/<run_id>/<n> and emits `checkpoint`.
+  checkpoints: z.object({ run_id: z.union([z.string().min(1), z.number()]).transform(String) }).optional(),
+  // A checkpoint's session_ref (restore): the agent resumes that
+  // conversation at that point as a new fork (Claude only; replaces
+  // resume_session_id, which the server then leaves out).
+  resume_session_ref: z.string().min(1).optional(),
 });
 
 export type McpConfig = NonNullable<z.infer<typeof RunCommand>["mcp"]>;
@@ -122,6 +130,17 @@ export type EventBody =
       cache_write_tokens?: number;
     }
   | { type: "committed"; sha: string; files_changed: number; insertions: number; deletions: number }
+  // ref_sha is the commit at refs/jm/checkpoints/<run>/<n>; session_ref is
+  // "" when the agent cannot resume at that point (Codex, Cursor).
+  | {
+      type: "checkpoint";
+      n: number;
+      ref_sha: string;
+      turn: number;
+      session_ref: string;
+      files_changed: number;
+      reason: "turn" | "question";
+    }
   | { type: "done"; session_id: string; summary: string; no_changes: boolean; cost_usd_total: number }
   | { type: "paused"; session_id: string; reason: "question_timeout"; question_id: string }
   | { type: "error"; code: string; message: string; session_id?: string }

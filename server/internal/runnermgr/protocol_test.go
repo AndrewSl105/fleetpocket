@@ -39,11 +39,38 @@ func TestParseEvent(t *testing.T) {
 		`{"type":"ready","seq":3}`:                                               "ts",
 		`{"type":"question","ts":"2026-10-14T15:08:42.564Z","seq":2}`:            "question",
 		`{"type":"error","message":"x","ts":"2026-10-14T15:08:42.564Z","seq":2}`: "code",
+		`{"type":"checkpoint","n":1,"ts":"2026-10-14T15:08:42.564Z","seq":2}`:    "checkpoint",
 	}
 	for l, want := range bad {
 		if _, err := ParseEvent([]byte(l)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%s: got %v, want %q", l, err, want)
 		}
+	}
+}
+
+func TestParseCheckpointEvent(t *testing.T) {
+	l := `{"type":"checkpoint","n":2,"ref_sha":"abc","turn":5,"session_ref":"s/u","files_changed":3,"reason":"turn","ts":"2026-10-14T15:08:42.564Z","seq":9}`
+	ev, err := ParseEvent([]byte(l))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.N != 2 || ev.RefSHA != "abc" || ev.Turn != 5 || ev.SessionRef != "s/u" || ev.FilesChanged != 3 || ev.Reason != "turn" {
+		t.Fatalf("%+v", ev)
+	}
+	if got := CheckpointRef(12, 2); got != "refs/jm/checkpoints/12/2" {
+		t.Fatal(got)
+	}
+}
+
+func TestRunCommandCheckpointFields(t *testing.T) {
+	b, _ := EncodeCommand(NewRun(RunCommand{TaskID: "1", Prompt: "p", Checkpoints: &CheckpointsConfig{RunID: "4"}, ResumeSessionRef: "s/u"}))
+	if !strings.Contains(string(b), `"checkpoints":{"run_id":"4"}`) || !strings.Contains(string(b), `"resume_session_ref":"s/u"`) {
+		t.Fatalf("%s", b)
+	}
+	// Off: neither field on the wire.
+	b, _ = EncodeCommand(NewRun(RunCommand{TaskID: "1", Prompt: "p"}))
+	if strings.Contains(string(b), "checkpoints") || strings.Contains(string(b), "resume_session_ref") {
+		t.Fatalf("%s", b)
 	}
 }
 

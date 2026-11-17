@@ -15,7 +15,7 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 | type | fields | meaning |
 |---|---|---|
-| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}` | first line, starts the session |
+| `run` | `task_id` (string or number), `prompt`, `append_system_prompt?`, `resume_session_id?`, `agent?` (`claude` default, `codex`, `cursor`), `model?`, `limits{max_turns, max_budget_usd, max_duration_sec, question_timeout_sec}`, `commit{message, author_name, author_email}`, `skills?` (`[{slug, files: [{path, content}]}]`, SKILL.md included; default `[]`), `output?` (`pr` default, `artifacts`, `pr_and_artifacts`), `mcp?{token, servers[{name, url}]}`, `checkpoints?{run_id}`, `resume_session_ref?` | first line, starts the session |
 | `answer` | `question_id`, `text` | reply to a pending question. An answer that arrives before its question is kept and used when the question is asked. |
 | `message` | `text` | extra user message injected into the running session. A run handles one prompt: input closes after the first turn's result, so a message that arrives after that is dropped. Codex and Cursor cannot take input mid-turn: a message that arrives during the turn runs as one more turn after it. **Fleetpocket does not send it**: it queues messages and starts them as the next run (API.md). |
 | `interrupt` | — | stop the current turn, keep the session. The run then ends as `done` (summary "Interrupted by the user.") with whatever was committed; send a follow-up as a new run with `resume_session_id`. |
@@ -25,6 +25,17 @@ Source of truth: `agent/src/protocol.ts`. Go mirror: `server/internal/runnermgr/
 
 - Before the session starts the runner writes each skill folder where the agent discovers project skills: Claude `/workspace/.claude/skills/<slug>/<path>` (`settingSources: ["project"]`), Cursor `/workspace/.cursor/skills/<slug>/<path>` (`local.settingSources: ["project"]`). Each written folder is added to `.git/info/exclude`, so skills never reach a commit. When the repository already has that folder, the repository's copy wins: the runner skips the skill and emits `assistant_text` noting the skip. Codex has no skills input in `@openai/codex-sdk`: the runner appends each skill's name, description and body to its `developer_instructions`.
 - `output: "artifacts"`: the Claude policy denies `Write`/`Edit`/`MultiEdit`/`NotebookEdit` outside `.fleetpocket/out/`, and the runner skips its final commit (`done.no_changes` is `true`). Codex and Cursor have no hook; the server is to discard repository changes after the run (not live yet, so the API refuses outputs other than `pr`; DECISIONS.md).
+
+### Checkpoints
+
+`checkpoints` is present only when the owner turned checkpoints on (`PUT /settings/checkpoints`); without it the runner takes none, exactly as before. With it (and `output` other than `artifacts`) the runner takes a checkpoint:
+
+- after every step (`tool_result`) when the working tree differs from the previous checkpoint of the run (or from `HEAD` for the first one), reason `turn`;
+- right before every `question` (so also before a pause), even when nothing changed, reason `question`.
+
+A checkpoint is a commit of the whole working tree (`.gitignore` and `.git/info/exclude` apply, so `.fleetpocket/` and skill folders stay out) whose parent is `HEAD`, at the hidden ref `refs/jm/checkpoints/<run_id>/<n>`. The runner builds it with plumbing only (a temporary `GIT_INDEX_FILE`, `write-tree`, `commit-tree`, `update-ref`): `HEAD`, the branch and the real index never move, so checkpoint commits are never part of the task branch's history. The runner never pushes; the server pushes only `HEAD:refs/heads/<branch>`, so the refs never leave the workspace and disappear with it (`WORKSPACE_RETENTION`). A failure to take a checkpoint is logged on stderr and the run goes on.
+
+`resume_session_ref` (restore): a checkpoint's `session_ref`. The server sends it instead of `resume_session_id`; the agent resumes that conversation at that point as a new fork. Claude: `session_ref` is `<session id>/<message uuid>` (the last transcript entry that leaves no tool call open at the checkpoint), and the runner passes `resume`, `resumeSessionAt` and `forkSession: true` (installed `@anthropic-ai/claude-agent-sdk`). Codex and Cursor cannot resume at a point (`resumeThread(id)` / `Agent.resume(id)` only), so their `session_ref` is `""` and the server starts a new session whose prompt carries a summary of the timeline up to the checkpoint. The server resets the workspace to the checkpoint before it starts the run (SPEC-server, "Checkpoints").
 
 An invalid line produces an `error` event with `code: "bad_command"`; the runner keeps running. A second `run` is also `bad_command`.
 
@@ -44,6 +55,7 @@ Every event has `type`, `ts` (RFC 3339, UTC, milliseconds) and `seq` (monotonic 
 | `question` | `question_id`, `text`, `options?` (string array) |
 | `usage` | `cost_usd_total`, `input_tokens`, `output_tokens`, `turns`, `cache_read_tokens?`, `cache_write_tokens?` |
 | `committed` | `sha`, `files_changed`, `insertions`, `deletions` |
+| `checkpoint` | `n` (1-based within the run), `ref_sha`, `turn` (the step of the run), `session_ref` (`""` when the agent cannot resume there), `files_changed` (since the previous checkpoint), `reason` (`turn` \| `question`). Only with `checkpoints`. |
 | `done` | `session_id`, `summary`, `no_changes`, `cost_usd_total` |
 | `paused` | `session_id`, `reason` (`question_timeout`), `question_id` |
 | `error` | `code`, `message`, `session_id?` |
@@ -132,7 +144,7 @@ Every event is also appended to `/workspace/.fleetpocket/events.jsonl`. The runn
 | `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY` | Claude auth; the OAuth token wins. Missing both → `error{code:"no_auth"}`, exit `1`. |
 | `OPENAI_API_KEY` | Codex auth (`agent: "codex"`); missing → `no_auth`. |
 | `CURSOR_API_KEY` | Cursor auth (`agent: "cursor"`); missing → `no_auth`. |
-| `FLEETPOCKET_RUNNER_FAKE=1` | scripted session, no Claude: `started`, tool events, one question (`q1`, options `hello`/`hi`), waits for the answer, writes `FLEETPOCKET_FAKE.md`, commits, `done`. An `interrupt` while it waits ends the run as `done` ("Interrupted by the user.", no changes), like a real session. |
+| `FLEETPOCKET_RUNNER_FAKE=1` | scripted session, no Claude: `started`, tool events, one question (`q1`, options `hello`/`hi`), waits for the answer, writes `FLEETPOCKET_FAKE.md`, commits, `done`. Its `session_ref` is `<session id>/m<k>`; with `resume_session_ref` it starts a new session `fake-fork-…` and first emits `assistant_text` "Forked session <id> at <m>". An `interrupt` while it waits ends the run as `done` ("Interrupted by the user.", no changes), like a real session. |
 | `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` (and lower case), `NODE_USE_ENV_PROXY=1` | set only for projects in egress allowlist mode: the task network has no route out except the egress proxy sidecar (`http://egress-proxy:3128`). Tools that ignore the proxy variables cannot reach the internet. |
 | `FLEETPOCKET_WORKSPACE` | workspace path, default `/workspace` (tests only). |
 | `FLEETPOCKET_STATE_DIR` | per-task agent state, default `~/.claude` (the volume Fleetpocket mounts; tests only). |
