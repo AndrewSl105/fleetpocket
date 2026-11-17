@@ -60,13 +60,14 @@ Override with `--data-dir` or `JM_DATA_DIR`. Inside:
 - `secrets.json`: only when there is no OS keychain (headless Linux), mode 0600; `doctor` says so.
 - `bin/<version>/`: the binary, when the npm launcher had to download it.
 
-Secrets (GitHub token, agent keys) live in the OS keychain under the service
+Secrets (GitHub token, agent keys, and `SECRETS_KEY`, generated on the first
+start to encrypt MCP server credentials in the database) live in the OS keychain under the service
 `jungle-monkey`; keys stored by `fleetpocket-node` (service `fleetpocket-node`)
 are read too. Environment variables (`ANTHROPIC_API_KEY`, …) win over both.
 
 ## Security
 
-- Listens on `127.0.0.1` only, on a remembered port (4815 when free).
+- Listens on `127.0.0.1` only, on a remembered port (4815 when free). Runners reach the MCP gateway through Docker Desktop's `host.docker.internal`; on Linux, where containers cannot reach the host's loopback, MCP servers need `MCP_GATEWAY_URL` (docs/OPERATIONS.md).
 - No password: the CLI opens a one-time link that sets a `SameSite=Strict`, HttpOnly session cookie.
 - Requests whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` are rejected (DNS rebinding); the CSRF header check and "no CORS" stay.
 - Agent containers keep every server-mode property: no GitHub token, no Docker socket, no host network. Only the jungle-monkey process (yours) talks to Docker.

@@ -14,7 +14,7 @@ Target: a fresh Ubuntu 24.04 VPS with Docker Engine and the Compose plugin, noth
 curl -fsSL https://raw.githubusercontent.com/AndrewSl105/fleetpocket/main/deploy/install.sh | sh
 ```
 
-`deploy/install.sh` (POSIX sh, needs root; it re-runs itself with `sudo`) checks for Ubuntu/Debian and Docker (offering Docker's official `get.docker.com` script), creates the directories of step 1 with their owners, downloads the compose file, Caddyfile and `.env.example`, and writes `.env` (mode 600) with your domain, generated `PG_PASSWORD` and `SESSION_SECRET`, and the agent keys you enter (read without echo). It checks that the domain resolves to the server's public IP (via api.ipify.org) and offers `<ip-with-dashes>.sslip.io` if you have none (shared name: Let's Encrypt rate limits can delay the certificate). Then it pulls the images, starts the stack, waits for `/healthz` and prints the setup link from the server log.
+`deploy/install.sh` (POSIX sh, needs root; it re-runs itself with `sudo`) checks for Ubuntu/Debian and Docker (offering Docker's official `get.docker.com` script), creates the directories of step 1 with their owners, downloads the compose file, Caddyfile and `.env.example`, and writes `.env` (mode 600) with your domain, generated `PG_PASSWORD`, `SESSION_SECRET` and `SECRETS_KEY`, and the agent keys you enter (read without echo). It checks that the domain resolves to the server's public IP (via api.ipify.org) and offers `<ip-with-dashes>.sslip.io` if you have none (shared name: Let's Encrypt rate limits can delay the certificate). Then it pulls the images, starts the stack, waits for `/healthz` and prints the setup link from the server log.
 
 The server starts in **setup mode** because `.env` has no `ADMIN_PASSWORD_HASH`/`ADMIN_TOTP_SECRET`: it logs `setup required` with a one-time link (a restart prints a new one: `docker compose -f docker-compose.deploy.yml logs server | grep setup`). The wizard saves the owner login in Postgres, creates the GitHub App from a manifest (the permissions and events of step 5), stores its ID and webhook secret in Postgres, writes the key to `secrets/github-app.pem` and restarts the server once. Values in `.env` always win over the wizard's.
 
@@ -65,6 +65,7 @@ Fill in `/srv/fleetpocket/.env` (every variable is described in `deploy/.env.exa
 | `WEB_APP_URL` | `https://fleetpocket.example.com` (the client is on the same domain) |
 | `PG_PASSWORD` | `openssl rand -hex 24` |
 | `SESSION_SECRET` | `openssl rand -hex 32` |
+| `SECRETS_KEY` | `openssl rand -hex 32` (encrypts MCP credentials; keep it with your backups) |
 | `ADMIN_PASSWORD_HASH`, `ADMIN_TOTP_SECRET` | step 3 |
 | `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) | step 4 |
 | `OPENAI_API_KEY` (Codex), `CURSOR_API_KEY` (Cursor), `DEFAULT_AGENT` (optional) | step 4 |
