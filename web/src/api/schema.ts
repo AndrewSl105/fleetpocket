@@ -1845,7 +1845,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tasks/{id}/artifacts": {
+    "/api/v1/tasks/{id}/artifacts": {
         parameters: {
             query?: never;
             header?: never;
@@ -1892,7 +1892,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/pipeline-templates": {
+    "/api/v1/pipeline-templates": {
         parameters: {
             query?: never;
             header?: never;
@@ -1931,7 +1931,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/pipelines": {
+    "/api/v1/pipelines": {
         parameters: {
             query?: never;
             header?: never;
@@ -2025,7 +2025,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/pipelines/{id}": {
+    "/api/v1/pipelines/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2070,7 +2070,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/pipelines/{id}/{action}": {
+    "/api/v1/pipelines/{id}/{action}": {
         parameters: {
             query?: never;
             header?: never;
