@@ -16,20 +16,21 @@ import { TITLE_H, type WindowState } from './layout'
 
 const tc = t.canvas
 
-/** Status light colours (the terminal is a Command Prompt, black in both themes). */
+/** Status lights from the palette (docs/SPEC-web.md section 7): amber while
+    working, fur while asking you, bone when delivered, fur text when failed. */
 const LED: Record<TaskStatus, string> = {
-  queued: '#8390a5',
-  preparing: '#7aa2f7',
-  running: '#7aa2f7',
-  waiting_input: '#f5c56b',
-  paused: '#8390a5',
-  pushing: '#7aa2f7',
-  pr_open: '#c4a7ff',
-  branch_ready: '#c4a7ff',
-  completed: '#7fd1a4',
-  failed: '#f28b82',
-  cancelled: '#8390a5',
-  needs_key: '#f5c56b',
+  queued: '#9aa08a',
+  preparing: '#f2b65a',
+  running: '#f2b65a',
+  waiting_input: '#c8722f',
+  paused: '#9aa08a',
+  pushing: '#f2b65a',
+  pr_open: '#eee5d2',
+  branch_ready: '#eee5d2',
+  completed: '#eee5d2',
+  failed: '#e08a4e',
+  cancelled: '#9aa08a',
+  needs_key: '#c8722f',
 }
 const LIVE: TaskStatus[] = ['running', 'waiting_input', 'preparing', 'pushing']
 
@@ -87,8 +88,8 @@ export const TerminalWindow = memo(function TerminalWindow({ task, win, host, fo
         <h3 className="min-w-0 flex-1 truncate text-[13px] font-bold" title={task.title}>
           {task.title}
         </h3>
-        {task.created_by && <span className="shrink-0 font-mono text-[11px] font-bold" title={task.created_by.name}>{task.created_by.initials}</span>}
-        <span className="shrink-0 text-[11px] opacity-80">
+        {task.created_by && <span className="shrink-0 font-mono text-[13px] font-bold" title={task.created_by.name}>{task.created_by.initials}</span>}
+        <span className="shrink-0 text-[13px] opacity-80">
           {t.agents[task.agent]} · #{task.id}
         </span>
         <div className="flex shrink-0">
@@ -221,7 +222,7 @@ const Line = memo(function Line({ item, taskId, open }: { item: TimelineItem; ta
       const text =
         item.action === 'opened' ? t.task.timeline.prOpened(item.number) : item.action === 'updated' ? t.task.timeline.prUpdated(item.number) : t.task.timeline.prClosed(item.number, !!item.merged)
       return (
-        <p className="text-[#c4a7ff]">
+        <p className="text-bone">
           ⇡ {item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{text}</a> : text}
         </p>
       )
@@ -331,7 +332,7 @@ export function Prompt({ task, stopping }: { task: TaskView; stopping: boolean }
         aria-label={label}
         className="fp-term-input min-w-0 flex-1 outline-none"
       />
-      <span className="shrink-0 text-[11px] text-[var(--term-dim)] tabular-nums">{usd(task.cost_usd_total, task.cost_estimated, task.cost_unknown)}</span>
+      <span className="shrink-0 text-[13px] text-[var(--term-dim)] tabular-nums">{usd(task.cost_usd_total, task.cost_estimated, task.cost_unknown)}</span>
       {can(task.status, 'interrupt') && !stopping && (
         <button
           type="button"

@@ -85,7 +85,7 @@ export const TaskNode = memo(function TaskNode({ task, win, host, focused, z, le
               #{task.id} · {task.title}
             </h3>
             <UserBadge user={task.created_by} className="shrink-0" />
-            <span className="shrink-0 text-[11px]">{t.agents[task.agent]}</span>
+            <span className="shrink-0 text-[13px]">{t.agents[task.agent]}</span>
             <div className="flex shrink-0">
               <BarButton label={tc.open} asLink={`/tasks/${task.id}`}>
                 <Maximize2 className="size-3.5" />
@@ -231,7 +231,7 @@ function NodeBody({ task: listed, level, host, onPointerDown }: { task: Task; le
           <Lanes lanes={derived.lanes} active={laneOf(derived.now.kind)} />
         )}
         {derived.touched.length > 0 && <TouchedList touched={derived.touched} />}
-        <footer className="fp-node-muted mt-auto flex shrink-0 items-center gap-3 font-mono text-[11px] tabular-nums">
+        <footer className="fp-node-muted mt-auto flex shrink-0 items-center gap-3 font-mono text-[13px] tabular-nums">
           <span>{tn.step(derived.steps)}</span>
           <span aria-label={`${tn.cost}: ${costLabel(cost, task.cost_estimated, task.cost_unknown)}`}>{usd(cost, task.cost_estimated, task.cost_unknown)}</span>
           <span className="ml-auto" aria-label={tn.elapsed}>
@@ -273,11 +273,11 @@ function NowPanel({ now, taskId, question }: { now: Activity; taskId: number; qu
     <div className="fp-node-now flex shrink-0 gap-3" data-kind={now.kind}>
       <Glyph kind={now.kind} />
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[12px] font-semibold tracking-[1px] uppercase">
+        <p className="font-mono text-[13px] font-semibold uppercase">
           {now.verb}
-          {now.via && <span className="fp-node-muted ml-2 normal-case tracking-normal">{tn.via(now.via)}</span>}
+          {now.via && <span className="fp-node-muted ml-2 font-sans normal-case">{tn.via(now.via)}</span>}
         </p>
-        {question ? <InlineQuestion item={question} taskId={taskId} /> : <p className="fp-node-muted truncate font-mono text-[12px]" title={now.target}>{now.target}</p>}
+        {question ? <InlineQuestion item={question} taskId={taskId} /> : <p className="fp-node-muted truncate font-mono text-[13px]" title={now.target}>{now.target}</p>}
       </div>
     </div>
   )
@@ -296,7 +296,7 @@ function InlineQuestion({ item, taskId }: { item: Extract<TimelineItem, { kind: 
     <div className="mt-0.5">
       <p className="text-[13px] leading-snug">{item.text}</p>
       {item.answer ? (
-        <p className="fp-node-muted mt-1 font-mono text-[12px]">❯ {item.answer.text}</p>
+        <p className="fp-node-muted mt-1 font-mono text-[13px]">❯ {item.answer.text}</p>
       ) : (
         <>
           {item.options.length > 0 && (
@@ -327,8 +327,8 @@ function Lanes({ lanes, active }: { lanes: LaneRow[]; active: string | null }) {
   return (
     <ul className="flex min-h-0 flex-col gap-1 overflow-hidden" aria-label={tn.lanesLabel}>
       {lanes.map((l) => (
-        <li key={l.lane} className="flex items-center gap-2 font-mono text-[10px]" aria-label={tn.laneCount(tn.lanes[l.lane], l.count)}>
-          <span className="fp-node-muted w-10 shrink-0 tracking-[1px]" aria-hidden="true">
+        <li key={l.lane} className="flex items-center gap-2 font-mono text-[13px]" aria-label={tn.laneCount(tn.lanes[l.lane], l.count)}>
+          <span className="fp-node-muted w-11 shrink-0" aria-hidden="true">
             {tn.lanes[l.lane]}
           </span>
           <span className="w-5 shrink-0 text-right tabular-nums" aria-hidden="true">
@@ -348,10 +348,10 @@ function Lanes({ lanes, active }: { lanes: LaneRow[]; active: string | null }) {
 function TouchedList({ touched }: { touched: Touched[] }) {
   return (
     <div className="shrink-0">
-      <p className="fp-node-muted font-mono text-[10px] tracking-[1px]">{tn.touched}</p>
+      <p className="fp-node-muted font-mono text-[13px]">{tn.touched}</p>
       <ul className="mt-1 flex flex-col gap-0.5">
         {touched.map((f) => (
-          <li key={f.path} className="fp-node-touched flex min-w-0 items-center gap-2 font-mono text-[11px]">
+          <li key={f.path} className="fp-node-touched flex min-w-0 items-center gap-2 font-mono text-[13px]">
             <span className="fp-node-badge" data-mode={f.mode} title={f.mode === 'W' ? tn.modeWrite : tn.modeRead}>
               {f.mode}
             </span>
@@ -374,7 +374,7 @@ function Finished({ task, files, diff, cost }: { task: Task; files: number; diff
             <span aria-hidden="true">⎇</span>
             {t.status.branch_ready}
           </span>
-          <span className="min-w-0 truncate font-mono text-[11px]" title={task.local_branch}>
+          <span className="min-w-0 truncate font-mono text-[13px]" title={task.local_branch}>
             {task.local_branch}
           </span>
         </div>
