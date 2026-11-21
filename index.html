@@ -189,58 +189,46 @@ h3{font:600 17px/1.4 var(--sans);margin:0 0 6px}
 @media (min-width:700px){.feats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (min-width:1000px){.feats{grid-template-columns:repeat(3,minmax(0,1fr))}.feats.four{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .mini{height:80px;margin-bottom:16px;border-radius:10px;background:var(--jungle);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:10px;padding:0 10px;font:400 13px var(--mono)}
-.mini .cap{position:absolute;left:10px;top:6px;font:400 13px var(--sans);color:var(--muted)}
 .plate{border:1px solid var(--line);border-radius:999px;padding:3px 12px;font:600 13px var(--sans);background:var(--panel)}
-.slots{display:flex;gap:6px;margin-top:14px}
-.slot{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font:400 13px var(--mono);color:var(--bone);background:var(--panel)}
-.slot.on{border-color:rgb(242 182 90 / .6);box-shadow:0 0 12px rgb(242 182 90 / .2)}
-.slot.q{color:var(--muted);background:transparent}
-.play .slot.q{animation:qin 4s var(--ease) infinite}
-.play .slot.q+.slot.q{animation-delay:.5s}
-@keyframes qin{0%{opacity:0;transform:translateX(10px)}15%,85%{opacity:1;transform:none}100%{opacity:0}}
-.mini .seq{position:relative;width:180px;height:28px}
-.mini .seq .stamp{position:absolute;left:50%;top:0;transform:translateX(-50%);opacity:0}
-.play .seq .stamp{animation:seq 6s infinite}
-.play .seq .stamp:nth-child(2){animation-delay:2s}
-.play .seq .stamp:nth-child(3){animation-delay:4s}
-@keyframes seq{0%{opacity:0}4%,30%{opacity:1}34%,100%{opacity:0}}
-.hosts{display:flex;flex-direction:column;gap:2px;font:400 13px var(--mono);color:var(--bone)}
-.play .hosts span{animation:hostin 4.5s infinite both}
-.play .hosts span:nth-child(2){animation-delay:.4s}
-.play .hosts span:nth-child(3){animation-delay:.8s}
-@keyframes hostin{0%{opacity:0;transform:translateX(-8px)}10%,85%{opacity:1;transform:none}100%{opacity:0}}
-.hosts .x{color:var(--fur-text)}
-.bar{width:62%;height:10px;border-radius:999px;background:var(--panel2);position:relative;overflow:hidden;margin-top:14px}
-.bar i{position:absolute;left:0;top:0;bottom:0;width:80%;border-radius:999px;background:var(--bone);opacity:.75}
-.play .bar i{animation:fill 4s var(--ease) infinite}
-@keyframes fill{0%{width:0}60%,100%{width:80%}}
-.bar+.stamp{position:absolute;right:10px;top:6px}
-.plates{display:flex;gap:40px;position:relative;margin-top:10px}
-.chip{position:absolute;top:-16px;left:14px;width:10px;height:10px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber)}
-.play .chip{animation:hop 4s var(--ease) infinite}
-@keyframes hop{0%,20%{transform:translateX(0)}50%,80%{transform:translateX(104px)}100%{transform:translateX(0)}}
-.mini svg{width:220px;height:70px}
-.mini .draw{stroke-dasharray:140;stroke-dashoffset:0}
-.play .draw{animation:draw 4.5s var(--ease) infinite}
-@keyframes draw{0%{stroke-dashoffset:140}50%,100%{stroke-dashoffset:0}}
-.ink-s{stroke:var(--bone)}.sig-s{stroke:var(--amber)}.pap-f{fill:var(--panel)}
-.mt{font:400 11px var(--mono);fill:var(--muted)}
 ul.req{margin:0 0 16px;padding:0;list-style:none}
 ul.req li{padding:8px 0 8px 22px;color:var(--muted);position:relative}
 ul.req li strong{color:var(--bone)}
 ul.req li::before{content:"";position:absolute;left:3px;top:18px;width:7px;height:7px;border-radius:50%;background:var(--muted)}
 ul.req.pick{margin:32px 0 0;max-width:72ch}
 
-/* ---------- Orchestra ---------- */
-.orch{margin:0 0 36px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
-.or-stage{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0c1009}
-.or-stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
-.or-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px}
-.or-ctl .cap{font:400 15px var(--sans);color:var(--muted);margin-right:auto}
-.or-tempo{display:flex;align-items:center;gap:8px;font:400 15px var(--sans);color:var(--muted)}
-.or-tempo b{color:var(--bone);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
-.or-tempo input{accent-color:var(--amber);width:min(140px,32vw);height:44px}
-@media (max-width:600px){.or-ctl .cap{flex-basis:100%}}
+/* ---------- Orchestration: the pit. Each card has its own player; the conductor cues one at a time ---------- */
+.ob-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.ob-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.ob-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 16px 22px;transition:border-color .5s var(--ease),box-shadow .5s var(--ease);outline:none}
+.ob-card.on{border-color:rgb(242 182 90 / .7);box-shadow:0 0 0 1px rgb(242 182 90 / .35),0 24px 60px -30px rgb(242 182 90 / .45)}
+.ob-card:focus-visible{box-shadow:0 0 0 2px var(--amber)}
+.ob-card h3{font:600 17px/1.3 var(--sans);margin:18px 4px 8px}
+.ob-card p{color:var(--muted);margin:0 4px;font-size:15px}
+.ob-vis{position:relative;border-radius:12px;overflow:hidden;background:#141a10;aspect-ratio:400/170}
+.ob-vis svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ob-card.wide{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 24px;align-items:center}
+.ob-card.wide h3{margin-top:4px}
+.ob-tag{font:600 13px/1 var(--sans);color:var(--jungle);background:var(--fur);border-radius:999px;padding:4px 9px;margin-left:8px;vertical-align:2px}
+.ob-cond{position:sticky;top:84px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+.ob-stage{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:radial-gradient(60% 50% at 50% 62%,rgb(242 182 90 / .22),transparent 70%),#141a10}
+.ob-stage svg{position:absolute;inset:0;width:100%;height:100%}
+.ob-cond h3{font:400 26px/1.1 var(--display);margin:16px 4px 4px}
+.ob-now{margin:0 4px;color:var(--muted);font-size:15px}
+.ob-now b{color:var(--amber);font-weight:600}
+.ob-hint{margin:10px 4px 0;color:var(--muted);font-size:15px}
+#orchestration svg .lbl{font:400 13px var(--sans);fill:var(--muted)}
+#orchestration svg .mono{font:400 13px var(--mono);fill:var(--muted)}
+#orchestration svg .mono.b{fill:var(--bone)}#orchestration svg .mono.f,#orchestration svg tspan.f{fill:var(--fur-text)}#orchestration svg .mono.a,#orchestration svg tspan.a{fill:var(--amber)}
+#orchestration .pill rect{fill:#1b2216;stroke:var(--line);stroke-width:1.2;transition:stroke .4s}
+#orchestration .pill text{font:600 14px var(--sans);fill:var(--bone)}
+#orchestration .pill.on rect{stroke:var(--amber)}
+#orchestration .ob-chip{transition:transform .7s var(--ease),opacity .5s var(--ease)}
+#orchestration .ob-chip rect{fill:#1b2216;stroke:var(--line);stroke-width:1.2}
+#orchestration .ob-chip text{font:400 13px var(--mono);fill:var(--muted)}
+#orchestration .ob-chip.on rect{stroke:var(--amber);fill:rgb(242 182 90 / .1)}#orchestration .ob-chip.on text{fill:var(--bone)}
+#orchestration .fade{transition:opacity .45s var(--ease),transform .45s var(--ease)}
+@media (max-width:980px){.ob-grid{grid-template-columns:1fr}.ob-cond{position:static;order:-1;display:grid;grid-template-columns:180px minmax(0,1fr);gap:4px 18px;align-items:center}.ob-cond h3{margin-top:0}.ob-stage{grid-row:span 3}}
+@media (max-width:640px){.ob-cards{grid-template-columns:1fr}.ob-card.wide{grid-template-columns:1fr}.ob-cond{grid-template-columns:120px minmax(0,1fr)}.ob-cond h3{font-size:22px}.ob-hint{display:none}}
 
 /* ---------- Watch: node and terminal (the app's canvas node) ---------- */
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;background:var(--panel)}
@@ -359,7 +347,7 @@ footer nav a:hover{color:var(--bone)}
 footer .mit{margin-left:auto;font:400 15px var(--sans);color:var(--muted)}
 
 .off *,.off *::before,.off *::after{animation-play-state:paused!important}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.mini .seq .stamp:nth-child(3){opacity:1}.hosts span,.slot.q{opacity:1}*,*::before,*::after{animation:none!important;transition:none!important}.cue{display:none}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}.cue{display:none}}
 </style>
 </head>
 <body>
@@ -459,176 +447,64 @@ footer .mit{margin-left:auto;font:400 15px var(--sans);color:var(--muted)}
 </section>
 
 <section class="block" id="orchestration" aria-labelledby="orch-h">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+    <filter id="ob-rim" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feColorMatrix in="SourceGraphic" type="matrix" values="1.1 .05 0 0 .02  .03 1.02 0 0 .01  0 0 .86 0 0  0 0 0 1 0" result="g"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.2" result="b"/><feFlood flood-color="#F2B65A" flood-opacity=".32"/><feComposite in2="b" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="g"/></feMerge></filter>
+    <radialGradient id="ob-pool"><stop offset="0" stop-color="#F2B65A" stop-opacity=".26"/><stop offset="1" stop-color="#F2B65A" stop-opacity="0"/></radialGradient>
+    <linearGradient id="ob-shirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d4ca"/><stop offset=".35" stop-color="#f6f2ea"/><stop offset="1" stop-color="#b9b2a6"/></linearGradient>
+    <linearGradient id="ob-silk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3a40"/><stop offset=".5" stop-color="#0c0c0f"/><stop offset="1" stop-color="#232328"/></linearGradient>
+  </defs></svg>
   <div class="wrap">
     <h2 id="orch-h">Orchestration</h2>
     <p class="lede">A queue in front of every agent, limits on what runs at once and what it may spend, and loops that bring a task home.</p>
-    <figure class="orch">
-      <div class="or-stage">
-<svg id="or-scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Animation: a chimpanzee plays the cello, another plays congas, and a conductor chimp in white tie leads them">
-<defs>
-  <linearGradient id="or-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070905"/><stop offset=".62" stop-color="#121a0e"/><stop offset="1" stop-color="#0c1009"/></linearGradient>
-  <linearGradient id="or-floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2614"/><stop offset=".45" stop-color="#25170b"/><stop offset="1" stop-color="#0f0905"/></linearGradient>
-  <linearGradient id="or-beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd9a0" stop-opacity="0"/><stop offset=".3" stop-color="#ffd9a0" stop-opacity=".13"/><stop offset="1" stop-color="#ffd9a0" stop-opacity=".04"/></linearGradient>
-  <radialGradient id="or-pool"><stop offset="0" stop-color="#ffcf8a" stop-opacity=".38"/><stop offset="1" stop-color="#ffcf8a" stop-opacity="0"/></radialGradient>
-  <radialGradient id="or-bok"><stop offset="0" stop-color="#ffcc7a" stop-opacity=".9"/><stop offset=".55" stop-color="#ffb04a" stop-opacity=".35"/><stop offset="1" stop-color="#ffb04a" stop-opacity="0"/></radialGradient>
-  <radialGradient id="or-vig" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".72"/></radialGradient>
-  <radialGradient id="or-varnish" cx=".42" cy=".35" r=".75"><stop offset="0" stop-color="#d27a33"/><stop offset=".45" stop-color="#9a4316"/><stop offset=".85" stop-color="#5a210b"/><stop offset="1" stop-color="#2e1005"/></radialGradient>
-  <linearGradient id="or-ebony" x1="0" x2="1"><stop offset="0" stop-color="#050404"/><stop offset=".5" stop-color="#2a2522"/><stop offset="1" stop-color="#050404"/></linearGradient>
-  <linearGradient id="or-conga" x1="0" x2="1"><stop offset="0" stop-color="#2a1206"/><stop offset=".3" stop-color="#8f4a1c"/><stop offset=".45" stop-color="#c47a3c"/><stop offset=".7" stop-color="#6b3010"/><stop offset="1" stop-color="#1e0c04"/></linearGradient>
-  <linearGradient id="or-chrome" x1="0" x2="1"><stop offset="0" stop-color="#3b3b3b"/><stop offset=".35" stop-color="#e9e9e4"/><stop offset=".55" stop-color="#8d8d88"/><stop offset="1" stop-color="#2a2a2a"/></linearGradient>
-  <radialGradient id="or-skin" cx=".45" cy=".4"><stop offset="0" stop-color="#efe2c6"/><stop offset=".8" stop-color="#cdbb98"/><stop offset="1" stop-color="#9c8a68"/></radialGradient>
-  <linearGradient id="or-shirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d4ca"/><stop offset=".35" stop-color="#f6f2ea"/><stop offset="1" stop-color="#b9b2a6"/></linearGradient>
-  <linearGradient id="or-silk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3a40"/><stop offset=".5" stop-color="#0c0c0f"/><stop offset="1" stop-color="#232328"/></linearGradient>
-  <linearGradient id="or-podium" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a2c16"/><stop offset="1" stop-color="#1c1009"/></linearGradient>
-  <filter id="or-bgsoft" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="1.6"/><feColorMatrix type="matrix" values=".78 .06 0 0 0  .04 .82 .02 0 0  0 .04 .7 0 0  0 0 0 1 0"/></filter>
-  <linearGradient id="or-shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050803" stop-opacity=".55"/><stop offset=".45" stop-color="#050803" stop-opacity=".18"/><stop offset=".7" stop-color="#050803" stop-opacity=".35"/><stop offset="1" stop-color="#050803" stop-opacity=".6"/></linearGradient>
-  <filter id="or-b2"><feGaussianBlur stdDeviation="2"/></filter>
-  <filter id="or-b8" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
-  <filter id="or-b18" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
-  <filter id="or-grade" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1.08 .04 0 0 .012  .02 1 0 0 .004  0 0 .86 0 0  0 0 0 1 0"/></filter>
-  <clipPath id="or-stageclip"><path d="M0,640 Q20,606 120,600 H1480 Q1580,606 1600,640 V900 H0Z"/></clipPath>
-  <path id="or-leaf" d="M0,0 C50,-60 190,-74 290,-10 C190,40 60,44 0,0Z"/>
-</defs>
-<image data-href="docs/brand/orchestra/jungle.webp" x="0" y="0" width="1600" height="900" preserveAspectRatio="xMidYMid slice" filter="url(#or-bgsoft)"/>
-<rect width="1600" height="900" fill="url(#or-shade)"/>
-<g id="or-bokeh" filter="url(#or-b2)"></g>
-<g id="or-garland"></g>
-<!-- floor -->
-<path d="M0,640 Q20,606 120,600 H1480 Q1580,606 1600,640 V900 H0Z" fill="url(#or-floor)"/><path d="M0,640 Q20,606 120,600 H1480 Q1580,606 1600,640" stroke="#6a4626" stroke-width="3" fill="none" opacity=".8"/>
-<g stroke="#000" stroke-opacity=".28" stroke-width="2" clip-path="url(#or-stageclip)">
-  <path d="M800,600 L-400,900 M800,600 L-100,900 M800,600 L200,900 M800,600 L500,900 M800,600 L800,900 M800,600 L1100,900 M800,600 L1400,900 M800,600 L1700,900 M800,600 L2000,900"/>
-</g>
-<!-- light -->
-<g style="mix-blend-mode:screen">
-  <polygon points="300,-20 390,-20 560,900 40,900" fill="url(#or-beam)"/>
-  <polygon points="790,-20 860,-20 1010,700 600,700" fill="url(#or-beam)"/>
-  <polygon points="1240,-20 1320,-20 1500,900 1080,900" fill="url(#or-beam)"/>
-  <ellipse cx="810" cy="680" rx="250" ry="45" fill="url(#or-pool)"/>
-  <ellipse cx="1280" cy="880" rx="260" ry="50" fill="url(#or-pool)"/>
-</g>
-<g id="or-dust"></g>
-<!-- percussion riser -->
-<rect x="520" y="628" width="600" height="12" rx="3" fill="#5a3a1e"/>
-<rect x="520" y="638" width="600" height="72" fill="#2a190c"/>
-<rect x="520" y="638" width="600" height="72" fill="url(#or-beam)" opacity=".5"/>
-<!-- conga player -->
-<ellipse cx="830" cy="640" rx="240" ry="16" fill="#000" opacity=".55" filter="url(#or-b8)"/>
-<g id="or-c2" transform="translate(560,300) scale(.34)" filter="url(#or-grade)">
-  <g id="or-c2b"><image data-href="docs/brand/orchestra/c2_body.webp" x="272" y="11" width="999" height="1049"/></g>
-</g>
-<!-- congas -->
-<g id="or-congas"></g>
-<g transform="translate(560,300) scale(.34)" filter="url(#or-grade)">
-  <g id="or-c2l"><image data-href="docs/brand/orchestra/c2_fl.webp" x="216" y="693" width="224" height="341"/></g>
-  <g id="or-c2r"><image data-href="docs/brand/orchestra/c2_fr.webp" x="497" y="708" width="173" height="340"/></g>
-</g>
-<!-- conductor -->
-<rect x="1050" y="852" width="440" height="60" rx="6" fill="url(#or-podium)"/>
-<rect x="1040" y="842" width="460" height="16" rx="5" fill="#5e3a1c"/>
-<ellipse cx="1290" cy="852" rx="230" ry="14" fill="#000" opacity=".6" filter="url(#or-b8)"/>
-<g id="or-c3" transform="translate(990,372) scale(.44)">
- <g id="or-c3s">
-  <g filter="url(#or-grade)"><image data-href="docs/brand/orchestra/c3_body.webp" x="217" y="236" width="738" height="881"/></g>
-  <g id="or-tie">
-    <path d="M470,512 C520,530 600,530 655,508 L612,735 C590,760 560,760 545,735Z" fill="url(#or-shirt)"/>
-    <path d="M470,512 C500,560 535,610 560,700 L545,735 C520,650 490,580 452,530Z" fill="#0d0d10" opacity=".85"/>
-    <path d="M655,508 C630,560 600,620 580,700 L600,735 C620,660 645,590 672,528Z" fill="#0d0d10" opacity=".85"/>
-    <path d="M512,508 L560,540 L612,505 L600,545 L560,552 L522,546Z" fill="#f4efe6"/>
-    <circle cx="562" cy="605" r="6" fill="#d8d2c6" stroke="#8a8478" stroke-width="1.5"/><circle cx="560" cy="650" r="6" fill="#d8d2c6" stroke="#8a8478" stroke-width="1.5"/>
-    <g transform="translate(562,548)">
-      <path d="M0,0 C-20,-26 -52,-30 -64,-22 C-72,-4 -70,10 -62,24 C-48,30 -20,24 0,0Z" fill="url(#or-silk)"/>
-      <path d="M0,0 C20,-26 52,-30 64,-22 C72,-4 70,10 62,24 C48,30 20,24 0,0Z" fill="url(#or-silk)"/>
-      <path d="M-52,-14 C-40,-6 -30,-4 -14,-2 M52,-14 C40,-6 30,-4 14,-2" stroke="#55555c" stroke-width="2" fill="none"/>
-      <rect x="-12" y="-14" width="24" height="26" rx="8" fill="url(#or-silk)"/>
-    </g>
-  </g>
-  <g id="or-c3u">
-    <g filter="url(#or-grade)"><image data-href="docs/brand/orchestra/c3_upper.webp" x="647" y="336" width="409" height="263"/></g>
-    <g id="or-c3f">
-      <line x1="1135" y1="70" x2="960" y2="-210" stroke="#000" stroke-opacity=".35" stroke-width="10" filter="url(#or-b2)"/>
-      <line x1="1132" y1="62" x2="955" y2="-218" stroke="#f6f1e4" stroke-width="7" stroke-linecap="round"/>
-      <line x1="1128" y1="56" x2="1085" y2="-12" stroke="#7a5a3a" stroke-width="14" stroke-linecap="round"/>
-      <g filter="url(#or-grade)"><image data-href="docs/brand/orchestra/c3_fore.webp" x="846" y="0" width="364" height="501"/></g>
-    </g>
-  </g>
- </g>
-</g>
-<!-- cellist (foreground) -->
-<g id="or-c1" transform="translate(-60,293) scale(.55)">
- <g id="or-c1s">
-  <g filter="url(#or-grade)"><image data-href="docs/brand/orchestra/c1_body.webp" x="30" y="46" width="1193" height="1058"/></g>
-  <g id="or-cello" transform="translate(760,900) rotate(22)">
-    <path d="M-14,-760 C-40,-790 -30,-830 0,-830 C30,-830 40,-790 14,-760Z" fill="#4a1c08"/>
-    <circle cx="0" cy="-800" r="14" fill="#6b2a0e" stroke="#2a0f04" stroke-width="3"/>
-    <path d="M-22,-760 H22 V-620 H-22Z" fill="#3a1606"/>
-    <g fill="#120a06"><rect x="-46" y="-745" width="26" height="9" rx="4"/><rect x="20" y="-725" width="26" height="9" rx="4"/><rect x="-46" y="-700" width="26" height="9" rx="4"/><rect x="20" y="-680" width="26" height="9" rx="4"/></g>
-    <path d="M0,-292 C95,-292 160,-262 164,-180 C167,-122 128,-84 112,-44 C100,-12 102,22 118,52 C170,96 200,156 194,222 C186,292 104,312 0,312 C-104,312 -186,292 -194,222 C-200,156 -170,96 -118,52 C-102,22 -100,-12 -112,-44 C-128,-84 -167,-122 -164,-180 C-160,-262 -95,-292 0,-292Z" fill="url(#or-varnish)" stroke="#1d0a03" stroke-width="5"/>
-    <path d="M0,-280 C88,-280 150,-252 152,-180 C154,-124 118,-84 102,-44 C90,-12 92,22 108,54 C158,98 186,156 181,220 C174,284 98,300 0,300 C-98,300 -174,284 -181,220 C-186,156 -158,98 -108,54 C-92,22 -90,-12 -102,-44 C-118,-84 -154,-124 -152,-180 C-150,-252 -88,-280 0,-280Z" fill="none" stroke="#2a0f04" stroke-width="2" opacity=".8"/>
-    <ellipse cx="-60" cy="-170" rx="60" ry="80" fill="#fff" opacity=".07" filter="url(#or-b8)"/>
-    <path d="M-62,-20 C-80,0 -40,40 -62,100 M62,-20 C80,0 40,40 62,100" stroke="#120502" stroke-width="7" fill="none" stroke-linecap="round"/>
-    <path d="M-18,-740 L18,-740 L26,80 L-26,80Z" fill="url(#or-ebony)"/>
-    <path d="M-46,120 L46,120 L36,100 L-36,100Z" fill="#e2c08c" stroke="#8b6a3c" stroke-width="2"/>
-    <path d="M-30,160 L30,160 L18,270 L-18,270Z" fill="#0e0907"/>
-    <g id="or-strings" stroke="#e7dcc4" stroke-width="1.6" opacity=".85"><path d="M-11,-740 L-21,165"/><path d="M-4,-740 L-7,165"/><path d="M4,-740 L7,165"/><path d="M11,-740 L21,165"/></g>
-    <path d="M0,312 L0,420" stroke="url(#or-chrome)" stroke-width="7"/>
-  </g>
-  <g id="or-c1a">
-    <g filter="url(#or-grade)"><image data-href="docs/brand/orchestra/c1_arm.webp" x="106" y="527" width="469" height="577"/></g>
-    <g id="or-bow">
-      <line x1="430" y1="918" x2="1240" y2="1002" stroke="#efe4c8" stroke-width="5" opacity=".9"/>
-      <line x1="430" y1="905" x2="1250" y2="990" stroke="#3a1a08" stroke-width="7" stroke-linecap="round"/>
-      <rect x="414" y="896" width="44" height="26" rx="4" fill="#111" transform="rotate(6 436 909)"/>
-    </g>
-  </g>
- </g>
-</g>
-<g id="or-leaves" filter="url(#or-b18)"></g>
-<rect width="1600" height="900" fill="url(#or-vig)" pointer-events="none"/>
-</svg>
+    <div class="ob-grid">
+      <div class="ob-cards">
+        <article class="ob-card" tabindex="0" data-k="queue">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A chimp pushes queued tasks into two free server slots"></svg></div>
+          <h3>Queue and concurrency</h3>
+          <p>Tasks queue and start when their host has a free slot: the server runs up to <code>MAX_CONCURRENT_TASKS</code> at once (default 2), each computer you add has its own limit (1–32). A schedule skips or queues a firing while its last task still runs.</p>
+        </article>
+        <article class="ob-card" tabindex="0" data-k="hosts">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A chimp watches a task hop between the server and a Mac"></svg></div>
+          <h3>Server or your computers</h3>
+          <p>Add a Mac in Settings → Computers (it runs <code>fleetpocket-node</code> with its own Docker and agent keys, and only connects out), then choose per project or per task where a task runs.</p>
+        </article>
+        <article class="ob-card" tabindex="0" data-k="budget">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A chimp tosses coins into a monthly budget bar that warns at 80 percent"></svg></div>
+          <h3>Budgets and costs</h3>
+          <p>Every run's tokens and cost: reported by Claude, estimated for Codex and Cursor (<code>≈$0.84</code>). Totals by project, agent and day with a CSV export. Monthly caps per project, schedule or overall hold new runs at 100%, with a notice at 80% and a one-tap "Start anyway".</p>
+        </article>
+        <article class="ob-card" tabindex="0" data-k="ci">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A chimp hammers on a failing test until CI turns green"></svg></div>
+          <h3>CI auto-fix</h3>
+          <p>Off until you turn it on, globally or per project. Then a failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
+        </article>
+        <article class="ob-card" tabindex="0" data-k="mcp">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A chimp guards the MCP gateway and refuses a drop_table call"></svg></div>
+          <h3>MCP through the gateway</h3>
+          <p>MCP servers (Linear, Sentry, a database, any npm/pip package or image) per project or globally. The agent reaches them through a gateway that holds the credentials, enforces tool lists and call limits, and logs every call.</p>
+        </article>
+        <article class="ob-card" tabindex="0" data-k="loops">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A chimp watches a scheduled task loop until its check passes"></svg></div>
+          <h3>Schedules and loops</h3>
+          <p>Start a task on a timetable with its own budget, or let a task loop until your check (<code>npm test</code>, <code>go test ./...</code>) passes; the PR or local branch arrives once, at the end.</p>
+        </article>
+        <article class="ob-card wide" tabindex="0" data-k="subs">
+          <div class="ob-vis"><svg viewBox="0 0 400 170" role="img" aria-label="A lead chimp hands work to explorer, test-runner and reviewer subagents"></svg></div>
+          <div>
+            <h3>Subagents <span class="ob-tag">Claude only</span></h3>
+            <p>Claude hands exploration and test runs to subagents on cheaper models, and a reviewer checks the diff. Their steps show up as "via explorer", their cost counts toward the run, and the same sandbox policy applies.</p>
+          </div>
+        </article>
       </div>
-      <figcaption class="or-ctl">
-        <span class="cap">The house band, rehearsing</span>
-        <button class="btn sm" type="button" id="or-play">Pause</button>
-        <button class="btn sm" type="button" id="or-snd" aria-pressed="false">Sound on</button>
-        <label class="or-tempo" for="or-bpm">Tempo <input id="or-bpm" type="range" min="50" max="130" value="80"> <b id="or-bpmv">80 bpm</b></label>
-      </figcaption>
-    </figure>
-    <div class="feats" id="feats">
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><span class="cap">Server, 2 slots</span><div class="slots"><span class="slot on">#43</span><span class="slot on">#44</span><span class="slot q">#45</span><span class="slot q">#46</span></div></div>
-        <h3>Queue and concurrency</h3>
-        <p>Tasks queue and start when their host has a free slot: the server runs up to <code>MAX_CONCURRENT_TASKS</code> at once (default 2), each computer you add has its own limit (1–32). A schedule skips or queues a firing while its last task still runs.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><div class="plates"><span class="chip"></span><span class="plate">Server</span><span class="plate">My Mac</span></div></div>
-        <h3>Server or your computers</h3>
-        <p>Add a Mac in Settings → Computers (it runs <code>fleetpocket-node</code> with its own Docker and agent keys, and only connects out), then choose per project or per task where a task runs.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><span class="cap">May, acme/hooks</span><div class="bar"><i></i></div><span class="stamp bad">80%</span></div>
-        <h3>Budgets and costs</h3>
-        <p>Every run's tokens and cost: reported by Claude, estimated for Codex and Cursor (<code>≈$0.84</code>). Totals by project, agent and day with a CSV export. Monthly caps per project, schedule or overall hold new runs at 100%, with a notice at 80% and a one-tap "Start anyway".</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><div class="seq"><span class="stamp bad">✕ CI failed</span><span class="stamp run">Fixing, try 1 of 3</span><span class="stamp ok">✓ CI green</span></div></div>
-        <h3>CI auto-fix</h3>
-        <p>Off until you turn it on, globally or per project. Then a failing check on a Jungle Monkey PR starts a minimal fix from the trimmed CI logs, up to a few attempts and within a budget. A fix that touches CI config or tests waits for your OK.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><div class="hosts"><span>✓ linear/list_issues</span><span>✓ sentry/get_issue</span><span class="x">✕ db/drop_table refused</span></div></div>
-        <h3>MCP through the gateway</h3>
-        <p>MCP servers (Linear, Sentry, a database, any npm/pip package or image) per project or globally. The agent reaches them through a gateway that holds the credentials, enforces tool lists and call limits, and logs every call.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><circle cx="34" cy="32" r="18" class="pap-f ink-s" stroke-width="1.5"/><path d="M34 32 V20 M34 32 L43 37" class="ink-s" stroke-width="2"/><path class="draw sig-s" d="M62 32 H96 C108 32 108 14 120 14 C132 14 132 32 144 32 H156" stroke-width="2.5" fill="none"/><text x="150" y="56" class="mt">✓ check</text><text x="56" y="56" class="mt">0 3 * * 1-5</text></svg></div>
-        <h3>Schedules and loops</h3>
-        <p>Start a task on a timetable with its own budget, or let a task loop until your check (<code>npm test</code>, <code>go test ./...</code>) passes; the PR or local branch arrives once, at the end.</p>
-      </article>
-      <article class="feat">
-        <div class="mini" aria-hidden="true"><svg viewBox="0 0 200 64"><rect x="14" y="20" width="48" height="24" class="pap-f ink-s" stroke-width="1.5"/><text x="22" y="36" class="mt">lead</text><path class="draw sig-s" d="M62 32 H84 M84 14 V50 M84 14 H104 M84 32 H104 M84 50 H104" stroke-width="2.5" fill="none"/><text x="108" y="18" class="mt">explorer</text><text x="108" y="36" class="mt">test-runner</text><text x="108" y="54" class="mt">reviewer</text></svg></div>
-        <h3>Subagents</h3>
-        <p>Claude hands exploring and test runs to subagents on a cheap model, and a reviewer checks the diff. Their steps show as "via explorer", their cost counts toward the run, and the same sandbox policy applies. Claude only.</p>
-      </article>
+      <aside class="ob-cond" aria-label="Conductor">
+        <div class="ob-stage"><svg id="ob-condsvg" viewBox="0 0 300 300" role="img" aria-label="Chimp conductor in white tie with a baton"></svg></div>
+        <h3>The conductor</h3>
+        <p class="ob-now" aria-live="polite">Cueing <b id="ob-nowcue">Queue and concurrency</b></p>
+        <p class="ob-hint">Hover or focus a card to cue it yourself.</p>
+      </aside>
     </div>
   </div>
 </section>
@@ -1064,106 +940,187 @@ document.querySelectorAll('.copy').forEach(function (b) {
 })()
 </script>
 <script>
-/* ---------- Orchestration: the chimp orchestra ---------- */
+/* ---------- Orchestration: the pit and its conductor ---------- */
 ;(function () {
 
-const NS='http://www.w3.org/2000/svg',$=id=>document.getElementById(id),f=n=>n.toFixed(2),sn=Math.sin,PI=Math.PI,ab=Math.abs;
-/* congas: hands at x≈662 and 760, heads at y≈642 */
-const cg=$('or-congas');
-cg.innerHTML=[[664,'L'],[760,'R']].map(([x,k])=>`<g>
-<ellipse cx="${x}" cy="845" rx="44" ry="9" fill="#000" opacity=".6" filter="url(#or-b8)"/>
-<path d="M${x-44},648 C${x-58},720 ${x-52},790 ${x-36},842 L${x+36},842 C${x+52},790 ${x+58},720 ${x+44},648Z" fill="url(#or-conga)"/>
-<path d="M${x-50},700 C${x-30},706 ${x+30},706 ${x+50},700 M${x-46},790 C${x-30},795 ${x+30},795 ${x+46},790" stroke="#140802" stroke-width="2" fill="none" opacity=".6"/>
-<rect x="${x-47}" y="644" width="94" height="10" rx="3" fill="url(#or-chrome)"/>
-${[-30,0,30].map(d=>`<path d="M${x+d},654 V676" stroke="url(#or-chrome)" stroke-width="3"/>`).join('')}
-<ellipse class="hd${k}" cx="${x}" cy="644" rx="45" ry="11" fill="url(#or-skin)" stroke="#2a2018" stroke-width="1.5"/></g>`).join('');
-const hdL=cg.querySelector('.hdL'),hdR=cg.querySelector('.hdR');
-/* ambience */
-const bokeh=$('or-bokeh');let bh='';
-for(let i=0;i<8;i++){const x=Math.random()*1600,y=120+Math.random()*420,r=6+Math.random()*26;bh+=`<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="url(#or-bok)" opacity="${f(.08+Math.random()*.2)}"/>`;}
-bokeh.innerHTML=bh;
-const gar=$('or-garland');let gh='';
-[[-30,40,800,190,1630,30,30],[200,-10,800,100,1400,-10,20]].forEach(([x0,y0,cx,cy,x1,y1,n])=>{
- gh+=`<path d="M${x0},${y0} Q${cx},${cy} ${x1},${y1}" stroke="#1d2117" stroke-width="2" fill="none" filter="url(#or-b2)"/>`;
- for(let i=1;i<n;i++){const t=i/n,x=(1-t)**2*x0+2*(1-t)*t*cx+t*t*x1,y=(1-t)**2*y0+2*(1-t)*t*cy+t*t*y1+6;
-  gh+=`<g class="bl"><circle cx="${f(x)}" cy="${f(y)}" r="18" fill="url(#or-bok)" opacity=".55"/><circle cx="${f(x)}" cy="${f(y)}" r="3.5" fill="#ffe2a8"/></g>`;}});
-gar.innerHTML=gh;const bulbs=[...gar.querySelectorAll('.bl')];
-const dust=$('or-dust'),motes=[];
-for(let i=0;i<46;i++){const c=document.createElementNS(NS,'circle');c.setAttribute('r',f(.8+Math.random()*1.6));c.setAttribute('fill','#ffe6b8');dust.appendChild(c);
- const z=[[340,520],[820,560],[1290,600]][i%3];motes.push({c,x:z[0]+(Math.random()-.5)*220,y:80+Math.random()*z[1],p:Math.random()*9,s:.2+Math.random()*.5});}
-const lv=$('or-leaves');
-lv.innerHTML=[[-60,960,[-80,-55,-30],1.5],[1660,960,[-80,-52,-28],1.5,1],[-60,-40,[25,50],1.2],[1660,-40,[28,52],1.2,1]].map(([x,y,rs,s,m])=>
- `<g class="lc" data-x="${x}" data-y="${y}"><g transform="translate(${x},${y}) ${m?'scale(-1,1)':''}">${rs.map((r,i)=>`<use href="#or-leaf" fill="${['#0b1207','#0f170a','#0a0f06'][i%3]}" transform="rotate(${r}) scale(${s})"/>`).join('')}</g></g>`).join('');
-const lcs=[...lv.querySelectorAll('.lc')];
+const NS='http://www.w3.org/2000/svg',f=n=>(+n).toFixed(2),sn=Math.sin,PI=Math.PI,ab=Math.abs,cl=(x,a,b)=>Math.max(a,Math.min(b,x));
+const env=(t,d)=>t>=0&&t<d?sn(PI*t/d):0;
+const M={c1_arm:[106,527,469,577],c1_body:[30,46,1193,1058],c2_fl:[216,693,224,341],c2_fr:[497,708,173,340],c2_body:[272,11,999,1049],c3_body:[217,236,738,881],c3_upper:[647,336,409,263],c3_fore:[846,0,364,501]};
+const im=k=>{const[x,y,w,h]=M[k];return`<image href="docs/brand/orchestra/${k}.webp" x="${x}" y="${y}" width="${w}" height="${h}"/>`;};
+const TIE=`<path d="M470,512 C520,530 600,530 655,508 L612,735 C590,760 560,760 545,735Z" fill="url(#ob-shirt)"/>
+<path d="M470,512 C500,560 535,610 560,700 L545,735 C520,650 490,580 452,530Z" fill="#0d0d10" opacity=".85"/>
+<path d="M655,508 C630,560 600,620 580,700 L600,735 C620,660 645,590 672,528Z" fill="#0d0d10" opacity=".85"/>
+<path d="M512,508 L560,540 L612,505 L600,545 L560,552 L522,546Z" fill="#f4efe6"/>
+<g transform="translate(562,548)"><path d="M0,0 C-20,-26 -52,-30 -64,-22 C-72,-4 -70,10 -62,24 C-48,30 -20,24 0,0Z" fill="url(#ob-silk)"/><path d="M0,0 C20,-26 52,-30 64,-22 C72,-4 70,10 62,24 C48,30 20,24 0,0Z" fill="url(#ob-silk)"/><rect x="-12" y="-14" width="24" height="26" rx="8" fill="url(#ob-silk)"/></g>`;
+const BATON=`<line x1="1132" y1="62" x2="955" y2="-218" stroke="#f6f1e4" stroke-width="8" stroke-linecap="round"/><line x1="1128" y1="56" x2="1085" y2="-12" stroke="#7a5a3a" stroke-width="15" stroke-linecap="round"/>`;
+/* chimp builders: parts get classes so each card can move them */
+const C1=()=>`<g class="b">${im('c1_body')}</g><g class="arm">${im('c1_arm')}</g>`;
+const C2=()=>`<g class="b">${im('c2_body')}</g><g class="fl">${im('c2_fl')}</g><g class="fr">${im('c2_fr')}</g>`;
+const C3=(tie,baton,body=true)=>`<g class="b">${im('c3_body')}${tie?TIE:''}</g>${body?`<g class="up">${im('c3_upper')}<g class="fo">${baton?BATON:''}${im('c3_fore')}</g></g>`:''}`;
+const chimp=(inner,tx,ty,sx,sy=Math.abs(sx))=>`<g filter="url(#ob-rim)"><g class="ch" transform="translate(${tx},${ty}) scale(${sx},${sy})">${inner}</g></g>`;
+const q=(s,c)=>s.querySelector(c),T=(el,v)=>el.setAttribute('transform',v);
 
-/* rig */
-const E={c1s:$('or-c1s'),c1a:$('or-c1a'),strings:$('or-strings'),c2b:$('or-c2b'),c2l:$('or-c2l'),c2r:$('or-c2r'),c3s:$('or-c3s'),c3u:$('or-c3u'),c3f:$('or-c3f')};
-let T=0,beat=0,bpm=80,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,lastStep=-1;
-const hit=p=>Math.pow(sn(PI*p),.7);
-const BP=[7,-3,4,-7];
-const pose=dt=>{
- const b=beat,p=b%1;
- /* cellist: one bow stroke per beat, slight body sway */
- E.c1a.setAttribute('transform',`rotate(${f(sn(PI*b)*6.5)} 240 630)`);
- E.c1s.setAttribute('transform',`rotate(${f(sn(PI*b/2)*.7)} 700 1104)`);
- E.strings.setAttribute('transform',`translate(${f(sn(T*90)*.8)},0)`);
- /* congas: left hand on the beat, right on the off-beat */
- const lL=hit(p),lR=hit((b+.5)%1);
- E.c2l.setAttribute('transform',`translate(${f(lL*10)},${f(-lL*70)}) rotate(${f(-lL*6)} 330 700)`);
- E.c2r.setAttribute('transform',`translate(${f(lR*6)},${f(-lR*64)}) rotate(${f(-lR*5)} 580 715)`);
- E.c2b.setAttribute('transform',`translate(0,${f(-ab(sn(PI*b))*6)}) rotate(${f(sn(PI*b/2)*.8)} 760 1000)`);
- hdL.setAttribute('ry',f(11-(1-lL)**8*1.6));hdR.setAttribute('ry',f(11-(1-lR)**8*1.6));
- /* conductor: 4/4 pattern with the upper arm, ictus bounce with the forearm */
- const k=Math.floor(b)%4,q=p*p*(3-2*p),u=BP[k]+(BP[(k+1)%4]-BP[k])*q;
- const fo=18*Math.pow(1-p,3)-6+3*sn(PI*p);
- E.c3u.setAttribute('transform',`rotate(${f(u)} 705 450)`);
- E.c3f.setAttribute('transform',`rotate(${f(fo)} 1010 470)`);
- E.c3s.setAttribute('transform',`rotate(${f(sn(PI*b/2)*1.1)} 560 1110) translate(0,${f(-ab(sn(PI*b))*4)})`);
+/* ---------- 1. queue ---------- */
+const queue={t:0,last:-1.5,next:47,run:[43,44],qu:[45,46],ch:{},pushAt:-9,
+ build(s){s.innerHTML=`<text x="18" y="28" class="lbl">Server, 2 slots</text><text x="150" y="28" class="lbl">Queue</text>
+  <rect x="10" y="114" width="128" height="44" rx="14" fill="none" stroke="#2c3524" stroke-width="1.2"/>
+  <ellipse cx="320" cy="150" rx="90" ry="26" fill="url(#ob-pool)"/><g class="chips"></g>
+  ${chimp(C2(),236,34,.115)}`;
+  this.g=q(s,'.chips');this.b=q(s,'.b');this.fl=q(s,'.fl');this.fr=q(s,'.fr');[43,44,45,46].forEach(n=>this.mk(n,0));this.layout();},
+ mk(n,x){const g=document.createElementNS(NS,'g');g.setAttribute('class','ob-chip');g.innerHTML=`<rect width="52" height="28" rx="14"/><text x="26" y="19" text-anchor="middle">#${n}</text>`;
+  g.style.transform=`translate(${x||282}px,122px)`;g.style.opacity=x?1:0;this.g.appendChild(g);this.ch[n]=g;return g;},
+ layout(){this.run.forEach((n,i)=>{const c=this.ch[n];c.classList.add('on');c.style.transform=`translate(${18+i*58}px,122px)`;c.style.opacity=1;});
+  this.qu.forEach((n,i)=>{const c=this.ch[n];c.classList.remove('on');c.style.transform=`translate(${150+i*58}px,122px)`;c.style.opacity=1;});},
+ cycle(){const d=this.run.shift(),c=this.ch[d];c.style.transform='translate(18px,72px)';c.style.opacity=0;setTimeout(()=>{c.remove();delete this.ch[d];},800);
+  this.run.push(this.qu.shift());const n=this.next++;this.qu.push(n);this.mk(n);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>this.layout()));this.pushAt=this.t;},
+ step(dt){this.t+=dt;if(this.t-this.last>2.3){this.last=this.t;this.cycle();}
+  const e=env(this.t-this.pushAt,.8);T(this.b,`translate(${f(-70*e)},0)`);
+  T(this.fl,`translate(${f(-90*e)},${f(-40*e)})`);T(this.fr,`translate(${f(-80*e)},${f(-55*env(this.t-this.pushAt-.12,.8))})`);}
 };
 
-/* sound */
-let ac=null,master=null,nb=null,sound=false;
-const initAudio=()=>{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.3;
- const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=4200;master.connect(lp);lp.connect(ac.destination);
- nb=ac.createBuffer(1,ac.sampleRate*.3,ac.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;};
-const mf=m=>440*2**((m-69)/12);
-const cello=(m,dur)=>{const t=ac.currentTime,o=ac.createOscillator(),o2=ac.createOscillator(),fl=ac.createBiquadFilter(),v=ac.createGain(),lfo=ac.createOscillator(),lg=ac.createGain();
- o.type='sawtooth';o2.type='triangle';o.frequency.value=o2.frequency.value=mf(m);lfo.frequency.value=5.4;lg.gain.value=mf(m)*.006;lfo.connect(lg);lg.connect(o.frequency);lg.connect(o2.frequency);
- fl.type='lowpass';fl.frequency.value=1100;fl.Q.value=.7;
- v.gain.setValueAtTime(0,t);v.gain.linearRampToValueAtTime(.16,t+.09);v.gain.setValueAtTime(.14,t+dur*.8);v.gain.exponentialRampToValueAtTime(.0001,t+dur*1.15);
- o.connect(fl);o2.connect(fl);fl.connect(v);v.connect(master);[o,o2,lfo].forEach(x=>{x.start(t);x.stop(t+dur*1.2);});};
-const conga=(hz,g)=>{const t=ac.currentTime,o=ac.createOscillator(),v=ac.createGain();o.type='sine';o.frequency.setValueAtTime(hz*1.25,t);o.frequency.exponentialRampToValueAtTime(hz,t+.04);
- v.gain.setValueAtTime(g,t);v.gain.exponentialRampToValueAtTime(.001,t+.32);o.connect(v);v.connect(master);o.start(t);o.stop(t+.35);
- const s=ac.createBufferSource(),bp=ac.createBiquadFilter(),nv=ac.createGain();s.buffer=nb;bp.type='bandpass';bp.frequency.value=hz*6;bp.Q.value=1.2;
- nv.gain.setValueAtTime(g*.35,t);nv.gain.exponentialRampToValueAtTime(.001,t+.05);s.connect(bp);bp.connect(nv);nv.connect(master);s.start(t);s.stop(t+.06);};
-const MEL=[50,53,57,62, 60,57,53,55, 58,57,55,53, 52,49,45,50];
-const playStep=st=>{if(!sound||!ac)return;const beatLen=60/bpm;
- if(st%2===0){conga(st%4===0?150:165,.55);cello(MEL[(st/2)%16],beatLen);}else conga(st%4===3?240:220,.4);};
+/* ---------- 2. server or my mac ---------- */
+const hosts={t:0,
+ build(s){s.innerHTML=`<ellipse cx="200" cy="170" rx="140" ry="60" fill="url(#ob-pool)"/>
+  <g class="pill" id="pA"><rect x="72" y="42" width="96" height="34" rx="17"/><text x="120" y="64" text-anchor="middle">Server</text></g>
+  <g class="pill" id="pB"><rect x="232" y="42" width="96" height="34" rx="17"/><text x="280" y="64" text-anchor="middle">My Mac</text></g>
+  <circle class="dot" r="6.5" fill="#F2B65A"/><circle class="dotg" r="16" fill="url(#ob-pool)"/>
+  <g class="track">${chimp(C1(),40,74,.2)}</g>`;
+  this.A=q(s,'#pA');this.B=q(s,'#pB');this.d=q(s,'.dot');this.dg=q(s,'.dotg');this.tr=q(s,'.track');},
+ step(dt){this.t+=dt;const P=4.4,p=this.t%P;let u,ar=0;
+  if(p<1.3)u=0;else if(p<2.2){const k=(p-1.3)/.9;u=k*k*(3-2*k);ar=sn(PI*k);}else if(p<3.5)u=1;else{const k=(p-3.5)/.9;u=1-k*k*(3-2*k);ar=sn(PI*k);}
+  const x=120+160*u,y=30-22*ar;[this.d,this.dg].forEach(c=>{c.setAttribute('cx',f(x));c.setAttribute('cy',f(y));});
+  this.A.classList.toggle('on',u===0);this.B.classList.toggle('on',u===1);
+  T(this.tr,`translate(${f((x-200)*.1)},${f(-ab(ar)*3)}) rotate(${f((x-200)*.025)} 200 170)`);}
+};
 
-$('or-snd').addEventListener('click',e=>{const b=e.currentTarget;try{if(!ac)initAudio();ac.resume();}catch(err){b.textContent='No sound here';b.disabled=true;return;}
- sound=!sound;b.textContent=sound?'Sound off':'Sound on';b.setAttribute('aria-pressed',sound);});
-const syncPlay=()=>{$('or-play').textContent=playing?'Pause':'Play';};
-$('or-play').addEventListener('click',()=>{playing=!playing;syncPlay();kick();});
-syncPlay();
-$('or-bpm').addEventListener('input',e=>{bpm=+e.target.value;$('or-bpmv').textContent=bpm+' bpm';});
+/* ---------- 3. budgets ---------- */
+const MONTHS=['May','June','July','August','September'];
+const budget={t:0,p:0,mi:0,ph:'fill',hold:0,ls:-9,coins:[],
+ build(s){s.innerHTML=`<text x="18" y="28" class="lbl month">May, acme/hooks</text>
+  <g class="badge fade" style="opacity:0"><rect x="316" y="12" width="68" height="26" rx="13" fill="#C8722F"/><text x="350" y="30" text-anchor="middle" style="font:600 13px Figtree;fill:#14170F" class="bt">80%</text></g>
+  <ellipse cx="70" cy="165" rx="110" ry="40" fill="url(#ob-pool)"/>
+  <rect x="180" y="88" width="196" height="10" rx="5" fill="#2a3122"/><rect class="fill" x="180" y="88" width="0" height="10" rx="5" fill="#EEE5D2"/>
+  <text x="180" y="124" class="lbl note fade" style="opacity:0">Notice sent at 80%</text>
+  <g class="coins"></g>${chimp(C1(),-6,38,.12)}`;
+  this.fill=q(s,'.fill');this.badge=q(s,'.badge');this.bt=q(s,'.bt');this.note=q(s,'.note');this.month=q(s,'.month');this.arm=q(s,'.arm');this.cg=q(s,'.coins');},
+ spawn(){const c=document.createElementNS(NS,'g');c.innerHTML=`<circle r="5.5" fill="#F2B65A"/><circle r="3" fill="none" stroke="#b07d1c" stroke-width="1.2"/>`;this.cg.appendChild(c);
+  this.coins.push({c,t:0,tx:180+this.p*196+4});this.ls=this.t;},
+ step(dt){this.t+=dt;const s=this;
+  if(s.ph==='fill'||s.ph==='fill2'){const lim=s.ph==='fill'?.8:1;if(s.p+s.coins.length*.05<lim-1e-6&&s.t-s.ls>.42)s.spawn();
+   if(s.p>=lim-1e-6&&!s.coins.length){s.ph=s.ph==='fill'?'hold':'hold2';s.hold=s.t;}}
+  else if(s.ph==='hold'&&s.t-s.hold>1.4)s.ph='fill2';
+  else if(s.ph==='hold2'&&s.t-s.hold>2.2){s.p=0;s.mi=(s.mi+1)%MONTHS.length;s.month.textContent=MONTHS[s.mi]+', acme/hooks';s.ph='fill';}
+  for(let i=s.coins.length-1;i>=0;i--){const k=s.coins[i];k.t+=dt;const u=Math.min(1,k.t/.7),x0=48,y0=150,x=x0+(k.tx-x0)*u,y=y0+(93-y0)*u-90*sn(PI*u);
+   T(k.c,`translate(${f(x)},${f(y)})`);if(u>=1){k.c.remove();s.coins.splice(i,1);s.p=Math.min(1,s.p+.05);}}
+  s.fill.setAttribute('width',f(196*s.p));s.fill.setAttribute('fill',s.p>=.999?'#C8722F':s.p>=.8?'#F2B65A':'#EEE5D2');
+  s.badge.style.opacity=s.p>=.8?1:0;s.bt.textContent=s.p>=.999?'100%':'80%';
+  s.note.style.opacity=s.p>=.8?1:0;s.note.textContent=s.p>=.999?'New runs held · Start anyway':'Notice sent at 80%';
+  T(s.arm,`rotate(${f(-10*env(s.t-s.ls,.42))} 240 630)`);}
+};
 
-/* run only while the stage is on screen; images load when it gets close */
-let last=performance.now(),seen=false,raf=0,loaded=false;
-const frame=now=>{raf=0;let dt=Math.max(0,Math.min(.1,(now-last)/1000));last=now;if(!playing)dt=0;
- T+=dt;beat+=dt*bpm/60;
- const st=Math.floor(beat*2);if(st!==lastStep&&playing){lastStep=st;playStep(st);}
- pose(dt);
- bulbs.forEach((b,i)=>b.setAttribute('opacity',f(.65+.35*sn(T*1.3+i*1.7))));
- motes.forEach(m=>{m.c.setAttribute('cx',f(m.x+sn(T*m.s+m.p)*30));m.c.setAttribute('cy',f(m.y+sn(T*m.s*.7+m.p*2)*40-T*2%40));
-  m.c.setAttribute('opacity',f(.15+.5*ab(sn(T*.8+m.p))));});
- lcs.forEach((l,i)=>l.setAttribute('transform',`rotate(${f(sn(T*.5+i*1.9)*1.2)} ${l.dataset.x} ${l.dataset.y})`));
- if(seen&&playing)raf=requestAnimationFrame(frame);};
-const kick=()=>{if(!raf&&seen){last=performance.now();raf=requestAnimationFrame(frame);}};
-const stage=$('or-scene');
-const load=()=>{if(loaded)return;loaded=true;stage.querySelectorAll('image[data-href]').forEach(im=>im.setAttribute('href',im.dataset.href));};
-new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)load();}),{rootMargin:'600px 0px'}).observe(stage);
-new IntersectionObserver(es=>es.forEach(e=>{seen=e.isIntersecting;if(seen)kick();}),{threshold:.15}).observe(stage);
-pose(0);
+/* ---------- 4. CI auto-fix ---------- */
+const CI_ST=[['✕ CI failed','f',1.3],['● Fixing, try 1 of 3','a',1.7],['● Fixing, try 2 of 3','a',1.7],['✓ CI green','b',2]];
+const ci={t:0,i:0,st:0,
+ build(s){s.innerHTML=`<ellipse cx="110" cy="140" rx="120" ry="40" fill="url(#ob-pool)"/>
+  <g transform="translate(206,18)"><rect width="178" height="30" rx="15" fill="#1b2216" stroke="#3A4530"/><text x="89" y="20" text-anchor="middle" class="mono st">✕ CI failed</text></g>
+  <g class="box"><rect x="92" y="128" width="296" height="34" rx="8" fill="#1b2216" stroke="#3A4530" class="br"/>
+  <text x="150" y="150" class="mono b">api/retry.spec.ts</text><text x="366" y="150" text-anchor="end" class="mono mk f">✕</text></g>
+  ${chimp(C2(),170,17,-.11,.11)}`;
+  this.stx=q(s,'.st');this.mk=q(s,'.mk');this.br=q(s,'.br');this.box=q(s,'.box');this.fl=q(s,'.fl');this.fr=q(s,'.fr');this.b=q(s,'.b');this.set();},
+ set(){const[tx,c]=CI_ST[this.i];this.stx.textContent=tx;this.stx.setAttribute('class','mono st '+c);
+  const g=this.i===3;this.mk.textContent=g?'✓':'✕';this.mk.setAttribute('class','mono mk '+(g?'b':'f'));this.br.setAttribute('stroke',g?'#EEE5D2':'#3A4530');},
+ step(dt){this.t+=dt;this.st+=dt;if(this.st>CI_ST[this.i][2]){this.st=0;this.i=(this.i+1)%4;this.set();}
+  const h=this.i===1||this.i===2,ph=this.t*3.4,lL=h?ab(sn(PI*ph)):0,lR=h?ab(sn(PI*(ph+.5))):0;
+  T(this.fl,`translate(0,${f(-70*lL)})`);T(this.fr,`translate(0,${f(-64*lR)})`);
+  const hitk=h?Math.pow(1-Math.min(lL,lR),12):0;T(this.box,`translate(0,${f(hitk*1.6)})`);
+  T(this.b,`translate(0,${f(this.i===3?-14*ab(sn(this.st*5)):-ab(sn(PI*ph))*8*(h?1:0))})`);}
+};
+
+/* ---------- 5. MCP gateway ---------- */
+const MCP=[['✓','linear/list_issues','b'],['✓','sentry/get_issue','b'],['✕','db/drop_table refused','f']];
+const mcp={t:0,
+ build(s){s.innerHTML=`<ellipse cx="340" cy="120" rx="110" ry="70" fill="url(#ob-pool)"/>
+  <line x1="268" y1="24" x2="268" y2="150" stroke="#F2B65A" stroke-opacity=".55" stroke-width="1.5"/>
+  <text x="262" y="162" text-anchor="end" class="lbl">gateway</text>
+  ${MCP.map(([m,t,c],i)=>`<g class="ln fade" style="opacity:0"><text x="20" y="${48+i*34}" class="mono ${c}"><tspan class="${c==='f'?'f':'a'}">${m}</tspan> ${t}</text></g>`).join('')}
+  <g class="guard">${chimp(C3(false,false,false),225,-38,.25)}</g>`;
+  this.ln=[...s.querySelectorAll('.ln')];this.gd=q(s,'.guard');},
+ step(dt){this.t+=dt;const P=5.2,p=this.t%P;
+  this.ln.forEach((l,i)=>{const on=p>.3+i*1.1&&p<4.6;l.style.opacity=on?1:0;l.style.transform=`translateX(${on?0:-14}px)`;});
+  const k=p-2.6;T(this.gd,`rotate(${f(k>0&&k<.9?sn(k*34)*3.2*(1-k/.9):0)} 330 170)`);}
+};
+
+/* ---------- 6. schedules and loops ---------- */
+const RUNS=[['run 1 ✕','f'],['run 2 ✕','f'],['run 3 ✓ check','b']];
+const loops={t:0,
+ build(s){s.innerHTML=`<ellipse cx="300" cy="170" rx="120" ry="50" fill="url(#ob-pool)"/>
+  <g transform="translate(64,62)"><circle r="25" fill="none" stroke="#EEE5D2" stroke-width="2.2"/><line class="hand" x1="0" y1="0" x2="0" y2="-15" stroke="#EEE5D2" stroke-width="2.4" stroke-linecap="round"/><line class="hh" x1="0" y1="0" x2="10" y2="0" stroke="#EEE5D2" stroke-width="2.4" stroke-linecap="round"/></g>
+  <text x="64" y="112" text-anchor="middle" class="mono">0 3 * * 1-5</text>
+  <path class="wave" d="M108,66 H150 C168,66 172,34 190,34 C208,34 212,66 230,66 H262" fill="none" stroke="#F2B65A" stroke-width="2.4" stroke-linecap="round"/>
+  <circle class="wd" r="5" fill="#F2B65A"/>
+  ${RUNS.map(([t,c],i)=>`<text x="276" y="${36+i*22}" class="mono ${c} rn fade" style="opacity:0">${t}</text>`).join('')}
+  <g class="pk">${chimp(C2(),227,98,.22)}</g>`;
+  this.hand=q(s,'.hand');this.hh=q(s,'.hh');this.w=q(s,'.wave');this.wd=q(s,'.wd');this.L=this.w.getTotalLength();this.rn=[...s.querySelectorAll('.rn')];this.pk=q(s,'.pk');},
+ step(dt){this.t+=dt;T(this.hand,`rotate(${f(this.t*90%360)})`);T(this.hh,`rotate(${f(30+this.t*7.5%360)})`);
+  const run=1.25,P=run*3+2,p=this.t%P,r=Math.min(2,Math.floor(p/run)),u=p<run*3?(p%run)/run:1;
+  const pt=this.w.getPointAtLength(this.L*u);this.wd.setAttribute('cx',f(pt.x));this.wd.setAttribute('cy',f(pt.y));
+  this.rn.forEach((el,i)=>{el.style.opacity=(i<r||(i===r&&u>=1)||(p>=run*(i+1)))?1:0;});
+  const ok=p>run*3;T(this.pk,`translate(0,${f(ok?3*ab(sn((p-run*3)*6)):0)}) rotate(${f(ok?0:(pt.x-185)*.02)} 300 170)`);}
+};
+
+/* ---------- 7. subagents ---------- */
+const SUB=[['explorer','12 files read'],['test-runner','48 tests passed'],['reviewer','diff approved']];
+const subs={t:0,
+ build(s){s.innerHTML=`<ellipse cx="90" cy="165" rx="130" ry="50" fill="url(#ob-pool)"/>
+  ${chimp(C3(false,false),-20,9,.135)}
+  <g><rect x="152" y="72" width="54" height="26" rx="13" fill="#1b2216" stroke="#EEE5D2" stroke-width="1.2"/><text x="179" y="90" text-anchor="middle" class="mono b">lead</text></g>
+  ${SUB.map(([n,r],i)=>{const y=[30,81,132][i];return`<path class="br" d="M206,85 H218 V${y-4} H236" fill="none" stroke="#3A4530" stroke-width="2"/>
+   <text x="242" y="${y}" class="mono nm">${n}</text><text x="242" y="${y+18}" class="mono a rs fade" style="opacity:0">↳ ${r}</text>`;}).join('')}`;
+  this.br=[...s.querySelectorAll('.br')];this.nm=[...s.querySelectorAll('.nm')];this.rs=[...s.querySelectorAll('.rs')];this.fo=q(s,'.fo');this.up=q(s,'.up');},
+ step(dt){this.t+=dt;const P=6.2,p=this.t%P,a=Math.floor(p/1.5);
+  SUB.forEach((_,i)=>{const on=i<=a&&p<5.4;this.br[i].setAttribute('stroke',i===a?'#F2B65A':on?'#6b7458':'#3A4530');
+   this.nm[i].setAttribute('class','mono nm'+(on?' b':''));this.rs[i].style.opacity=on?1:0;});
+  const k=(p%1.5);T(this.up,`rotate(${f(a<3?3*env(k,.6):0)} 705 450)`);T(this.fo,`rotate(${f(a<3?14*env(k,.5):0)} 1010 470)`);}
+};
+
+/* ---------- conductor ---------- */
+const cs=document.getElementById('ob-condsvg');
+let K=null;const BP=[7,-3,4,-7];
+const buildCond=()=>{cs.innerHTML=`<ellipse cx="150" cy="286" rx="120" ry="12" fill="#000" opacity=".55"/>
+ <rect x="40" y="280" width="220" height="30" rx="5" fill="#3a2414"/><rect x="34" y="274" width="232" height="10" rx="4" fill="#5e3a1c"/>
+ ${chimp(C3(true,true),7,52,.2)}`;K={s:cs.querySelector('.ch'),up:cs.querySelector('.up'),fo:cs.querySelector('.fo')};};
+let beat=0,cueAt=-9;
+const conduct=dt=>{beat+=dt*84/60;const b=beat,k=Math.floor(b)%4,p=b%1,qq=p*p*(3-2*p),u=BP[k]+(BP[(k+1)%4]-BP[k])*qq;
+ const flick=-16*env(beat-cueAt,1.2);
+ T(K.up,`rotate(${f(u)} 705 450)`);T(K.fo,`rotate(${f(18*Math.pow(1-p,3)-6+3*sn(PI*p)+flick)} 1010 470)`);
+ T(K.s,`translate(7,${f(52-ab(sn(PI*b))*1.2)}) scale(.2) rotate(${f(sn(PI*b/2)*1.1)} 560 1110)`);};
+
+/* ---------- cueing ---------- */
+const anim={queue,hosts,budget,ci,mcp,loops,subs};
+const cards=[...document.querySelectorAll('#orchestration .ob-card')];
+cards.forEach(c=>{c.a=anim[c.dataset.k];});
+const init=()=>{if(K)return;buildCond();cards.forEach(c=>{c.a.build(c.querySelector('svg'));c.a.step(.6);});};
+const nowcue=document.getElementById('ob-nowcue');
+let cur=-1,since=0,hover=false;
+const cue=i=>{if(i===cur)return;cur=i;since=0;cueAt=beat;cards.forEach((c,j)=>c.classList.toggle('on',j===i));nowcue.textContent=cards[i].querySelector('h3').firstChild.textContent.trim();};
+cue(0);
+const narrow=matchMedia('(max-width:980px)');
+cards.forEach((c,i)=>{c.addEventListener('mouseenter',()=>{hover=true;cue(i);});c.addEventListener('mouseleave',()=>{hover=false;since=0;});
+ c.addEventListener('focus',()=>{hover=true;cue(i);});c.addEventListener('blur',()=>{hover=false;});});
+const vis=new Map();
+const io=new IntersectionObserver(es=>{es.forEach(e=>vis.set(e.target,e.intersectionRatio));
+ if(narrow.matches&&!hover){let best=-1,bv=.35;cards.forEach((c,i)=>{const v=vis.get(c)||0;if(v>bv){bv=v;best=i;}});if(best>=0)cue(best);}},{threshold:[0,.35,.6,.9,1]});
+cards.forEach(c=>io.observe(c));
+
+const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* images load when the section gets close; the loop runs only while it is on screen */
+const sec=document.getElementById('orchestration');let raf=0,last=0,onScreen=false;
+const frame=now=>{raf=0;if(!onScreen)return;const dt=Math.max(0,Math.min(.1,(now-last)/1000));last=now;
+ since+=dt;if(!hover&&!narrow.matches&&since>5)cue((cur+1)%cards.length);
+ cards[cur].a.step(dt);conduct(dt);raf=requestAnimationFrame(frame);};
+new IntersectionObserver(es=>{if(es[0].isIntersecting&&!K){init();if(still){cards.forEach(c=>c.a.step(2.4));conduct(0);}}},{rootMargin:'600px 0px'}).observe(sec);
+new IntersectionObserver(es=>{onScreen=es[0].isIntersecting;if(onScreen&&!still&&!raf){init();last=performance.now();raf=requestAnimationFrame(frame);}}).observe(sec);
 })()
 </script>
 <script>
