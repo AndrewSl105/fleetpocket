@@ -2,11 +2,11 @@
 
 <h1 align="center">Jungle Monkey</h1>
 
-<p align="center"><strong>Every coding agent. One control room.</strong></p>
+<p align="center"><strong>Herding coding agents is my job. Yours is reading the PR.</strong></p>
 
-<p align="center">Run Claude Code, Codex and Cursor side by side — queued, sandboxed and on a budget — on your server or your own machines. Watch every agent work, answer its questions, and ship the result as a branch or a pull request.</p>
+<p align="center">Jungle Monkey runs coding agents like Claude Code, Codex and Cursor in sealed containers on your own server or machines, and hands their work back to you as branches or pull requests.</p>
 
-<p align="center"><a href="https://andrewsl105.github.io/jungle_monkey/"><b>Website</b></a> · <a href="#install-three-paths"><b>Install</b></a> · <a href="#docs"><b>Docs</b></a> · <a href="LICENSE"><b>MIT</b></a></p>
+<p align="center"><a href="https://andrewsl105.github.io/jungle_monkey/"><b>Website</b></a>&nbsp;&nbsp;&nbsp;<a href="#install-three-paths"><b>Install</b></a>&nbsp;&nbsp;&nbsp;<a href="#docs"><b>Docs</b></a>&nbsp;&nbsp;&nbsp;<a href="LICENSE"><b>MIT</b></a></p>
 
 ## Quick start
 
