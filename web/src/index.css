@@ -3,80 +3,78 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Field Manual: an expedition logbook. Ink on paper, square corners, ruled
-   rows, rubber-stamp statuses and one orange signal colour (docs/SPEC-web.md §7).
-   Light is "paper", dark is "Night shift". The shadcn tokens below are mapped
-   onto the brand tokens so the ui/* components pick them up unchanged. */
+/* Night rehearsal: a dark jungle stage under warm amber light (docs/SPEC-web.md
+   section 7). Dark only. The legacy token names (--paper, --ink, --signal...) are
+   kept as aliases onto the new palette so every class keeps working; the shadcn
+   tokens below map onto them so the ui/* components pick them up unchanged. */
 :root {
-  --paper: #f2efe6;
-  --paper-raised: #fbf9f3;
-  --grid: #e4e0d3;
-  --rule: #b9b4a5;
-  --ink: #1b1f1a;
-  --ink-2: #3d4238;
-  --ink-muted: #5e6357;
-  --signal: #f06a1d;
-  --signal-ink: #1b1f1a;
-  --signal-text: #b23a06;
-  --olive: #3f5a2e;
-  --olive-ink: #f2efe6;
-  --olive-text: #3f5a2e;
-  --danger: #a12a1c;
-  --paused-bg: #e4e0d3;
+  /* the palette */
+  --jungle: #14170f;   /* page background, theme-color */
+  --panel: #1f2618;    /* raised surfaces */
+  --panel-2: #273020;  /* hover / selected surface */
+  --line: #3a4530;     /* hairlines, decorative only */
+  --amber: #f2b65a;    /* stage light: focus, asking, glow (11.0:1 on jungle) */
+  --fur: #c8722f;      /* the accent fill; text on it is --jungle (5.0:1) */
+  --fur-text: #e08a4e; /* fur-coloured text (6.8:1 on jungle, 5.9:1 on panel) */
+  --bone: #eee5d2;     /* text (14.5:1 on jungle, 12.6:1 on panel) */
+  --bone-2: #d6cebd;   /* secondary body text (11.4:1) */
+  --muted-text: #9aa08a; /* secondary text (6.7:1 on jungle, 5.8:1 on panel) */
 
-  --radius: 0px;
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: var(--paper-raised);
-  --card-foreground: var(--ink);
-  --popover: var(--paper-raised);
-  --popover-foreground: var(--ink);
-  --primary: var(--ink);
-  --primary-foreground: var(--paper);
-  --secondary: var(--paper);
-  --secondary-foreground: var(--ink);
-  --muted: var(--grid);
-  --muted-foreground: var(--ink-muted);
-  --accent: var(--grid);
-  --accent-foreground: var(--ink);
-  --destructive: var(--danger);
-  --border: var(--rule);
-  --input: var(--ink);
-  --ring: var(--signal);
-  --link: var(--signal-text);
-  --surface: var(--paper);
-  --field: var(--paper-raised);
+  /* legacy names, now aliases */
+  --paper: var(--jungle);
+  --paper-raised: var(--panel);
+  --grid: var(--panel-2);
+  --rule: var(--line);
+  --ink: var(--bone);
+  --ink-2: var(--bone-2);
+  --ink-muted: var(--muted-text);
+  --signal: var(--fur);
+  --signal-ink: var(--jungle);
+  --signal-text: var(--fur-text);
+  --olive: var(--panel-2);
+  --olive-ink: var(--bone);
+  --olive-text: var(--bone);
+  --danger: var(--fur-text);
+  --paused-bg: var(--panel-2);
+
+  --radius: 10px;
+  --background: var(--jungle);
+  --foreground: var(--bone);
+  --card: var(--panel);
+  --card-foreground: var(--bone);
+  --popover: var(--panel);
+  --popover-foreground: var(--bone);
+  --primary: var(--fur);
+  --primary-foreground: var(--jungle);
+  --secondary: var(--panel);
+  --secondary-foreground: var(--bone);
+  --muted: var(--panel-2);
+  --muted-foreground: var(--muted-text);
+  --accent: var(--panel-2);
+  --accent-foreground: var(--bone);
+  --destructive: var(--fur-text);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--amber);
+  --link: var(--fur-text);
+  --surface: var(--jungle);
+  --field: var(--panel);
+  --glow: 0 0 0 4px rgb(242 182 90 / 0.18);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --safe-top: 0px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-height: 100dvh;
-}
-
-.dark {
-  --paper: #14170f;
-  --paper-raised: #1c2016;
-  --grid: #23281c;
-  --rule: #3a3f33;
-  --ink: #ece8dc;
-  --ink-2: #d4d0c4;
-  --ink-muted: #a8ab9c;
-  --signal: #f2793a;
-  --signal-ink: #14170f;
-  --signal-text: #ff9a5c;
-  --olive: #3f5a2e;
-  --olive-ink: #ece8dc;
-  --olive-text: #9fc27f;
-  --danger: #ff7a66;
-  --paused-bg: #23281c;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --radius-xs: 0px;
-  --radius-sm: 2px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -112,9 +110,20 @@
   --color-olive-text: var(--olive-text);
   --color-danger: var(--danger);
   --color-paused: var(--paused-bg);
-  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-title: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-amber: var(--amber);
+  --color-fur: var(--fur);
+  --color-fur-text: var(--fur-text);
+  --color-bone: var(--bone);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--line);
+  --color-jungle: var(--jungle);
+  /* Nothing below 13px (docs/SPEC-web.md section 7). */
+  --text-xs: 13px;
+  --text-xs--line-height: 1.4;
+  --font-sans: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-title: 'Gloock', Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @layer base {
@@ -122,12 +131,12 @@
     @apply border-border outline-ring;
   }
   :focus-visible {
-    outline: 2px solid var(--signal);
+    outline: 2px solid var(--amber);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--signal);
-    color: var(--signal-ink);
+    background: var(--amber);
+    color: var(--jungle);
   }
   * {
     scrollbar-color: var(--rule) transparent;
@@ -155,227 +164,245 @@
   }
 }
 
-/* Controls. Every border is 1.5 px ink; nothing is rounded. */
+/* Page titles are the one place the display face appears in the app. Gloock
+   has a single weight, so bold utilities must not fake one. */
+h1 {
+  font-family: var(--font-title);
+  font-weight: 400 !important;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+h1.fm-strip {
+  font-size: 20px;
+}
+
+/* Controls. Pills with a hairline; hover lifts with a soft amber glow. */
 @utility fm-btn {
-  border: 1.5px solid var(--ink);
-  background-color: var(--paper-raised);
-  color: var(--ink);
-  transition: background-color 120ms;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--bone);
+  transition:
+    background-color 200ms var(--ease),
+    box-shadow 200ms var(--ease);
   &:where(button, a, [role='button']):where(:not(:disabled)):hover {
-    background-color: var(--grid);
+    background-color: var(--panel-2);
+    box-shadow: var(--glow);
   }
 }
-/* The primary action: ink fill, a flat ink offset shadow while pressed. */
+/* The primary action: fur fill, jungle text (bone on fur fails contrast). */
 @utility fm-btn-primary {
-  border: 1.5px solid var(--ink);
-  background-color: var(--ink);
-  color: var(--paper);
-  &:where(button, a, [role='button']):where(:not(:disabled)):active {
-    transform: translate(-2px, -2px);
-    box-shadow: 2px 2px 0 var(--signal);
+  border: 1px solid var(--fur);
+  border-radius: 999px;
+  background-color: var(--fur);
+  color: var(--jungle);
+  transition: box-shadow 200ms var(--ease);
+  &:where(button, a, [role='button']):where(:not(:disabled)):hover {
+    box-shadow: var(--glow);
   }
 }
-/* The orange "New" action: signal fill, always with ink text. */
 @utility fm-btn-signal {
-  border: 1.5px solid var(--ink);
-  background-color: var(--signal);
-  color: var(--signal-ink);
+  border: 1px solid var(--fur);
+  border-radius: 999px;
+  background-color: var(--fur);
+  color: var(--jungle);
   font-weight: 600;
-  &:where(button, a, [role='button']):where(:not(:disabled)):active {
-    transform: translate(-2px, -2px);
-    box-shadow: 2px 2px 0 var(--ink);
+  transition: box-shadow 200ms var(--ease);
+  &:where(button, a, [role='button']):where(:not(:disabled)):hover {
+    box-shadow: var(--glow);
   }
 }
-/* A toggle that is on, or a selected cell: inverted. */
+/* A toggle that is on, or a selected cell: lit surface with an amber edge. */
 @utility fm-pressed {
-  border: 1.5px solid var(--ink);
-  background-color: var(--ink);
-  color: var(--paper);
+  border: 1px solid rgb(242 182 90 / 0.55);
+  background-color: var(--panel-2);
+  color: var(--bone);
 }
-/* A ruled panel with a mono title strip (fm-strip). */
 @utility fm-panel {
-  border: 1.5px solid var(--ink);
-  background-color: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background-color: var(--panel);
 }
 @utility fm-card {
-  border: 1.5px solid var(--ink);
-  background-color: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background-color: var(--panel);
 }
 @utility fm-menu {
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background-color: var(--popover);
+  box-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.6);
 }
 @utility fm-well {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
 @utility fm-field {
-  border-radius: 2px;
-  background-color: var(--paper-raised);
-  box-shadow: inset 0 0 0 1.5px var(--ink);
+  border-radius: 10px;
+  background-color: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 1px var(--amber),
+      var(--glow);
+  }
 }
-/* A labelled group: thin rule frame. */
+/* A labelled group: a hairline frame. */
 @utility fm-group {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--line);
+  border-radius: 14px;
 }
 @utility fm-status {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
-/* Section/panel title strip: mono uppercase label on a 2 px ink rule. */
+/* Page and panel title strip: sentence case on a hairline. */
 @utility fm-strip {
-  border-bottom: 2px solid var(--ink);
-  background-color: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+  background-color: var(--jungle);
+  color: var(--bone);
+  font-family: var(--font-sans);
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
 }
 @utility fm-strip-muted {
-  border-bottom: 1px solid var(--rule);
-  background-color: var(--paper);
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  background-color: transparent;
+  color: var(--muted-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
 }
 @utility fm-icon-btn {
-  border: 1.5px solid var(--ink);
-  color: var(--ink);
-  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--bone);
+  background: transparent;
+  transition:
+    background-color 200ms var(--ease),
+    box-shadow 200ms var(--ease);
   &:hover {
-    background: var(--grid);
+    background: var(--panel-2);
+    box-shadow: var(--glow);
   }
   &[data-close]:hover {
-    background: var(--danger);
-    color: var(--paper);
+    color: var(--fur-text);
   }
 }
-/* Tabs: mono labels; the active one sits on a 2 px ink underline. */
+/* Tabs: the active one is lit, with an amber underline. */
 @utility fm-tab {
   border-bottom: 2px solid transparent;
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  color: var(--muted-text);
+  font-family: var(--font-sans);
+  font-weight: 600;
   &:where([data-state='active'], [aria-selected='true']) {
-    border-bottom-color: var(--ink);
-    color: var(--ink);
-    font-weight: 600;
+    border-bottom-color: var(--amber);
+    color: var(--bone);
   }
 }
 @utility fm-selected {
-  background-color: var(--ink);
-  color: var(--paper);
+  background-color: var(--panel-2);
+  color: var(--bone);
+  box-shadow: inset 2px 0 0 var(--amber);
 }
-/* The 24 px technical-drawing grid (landing hero, empty states, canvas board). */
+/* The stage: jungle ground under a pool of warm light (empty states, canvas). */
 @utility fm-ground {
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-color: var(--jungle);
+  background-image: radial-gradient(ellipse 70% 55% at 50% 0%, rgb(242 182 90 / 0.07), transparent 70%);
 }
 @utility fm-rule {
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--line);
 }
 /* Mobile bottom bar and its tabs. */
 @utility fm-bar {
-  border-top: 2px solid var(--ink);
-  background-color: var(--paper);
-  color: var(--ink);
+  border-top: 1px solid var(--line);
+  background-color: var(--panel);
+  color: var(--bone);
 }
 @utility fm-bar-item {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-text);
   &:where([aria-current='page'], [aria-pressed='true']) {
-    background-color: var(--ink);
-    color: var(--paper);
-    font-weight: 600;
+    color: var(--bone);
+    background-image: radial-gradient(ellipse 60% 70% at 50% 0%, rgb(242 182 90 / 0.18), transparent 75%);
+    box-shadow: inset 0 2px 0 var(--amber);
   }
 }
-/* Mono kicker/label: uppercase with letter spacing. */
+/* A quiet label above a field or a group. */
 @utility fm-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
 }
-/* A rubber stamp: status, tags. Tone via data-tone. */
+/* A status chip. Tone via data-tone; palette only: running has an amber dot,
+   asks you is a fur badge, done/PR is bone with a check, failed is fur text. */
 @utility fm-stamp {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  border: 1.5px solid var(--ink);
-  padding: 2px 5px;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-family: var(--font-sans);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 1px;
-  line-height: 1.2;
-  text-transform: uppercase;
+  line-height: 1.3;
   white-space: nowrap;
-  background: var(--paper-raised);
-  color: var(--ink);
+  background: var(--panel);
+  color: var(--bone);
   &[data-tone='signal'] {
-    background: var(--signal);
-    color: var(--signal-ink);
+    border-color: rgb(242 182 90 / 0.45);
+  }
+  &[data-tone='signal'] > :first-child {
+    color: var(--amber);
   }
   &[data-tone='ask'] {
-    background: var(--paper);
-    border-style: dashed;
+    background: var(--fur);
+    border-color: var(--fur);
+    color: var(--jungle);
   }
   &[data-tone='olive'] {
-    background: var(--olive);
-    color: var(--olive-ink);
-    border-color: var(--olive);
-  }
-  &[data-tone='branch'] {
-    background: var(--paper);
-    color: var(--olive-text);
-    border-color: var(--olive-text);
+    background: var(--panel-2);
   }
   &[data-tone='danger'] {
-    background: var(--paper);
-    color: var(--danger);
-    border-color: var(--danger);
+    color: var(--fur-text);
+    border-color: rgb(224 138 78 / 0.5);
   }
   &[data-tone='paused'] {
-    background: var(--paused-bg);
-    color: var(--ink-muted);
-    border-color: var(--rule);
+    background: transparent;
+    color: var(--muted-text);
   }
 }
-/* Anything waiting on the user: dashed ink border. */
+/* Anything waiting on the user: lit by amber. */
 @utility fm-ask {
-  border: 1.5px dashed var(--ink);
-  background-color: var(--paper);
+  border: 1px solid var(--amber);
+  border-radius: 14px;
+  background-color: #211f14;
+  box-shadow: 0 0 0 4px rgb(242 182 90 / 0.12);
 }
 
-/* The slow blink on the ● of RUNNING. */
+/* The slow pulse of the running dot. */
 .fm-blink {
-  animation: fm-blink 1.6s steps(2, jump-none) infinite;
+  animation: fm-blink 1.6s var(--ease) infinite;
 }
 @keyframes fm-blink {
   50% {
-    opacity: 0.25;
+    opacity: 0.3;
   }
 }
 
-/* Indeterminate progress: an ink bar sliding along a rule. */
+/* Indeterminate progress: amber light sliding along a hairline. */
 .fp-progress {
   width: 40%;
-  background: var(--ink);
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
   animation: fp-progress 1.4s linear infinite;
 }
 /* Determinate progress, width set inline. */
 .fp-chunks {
-  background: var(--signal);
+  background: var(--fur);
 }
 @keyframes fp-progress {
   from {
@@ -385,3 +412,4 @@
     transform: translateX(250%);
   }
 }
+
