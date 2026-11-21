@@ -20,7 +20,7 @@ export function LoopFields({ value, onChange, error, idPrefix = 'loop' }: { valu
         <Switch checked={value.enabled} onCheckedChange={(enabled) => set({ enabled })} aria-label={lp.toggle} data-testid={`${idPrefix}-toggle`} />
       </label>
       {value.enabled && (
-        <div className="grid gap-3 border-l-2 border-ink pl-3 sm:grid-cols-[1fr_8rem_9rem]">
+        <div className="grid gap-3 border-l-2 border-amber/50 pl-3 sm:grid-cols-[1fr_8rem_9rem]">
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-check`}>{lp.check}</Label>
             <Input

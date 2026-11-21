@@ -66,8 +66,8 @@ export default function RestoreDialog({ taskId, checkpoint, open, onOpenChange }
           </p>
         ) : (
           <div className="space-y-3 text-sm">
-            <div className="border border-dashed border-border px-3 py-2.5">
-              <div className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{d.discards}</div>
+            <div className="rounded-[10px] border border-border px-3 py-2.5">
+              <div className="text-[13px] font-semibold text-muted-foreground">{d.discards}</div>
               <div className="mt-1">{d.discarded(p.discarded)}</div>
               <div className="mt-1 text-muted-foreground">{d.files(files.length)}</div>
               {files.length > 0 && (

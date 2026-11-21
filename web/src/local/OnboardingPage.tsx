@@ -131,7 +131,7 @@ function SuggestionRow({ s, start, busy, onPick }: { s: LocalRepoSuggestion; sta
             {s.added && <span className="fm-stamp" data-tone="paused">{f.added}</span>}
           </span>
           <span className="block truncate font-mono text-xs text-muted-foreground">{s.path}</span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-muted-foreground">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[13px] text-muted-foreground">
             <span>⎇ {s.branch || f.detached}</span>
             <span className={s.dirty ? 'text-signal-text' : undefined}>{s.dirty ? f.dirty : f.clean}</span>
             <span>{f.lastCommit(relativeTime(s.last_commit))}</span>

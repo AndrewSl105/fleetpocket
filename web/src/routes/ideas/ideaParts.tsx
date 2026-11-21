@@ -80,10 +80,10 @@ export function IdeaCardBody({ idea }: { idea: Idea }) {
         {idea.voice_notes.map((v) => (
           <VoiceChip key={v.id} ms={v.duration_ms} />
         ))}
-        {files > 0 && <span className="fm-label text-[10px] text-muted-foreground">{tx.files(files)}</span>}
-        {links > 0 && <span className="fm-label text-[10px] text-muted-foreground">{tx.links(links)}</span>}
+        {files > 0 && <span className="fm-label text-[13px] text-muted-foreground">{tx.files(files)}</span>}
+        {links > 0 && <span className="fm-label text-[13px] text-muted-foreground">{tx.links(links)}</span>}
         {idea.tags.map((t) => (
-          <span key={t} className="font-mono text-[11px] text-muted-foreground">
+          <span key={t} className="font-mono text-[13px] text-muted-foreground">
             #{t}
           </span>
         ))}
@@ -91,8 +91,8 @@ export function IdeaCardBody({ idea }: { idea: Idea }) {
         {idea.linked_task_ids.length > 0 && <span className="fm-stamp">{tx.tasks(idea.linked_task_ids.length)}</span>}
       </div>
       {idea.auto_note && (
-        <p className="font-mono text-[11px] text-muted-foreground">
-          <span className="fm-label text-[10px]">{tx.autoNote}</span> {idea.auto_note}
+        <p className="font-mono text-[13px] text-muted-foreground">
+          <span className="fm-label text-[13px]">{tx.autoNote}</span> {idea.auto_note}
         </p>
       )}
     </div>

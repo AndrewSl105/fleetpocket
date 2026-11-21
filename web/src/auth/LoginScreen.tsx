@@ -68,12 +68,11 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: 'web' | 'teleg
     <main className="fm-ground flex min-h-(--app-height) items-center justify-center px-3 py-10">
       <Window title={t.auth.title} className="w-full max-w-sm" bodyClassName="p-3">
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
-          <img src="/brand/hero.webp" alt="" width={800} height={800} className="block aspect-square w-full border-[1.5px] border-ink" />
+          <img src="/brand/hero.webp" alt="" width={800} height={800} className="block aspect-square w-full rounded-[18px] [mask-image:radial-gradient(ellipse_75%_75%_at_50%_45%,#000_60%,transparent_100%)]" />
           <div className="flex items-center gap-3">
             <Logo className="size-10" />
             <div>
-              <p className="fm-label text-muted-foreground">{t.app.kicker}</p>
-              <h1 className="text-[18px] font-bold">{t.auth.title}</h1>
+              <h1 className="text-[26px] leading-tight">{t.auth.title}</h1>
             </div>
           </div>
           <p className="text-muted-foreground text-[14px]">{t.app.tagline}</p>

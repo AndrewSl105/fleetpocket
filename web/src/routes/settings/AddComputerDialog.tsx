@@ -160,7 +160,7 @@ function Confirm({
       </div>
 
       {p && (
-        <div className={cn('space-y-3 rounded-xl border p-3.5', here ? 'border-ink' : 'border-ink')}>
+        <div className={cn('space-y-3 rounded-xl border p-3.5', here ? 'border-amber/60' : 'border-border')}>
           <div className="flex items-start gap-3">
             <Laptop className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="min-w-0 text-sm">
@@ -208,7 +208,7 @@ function Paired({ id, name, onDone }: { id: string; name: string; onDone: () => 
       </p>
       {online ? (
         <p className="flex items-center gap-2 text-sm">
-          <span className="size-2 rounded-full bg-olive" aria-hidden="true" /> {w.online(name)}
+          <span className="size-2 rounded-full bg-amber" aria-hidden="true" /> {w.online(name)}
           {node && node.agents.length > 0 && <span className="text-muted-foreground">({node.agents.map((a) => t.agents[a]).join(', ')})</span>}
         </p>
       ) : (

@@ -90,7 +90,7 @@ function Thumb({ taskId, a, onOpen }: { taskId: number; a: Attachment; onOpen: (
     return (
       <div
         style={size}
-        className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-current/40 px-1 text-center text-[11px] leading-tight opacity-80"
+        className="flex flex-col items-center justify-center gap-1 rounded-lg border border-current/40 px-1 text-center text-[13px] leading-tight opacity-80"
       >
         <ImageOff className="size-4" aria-hidden="true" />
         {img.state === 'removed' ? t.attachments.removed : t.attachments.loadFailed}

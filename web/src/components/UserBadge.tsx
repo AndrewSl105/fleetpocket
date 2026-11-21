@@ -10,7 +10,7 @@ export function UserBadge({ user, withName, className }: { user?: UserRef | null
         aria-hidden={withName ? 'true' : undefined}
         aria-label={withName ? undefined : user.name}
         role={withName ? undefined : 'img'}
-        className="inline-flex size-5 shrink-0 items-center justify-center border border-ink bg-grid font-mono text-[9px] font-bold"
+        className="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-grid text-[11px] font-semibold"
       >
         {user.initials}
       </span>

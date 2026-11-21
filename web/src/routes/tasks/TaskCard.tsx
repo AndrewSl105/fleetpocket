@@ -30,10 +30,10 @@ export function TaskCard({ task, projectName, selected }: { task: Task; projectN
       className={cn(
         'flex gap-3 py-3 pr-1 pl-2 hover:bg-grid',
         waiting && 'fm-ask my-1 px-2',
-        selected && 'bg-grid shadow-[inset_3px_0_0_var(--signal)]',
+        selected && 'bg-grid shadow-[inset_3px_0_0_var(--amber)]',
       )}
     >
-      <span className="w-11 shrink-0 pt-0.5 font-mono text-[12px] font-semibold text-muted-foreground tabular-nums">{taskNumber(task.id)}</span>
+      <span className="w-11 shrink-0 pt-0.5 font-mono text-[13px] font-semibold text-muted-foreground tabular-nums">{taskNumber(task.id)}</span>
       <div className="min-w-0 flex-1">
       <h2 className="line-clamp-2 min-w-0 text-[15px] leading-snug font-semibold break-words">{task.title}</h2>
       {task.status === 'branch_ready' && task.local_branch ? (

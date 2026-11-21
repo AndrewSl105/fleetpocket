@@ -103,7 +103,7 @@ function Detail({ idea }: { idea: Idea }) {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl space-y-5 px-4 pt-4 pb-8">
         <div className="flex items-center gap-2">
-          <Link to={idea.archived_at ? '/ideas/archive' : '/ideas'} className="fm-label text-[11px] text-muted-foreground hover:underline">
+          <Link to={idea.archived_at ? '/ideas/archive' : '/ideas'} className="fm-label text-[13px] text-muted-foreground hover:underline">
             ← {idea.archived_at ? tx.archived : tx.backToBoard}
           </Link>
           {idea.failed && (
