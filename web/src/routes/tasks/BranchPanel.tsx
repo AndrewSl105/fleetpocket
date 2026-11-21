@@ -31,7 +31,7 @@ function FolderMissing({ task, message }: { task: TaskView; message: string }) {
   const [open, setOpen] = useState(false)
   const repoId = task.repository?.id ?? task.repository_id
   return (
-    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-danger px-2.5 py-1.5 text-xs text-danger">
+    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/50 px-3 py-2 text-xs text-danger">
       <p className="min-w-0 flex-1 break-words">{message}</p>
       <Button type="button" variant="outline" className="h-11" onClick={() => setOpen(true)}>
         <FolderSearch /> {lc.repo.locate}
@@ -73,7 +73,7 @@ function BranchReady({ task }: { task: TaskView }) {
   const spin = (kind: BranchActionKind) => pending === kind && <Loader2 className="animate-spin" aria-hidden="true" />
 
   return (
-    <section aria-label={b.stamp} className="mt-2 border-[1.5px] border-olive-text px-2.5 py-2">
+    <section aria-label={b.stamp} className="mt-2 rounded-[14px] border border-border bg-panel px-3 py-2.5">
       <div className="flex items-center gap-2 text-sm">
         <GitBranch className="size-4 shrink-0 text-olive-text" aria-hidden="true" />
         <p className="min-w-0 flex-1 break-words">

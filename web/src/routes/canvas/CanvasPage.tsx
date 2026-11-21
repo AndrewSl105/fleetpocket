@@ -32,9 +32,9 @@ import './canvas.css'
 const tc = t.canvas
 const STORE = 'fleetpocket.canvas.v1'
 
-/** Host accents: the server, then one per computer (cycled). */
-const SERVER_ACCENT = '#7aa2f7'
-const NODE_ACCENTS = ['#4fd1b0', '#f0a35e', '#e98bd0', '#9ccf6a', '#6fc3f0']
+/** Host accents from the palette: the server, then one per computer (cycled). */
+const SERVER_ACCENT = '#f2b65a'
+const NODE_ACCENTS = ['#e08a4e', '#eee5d2', '#9aa08a', '#c8722f', '#d6cebd']
 
 type Filter = 'live' | 'all'
 type Mode = 'terminal' | 'node'
@@ -280,7 +280,7 @@ function Canvas() {
               role="radio"
               aria-checked={mode === m}
               onClick={() => setMode(m)}
-              className={cn('fm-btn h-8 px-3 font-mono text-xs tracking-[1px] text-foreground uppercase', mode === m && 'fm-pressed bg-muted font-bold')}
+              className={cn('fm-btn h-8 px-3 text-xs font-semibold text-foreground', mode === m && 'fm-pressed bg-muted')}
             >
               {tc.modes[m]}
             </button>

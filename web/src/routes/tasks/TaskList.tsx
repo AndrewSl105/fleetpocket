@@ -84,11 +84,10 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
   return (
     <div className="flex h-full flex-col">
       <header className="shrink-0 space-y-3 px-4 pt-4 pb-3">
-        <div className="flex items-center justify-between gap-3 border-b-2 border-ink pb-3">
+        <div className="flex items-center justify-between gap-3 pb-1">
           <Logo className="size-10 lg:hidden" />
           <div className="min-w-0 flex-1">
-            <p className="fm-label truncate text-[10px] text-muted-foreground">{t.app.kicker}</p>
-            <h1 className="truncate text-[26px] leading-tight font-bold">{t.tasks.title}</h1>
+            <h1 className="truncate text-[30px] leading-tight">{t.tasks.title}</h1>
           </div>
           {people.team && me && (
             <Link to="/settings#profile" className="lg:hidden" aria-label={t.team.signedInAs(me.name)}>
@@ -114,7 +113,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             />
           </div>
         </div>
-        <div role="tablist" aria-label="Filter" className="grid grid-cols-4 border-[1.5px] border-ink">
+        <div role="tablist" aria-label="Filter" className="grid grid-cols-4 gap-1 rounded-full border border-border p-1">
           {GROUP_ORDER.map((g) => (
             <button
               key={g}
@@ -122,8 +121,8 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
               aria-selected={group === g}
               onClick={() => setFilter({ filter: g })}
               className={cn(
-                'fm-label h-11 border-r border-rule text-[11px] last:border-r-0',
-                group === g ? 'fm-selected font-semibold' : 'text-foreground hover:bg-grid',
+                'fm-label h-10 rounded-full text-[13px] transition-colors',
+                group === g ? 'bg-panel-2 text-foreground font-semibold shadow-[inset_0_0_0_1px_rgb(242_182_90/0.55)]' : 'text-muted-foreground hover:bg-grid hover:text-foreground',
               )}
             >
               {t.tasks.filters[g]}
@@ -140,7 +139,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
             {project ? (
               <button
                 onClick={() => setFilter({ project: null })}
-                className="fm-pressed inline-flex h-9 shrink-0 items-center gap-1 px-3 font-mono text-xs font-semibold"
+                className="fm-pressed inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-semibold"
               >
                 {projectNames.get(project) ?? project}
                 <X className="size-3.5" aria-label="Clear project filter" />
@@ -150,7 +149,7 @@ export function TaskList({ selectedId }: { selectedId?: number }) {
                 <button
                   key={p.id}
                   onClick={() => setFilter({ project: p.id })}
-                  className="fm-btn inline-flex h-9 shrink-0 items-center px-3 font-mono text-xs"
+                  className="fm-btn inline-flex h-9 shrink-0 items-center px-3 text-xs"
                 >
                   {p.name}
                 </button>

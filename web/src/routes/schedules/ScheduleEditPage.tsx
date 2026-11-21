@@ -197,7 +197,7 @@ function Editor({ id, initial, projects }: { id?: number; initial: ScheduleValue
                 role="radio"
                 aria-checked={v.preset === p}
                 onClick={() => set({ preset: p, cron: p === 'custom' ? presetCron(v.preset, v.time, v.weekday, v.cron) : v.cron })}
-                className={cn('fm-label min-h-11 border-2 px-2 text-[12px]', v.preset === p ? 'fm-selected border-ink font-semibold' : 'border-rule hover:bg-grid')}
+                className={cn('fm-label min-h-11 rounded-full border px-3 text-[13px]', v.preset === p ? 'fm-pressed font-semibold' : 'border-border hover:bg-grid')}
               >
                 {sc.presets[p]}
               </button>
@@ -266,11 +266,11 @@ function Editor({ id, initial, projects }: { id?: number; initial: ScheduleValue
                     aria-pressed={on}
                     disabled={fromProject}
                     onClick={() => set({ skills: on ? v.skills.filter((x) => x !== s.slug) : [...v.skills, s.slug] })}
-                    className={cn('flex min-h-11 items-center gap-1.5 border px-2.5 font-mono text-xs', on ? 'border-ink bg-grid' : 'border-rule text-muted-foreground', fromProject && 'opacity-70')}
+                    className={cn('flex min-h-11 items-center gap-1.5 border px-2.5 font-mono text-xs', on ? 'border-amber/60 bg-grid' : 'border-border text-muted-foreground', fromProject && 'opacity-70')}
                   >
                     {on && <Check className="size-3.5" aria-hidden="true" />}
                     {s.slug}
-                    {fromProject && <span className="text-[10px] uppercase">· {sc.fromProject}</span>}
+                    {fromProject && <span className="text-[13px] text-muted-foreground">({sc.fromProject})</span>}
                   </button>
                 )
               })}
@@ -291,7 +291,7 @@ function Editor({ id, initial, projects }: { id?: number; initial: ScheduleValue
                     type="button"
                     aria-pressed={on}
                     onClick={() => toggleServer(s.name)}
-                    className={cn('flex min-h-11 items-center gap-1.5 border px-2.5 font-mono text-xs', on ? 'border-ink bg-grid' : 'border-rule text-muted-foreground')}
+                    className={cn('flex min-h-11 items-center gap-1.5 border px-2.5 font-mono text-xs', on ? 'border-amber/60 bg-grid' : 'border-border text-muted-foreground')}
                   >
                     {on && <Check className="size-3.5" aria-hidden="true" />}
                     {s.name}
@@ -325,7 +325,7 @@ function Editor({ id, initial, projects }: { id?: number; initial: ScheduleValue
                 role="radio"
                 aria-checked={v.concurrency === c}
                 onClick={() => set({ concurrency: c })}
-                className={cn('min-h-11 border-2 px-2 text-sm', v.concurrency === c ? 'fm-selected border-ink font-semibold' : 'border-rule hover:bg-grid')}
+                className={cn('min-h-11 rounded-full border px-3 text-sm', v.concurrency === c ? 'fm-pressed font-semibold' : 'border-border hover:bg-grid')}
               >
                 {c === 'skip' ? sc.skip : sc.queue}
               </button>

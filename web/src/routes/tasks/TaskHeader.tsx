@@ -36,7 +36,7 @@ import { tm } from '@/i18n/team'
 function NeedsKey({ task, mine }: { task: TaskView; mine: boolean }) {
   if (task.status !== 'needs_key') return null
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
+    <div className="fm-ask mt-2 flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
       <KeyRound className="size-3.5 shrink-0" aria-hidden="true" />
       <p className="min-w-0 flex-1">{task.status_reason ?? tm.needsKey(tm.providers[task.agent])}</p>
       {mine && (
@@ -75,7 +75,7 @@ function BudgetWaiting({ task }: { task: TaskView }) {
   const admin = useRole().isAdmin
   if (task.status !== 'queued' || !task.budget_wait) return null
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-ink px-2.5 py-1.5 text-xs">
+    <div className="fm-ask mt-2 flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
       <p className="min-w-0 flex-1">{c.waitingBudget(task.budget_wait)}</p>
       {admin && (
         <button

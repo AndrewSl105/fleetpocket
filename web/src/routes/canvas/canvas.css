@@ -1,43 +1,41 @@
 /* Canvas: a board of terminal panels (docs/design/remote-nodes.md, section 6),
-   drawn as ruled, square-cornered Field Manual panels on the drawing grid. */
+   on the dark stage with one pool of warm light (docs/SPEC-web.md section 7). */
 
 .fp-board {
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-color: var(--jungle);
+  background-image: radial-gradient(ellipse 60% 50% at 50% 0%, rgb(242 182 90 / 0.08), transparent 70%);
   touch-action: none;
 }
 
-/* Each terminal: ink frame, mono title strip, a dark ink body. */
+/* Each terminal: hairline frame, a title bar, a darker body. */
 .fp-term {
-  --term-bg: #1b1f1a;
-  --term-fg: #ece8dc;
-  --term-dim: #a8ab9c;
-  --term-rule: #3a3f33;
-  --term-ok: #9fc27f;
-  --term-bad: #ff7a66;
-  --term-ask: #ff9a5c;
-  border: 1.5px solid var(--rule);
-  background: var(--paper-raised);
+  --term-bg: #10130c;
+  --term-fg: var(--bone);
+  --term-dim: var(--muted-text);
+  --term-rule: var(--line);
+  --term-ok: var(--bone);
+  --term-bad: var(--fur-text);
+  --term-ask: var(--amber);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--panel);
   color: var(--term-fg);
 }
 .fp-term[data-focused='true'] {
-  border-color: var(--ink);
+  border-color: rgb(242 182 90 / 0.6);
+  box-shadow: var(--glow);
 }
 
 .fp-term-bar {
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper);
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted-text);
+  font-family: var(--font-sans);
+  font-weight: 600;
 }
 .fp-term[data-focused='true'] .fp-term-bar {
-  border-bottom: 2px solid var(--ink);
-  color: var(--ink);
-  font-weight: 600;
+  color: var(--bone);
 }
 .fp-term-body {
   background: var(--term-bg);
@@ -66,11 +64,11 @@
   background: currentColor;
 }
 .fp-led[data-live='true'] {
-  animation: fp-led 1.6s steps(2, jump-none) infinite;
+  animation: fp-led 1.6s var(--ease) infinite;
 }
 @keyframes fp-led {
   50% {
-    opacity: 0.25;
+    opacity: 0.3;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -79,51 +77,48 @@
   }
 }
 
-/* Node view: a compact live card per task (TaskNode.tsx). Paper and ink,
-   square corners, an ink offset shadow; only transform and opacity animate. */
+/* Node view: a compact live card per task (TaskNode.tsx). Panel on the dark
+   stage, 14 px corners; only transform and opacity animate. Lane pips from the
+   palette (all 3:1 or more against the panel). */
 .fp-node {
-  --lane-read: #3f5a2e;
-  --lane-web: #2f6faf;
-  --lane-edit: #f06a1d;
-  --lane-shell: #1b1f1a;
-  --lane-git: #7a4e9e;
+  --lane-read: rgb(238 229 210 / 0.6);
+  --lane-web: var(--muted-text);
+  --lane-edit: var(--fur);
+  --lane-shell: var(--amber);
+  --lane-git: var(--bone);
   /* The shared composer (Prompt) draws with the terminal's variables. */
-  --term-bg: var(--paper-raised);
-  --term-fg: var(--ink);
-  --term-dim: var(--ink-muted);
-  --term-rule: var(--rule);
-  --term-bad: var(--danger);
-  --term-ask: var(--signal-text);
-  color: var(--ink);
-}
-.dark .fp-node {
-  /* Dark paper: lighter lane tones keep 3:1 against the card. */
-  --lane-read: #9fc27f;
-  --lane-web: #6fa8e0;
-  --lane-edit: #f2793a;
-  --lane-shell: var(--foreground);
-  --lane-git: #b48ad8;
+  --term-bg: var(--panel);
+  --term-fg: var(--bone);
+  --term-dim: var(--muted-text);
+  --term-rule: var(--line);
+  --term-bad: var(--fur-text);
+  --term-ask: var(--amber);
+  color: var(--bone);
 }
 .fp-node-frame {
-  border: 1.5px solid var(--ink);
-  background: var(--paper-raised);
-  box-shadow: 2px 2px 0 var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--panel);
 }
+/* Asking: the one lit card, amber edge and an outer glow. */
 .fp-node[data-status='waiting_input'] .fp-node-frame {
-  border-style: dashed;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 4px rgb(242 182 90 / 0.16), 0 0 28px rgb(242 182 90 / 0.18);
 }
-/* Running: a soft orange glow that pulses (opacity of a pseudo layer). */
+/* Running: a soft amber light that breathes (opacity of a pseudo layer). */
 .fp-node::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
+  border-radius: 14px;
   pointer-events: none;
-  box-shadow: 0 0 16px 3px var(--signal);
+  box-shadow: 0 0 22px 2px rgb(242 182 90 / 0.5);
   opacity: 0;
 }
 .fp-node[data-status='running']::after {
-  animation: fp-glow 2.4s ease-in-out infinite;
+  animation: fp-glow 2.4s var(--ease) infinite;
 }
 @keyframes fp-glow {
   50% {
@@ -132,25 +127,19 @@
 }
 
 .fp-node-bar {
-  border-bottom: 1.5px solid var(--ink);
-  background: var(--paper);
-  font-family: var(--font-mono);
-  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-family: var(--font-sans);
 }
 .fp-node[data-status='pr_open'] .fp-node-bar,
 .fp-node[data-status='completed'] .fp-node-bar {
-  background: var(--olive);
-  color: var(--olive-ink);
-}
-.fp-node[data-status='pr_open'] .fp-node-bar .fm-icon-btn,
-.fp-node[data-status='completed'] .fp-node-bar .fm-icon-btn {
-  color: var(--olive-ink);
+  background: var(--panel-2);
 }
 .fp-node-muted {
-  color: var(--ink-muted);
+  color: var(--muted-text);
 }
 .fp-node-led[data-live='true'] {
-  animation: fp-led 1.6s steps(2, jump-none) infinite;
+  animation: fp-led 1.6s var(--ease) infinite;
 }
 
 /* Zoomed out: the same rect, less inside; text and dot keep their screen size. */
@@ -179,8 +168,9 @@
   height: 52px;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid var(--ink);
-  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--jungle);
 }
 .fp-glyph svg * {
   transform-box: fill-box;
@@ -316,6 +306,7 @@
   }
 }
 .fp-node-badge {
+  border-radius: 4px;
   display: inline-flex;
   width: 16px;
   height: 16px;
@@ -326,54 +317,55 @@
   font-weight: 700;
 }
 .fp-node-badge[data-mode='R'] {
-  background: var(--olive);
-  color: var(--olive-ink);
+  background: var(--panel-2);
+  color: var(--bone);
 }
 .fp-node-badge[data-mode='W'] {
-  background: #f06a1d;
-  color: #1b1f1a;
+  background: var(--fur);
+  color: var(--jungle);
 }
 
 .fp-node-option {
-  border: 1.5px solid var(--ink);
-  background: var(--paper);
-  padding: 1px 8px;
-  font-size: 12px;
-  box-shadow: 2px 2px 0 var(--ink);
+  border: 1px solid rgb(242 182 90 / 0.6);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--amber);
+  padding: 2px 10px;
+  font-size: 13px;
+  transition:
+    background-color 200ms var(--ease),
+    color 200ms var(--ease);
 }
 .fp-node-option:hover:not(:disabled) {
-  background: var(--signal);
-  color: var(--signal-ink);
-}
-.fp-node-option:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: none;
+  background: var(--amber);
+  color: var(--jungle);
 }
 .fp-node-input {
-  border: 1.5px solid var(--ink);
-  background: var(--paper);
-  padding: 2px 6px;
-  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--jungle);
+  padding: 2px 8px;
+  font-size: 13px;
   font-family: var(--font-mono);
 }
 .fp-node-input::placeholder {
-  color: var(--ink-muted);
+  color: var(--muted-text);
 }
 
 .fp-node-grid {
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
 .fp-node-grid > div {
   padding: 4px 8px;
 }
 .fp-node-grid > div + div {
-  border-left: 1.5px solid var(--ink);
+  border-left: 1px solid var(--line);
 }
 .fp-node-grid dt {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--ink-muted);
+  font-size: 11px;
+  color: var(--muted-text);
 }
 .fp-node-grid dd {
   font-family: var(--font-mono);

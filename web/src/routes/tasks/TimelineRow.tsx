@@ -68,7 +68,7 @@ function noteText(note: NonNullable<Extract<TimelineItem, { kind: 'user' }>['not
 
 function Divider({ children, warn }: { children: React.ReactNode; warn?: boolean }) {
   return (
-    <div className={cn('flex items-center gap-3 py-1 text-[11px] text-muted-foreground', warn && 'text-signal-text')}>
+    <div className={cn('flex items-center gap-3 py-1 text-[13px] text-muted-foreground', warn && 'text-signal-text')}>
       <span className="h-px flex-1 bg-border" />
       <span className="max-w-[75%] text-center">{children}</span>
       <span className="h-px flex-1 bg-border" />
@@ -95,7 +95,7 @@ function ToolRow({ item }: { item: Extract<TimelineItem, { kind: 'tool' }> }) {
         <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} aria-hidden="true" />
         <span className="shrink-0 font-medium text-foreground/80">{label}</span>
         {target && <span className="truncate font-mono">· {target}</span>}
-        {item.subagent && <span className="shrink-0 text-[11px]">{t.canvas.node.via(item.subagent)}</span>}
+        {item.subagent && <span className="shrink-0 text-[13px]">{t.canvas.node.via(item.subagent)}</span>}
         {failed && <CircleX className="ml-auto size-3.5 shrink-0" aria-label="failed" />}
       </button>
       {open && (
@@ -252,9 +252,9 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
             {item.text}
             {item.attachments && <AttachmentGrid taskId={taskId} items={item.attachments} className="mt-2" />}
             {item.pending ? (
-              <div className="mt-1 text-[11px] opacity-80">{tl.sending}</div>
+              <div className="mt-1 text-[13px] opacity-80">{tl.sending}</div>
             ) : (
-              item.note && <div className="mt-1 text-[11px] opacity-80">{noteText(item.note)}</div>
+              item.note && <div className="mt-1 text-[13px] opacity-80">{noteText(item.note)}</div>
             )}
           </div>
         </div>
@@ -263,7 +263,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       return (
         <div className="flex flex-col items-end gap-1">
           <AttachmentGrid taskId={taskId} items={item.attachments} />
-          <span className="text-[11px] text-muted-foreground">{t.attachments.taskAttachments(item.attachments.length)}</span>
+          <span className="text-[13px] text-muted-foreground">{t.attachments.taskAttachments(item.attachments.length)}</span>
         </div>
       )
     case 'tool':
@@ -392,7 +392,7 @@ function TimelineRowImpl({ item, taskId }: { item: TimelineItem; taskId: number 
       return <Divider>{branchActionText(item)}</Divider>
     case 'iteration':
       return (
-        <div className="flex min-h-9 items-center gap-2 border-y-2 border-ink bg-grid px-3 py-1.5" role="separator" aria-label={lp.iteration(item.n, item.max)}>
+        <div className="flex min-h-9 items-center gap-2 rounded-[10px] bg-grid px-3 py-1.5" role="separator" aria-label={lp.iteration(item.n, item.max)}>
           <span className="fm-label font-semibold">{lp.iteration(item.n, item.max)}</span>
           {item.command && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{item.command}</span>}
         </div>
@@ -432,12 +432,12 @@ function CheckRow({ item }: { item: Extract<TimelineItem, { kind: 'check' }> }) 
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className="mt-1 flex min-h-11 items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+            className="mt-1 flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted-foreground"
           >
             <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} aria-hidden="true" />
             {open ? lp.hideOutput : lp.showOutput}
           </button>
-          {open && <pre className="max-h-72 overflow-auto bg-grid p-2 font-mono text-[11px] leading-snug whitespace-pre-wrap break-words">{item.output}</pre>}
+          {open && <pre className="max-h-72 overflow-auto rounded-[10px] bg-grid p-2 font-mono text-[13px] leading-snug whitespace-pre-wrap break-words">{item.output}</pre>}
         </>
       )}
     </div>
@@ -448,12 +448,12 @@ function CheckRow({ item }: { item: Extract<TimelineItem, { kind: 'check' }> }) 
 function AbandonedRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'abandoned' }>; taskId: number }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border border-dashed border-border opacity-60">
+    <div className="rounded-[14px] border border-border opacity-60">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex min-h-11 w-full items-center gap-2 px-3 text-left font-mono text-xs uppercase tracking-wide text-muted-foreground"
+        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-xs font-semibold text-muted-foreground"
       >
         <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} aria-hidden="true" />
         <span className="flex-1 line-through decoration-muted-foreground/50">{cp.abandoned(item.items.length)}</span>
@@ -468,7 +468,7 @@ function AbandonedRow({ item, taskId }: { item: Extract<TimelineItem, { kind: 'a
                 {child.answer && <span className="block">→ {child.answer.text}</span>}
               </p>
             ) : child.kind === 'checkpoint' ? (
-              <p key={child.key} className="px-2 font-mono text-xs uppercase text-muted-foreground">
+              <p key={child.key} className="px-2 text-xs text-muted-foreground">
                 {cp.marker(child.n, child.reason, child.files)}
               </p>
             ) : (

@@ -69,17 +69,17 @@ export function AppShell() {
     <div className="flex h-(--app-height) overflow-hidden bg-background pt-(--safe-top)">
       <DeepLink />
       {/* Desktop: a narrow ruled rail */}
-      <aside className="hidden w-[184px] shrink-0 flex-col border-r-2 border-ink bg-background lg:flex">
-        <div className="flex items-center gap-2.5 border-b-2 border-ink px-3 py-3">
+      <aside className="hidden w-[200px] shrink-0 flex-col border-r border-border bg-background lg:flex">
+        <div className="flex items-center gap-2.5 px-3 py-3">
           <Logo className="size-9" />
-          <span className="fm-label leading-tight font-semibold">{t.app.name}</span>
+          <span className="font-title text-[19px] leading-tight">{t.app.name}</span>
         </div>
         {user && (
-          <NavLink to="/settings#profile" className="flex min-h-11 items-center gap-2 border-b border-rule px-3 text-xs hover:bg-grid" title={t.team.signedInAs(user.name)}>
+          <NavLink to="/settings#profile" className="mx-2 flex min-h-11 items-center gap-2 rounded-full px-3 text-xs hover:bg-grid" title={t.team.signedInAs(user.name)}>
             <UserBadge user={{ id: user.id, name: user.name, initials: user.initials }} withName />
           </NavLink>
         )}
-        <div className="border-b border-rule p-3">
+        <div className="p-3">
           <div className="flex gap-2">
             {user?.role !== 'viewer' && (
               <NavLink to="/new" className="fm-btn-signal flex h-11 flex-1 items-center justify-center gap-2 text-sm">
@@ -90,14 +90,14 @@ export function AppShell() {
             <CaptureTrigger />
           </div>
         </div>
-        <nav className="flex min-h-0 flex-1 flex-col" aria-label="Main">
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 px-2" aria-label="Main">
           {SIDEBAR_NAV.filter((item) => !('primary' in item) && (ideas || item.to !== '/ideas')).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={cn(
-                'fm-label flex h-11 items-center gap-3 border-b border-rule px-3 text-[12px]',
-                isActive(pathname, item.to) ? 'fm-selected font-semibold' : 'text-foreground hover:bg-grid',
+                'fm-label flex h-11 items-center gap-3 rounded-full px-3 text-[14px] transition-colors',
+                isActive(pathname, item.to) ? 'bg-panel-2 text-foreground font-semibold shadow-[inset_0_0_0_1px_rgb(242_182_90/0.55)]' : 'text-muted-foreground hover:bg-grid hover:text-foreground',
               )}
             >
               <item.icon className="size-4" strokeWidth={2} aria-hidden="true" />
@@ -123,7 +123,7 @@ export function AppShell() {
                   to={item.to}
                   onClick={() => haptic.select()}
                   aria-current={active ? 'page' : undefined}
-                  className="fm-bar-item flex h-14 items-center justify-center border-r border-rule last:border-r-0"
+                  className="fm-bar-item flex h-14 items-center justify-center"
                 >
                   {item.label}
                 </NavLink>

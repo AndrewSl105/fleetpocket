@@ -77,8 +77,8 @@ export function PickedImages({ picker, progress }: { picker: ImagePicker; progre
                   )}
                 >
                   <FileIcon className="size-5 text-muted-foreground" aria-hidden="true" />
-                  <span className="w-full truncate text-[10px] leading-tight">{p.file.name || t.attachments.pasted}</span>
-                  <span className="text-[10px] leading-tight text-muted-foreground">{formatBytes(p.file.size)}</span>
+                  <span className="w-full truncate text-[13px] leading-tight">{p.file.name || t.attachments.pasted}</span>
+                  <span className="text-[13px] leading-tight text-muted-foreground">{formatBytes(p.file.size)}</span>
                 </div>
               )}
               {!uploading && (

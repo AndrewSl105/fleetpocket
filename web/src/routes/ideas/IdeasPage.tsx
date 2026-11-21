@@ -417,7 +417,7 @@ function MobileBoard({ grouped, columns, onLongPress, menu }: BoardProps & { onL
             type="button"
             aria-pressed={c.id === col.id}
             onClick={() => setCurrent(c.id)}
-            className="fm-tab flex h-11 shrink-0 items-center gap-1.5 px-3 text-[12px]"
+            className="fm-tab flex h-11 shrink-0 items-center gap-1.5 px-3 text-[13px]"
             aria-selected={c.id === col.id}
           >
             {c.name}

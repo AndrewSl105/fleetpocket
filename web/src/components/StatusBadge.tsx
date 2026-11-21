@@ -2,7 +2,7 @@ import type { TaskStatus } from '@/api/types'
 import { STATUS } from '@/lib/status'
 import { cn } from '@/lib/utils'
 
-/** A rubber stamp: mono uppercase label in a 1.5 px frame (docs/SPEC-web.md §7). */
+/** A status chip in the palette (docs/SPEC-web.md section 7): running has an amber dot, asks you is a fur badge. */
 export function StatusBadge({ status, className }: { status: TaskStatus; className?: string }) {
   const meta = STATUS[status]
   const Icon = meta.icon

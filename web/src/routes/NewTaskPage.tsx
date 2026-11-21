@@ -210,7 +210,7 @@ export default function NewTaskPage() {
         <h1 className="fm-strip flex min-h-7 min-w-0 flex-1 items-center px-2 text-base">{t.newTask.title}</h1>
         {fromIdea && (
           <p className="fm-ask px-3 py-2 text-sm" data-testid="from-idea">
-            <span className="fm-label mr-2 text-[10px]">{ideaText.title}</span>
+            <span className="fm-label mr-2 text-[13px]">{ideaText.title}</span>
             <Link to={`/ideas/${fromIdea.ideaId}`} className="underline">
               {fromIdea.title}
             </Link>

@@ -41,7 +41,7 @@ export function ComputersSection() {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{c.title}</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">{c.title}</h2>
         <Button variant="outline" size="sm" className="h-9" onClick={() => setWizard(true)}>
           <Plus /> {c.add}
         </Button>
@@ -78,7 +78,7 @@ function StatusDot({ node }: { node: HostNode }) {
   const label = node.online ? c.online : node.last_seen_at ? c.offline : c.neverConnected
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className={cn('size-2 rounded-full', node.online ? 'bg-olive' : 'bg-muted-foreground/40')} aria-hidden="true" />
+      <span className={cn('size-2 rounded-full', node.online ? 'bg-amber' : 'bg-muted-foreground/40')} aria-hidden="true" />
       {label}
       {!node.online && node.last_seen_at && <span>· {c.lastSeen(relativeTime(node.last_seen_at))}</span>}
     </span>
@@ -104,13 +104,13 @@ function NodeRow({ node, onToken }: { node: HostNode; onToken: (token: string) =
             <span className="font-medium">{node.name}</span>
             <span className="font-mono text-xs text-muted-foreground">{node.id}</span>
             <UserBadge user={node.created_by} withName className="text-muted-foreground" />
-            {role.team && node.shared && <span className="fm-label text-[10px]">{tm.shared}</span>}
+            {role.team && node.shared && <span className="fm-label text-[13px]">{tm.shared}</span>}
           </div>
           <StatusDot node={node} />
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
             {node.agents.length ? (
               node.agents.map((a) => (
-                <span key={a} className="border px-1.5 py-0.5">
+                <span key={a} className="rounded-full border px-2 py-0.5">
                   {t.agents[a]}
                 </span>
               ))

@@ -15,7 +15,7 @@ export function PeopleFilter({ people, className }: Props) {
   const others = (users.data ?? []).filter((u) => !u.disabled_at)
   return (
     <div className={cn('flex min-w-0 items-center gap-2', className)}>
-      <div role="radiogroup" aria-label={tm.mine + ' / ' + tm.everyone} className="grid shrink-0 grid-cols-2 border-[1.5px] border-ink">
+      <div role="radiogroup" aria-label={tm.mine + ' / ' + tm.everyone} className="grid shrink-0 grid-cols-2 gap-1 rounded-full border border-border p-1">
         {(['mine', 'everyone'] as const).map((s) => (
           <button
             key={s}
@@ -25,7 +25,7 @@ export function PeopleFilter({ people, className }: Props) {
               haptic.select()
               people.setScope(s)
             }}
-            className={cn('fm-label h-9 border-r border-rule px-3 text-[11px] last:border-r-0', people.scope === s ? 'fm-selected font-semibold' : 'hover:bg-grid')}
+            className={cn('fm-label h-8 rounded-full px-3 text-[13px]', people.scope === s ? 'bg-panel-2 text-foreground font-semibold shadow-[inset_0_0_0_1px_rgb(242_182_90/0.55)]' : 'text-muted-foreground hover:bg-grid')}
           >
             {s === 'mine' ? tm.mine : tm.everyone}
           </button>

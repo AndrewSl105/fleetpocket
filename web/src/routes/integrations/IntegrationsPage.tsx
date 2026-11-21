@@ -192,7 +192,7 @@ function EgressSection({ projectId, data }: { projectId: string; data: Integrati
                     />
                     <span className="min-w-0">
                       <span className="block text-sm font-medium">{p.label}</span>
-                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{p.hosts.join(' ')}</span>
+                      <span className="block truncate font-mono text-[13px] text-muted-foreground">{p.hosts.join(' ')}</span>
                     </span>
                   </label>
                 </li>

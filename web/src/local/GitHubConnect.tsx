@@ -200,7 +200,7 @@ function DeviceFlow({ device, onDone, onProblem, onCancel }: { device: Device; o
     <div className="space-y-3 fm-ask p-3">
       <p className="text-sm">{g.deviceCode}</p>
       <div className="flex items-center gap-2">
-        <code className="fm-stamp px-3 py-1.5 text-lg tracking-[0.2em]" aria-label="Device code">
+        <code className="rounded-[10px] border border-amber/60 bg-panel px-3 py-1.5 font-mono text-lg font-semibold tracking-[0.12em]" aria-label="Device code">
           {device.user_code}
         </code>
         <CopyButton text={device.user_code} />

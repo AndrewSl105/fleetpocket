@@ -2,13 +2,16 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { resolveRuntime } from './telegram/runtime'
-import '@fontsource/ibm-plex-sans/400.css'
-import '@fontsource/ibm-plex-sans/500.css'
-import '@fontsource/ibm-plex-sans/600.css'
-import '@fontsource/ibm-plex-sans/700.css'
-import '@fontsource/ibm-plex-mono/400.css'
-import '@fontsource/ibm-plex-mono/500.css'
-import '@fontsource/ibm-plex-mono/600.css'
+// Latin subsets only (plus Latin Extended for Figtree, for people's names):
+// the UI is English, and every extra @font-face counts toward the initial CSS
+// budget (scripts/check-size.mjs).
+import '@fontsource/figtree/latin-400.css'
+import '@fontsource/figtree/latin-600.css'
+import '@fontsource/figtree/latin-ext-400.css'
+import '@fontsource/figtree/latin-ext-600.css'
+import '@fontsource/gloock/latin-400.css'
+import '@fontsource/jetbrains-mono/latin-400.css'
+import '@fontsource/jetbrains-mono/latin-600.css'
 import './index.css'
 
 async function enableMocks() {

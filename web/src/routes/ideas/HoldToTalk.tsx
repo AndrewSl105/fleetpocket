@@ -242,7 +242,7 @@ export function HoldToTalk({
           <div className="h-2 flex-1 fm-well" role="meter" aria-label={tx.level} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
             <div className="h-full bg-signal transition-[width] duration-75" style={{ width: `${Math.round(level * 100)}%` }} />
           </div>
-          <span className="fm-label text-[10px] text-muted-foreground">{cancelArmed ? tx.cancelZone : tx.holdHint}</span>
+          <span className="fm-label text-[13px] text-muted-foreground">{cancelArmed ? tx.cancelZone : tx.holdHint}</span>
         </div>
       ) : (
         !compact && <p className="text-center text-xs text-muted-foreground">{tx.holdHint}</p>

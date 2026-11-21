@@ -247,16 +247,16 @@ Design mobile-first for a 360–430 px wide phone inside Telegram, then scale up
 - Breakpoints: phone (< 640), tablet (640–1023, single column wider), desktop (≥ 1024, sidebar + list + detail).
 - Keyboard: the composer stays above the on-screen keyboard; on desktop, `Ctrl/Cmd+Enter` sends, `Esc` closes dialogs, `/` focuses search on the task list.
 
-**Visual design: "Field Manual"**
+**Visual design: "Night rehearsal"**
 
-An expedition logbook: technical-drawing grid, ink on paper, rubber-stamp statuses, one orange signal colour. Character comes from structure (rules, numbers, stamps), not decoration. Tokens and `fm-*` utilities live in `src/index.css`.
+The monkey is the conductor and the coding agents are the orchestra: a dark jungle stage under warm amber light, just before the downbeat. Every screen has one lit point of focus; everything else stays in the dark. Tokens and `fm-*` utilities live in `src/index.css`; the full guide is the project style guide (landing page and app share it).
 
-- Light ("paper"): paper `#F2EFE6`, raised `#FBF9F3`, grid `#E4E0D3`, rule `#B9B4A5`, ink `#1B1F1A`, ink-2 `#3D4238`, muted `#5E6357`, signal `#F06A1D` (fill only, with ink text), signal-text `#B23A06`, olive `#3F5A2E`, danger `#A12A1C`. Dark ("Night shift"): ground `#14170F`, raised `#1C2016`, rule `#3A3F33`, text `#ECE8DC`, muted `#A8AB9C`, signal `#F2793A`, signal-text `#FF9A5C`, danger `#FF7A66`. Follows the system / Telegram scheme, with a manual override in Settings.
-- Type: IBM Plex Sans for titles, body and buttons; IBM Plex Mono for labels, task numbers, branches, paths, timestamps, statuses and diffs (uppercase with letter-spacing for labels). Self-hosted via `@fontsource/*`.
-- Square corners (max 2 px on inputs), 1.5 px ink borders, section headers on a 2 px ink rule, list rows separated by 1 px rules rather than floating cards.
-- Status = stamp (mono uppercase, 1.5 px frame): `● RUNNING` signal fill; `? NEEDS ANSWER` dashed; `PR OPEN` / `COMPLETED` olive fill; `FAILED` danger text and border; `PAUSED` / `CANCELLED` muted on the paused fill; `QUEUED` plain ink. Anything waiting on the user has a dashed ink border wherever it appears. Always a label plus icon, never colour alone.
-- Focus ring: 2 px signal, 2 px offset. Lucide icons at 2 px stroke; no emoji.
-- Motion: 120–160 ms fades; a slow blink on the `●` of RUNNING; `prefers-reduced-motion` respected. No gradients, glass, glows or shadows, except a flat 2 px offset shadow on a pressed primary button.
+- Dark only, no light theme and no theme setting; the Mini App ignores Telegram's light scheme and paints its chrome with the background. Palette: jungle `#14170F` (background, theme-color), panel `#1F2618` (raised surfaces), line `#3A4530` (hairlines, decorative only), amber `#F2B65A` (stage light: focus rings, glows, the asking state), fur `#C8722F` (the accent fill, always with jungle text), fur-text `#E08A4E` (fur-coloured text, 6.8:1), bone `#EEE5D2` (text, 14.5:1), muted `#9AA08A` (secondary text, 6.7:1). One fur focal point per view; amber falls on things and is never a flat decorative fill.
+- Type: Gloock for page titles only (one weight, `text-wrap: balance`); Figtree 400/600 for text, labels, nav and buttons; JetBrains Mono 400/600 only for product data (task numbers, paths, commands, logs, costs, counters, diffs). Sentence case everywhere, no letter-spaced capitals, nothing below 13 px. Self-hosted via `@fontsource/*`, Latin subsets.
+- Shapes: pill buttons (999 px), 14 px cards and panels, 10 px fields; 1 px hairline borders; sections separated by space and light, not rules or numbers. No dashed borders.
+- Status chips from the palette, always label plus icon: running and working states have an amber dot; asks you / needs key is a fur badge with jungle text and an amber-lit frame around whatever waits on the user; PR open / completed / branch ready are bone with a check or branch icon; failed is fur text; paused / cancelled / queued are muted.
+- Focus ring: 2 px amber, 2 px offset. Hover: a soft amber glow (`0 0 0 4px rgb(242 182 90 / .18)`), no offset shadows. Lucide icons; no emoji.
+- Motion: 200–400 ms UI transitions on `cubic-bezier(.2,.7,.2,1)`, slower for light; a slow pulse on the running dot; `prefers-reduced-motion` shows the final state.
 
 **Performance budgets** (measure in CI with a bundle analyser)
 
@@ -269,7 +269,7 @@ An expedition logbook: technical-drawing grid, ink on paper, rubber-stamp status
 
 Code-split by route; lazy-load the diff viewer, markdown highlighting and the projects editor. Hashed asset file names with long cache headers; `index.html` not cached.
 
-**Accessibility.** Semantic HTML, labelled inputs and icon buttons, visible focus rings, colour contrast AA in both themes.
+**Accessibility.** Semantic HTML, labelled inputs and icon buttons, visible focus rings, colour contrast AA for every pair.
 
 ## 8. Repo layout, Docker, deployment
 

@@ -62,7 +62,7 @@ export function ProjectSkillsSection({ value, onChange }: { value: string[]; onC
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
           <span className="fm-stamp">{sk.outputPr}</span>
-          <span className="fm-label text-[10px] text-muted-foreground">{sk.diagramsSoon}</span>
+          <span className="fm-label text-[13px] text-muted-foreground">{sk.diagramsSoon}</span>
         </span>
       </div>
       <Link to="/skills" className="flex min-h-11 items-center gap-3 fm-group px-3 py-2 hover:bg-muted">

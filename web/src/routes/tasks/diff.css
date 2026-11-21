@@ -1,4 +1,4 @@
-/* react-diff-view overrides: no wrapping, compact gutters, theme-aware colours. */
+/* react-diff-view overrides: no wrapping, compact gutters, palette colours. */
 .diff-scroll .diff {
   width: max-content;
   min-width: 100%;
@@ -20,13 +20,24 @@
   color: var(--muted-foreground);
   text-align: right;
 }
+/* Palette only: added lines are lit by amber, removed lines fall back into the
+   dark (fur tint, muted text). The gutter keeps the line numbers readable. */
 .diff-scroll .diff-gutter-insert,
 .diff-scroll .diff-code-insert {
-  background: color-mix(in oklab, #10b981 14%, transparent);
+  background: rgb(242 182 90 / 0.13);
+}
+.diff-scroll .diff-gutter-insert {
+  box-shadow: inset 2px 0 0 var(--amber);
 }
 .diff-scroll .diff-gutter-delete,
 .diff-scroll .diff-code-delete {
-  background: color-mix(in oklab, #ef4444 14%, transparent);
+  background: rgb(200 114 47 / 0.12);
+}
+.diff-scroll .diff-code-delete {
+  color: var(--muted-text);
+}
+.diff-scroll .diff-gutter-delete {
+  box-shadow: inset 2px 0 0 var(--fur);
 }
 .diff-scroll .diff-code-edit {
   color: inherit;
