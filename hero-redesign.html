@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#14170F">
+<title>Jungle Monkey: hero redesign</title>
+<link rel="icon" href="docs/brand/jungle-monkey-icon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --ground:#14170F;      /* theme-color: jungle black-green */
+  --panel:#1C2216;
+  --panel2:#232B1C;
+  --line:#36402C;
+  --bone:#EEE5D2;        /* text, 14.9:1 on ground */
+  --bone2:#CFC8B6;
+  --muted:#A3A893;       /* 7.4:1 on ground */
+  --amber:#F2B65A;       /* stage light, 10:1 on ground */
+  --fur:#D9823A;         /* monkey fur, CTA fill (6.2:1 with ground text) */
+  --fur-text:#E8955A;
+  --ok:#9FC27F; --web:#7FB2E5; --git:#BE9BDD;
+  --sans:Figtree,system-ui,sans-serif;
+  --display:Gloock,Georgia,serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;min-width:0}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ground);color:var(--bone);font:400 17px/1.55 var(--sans);overflow-x:clip}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 max(16px,4vw)}
+
+/* ---------- nav ---------- */
+.top .wrap{display:flex;align-items:center;gap:16px;min-height:68px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:600;font-size:17px}
+.brand img{width:32px;height:32px;border-radius:8px}
+.top nav{margin-left:auto;display:flex;gap:4px}
+.top nav a{color:var(--bone2);text-decoration:none;font-size:15px;padding:12px 10px;border-radius:8px}
+.top nav a:hover{color:var(--bone);background:var(--panel)}
+@media (max-width:599px){
+  .top .wrap{flex-wrap:wrap;gap:0;padding-top:8px}
+  .top nav{margin:0 -10px;width:calc(100% + 20px);justify-content:space-between}
+  .top nav a{padding:12px 8px;font-size:14px}
+}
+
+/* ---------- hero ---------- */
+.hero{position:relative;padding:28px 0 64px}
+.grid{display:grid;gap:24px}
+h1{font:400 clamp(42px,4.7vw,76px)/1.02 var(--display);letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--amber)}
+.sub{margin:0 0 22px;color:var(--bone2);font-size:19px;max-width:38ch}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:10px;font:600 16px var(--sans);text-decoration:none;border:1px solid transparent;transition:background .15s,border-color .15s}
+.btn.go{background:var(--fur);color:var(--ground)}
+.btn.go:hover{background:#E5924B}
+.btn.gh{border-color:rgba(238,229,210,.35);color:var(--bone)}
+.btn.gh:hover{border-color:var(--bone)}
+.lead .sub{margin-top:4px}
+/* phones and tablets: headline, monkey, cards, one above the other */
+@media (min-width:1000px){
+  .grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"h h" "m l" "m d";gap:20px 44px;align-items:start}
+  h1{grid-area:h;margin-bottom:8px} .lead{grid-area:l} .monkey{grid-area:m} .demo{grid-area:d}
+  h1 em{display:block}
+}
+
+/* ---------- the monkey ----------
+   SLOT: commissioned "monkey with baton" illustration.
+   Replace the <img> inside .monkey with the commissioned art (transparent WebP/PNG,
+   1200 x 1200, monkey facing right, baton hand in the upper-right quarter) and
+   update data-hand-x / data-hand-y to the baton tip as fractions of the image.
+   Open this page with ?slot to see the slot's bounds. */
+.monkey{position:relative;margin:0;aspect-ratio:1/1;max-width:640px;width:100%;isolation:isolate}
+.monkey img{display:block;width:100%;height:100%;object-fit:cover;filter:saturate(.88) brightness(.86) contrast(1.04);
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 7%,#000 76%,transparent 100%),linear-gradient(to right,transparent 0,#000 9%,#000 94%,transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to bottom,transparent 0,#000 7%,#000 76%,transparent 100%),linear-gradient(to right,transparent 0,#000 9%,#000 94%,transparent 100%);
+  mask-composite:intersect}
+/* stage light: the painted top-left sun becomes a warm spot on the conductor */
+.monkey::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 46% 52% at 44% 36%,rgba(242,182,90,.22),rgba(242,182,90,0) 70%),
+             linear-gradient(to right,rgba(20,23,15,.35),rgba(20,23,15,0) 30%,rgba(20,23,15,0) 80%,rgba(20,23,15,.25));
+  mix-blend-mode:soft-light}
+.show-slot .monkey{outline:2px dashed var(--amber);outline-offset:4px}
+.show-slot .monkey::before{content:"SLOT · commissioned monkey with baton · 1200 × 1200 · see comment in source";position:absolute;left:8px;top:8px;z-index:2;background:var(--ground);color:var(--amber);font:600 12px var(--sans);padding:6px 8px;border-radius:6px}
+
+/* ---------- demo ---------- */
+.demo{display:grid;gap:12px}
+.caption{margin:0 0 4px;color:var(--bone2);font-size:16px;line-height:1.45;min-height:3em}
+.card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px 12px;transition:border-color .35s,background .35s}
+.card.asking{border-color:var(--amber);background:#211F14}
+.card.done{border-color:#55733F}
+.card header{display:flex;align-items:baseline;gap:10px}
+.card .id{font:600 13px var(--mono);color:var(--muted)}
+.card .title{font:600 16px var(--sans);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .agent{font:500 13px var(--sans);color:var(--muted);white-space:nowrap}
+@media (max-width:599px){.card header{flex-wrap:wrap;gap:2px 10px}.card .title{white-space:normal;flex-basis:calc(100% - 48px)}.card .id{order:-2}.card .agent{order:-1;margin-left:auto}}
+.card .agent i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px}
+.card.asking .agent i{background:var(--amber)}
+.card.done .agent i{background:var(--ok)}
+.now{display:flex;align-items:center;gap:10px;margin:10px 0 0;font:400 13.5px var(--mono);min-height:26px}
+.verb{flex:none;font:600 11.5px var(--mono);letter-spacing:.04em;padding:4px 7px;border-radius:5px;background:var(--panel2);color:var(--bone)}
+.verb.read{color:var(--ok)} .verb.edit{color:var(--fur-text)} .verb.shell{color:var(--bone)} .verb.git{color:var(--git)} .verb.web{color:var(--web)}
+.verb.ask{background:var(--amber);color:var(--ground)}
+.verb.ok{background:#2E3F24;color:var(--ok)}
+.tgt{color:var(--bone2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ask{margin:12px 0 2px}
+.ask[hidden]{display:none}
+.ask .q{margin:0 0 10px;font:500 16px var(--sans);color:var(--bone)}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opts button{min-width:56px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid rgba(242,182,90,.6);background:transparent;color:var(--amber);font:600 15px var(--mono);cursor:pointer;transition:background .15s,color .15s}
+.opts button:hover,.opts button.pick{background:var(--amber);color:var(--ground)}
+.reply{margin:0;font:400 13.5px var(--mono);color:var(--muted)}
+.reply b{color:var(--amber);font-weight:600}
+.lanes{list-style:none;margin:12px 0 0;padding:10px 0 0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.lanes li{display:flex;flex-direction:column;gap:1px}
+.lanes span{font:600 10.5px var(--mono);letter-spacing:.06em;color:var(--muted)}
+.lanes b{font:600 16px var(--mono);font-variant-numeric:tabular-nums}
+.lanes .read b{color:var(--ok)} .lanes .web b{color:var(--web)} .lanes .edit b{color:var(--fur-text)} .lanes .shell b{color:var(--bone)} .lanes .git b{color:var(--git)}
+.card footer{display:flex;gap:14px;margin-top:8px;font:400 13px var(--mono);color:var(--muted)}
+.card footer .state{font:500 13px var(--sans);color:var(--bone2);margin-right:auto}
+.card.asking footer .state{color:var(--amber)}
+.card.done footer .state{color:var(--ok)}
+.demo-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px;font-size:14px;color:var(--muted)}
+.demo-foot .spend{font:400 13px var(--mono);margin-right:auto}
+.demo-foot .spend b{color:var(--bone);font-weight:600}
+.link-btn{background:none;border:0;color:var(--bone2);font:500 14px var(--sans);min-height:44px;padding:0 4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.link-btn[hidden]{display:none}
+
+/* ---------- the thin line ---------- */
+.cue{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.cue path{fill:none;stroke:var(--amber);stroke-width:1.25;stroke-linecap:round;opacity:0;transition:opacity .4s}
+.cue.on path{opacity:.85;transition:opacity .25s,stroke-dashoffset .7s ease-out}
+
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.cue{display:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="docs/brand/jungle-monkey-icon-180.png" alt="" width="32" height="32">Jungle Monkey</a>
+    <nav aria-label="Main">
+      <a href="index.html#agents">Agents</a>
+      <a href="index.html#watch">Demo</a>
+      <a href="index.html#keys">Security</a>
+      <a href="index.html#install">Install</a>
+      <a href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero" id="top" aria-labelledby="hero-h">
+  <svg class="cue" id="cue" aria-hidden="true"><path id="cue-path" d=""/></svg>
+  <div class="wrap">
+    <div class="grid">
+      <h1 id="hero-h">Herding coding agents is my job. <em>Yours is reading the PR.</em></h1>
+      <div class="lead">
+        <p class="sub">Jungle Monkey runs coding agents in sealed containers on your own server and hands their work back to you as branches or pull requests.</p>
+        <div class="cta">
+          <a class="btn go" href="index.html#install">Install</a>
+          <a class="btn gh" href="https://github.com/AndrewSl105/jungle_monkey">GitHub</a>
+        </div>
+      </div>
+
+      <!-- SLOT: commissioned "monkey with baton" illustration (see .monkey in the CSS). -->
+      <figure class="monkey" id="monkey" data-slot="commissioned-conductor" data-hand-x="0.845" data-hand-y="0.125">
+        <img src="docs/brand/jungle-monkey-hero.webp" width="1200" height="1200" alt="The Jungle Monkey, an orange-brown monkey crouched on a branch, looking straight at you" fetchpriority="high">
+      </figure>
+
+      <div class="demo" role="group" aria-label="Live demo: three agents running side by side">
+        <p class="caption" id="caption" aria-live="polite"></p>
+
+        <article class="card" id="c42" aria-label="Task 42, Claude Code: Retry webhook deliveries">
+          <header><span class="id">#42</span><span class="title">Retry webhook deliveries</span><span class="agent"><i></i>Claude Code</span></header>
+          <p class="now"><span class="verb"></span><span class="tgt"></span></p>
+          <div class="ask" hidden>
+            <p class="q">Retry limit: 3, 5 or 10?</p>
+            <div class="opts" role="group" aria-label="Answer Claude Code">
+              <button type="button" data-n="3">3</button><button type="button" data-n="5">5</button><button type="button" data-n="10">10</button>
+            </div>
+          </div>
+          <p class="reply" hidden></p>
+          <ul class="lanes"></ul>
+          <footer><span class="state"></span><span class="cost"></span><span class="time"></span></footer>
+        </article>
+
+        <article class="card" id="c43" aria-label="Task 43, Codex: Add CSV export to tables">
+          <header><span class="id">#43</span><span class="title">Add CSV export to tables</span><span class="agent"><i></i>Codex</span></header>
+          <p class="now"><span class="verb"></span><span class="tgt"></span></p>
+          <ul class="lanes"></ul>
+          <footer><span class="state"></span><span class="cost"></span><span class="time"></span></footer>
+        </article>
+
+        <article class="card" id="c44" aria-label="Task 44, Cursor: Upgrade ESLint to v9">
+          <header><span class="id">#44</span><span class="title">Upgrade ESLint to v9</span><span class="agent"><i></i>Cursor</span></header>
+          <p class="now"><span class="verb"></span><span class="tgt"></span></p>
+          <ul class="lanes"></ul>
+          <footer><span class="state"></span><span class="cost"></span><span class="time"></span></footer>
+        </article>
+
+        <div class="demo-foot">
+          <span class="spend">This month <b id="spend">$11.82</b> of $40.00</span>
+          <button type="button" class="link-btn" id="pause">Pause demo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+;(function () {
+  var RM = matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (/[?&]slot\b/.test(location.search)) document.body.classList.add('show-slot')
+  var $ = function (id) { return document.getElementById(id) }
+  var LANES = ['read', 'web', 'edit', 'shell', 'git']
+  var VERB_CLASS = { 'READING': 'read', 'WRITING': 'edit', 'EDITING': 'edit', 'SHELL': 'shell', 'GIT': 'git', 'WEB': 'web', 'ASKS YOU': 'ask', 'PR OPENED': 'ok' }
+  var BASE = {
+    c42: { est: false, read: 14, web: 2, edit: 3, shell: 2, git: 0, cost: 0.31, t: 72 },
+    c43: { est: true, read: 22, web: 0, edit: 9, shell: 3, git: 0, cost: 0.24, t: 118 },
+    c44: { est: true, read: 8, web: 1, edit: 4, shell: 1, git: 0, cost: 0.07, t: 39 }
+  }
+  var SPEND0 = 11.20
+  var C = {}
+  Object.keys(BASE).forEach(function (id) {
+    var el = $(id)
+    el.querySelector('.lanes').innerHTML = LANES.map(function (k) { return '<li class="' + k + '"><span>' + k.toUpperCase() + '</span><b>0</b></li>' }).join('')
+    C[id] = { el: el, s: null }
+  })
+
+  function fmtT (t) { t = Math.floor(t); var m = Math.floor(t / 60), s = t % 60; return (m ? m + 'm ' : '') + (s < 10 && m ? '0' : '') + s + 's' }
+  function render (id) {
+    var c = C[id], s = c.s, el = c.el
+    LANES.forEach(function (k) { el.querySelector('.lanes .' + k + ' b').textContent = s[k] })
+    el.querySelector('.cost').textContent = (s.est ? '≈$' : '$') + s.cost.toFixed(2)
+    el.querySelector('.time').textContent = fmtT(s.t)
+    el.querySelector('.state').textContent = s.mode === 'ask' ? 'Waiting for you' : s.mode === 'done' ? 'Finished' : 'Running'
+    el.classList.toggle('asking', s.mode === 'ask')
+    el.classList.toggle('done', s.mode === 'done')
+  }
+  function now (id, verb, tgt, lane, mode) {
+    var c = C[id]
+    c.s.verb = verb; c.s.lane = lane; c.s.mode = mode || 'run'
+    var v = c.el.querySelector('.verb')
+    v.textContent = verb; v.className = 'verb ' + (VERB_CLASS[verb] || '')
+    c.el.querySelector('.tgt').textContent = tgt
+    render(id)
+  }
+  function spend () {
+    var sum = SPEND0
+    Object.keys(C).forEach(function (id) { sum += C[id].s.cost })
+    $('spend').textContent = '$' + sum.toFixed(2)
+  }
+
+  /* caption: the cards' current state, in the monkey's voice */
+  var CODEX = 'Codex is halfway through DataTable.tsx, and nobody has touched your credit card.'
+  function caption (k, n) {
+    var lead = {
+      pre: 'Claude is reading the webhook code, ',
+      ask: 'Claude has a question, ',
+      answered: 'Claude got its answer (' + n + ' attempts), ',
+      pr: 'Claude opened PR #118, '
+    }[k]
+    $('caption').textContent = lead + CODEX
+  }
+
+  /* virtual clock, so Pause stops everything at once */
+  var vt = 0, queue = [], playing = !RM, timer = null
+  function at (ms, fn) { queue.push({ t: vt + ms, fn: fn }) }
+  function tick () {
+    vt += 100
+    Object.keys(C).forEach(function (id) {
+      var s = C[id].s
+      if (s.mode !== 'run') return
+      s.t += 0.1
+      if (Math.random() < 0.1) {
+        var k = Math.random() < 0.8 ? s.lane : 'read'
+        s[k] += 1
+        s.cost += 0.003 + Math.random() * 0.009
+      }
+      render(id)
+    })
+    spend()
+    var due = queue.filter(function (q) { return q.t <= vt })
+    queue = queue.filter(function (q) { return q.t > vt })
+    due.forEach(function (q) { q.fn() })
+    placeCue()
+  }
+
+  var c42 = C.c42.el, askBox = c42.querySelector('.ask'), reply = c42.querySelector('.reply')
+  function reset () {
+    queue = []; vt = 0
+    Object.keys(BASE).forEach(function (id) { C[id].s = Object.assign({}, BASE[id]) })
+    askBox.hidden = true; reply.hidden = true
+    c42.querySelectorAll('.opts button').forEach(function (b) { b.classList.remove('pick') })
+    now('c42', 'READING', 'internal/webhooks/deliver.go', 'read')
+    now('c43', 'WRITING', 'src/tables/DataTable.tsx', 'edit')
+    now('c44', 'READING', '.eslintrc.json', 'read')
+    caption('pre'); spend(); cue(false)
+  }
+  function ask () {
+    now('c42', 'ASKS YOU', 'internal/webhooks/retry.go', 'read', 'ask')
+    askBox.hidden = false
+    caption('ask')
+    cue(true)
+  }
+  function answer (n) {
+    if (C.c42.s.mode !== 'ask') return
+    askBox.hidden = true
+    reply.innerHTML = 'You answered <b>' + n + '</b>'
+    reply.hidden = false
+    cue(false)
+    caption('answered', n)
+    if (RM) { finish(); return }
+    now('c42', 'EDITING', 'internal/webhooks/retry.go', 'edit')
+    at(2600, function () { now('c44', 'SHELL', 'npx eslint . --max-warnings 0', 'shell') })
+    at(3400, function () { reply.hidden = true; now('c42', 'SHELL', 'go test ./internal/webhooks/...', 'shell') })
+    at(6200, function () { now('c42', 'GIT', 'push jm/retry-webhooks', 'git'); C.c42.s.git += 1; render('c42') })
+    at(7800, finish)
+    at(8400, function () { now('c44', 'EDITING', 'eslint.config.js', 'edit') })
+    at(14500, cycle)
+  }
+  function finish () {
+    reply.hidden = true
+    now('c42', 'PR OPENED', '#118 Retry webhook deliveries', 'git', 'done')
+    caption('pr')
+  }
+  function cycle () {
+    reset()
+    at(1800, function () { now('c44', 'WRITING', 'eslint.config.js', 'edit') })
+    at(4200, ask)
+    at(9600, function () {
+      if (C.c42.s.mode !== 'ask') return
+      c42.querySelector('[data-n="5"]').classList.add('pick')
+      at(700, function () { answer(5) })
+    })
+  }
+  c42.querySelectorAll('.opts button').forEach(function (b) {
+    b.addEventListener('click', function () { answer(+b.dataset.n) })
+  })
+
+  /* the thin line from the monkey's reaching hand to the card that is asking */
+  var cueEl = $('cue'), path = $('cue-path'), hero = document.querySelector('.hero'), monkey = $('monkey'), showing = false
+  function placeCue () {
+    if (!showing) return
+    var h = hero.getBoundingClientRect(), m = monkey.getBoundingClientRect(), k = c42.getBoundingClientRect()
+    var hx = m.left + m.width * +monkey.dataset.handX - h.left, hy = m.top + m.height * +monkey.dataset.handY - h.top
+    var side = k.left > m.right - 20
+    var ex = (side ? k.left : k.left + k.width * 0.7) - h.left, ey = (side ? k.top + 30 : k.top) - h.top
+    var d = side
+      ? 'M' + hx + ',' + hy + ' C' + (hx + (ex - hx) * 0.55) + ',' + (hy - 30) + ' ' + (ex - 50) + ',' + ey + ' ' + ex + ',' + ey
+      : 'M' + hx + ',' + hy + ' C' + hx + ',' + (hy + (ey - hy) * 0.6) + ' ' + ex + ',' + (ey - 70) + ' ' + ex + ',' + ey
+    if (path.getAttribute('d') !== d) path.setAttribute('d', d)
+  }
+  function cue (on) {
+    if (RM) return
+    showing = on
+    if (on) {
+      placeCue()
+      var len = path.getTotalLength()
+      path.style.transition = 'none'
+      path.style.strokeDasharray = len
+      path.style.strokeDashoffset = len
+      path.getBoundingClientRect()
+      path.style.transition = ''
+      cueEl.classList.add('on')
+      path.style.strokeDashoffset = 0
+    } else {
+      cueEl.classList.remove('on')
+    }
+  }
+  addEventListener('resize', placeCue)
+
+  /* play / pause; the demo also rests while it is off screen */
+  var pauseBtn = $('pause'), inView = true
+  function run () {
+    var go = playing && inView
+    if (go && !timer) timer = setInterval(tick, 100)
+    if (!go && timer) { clearInterval(timer); timer = null }
+    pauseBtn.textContent = playing ? 'Pause demo' : 'Play demo'
+  }
+  pauseBtn.addEventListener('click', function () { playing = !playing; run() })
+  new IntersectionObserver(function (es) { inView = es[0].isIntersecting; run() }).observe(document.querySelector('.demo'))
+
+  if (RM) {
+    /* still frame: #42 is asking; answering jumps straight to the result */
+    reset()
+    now('c44', 'WRITING', 'eslint.config.js', 'edit')
+    ask()
+    pauseBtn.hidden = true
+  } else {
+    cycle()
+    run()
+  }
+})()
+</script>
+</body>
+</html>
