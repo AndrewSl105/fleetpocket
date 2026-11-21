@@ -1,11 +1,10 @@
 import { ss } from '@/i18n/settings'
 import { useEffect, type ReactNode } from 'react'
-import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useHealth, useMode, useStats } from '@/api/hooks'
 import { useSession } from '@/auth/AuthGate'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useTheme, type ThemeChoice } from '@/lib/theme'
 import { Cost } from '@/components/Cost'
 import { cn } from '@/lib/utils'
 import { useRuntime } from '@/telegram/runtime'
@@ -42,18 +41,11 @@ function Stat({ label, value, className }: { label: string; value: ReactNode; cl
   )
 }
 
-const THEMES: Array<{ value: ThemeChoice; icon: typeof Sun }> = [
-  { value: 'system', icon: Monitor },
-  { value: 'light', icon: Sun },
-  { value: 'dark', icon: Moon },
-]
-
 export default function SettingsPage() {
   const runtime = useRuntime()
   const session = useSession()
   const stats = useStats()
   const health = useHealth()
-  const theme = useTheme()
   const mode = useMode()
   const role = useRole()
   const user = useCurrentUser()
@@ -118,29 +110,6 @@ export default function SettingsPage() {
             <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
           </Link>
         </section>
-
-        {runtime.mode === 'browser' && (
-          <section>
-            <h2 className="mb-3 text-sm font-bold">{s.theme}</h2>
-            <div role="radiogroup" aria-label={s.theme} className="grid grid-cols-3 gap-2">
-              {THEMES.map(({ value, icon: Icon }) => (
-                <button
-                  key={value}
-                  role="radio"
-                  aria-checked={theme.choice === value}
-                  onClick={() => theme.setChoice(value)}
-                  className={cn(
-                    'fm-btn flex h-11 items-center justify-center gap-2 text-sm',
-                    theme.choice === value && 'fm-pressed bg-muted font-bold',
-                  )}
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {s.themes[value]}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         {mode === 'local' && <GitHubSection />}
 

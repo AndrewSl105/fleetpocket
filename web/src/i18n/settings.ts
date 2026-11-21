@@ -8,8 +8,6 @@ export const ss = {
   waiting: "Waiting",
   costToday: "Cost today",
   costMonth: "Cost this month",
-  theme: "Theme",
-  themes: { system: "System", light: "Light", dark: "Dark" },
   about: "About",
   version: "App version",
   backend: "Backend",
